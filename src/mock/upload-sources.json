@@ -1,0 +1,51 @@
+{
+  "sources": [
+    {
+      "sourceId": "src001",
+      "workspaceId": "org001",
+      "fileName": "PrivacyPolicy.pdf",
+      "title": "Chính sách bảo mật",
+      "mimeType": "application/pdf",
+      "fileSize": 250000,
+      "storagePath": "/workspaces/org001/sources/src001/PrivacyPolicy.pdf",
+      "status": "ready",
+      "pageCount": 15,
+      "chunkCount": 22,
+      "tags": ["Chính sách", "Bảo mật"],
+      "createdAt": "2026-02-01T10:00:00Z",
+      "createdBy": "u123",
+      "processedAt": "2026-02-01T10:05:00Z",
+      "previewText": "CHÍNH SÁCH BẢO MẬT\n\n1. Thu thập thông tin\nChúng tôi thu thập thông tin bạn cung cấp khi đăng ký, sử dụng dịch vụ và khi liên hệ hỗ trợ. Các dữ liệu có thể bao gồm: họ tên, email, số điện thoại, địa chỉ và thông tin thanh toán.\n\n2. Sử dụng thông tin\nThông tin được sử dụng để cung cấp và cải thiện dịch vụ, xử lý giao dịch, gửi thông báo và tuân thủ quy định pháp luật. Chúng tôi không bán dữ liệu cá nhân cho bên thứ ba.\n\n3. Bảo mật dữ liệu\nChúng tôi áp dụng các biện pháp kỹ thuật và tổ chức phù hợp để bảo vệ dữ liệu khỏi truy cập trái phép, mất mát hoặc thay đổi. Dữ liệu được mã hóa khi truyền và lưu trữ.\n\n4. Quyền của bạn\nBạn có quyền truy cập, chỉnh sửa, xóa dữ liệu cá nhân hoặc rút lại đồng ý. Liên hệ bộ phận bảo mật qua email privacy@company.com."
+    },
+    {
+      "sourceId": "src002",
+      "workspaceId": "org001",
+      "fileName": "InternalPolicy.docx",
+      "title": "Quy định nội bộ về hợp đồng",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "fileSize": 120000,
+      "storagePath": "/workspaces/org001/sources/src002/InternalPolicy.docx",
+      "status": "ready",
+      "pageCount": 8,
+      "chunkCount": 12,
+      "tags": ["Pháp lý", "Nội bộ"],
+      "createdAt": "2026-02-05T14:00:00Z",
+      "createdBy": "u123",
+      "processedAt": "2026-02-05T14:02:00Z",
+      "previewText": "QUY ĐỊNH NỘI BỘ VỀ HỢP ĐỒNG\n\nĐiều 1. Phạm vi áp dụng\nQuy định này áp dụng cho mọi giao kết hợp đồng do công ty thực hiện với khách hàng, đối tác và nhà cung cấp.\n\nĐiều 2. Nguyên tắc soạn thảo\nMọi hợp đồng phải tuân thủ Bộ luật Dân sự, Luật Thương mại và các văn bản hướng dẫn hiện hành. Điều khoản bảo mật và bảo hành phải thống nhất với chính sách đã phê duyệt.\n\nĐiều 3. Trình tự phê duyệt\nHợp đồng giá trị dưới 500 triệu: Trưởng phòng Pháp chế phê duyệt. Hợp đồng từ 500 triệu trở lên: Cần thêm phê duyệt của Giám đốc. Hợp đồng có điều khoản bảo mật đặc biệt: Tham vấn bộ phận An ninh thông tin."
+    },
+    {
+      "sourceId": "src003",
+      "workspaceId": "org001",
+      "fileName": "SaaS_terms.txt",
+      "title": "Điều khoản SaaS (tham chiếu)",
+      "mimeType": "text/plain",
+      "fileSize": 15000,
+      "storagePath": "/workspaces/org001/sources/src003/SaaS_terms.txt",
+      "status": "processing",
+      "tags": ["SaaS", "Điều khoản"],
+      "createdAt": "2026-02-09T09:00:00Z",
+      "createdBy": "u234"
+    }
+  ]
+}

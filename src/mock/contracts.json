@@ -1,0 +1,162 @@
+{
+  "contracts": [
+    {
+      "contractId": "ctr001",
+      "title": "Hợp đồng dịch vụ SaaS - Công ty ABC",
+      "type": "SaaS",
+      "status": "draft",
+      "contentJSON": {
+        "type": "doc",
+        "content": [
+          { "type": "heading", "attrs": { "level": 1, "align": "center" }, "content": [{ "type": "text", "text": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" }] },
+          { "type": "heading", "attrs": { "level": 2, "align": "center" }, "content": [{ "type": "text", "text": "Độc lập - Tự do - Hạnh phúc" }] },
+          { "type": "paragraph", "attrs": { "align": "center", "divider": true }, "content": [] },
+          { "type": "heading", "attrs": { "level": 1, "align": "center" }, "content": [{ "type": "text", "text": "HỢP ĐỒNG DỊCH VỤ" }] },
+          { "type": "paragraph", "attrs": { "align": "center" }, "content": [{ "type": "text", "text": "Số: " }, { "type": "field", "attrs": { "fieldKey": "CONTRACT_NUMBER", "label": "Số HĐ", "fieldType": "string" } }, { "type": "text", "text": "/2023/HDDV" }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24/11/2015;", "marks": [{ "type": "italic" }] }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Căn cứ Luật Thương mại và các văn bản hướng dẫn thi hành;", "marks": [{ "type": "italic" }] }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Căn cứ nhu cầu và khả năng thực tế của các bên trong hợp đồng,", "marks": [{ "type": "italic" }] }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "Hôm nay, ngày " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_DAY", "label": "Ngày", "fieldType": "string" } }, { "type": "text", "text": " tháng " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_MONTH", "label": "Tháng", "fieldType": "string" } }, { "type": "text", "text": " năm " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_YEAR", "label": "Năm", "fieldType": "string" } }, { "type": "text", "text": ", tại " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_PLACE", "label": "Địa điểm", "fieldType": "string" } }, { "type": "text", "text": " chúng tôi gồm có:" }] },
+          { "type": "heading", "attrs": { "level": 2, "align": "left" }, "content": [{ "type": "text", "text": "BÊN CUNG CẤP DỊCH VỤ (sau đây gọi tắt là bên A):" }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Tên doanh nghiệp: " }, { "type": "field", "attrs": { "fieldKey": "PARTY_A_COMPANY", "label": "Tên doanh nghiệp", "fieldType": "string" } }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Địa chỉ trụ sở chính: " }, { "type": "field", "attrs": { "fieldKey": "PARTY_A_ADDRESS", "label": "Địa chỉ", "fieldType": "string" } }] },
+          { "type": "heading", "attrs": { "level": 2, "align": "left" }, "content": [{ "type": "text", "text": "BÊN SỬ DỤNG DỊCH VỤ (sau đây gọi tắt là bên B):" }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Tên doanh nghiệp: " }, { "type": "field", "attrs": { "fieldKey": "PARTY_B_COMPANY", "label": "Tên doanh nghiệp", "fieldType": "string" } }] },
+          { "type": "clause", "attrs": { "clauseId": "c1", "riskLevel": "low", "lawCitations": ["BLDS 2026 - Điều 518"], "title": "Điều 1. Dịch vụ cung cấp" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Bên A cung cấp dịch vụ: " }, { "type": "field", "attrs": { "fieldKey": "SERVICE_DESCRIPTION", "label": "Mô tả dịch vụ", "fieldType": "text" } }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c2", "riskLevel": "medium", "lawCitations": ["BLDS 2026 - Điều 466"], "title": "Điều 2. Thanh toán" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Giá trị: " }, { "type": "field", "attrs": { "fieldKey": "PRICING", "label": "Giá trị", "fieldType": "currency" } }, { "type": "text", "text": ". Điều khoản thanh toán: " }, { "type": "field", "attrs": { "fieldKey": "PAYMENT_TERMS", "label": "Điều khoản thanh toán", "fieldType": "string" } }] }] }
+        ]
+      },
+      "metadata": {
+        "lawVersions": ["BLDS 2026", "Luật Thương mại 2025"],
+        "tags": ["data-protection", "payment-terms", "termination"],
+        "riskLevel": "medium",
+        "visibility": "workspace",
+        "parties": [
+          { "role": "provider", "name": "LAWZY JSC", "taxId": "0123456789" },
+          { "role": "customer", "name": "{{PARTY_B_NAME}}", "taxId": "{{PARTY_B_TAX}}" }
+        ]
+      },
+      "mergeFieldValues": {
+        "CONTRACT_NUMBER": "001",
+        "SIGNING_DAY": "01",
+        "SIGNING_MONTH": "03",
+        "SIGNING_YEAR": "2026",
+        "SIGNING_PLACE": "TP. Hồ Chí Minh",
+        "PARTY_A_COMPANY": "CÔNG TY CỔ PHẦN LAWZY",
+        "PARTY_A_ADDRESS": "123 Nguyễn Huệ, Q.1, TP. Hồ Chí Minh",
+        "PARTY_B_COMPANY": "",
+        "SERVICE_DESCRIPTION": "Nền tảng quản lý hợp đồng trực tuyến",
+        "PRICING": "100.000.000 VND/năm",
+        "PAYMENT_TERMS": "Thanh toán 50% khi ký, 50% sau go-live",
+        "PARTY_A_NAME": "CÔNG TY CỔ PHẦN LAWZY",
+        "PARTY_B_NAME": "",
+        "EFFECTIVE_DATE": "2026-03-01",
+        "SIGNING_DATE": "01/03/2026",
+        "SIGNING_LOCATION": "TP. Hồ Chí Minh"
+      },
+      "versions": [
+        {
+          "versionId": "v1",
+          "timestamp": "2026-02-01T10:30:00Z",
+          "author": "u123",
+          "changes": "Tạo bản nháp đầu tiên"
+        },
+        {
+          "versionId": "v2",
+          "timestamp": "2026-02-05T14:15:00Z",
+          "author": "u123",
+          "changes": "Bổ sung điều khoản thanh toán"
+        }
+      ],
+      "aiSuggestions": [
+        {
+          "type": "clause",
+          "title": "Điều khoản bảo mật dữ liệu",
+          "content": "Bên A cam kết bảo mật mọi thông tin của Bên B theo quy định tại Luật An toàn thông tin mạng và các quy định pháp luật liên quan.",
+          "relevance": 0.92,
+          "lawReference": { "law": "BLDS 2026", "article": "Điều 595" }
+        },
+        {
+          "type": "risk",
+          "title": "Cảnh báo về điều khoản thanh toán",
+          "content": "Nên bổ sung điều khoản về phí phạt chậm thanh toán",
+          "relevance": 0.85,
+          "lawReference": { "law": "BLDS 2026", "article": "Điều 428" }
+        }
+      ],
+      "riskAnalysis": [
+        {
+          "clause": "Điều 7. Trách nhiệm",
+          "level": "medium",
+          "reason": "Giới hạn trách nhiệm không rõ ràng, có thể gây tranh chấp",
+          "suggestion": "Nên quy định cụ thể mức giới hạn bồi thường và các trường hợp miễn trừ trách nhiệm"
+        }
+      ],
+      "workspaceId": "org001",
+      "createdBy": "u123",
+      "createdAt": "2026-02-01T10:30:00Z",
+      "updatedAt": "2026-02-05T14:15:00Z"
+    },
+    {
+      "contractId": "ctr002",
+      "title": "Hợp đồng NDA - Dự án XYZ",
+      "type": "NDA",
+      "status": "active",
+      "contentJSON": {
+        "type": "doc",
+        "content": [
+          { "type": "heading", "attrs": { "level": 1, "align": "center" }, "content": [{ "type": "text", "text": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" }] },
+          { "type": "heading", "attrs": { "level": 2, "align": "center" }, "content": [{ "type": "text", "text": "Độc lập - Tự do - Hạnh phúc" }] },
+          { "type": "paragraph", "attrs": { "align": "center", "divider": true }, "content": [] },
+          { "type": "heading", "attrs": { "level": 1, "align": "center" }, "content": [{ "type": "text", "text": "HỢP ĐỒNG BẢO MẬT THÔNG TIN" }] },
+          { "type": "paragraph", "attrs": { "align": "center" }, "content": [{ "type": "text", "text": "Số: " }, { "type": "field", "attrs": { "fieldKey": "CONTRACT_NUMBER", "label": "Số HĐ", "fieldType": "string" } }, { "type": "text", "text": "/2023/HDBM" }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24/11/2015;", "marks": [{ "type": "italic" }] }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "- Căn cứ nhu cầu và khả năng thực tế của các bên trong hợp đồng,", "marks": [{ "type": "italic" }] }] },
+          { "type": "paragraph", "attrs": { "align": "left" }, "content": [{ "type": "text", "text": "Hôm nay, ngày " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_DATE", "label": "Ngày ký", "fieldType": "date" } }, { "type": "text", "text": ", tại " }, { "type": "field", "attrs": { "fieldKey": "SIGNING_LOCATION", "label": "Địa điểm ký", "fieldType": "string" } }, { "type": "text", "text": " chúng tôi gồm có:" }] },
+          { "type": "clause", "attrs": { "clauseId": "c1", "riskLevel": "low", "lawCitations": ["BLDS 2026 - Điều 388", "BLDS 2026 - Điều 395"], "title": "Điều 1. Đối tượng hợp đồng" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Bên tiết lộ thông tin: " }, { "type": "field", "attrs": { "fieldKey": "PARTY_A_NAME", "label": "Tên Bên A", "fieldType": "string" } }] }, { "type": "paragraph", "content": [{ "type": "text", "text": "Bên nhận thông tin: " }, { "type": "field", "attrs": { "fieldKey": "PARTY_B_NAME", "label": "Tên Bên B", "fieldType": "string" } }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c2", "riskLevel": "medium", "lawCitations": ["BLDS 2026 - Điều 389"], "title": "Điều 2. Phạm vi bảo mật" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Thông tin bảo mật bao gồm: " }, { "type": "field", "attrs": { "fieldKey": "CONFIDENTIAL_SCOPE", "label": "Phạm vi bảo mật", "fieldType": "text" } }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c3", "riskLevel": "low", "lawCitations": ["BLDS 2026 - Điều 401"], "title": "Điều 3. Thời hạn" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Hợp đồng có hiệu lực từ ngày " }, { "type": "field", "attrs": { "fieldKey": "EFFECTIVE_DATE", "label": "Ngày hiệu lực", "fieldType": "date" } }, { "type": "text", "text": " trong thời hạn " }, { "type": "field", "attrs": { "fieldKey": "DURATION", "label": "Thời hạn", "fieldType": "string" } }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c4", "riskLevel": "low", "lawCitations": ["BLDS 2026 - Điều 397", "BLDS 2026 - Điều 398"], "title": "Điều 4. Quyền và nghĩa vụ" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Bên nhận thông tin có nghĩa vụ bảo mật toàn bộ thông tin được tiết lộ; không được chuyển giao, sao chép hoặc sử dụng cho mục đích ngoài phạm vi đã thỏa thuận." }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c5", "riskLevel": "medium", "lawCitations": ["Luật TTĐT 2024 - Điều 13", "BLDS 2026 - Điều 389"], "title": "Điều 5. Bảo mật dữ liệu" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Các bên cam kết tuân thủ quy định pháp luật về bảo vệ dữ liệu cá nhân và bảo mật thông tin trong quá trình xử lý thông tin bảo mật." }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c6", "riskLevel": "high", "lawCitations": ["BLDS 2026 - Điều 351", "BLDS 2026 - Điều 585"], "title": "Điều 6. Xử lý vi phạm" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Bên vi phạm nghĩa vụ bảo mật phải bồi thường thiệt hại theo quy định pháp luật và chịu phạt vi phạm theo thỏa thuận giữa hai bên." }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c7", "riskLevel": "medium", "lawCitations": ["BLDS 2026 - Điều 317", "Bộ luật Tố tụng dân sự 2015"], "title": "Điều 7. Giải quyết tranh chấp" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Mọi tranh chấp phát sinh được giải quyết trước hết bằng thương lượng; nếu không thành, sẽ được đưa ra Trung tâm Trọng tài Quốc tế Việt Nam (VIAC) theo quy tắc tố tụng của Trung tâm." }] }] },
+          { "type": "clause", "attrs": { "clauseId": "c8", "riskLevel": "low", "lawCitations": ["BLDS 2026 - Điều 401"], "title": "Điều 8. Hiệu lực" }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Hợp đồng có hiệu lực kể từ ngày ký. Các bên thừa nhận đã đọc, hiểu và đồng ý toàn bộ nội dung hợp đồng." }] }] }
+        ]
+      },
+      "metadata": {
+        "lawVersions": ["BLDS 2026"],
+        "tags": ["confidentiality", "non-disclosure"],
+        "riskLevel": "low",
+        "visibility": "workspace",
+        "parties": [
+          { "role": "discloser", "name": "{{PARTY_A_NAME}}", "taxId": "{{PARTY_A_TAX}}" },
+          { "role": "recipient", "name": "{{PARTY_B_NAME}}", "taxId": "{{PARTY_B_TAX}}" }
+        ]
+      },
+      "mergeFieldValues": {
+        "CONTRACT_NUMBER": "002",
+        "SIGNING_DATE": "08/02/2026",
+        "SIGNING_LOCATION": "TP. Hồ Chí Minh",
+        "PARTY_A_NAME": "CÔNG TY CỔ PHẦN ABC",
+        "PARTY_B_NAME": "CÔNG TY TNHH XYZ",
+        "EFFECTIVE_DATE": "2026-02-10",
+        "DURATION": "24 tháng",
+        "CONFIDENTIAL_SCOPE": "Thông tin kỹ thuật, tài chính, thương mại dự án XYZ"
+      },
+      "versions": [
+        {
+          "versionId": "v1",
+          "timestamp": "2026-02-08T09:00:00Z",
+          "author": "u123",
+          "changes": "Phiên bản hoàn chỉnh"
+        }
+      ],
+      "aiSuggestions": [],
+      "riskAnalysis": [],
+      "workspaceId": "org001",
+      "createdBy": "u123",
+      "createdAt": "2026-02-08T09:00:00Z",
+      "updatedAt": "2026-02-08T09:00:00Z"
+    }
+  ]
+}

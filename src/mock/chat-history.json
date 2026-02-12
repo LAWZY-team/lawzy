@@ -1,0 +1,66 @@
+{
+  "chatHistory": [
+    {
+      "contractId": "ctr001",
+      "messages": [
+        {
+          "id": "msg_ctr001_1",
+          "role": "user",
+          "content": "Tôi cần tạo một hợp đồng dịch vụ SaaS cho công ty ABC",
+          "timestamp": "2026-02-01T10:00:00Z"
+        },
+        {
+          "id": "msg_ctr001_2",
+          "role": "assistant",
+          "content": "Chào bạn, tôi đã tạo bản nháp Hợp đồng dịch vụ SaaS cho Công ty ABC. Hợp đồng bao gồm các điều khoản cơ bản về cung cấp dịch vụ, thanh toán và bảo mật. Bạn có muốn điều chỉnh thêm gì không?",
+          "timestamp": "2026-02-01T10:00:05Z",
+          "thinking": "Phân tích yêu cầu: Hợp đồng SaaS, Bên A: Công ty ABC.\nĐề xuất: Sử dụng mẫu Hợp đồng dịch vụ SaaS chuẩn.\nHành động: Tạo bản nháp.",
+          "hasContract": true
+        },
+        {
+          "id": "msg_ctr001_3",
+          "role": "user",
+          "content": "Thêm điều khoản phạt nếu thanh toán chậm quá 30 ngày",
+          "timestamp": "2026-02-05T14:10:00Z"
+        },
+        {
+          "id": "msg_ctr001_4",
+          "role": "assistant",
+          "content": "Đã rõ. Tôi đã bổ sung vào Điều 4 về Thanh toán: 'Nếu Bên B chậm thanh toán quá 30 ngày so với hạn thanh toán, Bên B sẽ phải chịu phạt 0.05% mỗi ngày trên tổng số tiền chậm trả'.",
+          "timestamp": "2026-02-05T14:10:15Z",
+          "thinking": "Phân tích: Yêu cầu phạt chậm thanh toán > 30 ngày.\nLuật áp dụng: Điều 306 Luật Thương mại 2005 (hoặc 2025).\nĐề xuất: Mức phạt 0.05%/ngày là hợp lý và phổ biến."
+        }
+      ]
+    },
+    {
+      "contractId": "ctr002",
+      "messages": [
+        {
+          "id": "msg_ctr002_1",
+          "role": "user",
+          "content": "Soạn giúp tôi một thỏa thuận bảo mật thông tin (NDA) giữa Công ty ABC và Công ty XYZ",
+          "timestamp": "2026-02-08T08:55:00Z"
+        },
+        {
+          "id": "msg_ctr002_2",
+          "role": "assistant",
+          "content": "Tôi đã soạn thảo Hợp đồng bảo mật thông tin (NDA) giữa hai bên. Thời hạn bảo mật được đặt mặc định là 24 tháng. Bạn có muốn thay đổi thời hạn này không?",
+          "timestamp": "2026-02-08T08:55:10Z",
+          "hasContract": true
+        },
+        {
+          "id": "msg_ctr002_3",
+          "role": "user",
+          "content": "Ok, giữ nguyên 24 tháng. Nhưng thêm điều khoản về trọng tài thương mại nếu có tranh chấp.",
+          "timestamp": "2026-02-08T08:58:00Z"
+        },
+        {
+          "id": "msg_ctr002_4",
+          "role": "assistant",
+          "content": "Đã cập nhật Điều khoản giải quyết tranh chấp. Mọi tranh chấp sẽ được giải quyết tại Trung tâm Trọng tài Quốc tế Việt Nam (VIAC) theo quy tắc tố tụng của Trung tâm này.",
+          "timestamp": "2026-02-08T08:58:15Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "users": [
+    {
+      "userId": "u123",
+      "name": "Nguyễn Văn A",
+      "email": "a@lawzy.app",
+      "avatar": "/avatars/user-1.jpg",
+      "roles": ["admin"],
+      "workspaceId": "org001",
+      "quota": {
+        "dailyLimit": 50,
+        "dailyRemaining": 35,
+        "totalUsed": 127,
+        "referralCredits": 10,
+        "subscriptionPlan": "pro",
+        "storageLimit": 10737418240, 
+        "storageUsed": 3700000
+      },
+      "referral": {
+        "code": "u123ref",
+        "link": "https://lawzy.app/ref/u123",
+        "invites": 5,
+        "converted": 2,
+        "creditsEarned": 10
+      },
+      "bio": "Luật sư cao cấp chuyên về luật doanh nghiệp và đầu tư. Kinh nghiệm 10 năm tư vấn pháp lý cho các tập đoàn đa quốc gia.",
+      "urls": [
+        "https://lawzy.app",
+        "https://linkedin.com/in/nguyenvana",
+        "https://facebook.com/nguyenvana"
+      ],
+      "createdAt": "2026-01-15T08:00:00Z"
+    },
+    {
+      "userId": "u234",
+      "name": "Trần Thị B",
+      "email": "b@lawzy.app",
+      "avatar": "/avatars/user-2.jpg",
+      "roles": ["editor"],
+      "workspaceId": "org001",
+      "quota": {
+        "dailyLimit": 20,
+        "dailyRemaining": 15,
+        "totalUsed": 45,
+        "referralCredits": 3,
+        "subscriptionPlan": "free",
+        "storageLimit": 104857600,
+        "storageUsed": 500000
+      },
+      "referral": {
+        "code": "u234ref",
+        "link": "https://lawzy.app/ref/u234",
+        "invites": 2,
+        "converted": 1,
+        "creditsEarned": 3
+      },
+      "bio": "Chuyên viên pháp lý, đam mê công nghệ và start-up.",
+      "urls": [
+        "https://github.com/tranthib"
+      ],
+      "createdAt": "2026-01-20T10:30:00Z"
+    },
+    {
+      "userId": "u345",
+      "name": "Lê Văn C",
+      "email": "c@lawzy.app",
+      "avatar": "/avatars/user-3.jpg",
+      "roles": ["viewer"],
+      "workspaceId": "org002",
+      "quota": {
+        "dailyLimit": 10,
+        "dailyRemaining": 10,
+        "totalUsed": 0,
+        "referralCredits": 0,
+        "subscriptionPlan": "free",
+        "storageLimit": 104857600,
+        "storageUsed": 0
+      },
+      "referral": {
+        "code": "u345ref",
+        "link": "https://lawzy.app/ref/u345",
+        "invites": 0,
+        "converted": 0,
+        "creditsEarned": 0
+      },
+      "bio": "Thực tập sinh pháp lý.",
+      "urls": [],
+      "createdAt": null
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "id": "file001",
+      "name": "hồ_sơ_pháp_lý.pdf",
+      "size": 2500000,
+      "type": "application/pdf",
+      "uploadDate": "2026-02-01T10:00:00Z",
+      "userId": "u123",
+      "workspaceId": "org001",
+      "path": "/uploads/org001/file001.pdf"
+    },
+    {
+      "id": "file002",
+      "name": "biên_bản_họp.docx",
+      "size": 1200000,
+      "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "uploadDate": "2026-02-05T14:00:00Z",
+      "userId": "u123",
+      "workspaceId": "org001",
+      "path": "/uploads/org001/file002.docx"
+    },
+    {
+      "id": "file003",
+      "name": "hợp_đồng_mẫu.pdf",
+      "size": 500000,
+      "type": "application/pdf",
+      "uploadDate": "2026-02-07T09:00:00Z",
+      "userId": "u234",
+      "workspaceId": "org001",
+      "path": "/uploads/org001/file003.pdf"
+    }
+  ]
+}

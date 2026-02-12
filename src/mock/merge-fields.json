@@ -1,0 +1,92 @@
+{
+  "categories": [
+    {
+      "category": "Parties",
+      "fields": [
+        { "key": "{{PARTY_A_NAME}}", "label": "Tên Bên A (Đầy đủ)", "type": "text", "required": true },
+        { "key": "{{PARTY_A_SHORT}}", "label": "Tên Bên A (Viết tắt)", "type": "text" },
+        { "key": "{{PARTY_A_TAX}}", "label": "Mã số thuế Bên A", "type": "text" },
+        { "key": "{{PARTY_A_ADDRESS}}", "label": "Địa chỉ Bên A", "type": "text" },
+        { "key": "{{PARTY_A_REP}}", "label": "Người đại diện Bên A", "type": "text" },
+        { "key": "{{PARTY_A_POSITION}}", "label": "Chức vụ đại diện Bên A", "type": "text" },
+        { "key": "{{PARTY_B_NAME}}", "label": "Tên Bên B (Đầy đủ)", "type": "text", "required": true },
+        { "key": "{{PARTY_B_SHORT}}", "label": "Tên Bên B (Viết tắt)", "type": "text" },
+        { "key": "{{PARTY_B_TAX}}", "label": "Mã số thuế Bên B", "type": "text" },
+        { "key": "{{PARTY_B_ADDRESS}}", "label": "Địa chỉ Bên B", "type": "text" },
+        { "key": "{{PARTY_B_REP}}", "label": "Người đại diện Bên B", "type": "text" },
+        { "key": "{{PARTY_B_POSITION}}", "label": "Chức vụ đại diện Bên B", "type": "text" },
+        { "key": "{{PROVIDER_NAME}}", "label": "Tên nhà cung cấp", "type": "text" },
+        { "key": "{{CUSTOMER_NAME}}", "label": "Tên khách hàng", "type": "text" },
+        { "key": "{{EMPLOYER_NAME}}", "label": "Tên người sử dụng lao động", "type": "text" },
+        { "key": "{{EMPLOYEE_NAME}}", "label": "Tên người lao động", "type": "text" }
+      ]
+    },
+    {
+      "category": "Contract Details",
+      "fields": [
+        { "key": "{{CONTRACT_TYPE}}", "label": "Loại hợp đồng", "type": "select", "options": ["SaaS", "NDA", "Labor", "Partnership", "Sale"] },
+        { "key": "{{CONTRACT_NUMBER}}", "label": "Số hợp đồng", "type": "text" },
+        { "key": "{{EFFECTIVE_DATE}}", "label": "Ngày hiệu lực", "type": "date", "required": true },
+        { "key": "{{EXPIRY_DATE}}", "label": "Ngày hết hiệu lực", "type": "date" },
+        { "key": "{{DURATION}}", "label": "Thời hạn", "type": "text", "placeholder": "VD: 12 tháng, 2 năm" },
+        { "key": "{{SIGNING_LOCATION}}", "label": "Địa điểm ký", "type": "text" },
+        { "key": "{{SIGNING_DATE}}", "label": "Ngày ký", "type": "date" },
+        { "key": "{{JURISDICTION}}", "label": "Pháp luật áp dụng", "type": "text", "default": "Việt Nam" }
+      ]
+    },
+    {
+      "category": "Payment Terms",
+      "fields": [
+        { "key": "{{TOTAL_AMOUNT}}", "label": "Tổng giá trị", "type": "currency" },
+        { "key": "{{CURRENCY}}", "label": "Đơn vị tiền tệ", "type": "text", "default": "VND" },
+        { "key": "{{PAYMENT_METHOD}}", "label": "Phương thức thanh toán", "type": "text" },
+        { "key": "{{PAYMENT_SCHEDULE}}", "label": "Lịch thanh toán", "type": "textarea" },
+        { "key": "{{PAYMENT_TERMS}}", "label": "Điều khoản thanh toán", "type": "textarea" },
+        { "key": "{{BANK_ACCOUNT}}", "label": "Số tài khoản", "type": "text" },
+        { "key": "{{BANK_NAME}}", "label": "Tên ngân hàng", "type": "text" },
+        { "key": "{{PRICING}}", "label": "Giá cả", "type": "currency" },
+        { "key": "{{DEPOSIT_AMOUNT}}", "label": "Tiền đặt cọc", "type": "currency" }
+      ]
+    },
+    {
+      "category": "Service Details",
+      "fields": [
+        { "key": "{{SERVICE_DESCRIPTION}}", "label": "Mô tả dịch vụ", "type": "textarea" },
+        { "key": "{{DELIVERABLES}}", "label": "Sản phẩm bàn giao", "type": "textarea" },
+        { "key": "{{WARRANTY_PERIOD}}", "label": "Thời gian bảo hành", "type": "text" },
+        { "key": "{{SUPPORT_LEVEL}}", "label": "Mức độ hỗ trợ", "type": "text" },
+        { "key": "{{SLA}}", "label": "Cam kết chất lượng dịch vụ (SLA)", "type": "textarea" }
+      ]
+    },
+    {
+      "category": "Confidentiality & NDA",
+      "fields": [
+        { "key": "{{CONFIDENTIAL_SCOPE}}", "label": "Phạm vi thông tin bảo mật", "type": "textarea" },
+        { "key": "{{CONFIDENTIALITY_PERIOD}}", "label": "Thời hạn bảo mật", "type": "text" },
+        { "key": "{{PENALTIES}}", "label": "Điều khoản phạt", "type": "textarea" }
+      ]
+    },
+    {
+      "category": "Employment & Labor",
+      "fields": [
+        { "key": "{{POSITION}}", "label": "Vị trí công việc", "type": "text" },
+        { "key": "{{SALARY}}", "label": "Mức lương", "type": "currency" },
+        { "key": "{{START_DATE}}", "label": "Ngày bắt đầu làm việc", "type": "date" },
+        { "key": "{{PROBATION_PERIOD}}", "label": "Thời gian thử việc", "type": "text" },
+        { "key": "{{WORK_LOCATION}}", "label": "Địa điểm làm việc", "type": "text" },
+        { "key": "{{WORKING_HOURS}}", "label": "Giờ làm việc", "type": "text" }
+      ]
+    },
+    {
+      "category": "Goods & Products",
+      "fields": [
+        { "key": "{{GOODS_DESCRIPTION}}", "label": "Mô tả hàng hóa", "type": "textarea" },
+        { "key": "{{QUANTITY}}", "label": "Số lượng", "type": "text" },
+        { "key": "{{UNIT}}", "label": "Đơn vị", "type": "text" },
+        { "key": "{{QUALITY_STANDARD}}", "label": "Tiêu chuẩn chất lượng", "type": "textarea" },
+        { "key": "{{DELIVERY_DATE}}", "label": "Ngày giao hàng", "type": "date" },
+        { "key": "{{DELIVERY_LOCATION}}", "label": "Địa điểm giao hàng", "type": "text" }
+      ]
+    }
+  ]
+}
