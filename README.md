@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LAWZY
 
-## Getting Started
+**Nền tảng SaaS quản lý hợp đồng pháp lý theo luật Việt Nam.**
 
-First, run the development server:
+LAWZY giúp doanh nghiệp và chuyên viên pháp lý soạn thảo, review và quản lý hợp đồng chuẩn BLDS, Luật Thương mại và văn bản hiện hành — với editor rich text, merge fields, AI gợi ý và trích dẫn luật.
+
+---
+
+## Trạng thái dự án
+
+- **Hiện tại:** Ứng dụng web (Next.js, React, TypeScript) với giao diện đầy đủ: Dashboard, Canvas Editor, Thư viện mẫu, Nguồn tham chiếu, Thanh toán (mock), Workspace & quyền. Dữ liệu dùng **mock JSON**; AI (Gemini) gọi qua Next.js API routes.
+- **Tiếp theo:** Backend API thật, persistence DB, tích hợp RAG cho nguồn pháp lý, và luồng thanh toán thật. Chi tiết theo từng giai đoạn xem **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
+---
+
+## Tech stack (tóm tắt)
+
+| Nhóm | Công nghệ |
+|------|-----------|
+| Framework | Next.js 16 (App Router), React 19, TypeScript |
+| UI | Tailwind CSS 4, shadcn/ui, Lucide |
+| Editor | TipTap (ProseMirror), custom MergeField extension |
+| State | Zustand (global), TanStack Query (sẵn sàng) |
+| AI | Google Gemini API (generate, review, cite-law) |
+| Export | docx (Word), pdf-parse / mammoth (extract text) |
+
+---
+
+## Bắt đầu nhanh
 
 ```bash
+npm install
+cp .env.local.example .env.local   # Thêm GEMINI_API_KEY
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Biến môi trường:** `GEMINI_API_KEY` (bắt buộc cho AI), `NEXT_PUBLIC_APP_URL` (tùy chọn).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tài liệu dự án
 
-## Learn More
+| Tài liệu | Mô tả |
+|----------|--------|
+| [BRD](docs/BRD-Business-Requirements-Document.md) | Bài toán kinh doanh, user, mục tiêu, phạm vi |
+| [SRS](docs/SRS-Software-Requirements-Specification.md) | Yêu cầu chức năng & phi chức năng, use case, acceptance criteria |
+| [API Specification](docs/API-Specification.md) | Endpoint, request/response, bảo mật |
+| [Development Specification](docs/DEVELOPMENT-SPECIFICATION.md) | Kiến trúc, cấu trúc mã nguồn, chuẩn code, build/deploy |
+| [ROADMAP](docs/ROADMAP.md) | Tầm nhìn, kế hoạch theo giai đoạn (MVP → Backend → RAG → Scale) |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proprietary — LAWZY
