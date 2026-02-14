@@ -81,7 +81,10 @@ export default function TemplatesPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="system" className="flex-1 min-h-0 mt-4 data-[state=inactive]:hidden">
+        <TabsContent
+          value="system"
+          className="flex flex-col flex-1 min-h-0 mt-4 data-[state=inactive]:hidden"
+        >
           <div className="shrink-0 mb-4">
             <TemplateFilters
               searchQuery={searchQuery}
@@ -116,7 +119,10 @@ export default function TemplatesPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="community" className="flex-1 min-h-0 mt-4 data-[state=inactive]:hidden">
+        <TabsContent
+          value="community"
+          className="flex flex-col flex-1 min-h-0 mt-4 data-[state=inactive]:hidden"
+        >
           <CommunityTemplatesTab
             searchQuery={communitySearch}
             onSearchChange={setCommunitySearch}
