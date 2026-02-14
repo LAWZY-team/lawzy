@@ -5,6 +5,8 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import Placeholder from '@tiptap/extension-placeholder'
+import TextAlign from '@tiptap/extension-text-align'
+import { TextStyleKit } from '@tiptap/extension-text-style'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 
 interface TipTapEditorProps {
@@ -22,6 +24,14 @@ export function TipTapEditor({ content, onChange, editable = true }: TipTapEdito
           levels: [1, 2, 3],
         },
       }),
+      TextStyleKit.configure({
+        backgroundColor: false,
+        color: false,
+        lineHeight: false,
+        fontFamily: { types: ['textStyle'] },
+        fontSize: { types: ['textStyle'] },
+      }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Table.configure({
         resizable: true,
       }),

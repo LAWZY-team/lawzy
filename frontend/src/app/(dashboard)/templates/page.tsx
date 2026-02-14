@@ -73,7 +73,7 @@ export default function TemplatesPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 min-h-0 flex flex-col">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "system" | "community")} className="flex-1 min-h-0 flex flex-col">
         <div className="shrink-0 flex items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="system">Hệ thống</TabsTrigger>

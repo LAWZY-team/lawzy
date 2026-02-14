@@ -7,6 +7,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
+import { TextStyleKit } from '@tiptap/extension-text-style'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
@@ -14,6 +15,7 @@ import { RightPanel } from '@/components/editor/right-panel'
 import { useSidebar } from '@/components/ui/sidebar'
 import { useEditorStore } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
+import { useUserFieldsStore } from '@/stores/user-fields-store'
 import contractsData from '@/mock/contracts.json'
 import chatHistoryData from '@/mock/chat-history.json'
 import templatesData from '@/mock/templates.json'
@@ -69,6 +71,7 @@ export default function EditorPage({
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
 
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
+  const { customFields } = useUserFieldsStore()
 
   /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -171,11 +174,31 @@ export default function EditorPage({
     }
   }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
 
+  // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
+  useEffect(() => {
+    if (!customFields || customFields.length === 0) return
+    const additions: Record<string, string> = {}
+    for (const f of customFields) {
+      if (!Object.prototype.hasOwnProperty.call(mergeFieldValues, f.key)) {
+        additions[f.key] = f.defaultValue ?? ''
+      }
+    }
+    if (Object.keys(additions).length === 0) return
+    setMergeFieldValues({ ...mergeFieldValues, ...additions })
+  }, [customFields, mergeFieldValues, setMergeFieldValues])
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+      }),
+      TextStyleKit.configure({
+        backgroundColor: false,
+        color: false,
+        lineHeight: false,
+        fontFamily: { types: ['textStyle'] },
+        fontSize: { types: ['textStyle'] },
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Table.configure({ resizable: true }),
@@ -188,7 +211,7 @@ export default function EditorPage({
     content: editorContent,
     editorProps: {
       attributes: {
-        class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-[#E3E3E3] selection:bg-blue-500/30 selection:text-blue-200',
+        class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-500/30 selection:text-blue-200',
       },
       handleDrop: (view, event, slice, moved) => {
         if (!moved && event.dataTransfer && event.dataTransfer.types.includes('application/lawzy-merge-field')) {
@@ -363,7 +386,7 @@ export default function EditorPage({
   }
 
   return (
-    <div className="flex flex-1 min-h-0 bg-[#131314] overflow-hidden relative font-sans">
+    <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative">
 
       {/* Main Content Area - 3 Column Layout */}
       <div className="relative z-10 flex w-full h-full min-h-0 gap-2">

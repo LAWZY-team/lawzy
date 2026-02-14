@@ -48,15 +48,15 @@ export function ChatMessageBubble({
         )}
       >
         {message.role !== 'user' && (
-          <span className="text-xs font-medium text-[#9CA3AF] mb-1 px-1">Lawzy</span>
+          <span className="text-xs font-medium text-muted-foreground mb-1 px-1">Lawzy</span>
         )}
 
         <div
           className={cn(
             'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm',
             message.role === 'user'
-              ? 'bg-[#2D2D2D] text-[#E3E3E3] rounded-tr-sm'
-              : 'bg-transparent text-[#E3E3E3] pl-0'
+              ? 'bg-muted text-foreground rounded-tr-sm'
+              : 'bg-transparent text-foreground pl-0'
           )}
         >
           {message.thinking && (
@@ -75,19 +75,19 @@ export function ChatMessageBubble({
           />
 
           {message.role === 'user' && message.attachedFileName && (
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#9CA3AF]">
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Paperclip className="w-3.5 h-3.5 flex-shrink-0" />
               <span>Đính kèm: {message.attachedFileName}</span>
             </div>
           )}
 
           {message.hasContract && !isCanvasMode && onOpenCanvas && (
-            <div className="mt-3 pt-3 border-t border-[#2D2D2D]">
+            <div className="mt-3 pt-3 border-t border-border">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onOpenCanvas}
-                className="bg-[#131314] border-[#2D2D2D] text-[#E3E3E3] hover:bg-[#2D2D2D] gap-2 h-8 text-xs w-full sm:w-auto"
+                className="bg-background border-border text-foreground hover:bg-accent gap-2 h-8 text-xs w-full sm:w-auto"
               >
                 <PanelRightOpen className="w-3.5 h-3.5" />
                 Mở Editor xem hợp đồng

@@ -66,8 +66,8 @@ export function ChatColumn({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#131314] text-[#E3E3E3] relative overflow-hidden">
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-[#2D2D2D] bg-[#131314] z-10 sticky top-0">
+    <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background z-10 sticky top-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-blue-400" />
           <h3 className="font-medium text-sm">Lawzy AI</h3>
@@ -77,7 +77,7 @@ export function ChatColumn({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="text-[#9CA3AF] hover:text-white hover:bg-[#2D2D2D]"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="w-5 h-5" />
           </Button>
