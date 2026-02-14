@@ -7,25 +7,39 @@
  * Nội dung load từ template đã có align/divider; khi cần căn chỉnh trong editor có thể bổ sung
  * extension text-align cho TipTap.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { EditorContent, Editor } from '@tiptap/react'
 import { useEditorStore } from '@/stores/editor-store'
+import { useUserFieldsStore } from '@/stores/user-fields-store'
 import { 
   X, Play, MoreHorizontal, FileText, Code, 
   Bold, Italic, List, ListOrdered, Undo, Redo, ChevronDown,
   Download, Printer, PanelRightOpen, PanelRightClose,
-  Save, Copy, HelpCircle
+  Save, Copy, HelpCircle, Eye, EyeOff,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Share2, FileSearch
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
+  DropdownMenuCheckboxItem,
   DropdownMenuItem, 
+  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { createPublicShareSnapshot } from '@/lib/api/public-shares'
 
 interface CanvasEditorProps {
   editor: Editor | null
@@ -52,31 +66,74 @@ export function CanvasEditor({
   onSave,
 }: CanvasEditorProps) {
   const [docTitle, setDocTitle] = useState(title)
-  const { mergeFieldValues } = useEditorStore()
+  const { mergeFieldValues, templateMergeFields } = useEditorStore()
+  const { customFields, hiddenFieldKeys, toggleHiddenFieldKey, hideAll, showAll } = useUserFieldsStore()
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareLoading, setShareLoading] = useState(false)
+
+  const fieldsForToggles = useMemo(() => {
+    const keySet = new Set<string>(Object.keys(mergeFieldValues))
+    for (const f of customFields) keySet.add(f.key)
+    for (const f of templateMergeFields ?? []) keySet.add(f.fieldKey)
+
+    const customLabelByKey = new Map(customFields.map((f) => [f.key, f.label]))
+    const templateLabelByKey = new Map((templateMergeFields ?? []).map((f) => [f.fieldKey, f.label]))
+
+    return Array.from(keySet)
+      .filter((k) => k && k.trim() !== '')
+      .sort((a, b) => a.localeCompare(b))
+      .map((key) => ({
+        key,
+        label: customLabelByKey.get(key) ?? templateLabelByKey.get(key) ?? key,
+      }))
+  }, [mergeFieldValues, customFields, templateMergeFields])
+
+  const currentFontFamily = editor?.getAttributes('textStyle')?.fontFamily as string | undefined
+  const currentFontSize = editor?.getAttributes('textStyle')?.fontSize as string | undefined
+
+  const fontFamilyLabel =
+    (currentFontFamily && currentFontFamily.length > 0 ? currentFontFamily : undefined) ?? 'Font'
+  const fontSizeLabel =
+    (currentFontSize && currentFontSize.length > 0 ? currentFontSize : undefined) ?? 'Cỡ chữ'
 
   if (!editor) return null
 
-  /** Thay thế các span trường trộn (data-field-key) bằng giá trị thực để in/xuất PDF/Word đúng nội dung */
-  const replaceMergeFieldsWithValues = (html: string): string => {
-    if (Object.keys(mergeFieldValues).length === 0) return html
+  /** Convert editor HTML to final HTML (replace merge fields; apply hide rules; strip merge-field styling) */
+  const finalizeContractHtml = (rawHtml: string): string => {
+    if (Object.keys(mergeFieldValues).length === 0) return rawHtml
     const div = document.createElement('div')
-    div.innerHTML = html
+    div.innerHTML = rawHtml
     div.querySelectorAll('[data-field-key]').forEach((el) => {
       const key = el.getAttribute('data-field-key')
-      if (key && mergeFieldValues[key] !== undefined && mergeFieldValues[key] !== '') {
-        el.textContent = mergeFieldValues[key]
+      if (!key) return
+
+      const isHidden = hiddenFieldKeys.includes(key)
+      const value = mergeFieldValues[key]
+
+      if (isHidden) {
+        // Export behavior: hidden fields should become blank whitespace (not show label/key)
+        // Use nbsp to avoid collapsing to nothing in HTML/Word rendering.
+        el.textContent = '\u00A0'
+      } else if (value !== undefined && value !== '') {
+        el.textContent = value
+      } else {
+        return
+      }
         el.classList.remove('merge-field')
         ;(el as HTMLElement).style.fontWeight = 'inherit'
         ;(el as HTMLElement).style.background = 'none'
         ;(el as HTMLElement).style.border = 'none'
         ;(el as HTMLElement).style.padding = '0'
-      }
     })
     return div.innerHTML
   }
 
+  const getFinalHtml = (): string => finalizeContractHtml(editor.getHTML())
+
   const handlePrint = () => {
-    const html = replaceMergeFieldsWithValues(editor.getHTML())
+    const html = getFinalHtml()
     const printWindow = window.open('', '_blank')
     if (!printWindow) {
       window.print()
@@ -93,9 +150,14 @@ export function CanvasEditor({
     printWindow.close()
   }
 
+  const handleExportPdf = () => {
+    // Browser-native PDF export: Print dialog (user chooses Save as PDF)
+    handlePrint()
+  }
+
   const handleExportWord = () => {
     if (!editor) return
-    const htmlContent = replaceMergeFieldsWithValues(editor.getHTML())
+    const htmlContent = getFinalHtml()
     const preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Doc</title></head><body>"
     const postHtml = "</body></html>"
     const blob = new Blob([preHtml + htmlContent + postHtml], {
@@ -111,7 +173,7 @@ export function CanvasEditor({
 
   const handleExportHTML = () => {
     if (!editor) return
-    const htmlContent = replaceMergeFieldsWithValues(editor.getHTML())
+    const htmlContent = getFinalHtml()
     const blob = new Blob([htmlContent], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -132,18 +194,48 @@ export function CanvasEditor({
     }
   }
 
+  const handleCreateShareLink = async () => {
+    try {
+      setShareLoading(true)
+      setShareUrl(null)
+
+      const data = await createPublicShareSnapshot({
+        title: docTitle || undefined,
+        html: getFinalHtml(),
+      })
+      const url = `${window.location.origin}/share/${data.token}`
+      setShareUrl(url)
+      toast.success('Đã tạo link chia sẻ')
+    } catch (e) {
+      console.error(e)
+      toast.error('Không tạo được link chia sẻ')
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleCopyShareLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      toast.success('Đã sao chép link')
+    } catch {
+      toast.error('Không thể sao chép link')
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-[#131314] text-[#E3E3E3] rounded-3xl overflow-hidden border border-[#2D2D2D] my-2 mr-2">
+    <div className="flex flex-col h-full bg-background text-foreground rounded-3xl overflow-hidden border border-border my-2 mr-2">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#2D2D2D] bg-[#131314] z-20 sticky top-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background z-20 sticky top-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-1.5 bg-[#2D2D2D] rounded-lg">
+          <div className="p-1.5 bg-muted rounded-lg">
             {isCode ? <Code className="w-4 h-4 text-blue-400" /> : <FileText className="w-4 h-4 text-purple-400" />}
           </div>
           <input
             value={docTitle}
             onChange={(e) => setDocTitle(e.target.value)}
-            className="bg-transparent border-none outline-none font-medium text-sm text-[#E3E3E3] truncate w-[200px] hover:bg-[#2D2D2D]/50 px-2 py-1 rounded transition-colors"
+            className="bg-transparent border-none outline-none font-medium text-sm text-foreground truncate w-[200px] hover:bg-muted/50 px-2 py-1 rounded transition-colors"
           />
         </div>
         
@@ -153,7 +245,7 @@ export function CanvasEditor({
               variant="ghost" 
               size="sm" 
               onClick={onRun}
-              className="text-[#E3E3E3] hover:bg-[#2D2D2D] gap-2 h-8 px-3 rounded-full mr-2"
+              className="text-foreground hover:bg-accent gap-2 h-8 px-3 rounded-full mr-2"
             >
               <Play className="w-4 h-4 fill-current" />
               <span className="text-xs font-medium">Kiểm tra</span>
@@ -167,7 +259,7 @@ export function CanvasEditor({
               onClick={onToggleTools}
               className={cn(
                 "h-8 w-8 rounded-full",
-                toolsPanelOpen ? "text-[#E3E3E3] bg-[#2D2D2D]" : "text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]"
+                toolsPanelOpen ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
               title={toolsPanelOpen ? "Đóng công cụ" : "Mở công cụ"}
             >
@@ -177,59 +269,128 @@ export function CanvasEditor({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] h-8 w-8 rounded-full" title="Xuất văn bản">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full" title="Xuất văn bản">
                 <Download className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#131314] border-[#2D2D2D] text-[#E3E3E3]">
-              <DropdownMenuItem onClick={handlePrint} className="hover:bg-[#2D2D2D] cursor-pointer">
+            <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground">
+              <DropdownMenuItem onClick={handlePrint} className="hover:bg-accent cursor-pointer">
                 <Printer className="w-4 h-4 mr-2" /> In / Lưu PDF
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-[#2D2D2D]" />
-              <DropdownMenuItem onClick={handleExportWord} className="hover:bg-[#2D2D2D] cursor-pointer">
+              <DropdownMenuItem onClick={handleExportPdf} className="hover:bg-accent cursor-pointer">
+                <Download className="w-4 h-4 mr-2" /> Xuất PDF
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem onClick={handleExportWord} className="hover:bg-accent cursor-pointer">
                 <FileText className="w-4 h-4 mr-2" /> Xuất Word (.doc)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportHTML} className="hover:bg-[#2D2D2D] cursor-pointer">
+              <DropdownMenuItem onClick={handleExportHTML} className="hover:bg-accent cursor-pointer">
                 <Code className="w-4 h-4 mr-2" /> Xuất HTML
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
+            title="Xem bản hoàn thiện"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <FileSearch className="w-4 h-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
+            title="Chia sẻ link công khai (chỉ xem)"
+            onClick={() => {
+              setShareOpen(true)
+              setShareUrl(null)
+            }}
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] h-8 w-8 rounded-full" title="Thêm">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
+                title="Ẩn/hiện trường dữ liệu"
+              >
+                {hiddenFieldKeys.length > 0 ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground w-[280px]">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Ẩn/hiện thông tin trường</DropdownMenuLabel>
+              <DropdownMenuItem
+                className="hover:bg-accent cursor-pointer text-sm"
+                onClick={() => hideAll(fieldsForToggles.map((f) => f.key))}
+              >
+                <EyeOff className="w-4 h-4 mr-2" /> Ẩn tất cả
+              </DropdownMenuItem>
+              <DropdownMenuItem className="hover:bg-accent cursor-pointer text-sm" onClick={() => showAll()}>
+                <Eye className="w-4 h-4 mr-2" /> Hiện tất cả
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              {fieldsForToggles.length === 0 ? (
+                <DropdownMenuItem className="text-muted-foreground" disabled>
+                  Chưa có trường dữ liệu
+                </DropdownMenuItem>
+              ) : (
+                fieldsForToggles.map((f) => (
+                  <DropdownMenuCheckboxItem
+                    key={f.key}
+                    checked={hiddenFieldKeys.includes(f.key)}
+                    onCheckedChange={() => toggleHiddenFieldKey(f.key)}
+                    className="hover:bg-accent cursor-pointer"
+                    title={f.key}
+                  >
+                    <span className="truncate">{f.label}</span>
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full" title="Thêm">
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#131314] border-[#2D2D2D] text-[#E3E3E3]">
+            <DropdownMenuContent align="end" className="bg-popover border-border text-popover-foreground">
               {onSave && (
                 <>
-                  <DropdownMenuItem onClick={onSave} className="hover:bg-[#2D2D2D] cursor-pointer">
+                  <DropdownMenuItem onClick={onSave} className="hover:bg-accent cursor-pointer">
                     <Save className="w-4 h-4 mr-2" /> Lưu bản nháp
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-[#2D2D2D]" />
+                  <DropdownMenuSeparator className="bg-border" />
                 </>
               )}
-              <DropdownMenuItem onClick={handleCopyContent} className="hover:bg-[#2D2D2D] cursor-pointer">
+              <DropdownMenuItem onClick={handleCopyContent} className="hover:bg-accent cursor-pointer">
                 <Copy className="w-4 h-4 mr-2" /> Sao chép nội dung
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handlePrint} className="hover:bg-[#2D2D2D] cursor-pointer">
+              <DropdownMenuItem onClick={handlePrint} className="hover:bg-accent cursor-pointer">
                 <Printer className="w-4 h-4 mr-2" /> Chế độ in
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-[#2D2D2D]" />
-              <DropdownMenuItem className="hover:bg-[#2D2D2D] cursor-pointer" onClick={() => toast.info("Trợ giúp: Liên hệ support@lawzy.vn")}>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem className="hover:bg-accent cursor-pointer" onClick={() => toast.info("Trợ giúp: Liên hệ support@lawzy.vn")}>
                 <HelpCircle className="w-4 h-4 mr-2" /> Trợ giúp
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <div className="h-4 w-[1px] bg-[#2D2D2D] mx-1"></div>
+          <div className="h-4 w-px bg-border mx-1"></div>
           
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={onClose}
-            className="text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] h-8 w-8 rounded-full"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
             title="Đóng canvas"
           >
             <X className="w-4 h-4" />
@@ -238,29 +399,126 @@ export function CanvasEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="px-4 py-2 border-b border-[#2D2D2D] bg-[#131314] flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="px-4 py-2 border-b border-border bg-background flex items-center gap-1 overflow-x-auto no-scrollbar">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]">
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent">
               <span className="text-xs">Kiểu văn bản</span>
               <ChevronDown className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-[#131314] border-[#2D2D2D] text-[#E3E3E3]">
-            <DropdownMenuItem onClick={() => editor.chain().focus().setParagraph().run()} className="hover:bg-[#2D2D2D]">Văn bản thường</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className="hover:bg-[#2D2D2D]">Tiêu đề 1</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className="hover:bg-[#2D2D2D]">Tiêu đề 2</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className="hover:bg-[#2D2D2D]">Tiêu đề 3</DropdownMenuItem>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground">
+            <DropdownMenuItem onClick={() => editor.chain().focus().setParagraph().run()} className="hover:bg-accent">Văn bản thường</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className="hover:bg-accent">Tiêu đề 1</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className="hover:bg-accent">Tiêu đề 2</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className="hover:bg-accent">Tiêu đề 3</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="h-4 w-[1px] bg-[#2D2D2D] mx-2"></div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent">
+              <span className="text-xs truncate max-w-[120px]">{fontFamilyLabel}</span>
+              <ChevronDown className="w-3 h-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground">
+            <DropdownMenuItem onClick={() => editor.chain().focus().unsetFontFamily().run()} className="hover:bg-accent">
+              Mặc định
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            {['Inter', 'Arial', 'Times New Roman', 'Courier New'].map((ff) => (
+              <DropdownMenuItem
+                key={ff}
+                onClick={() => editor.chain().focus().setFontFamily(ff).run()}
+                className="hover:bg-accent"
+              >
+                {ff}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent">
+              <span className="text-xs">{fontSizeLabel}</span>
+              <ChevronDown className="w-3 h-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground">
+            <DropdownMenuItem onClick={() => editor.chain().focus().unsetFontSize().run()} className="hover:bg-accent">
+              Mặc định
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            {['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'].map((sz) => (
+              <DropdownMenuItem
+                key={sz}
+                onClick={() => editor.chain().focus().setFontSize(sz).run()}
+                className="hover:bg-accent"
+              >
+                {sz}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="h-4 w-px bg-border mx-2"></div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          className={cn(
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            editor.isActive({ textAlign: 'left' }) && "bg-accent text-foreground"
+          )}
+          title="Căn trái"
+        >
+          <AlignLeft className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          className={cn(
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            editor.isActive({ textAlign: 'center' }) && "bg-accent text-foreground"
+          )}
+          title="Căn giữa"
+        >
+          <AlignCenter className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          className={cn(
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            editor.isActive({ textAlign: 'right' }) && "bg-accent text-foreground"
+          )}
+          title="Căn phải"
+        >
+          <AlignRight className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+          className={cn(
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            editor.isActive({ textAlign: 'justify' }) && "bg-accent text-foreground"
+          )}
+          title="Căn đều"
+        >
+          <AlignJustify className="w-4 h-4" />
+        </Button>
 
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={cn("h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]", editor.isActive('bold') && "bg-[#2D2D2D] text-[#E3E3E3]")}
+          className={cn("h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent", editor.isActive('bold') && "bg-accent text-foreground")}
           title="In đậm"
         >
           <Bold className="w-4 h-4" />
@@ -270,19 +528,19 @@ export function CanvasEditor({
           variant="ghost" 
           size="icon" 
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={cn("h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]", editor.isActive('italic') && "bg-[#2D2D2D] text-[#E3E3E3]")}
+          className={cn("h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent", editor.isActive('italic') && "bg-accent text-foreground")}
           title="In nghiêng"
         >
           <Italic className="w-4 h-4" />
         </Button>
 
-        <div className="h-4 w-[1px] bg-[#2D2D2D] mx-2"></div>
+        <div className="h-4 w-px bg-border mx-2"></div>
 
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={cn("h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]", editor.isActive('bulletList') && "bg-[#2D2D2D] text-[#E3E3E3]")}
+          className={cn("h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent", editor.isActive('bulletList') && "bg-accent text-foreground")}
           title="Danh sách"
         >
           <List className="w-4 h-4" />
@@ -292,7 +550,7 @@ export function CanvasEditor({
           variant="ghost" 
           size="icon" 
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={cn("h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]", editor.isActive('orderedList') && "bg-[#2D2D2D] text-[#E3E3E3]")}
+          className={cn("h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent", editor.isActive('orderedList') && "bg-accent text-foreground")}
           title="Danh sách số"
         >
           <ListOrdered className="w-4 h-4" />
@@ -305,7 +563,7 @@ export function CanvasEditor({
           size="icon" 
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
-          className="h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] disabled:opacity-30"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
           title="Hoàn tác"
         >
           <Undo className="w-4 h-4" />
@@ -316,7 +574,7 @@ export function CanvasEditor({
           size="icon" 
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
-          className="h-8 w-8 rounded text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] disabled:opacity-30"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
           title="Làm lại"
         >
           <Redo className="w-4 h-4" />
@@ -324,12 +582,12 @@ export function CanvasEditor({
       </div>
 
       {/* Editor Body — cấu trúc văn bản: heading, paragraph, căn giữa/trái */}
-      <div className="flex-1 overflow-auto relative bg-[#131314]">
+      <div className="flex-1 overflow-auto relative bg-background">
         <EditorContent
           editor={editor}
           className={cn(
-            'min-h-full p-6 pb-24 text-[#E3E3E3]',
-            '[&_.ProseMirror]:min-h-[calc(100%-48px)] [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-[#E3E3E3]',
+            'min-h-full p-6 pb-24 text-foreground',
+            '[&_.ProseMirror]:min-h-[calc(100%-48px)] [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-foreground',
             '[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-2 [&_h1]:first:mt-0',
             '[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2',
             '[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1',
@@ -338,6 +596,56 @@ export function CanvasEditor({
           )}
         />
       </div>
+
+      {/* Preview dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Xem bản hoàn thiện</DialogTitle>
+            <DialogDescription>
+              Bản xem trước (read-only) với dữ liệu đã được trộn và áp dụng quy tắc ẩn/hiện.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: getFinalHtml() }}
+            />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Chia sẻ link công khai</DialogTitle>
+            <DialogDescription>
+              Tạo link snapshot chỉ đọc. Người nhận không cần đăng nhập và chỉ có thể xem.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Button type="button" onClick={handleCreateShareLink} disabled={shareLoading}>
+              {shareLoading ? 'Đang tạo link...' : 'Tạo link'}
+            </Button>
+            {shareUrl && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Link</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 h-9 rounded-md border border-border bg-background px-3 text-sm"
+                  />
+                  <Button type="button" variant="outline" onClick={handleCopyShareLink}>
+                    Sao chép
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

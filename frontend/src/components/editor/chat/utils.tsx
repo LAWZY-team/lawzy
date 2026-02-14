@@ -9,7 +9,7 @@ export function renderSimpleMarkdown(text: string): ReactNode {
   if (parts.length <= 1) return text
   return parts.map((segment, i) =>
     i % 2 === 1 ? (
-      <strong key={i} className="font-semibold text-[#E3E3E3]">
+      <strong key={i} className="font-semibold text-foreground">
         {segment}
       </strong>
     ) : (

@@ -36,7 +36,6 @@ export function ChatMessageList({
   thinkingSteps,
   thinkingCollapsed,
   onToggleThinkingCollapsed,
-  userDisplayName,
   isCanvasMode,
   onOpenCanvas,
   expandedThinkingId,
@@ -48,25 +47,22 @@ export function ChatMessageList({
       <div className="px-4 py-6 md:px-6 space-y-8 max-w-3xl mx-auto w-full pb-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-6 animate-in fade-in duration-700">
-            <div className="bg-[#131314] p-4 rounded-full border border-[#2D2D2D]">
-              <Scale className="w-8 h-8 text-[#9CA3AF]" />
-            </div>
             <div className="space-y-2 max-w-md">
-              <h2 className="text-2xl font-medium text-[#E3E3E3]">
-                Xin chào, {userDisplayName?.trim() || 'Luật sư'}
+              <h2 className="text-2xl font-medium text-foreground">
+                {/* Xin chào, {userDisplayName?.trim() || 'Luật sư'} */}
               </h2>
-              <p className="text-[#9CA3AF]">Hôm nay tôi có thể giúp gì cho bạn?</p>
+              <p className="text-muted-foreground">Hôm nay tôi có thể giúp gì cho bạn?</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl mt-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.text}
                   type="button"
-                  className="p-4 text-sm text-left bg-[#131314] hover:bg-[#2D2D2D] border border-[#2D2D2D] rounded-xl transition-all flex items-center gap-3 text-[#E3E3E3] group"
+                  className="p-4 text-sm text-left bg-background hover:bg-accent border border-border rounded-xl transition-all flex items-center gap-3 text-foreground group"
                   onClick={() => onQuickAction(action.text)}
                 >
-                  <div className="p-2 rounded-lg bg-[#2D2D2D] group-hover:bg-[#3D3D3D] transition-colors">
+                  <div className="p-2 rounded-lg bg-muted group-hover:bg-accent transition-colors">
                     <action.icon className="w-4 h-4 text-blue-400" />
                   </div>
                   <span>{action.text}</span>
@@ -95,8 +91,8 @@ export function ChatMessageList({
             animate={{ opacity: 1 }}
             className="flex gap-4 w-full"
           >
-            <div className="flex-shrink-0 mt-1">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center">
+            <div className="shrink-0 mt-1">
+              <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-blue-400 animate-spin-slow" />
               </div>
             </div>

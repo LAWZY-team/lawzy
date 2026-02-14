@@ -154,27 +154,27 @@ export function ChatInputArea({
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-[#131314] z-20 border-t border-[#2D2D2D]">
+    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-3 bg-background z-20 border-t border-border">
       <div className="relative max-w-3xl mx-auto w-full">
         <div
           className={cn(
-            'relative bg-[#131314] rounded-[24px] border transition-all flex flex-col min-h-[56px]',
-            isDragOver ? 'border-blue-500/60 bg-blue-500/5' : 'border-[#2D2D2D] focus-within:border-[#2D2D2D]'
+            'relative bg-background rounded-[24px] border transition-all flex flex-col min-h-[56px]',
+            isDragOver ? 'border-blue-500/60 bg-blue-500/5' : 'border-border focus-within:border-border'
           )}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           {hasAttachedFile && (
-            <div className="px-4 pt-3 pb-1 flex items-center gap-2 flex-wrap border-b border-[#2D2D2D]/50">
-              <span className="inline-flex items-center gap-2 rounded-full bg-[#2D2D2D] pl-3 pr-1.5 py-1.5 text-sm text-[#E3E3E3]">
-                <FileText className="w-4 h-4 text-[#9CA3AF] shrink-0" />
+            <div className="px-4 pt-3 pb-1 flex items-center gap-2 flex-wrap border-b border-border/50">
+              <span className="inline-flex items-center gap-2 rounded-full bg-muted pl-3 pr-1.5 py-1.5 text-sm text-foreground">
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="max-w-[200px] truncate">{attachedFile.name}</span>
                 {onRemoveAttachedFile && (
                   <button
                     type="button"
                     onClick={onRemoveAttachedFile}
-                    className="hover:bg-[#3D3D3D] rounded-full p-1 text-[#9CA3AF] hover:text-red-400 transition-colors"
+                    className="hover:bg-accent rounded-full p-1 text-muted-foreground hover:text-red-500 transition-colors"
                     aria-label="Gỡ file"
                   >
                     <X className="w-4 h-4" />
@@ -201,7 +201,7 @@ export function ChatInputArea({
                   : 'Hỏi Lawzy về hợp đồng...'
               }
               className={cn(
-                'min-h-[56px] max-h-[200px] flex-1 w-full bg-transparent border-none focus-visible:ring-0 resize-none text-[16px] text-[#E3E3E3] placeholder:text-[#6B7280] leading-relaxed rounded-[24px]',
+                'min-h-[56px] max-h-[200px] flex-1 w-full bg-transparent border-none focus-visible:ring-0 resize-none text-[16px] text-foreground placeholder:text-muted-foreground leading-relaxed rounded-[24px]',
                 hasAttachedFile ? 'pl-12 pr-12 py-3 pt-3' : 'pl-12 pr-12 py-4'
               )}
               disabled={isLoading}
@@ -236,7 +236,7 @@ export function ChatInputArea({
                     size="icon"
                     disabled={!!attachedFile || isLoading}
                     title="Đính kèm file PDF, DOC hoặc DOCX (tối đa 25MB)"
-                    className="text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D] rounded-full h-10 w-10 transition-colors"
+                    className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-full h-10 w-10 transition-colors"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip className="w-5 h-5" />
@@ -251,7 +251,7 @@ export function ChatInputArea({
                   type="button"
                   onClick={handleSubmit}
                   size="icon"
-                  className="h-10 w-10 rounded-full bg-[#E3E3E3] text-[#131314] hover:bg-white transition-all shadow-md"
+                  className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
                 >
                   <Send className="w-5 h-5 ml-0.5" />
                 </Button>
@@ -266,7 +266,7 @@ export function ChatInputArea({
                     'rounded-full h-10 w-10 transition-colors',
                     isListening
                       ? 'text-red-400 bg-red-500/20 hover:bg-red-500/30'
-                      : 'text-[#9CA3AF] hover:text-[#E3E3E3] hover:bg-[#2D2D2D]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                   )}
                   onClick={toggleVoice}
                 >
@@ -276,7 +276,7 @@ export function ChatInputArea({
             </div>
           </div>
         </div>
-        <p className="mt-1.5 text-[11px] text-[#6B7280] text-center">
+        <p className="mt-3 text-[11px] text-muted-foreground text-center">
           Lawzy AI có thể mắc lỗi. Hãy kiểm tra lại thông tin quan trọng.
         </p>
       </div>

@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { getR2Env } from './config/env';
 import { R2Module } from './integrations/r2/r2.module';
 import { ContractTemplatesModule } from './modules/contract-templates/contract-templates.module';
+import { PublicSharesModule } from './modules/public-shares/public-shares.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ContractTemplatesModule } from './modules/contract-templates/contract-t
     }),
     R2Module,
     ContractTemplatesModule,
+    PublicSharesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
