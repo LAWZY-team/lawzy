@@ -4,19 +4,28 @@ import { useState, useMemo } from "react"
 import { TemplateGrid } from "@/components/templates/template-grid"
 import { TemplateFilters } from "@/components/templates/template-filters"
 import { TemplateDetailSplit } from "@/components/templates/template-detail-split"
+import { CommunityTemplatesTab } from "@/components/templates/community-templates-tab"
 import { Modal } from "@/components/ui/modal"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import templatesData from "@/mock/templates.json"
 import type { Template } from "@/types/template"
+import type { CommunityFileType, CommunitySort } from "@/components/templates/community-template-filters"
 
 const templates = templatesData.templates as Template[]
 
 export default function TemplatesPage() {
+  const [activeTab, setActiveTab] = useState<"system" | "community">("system")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedType, setSelectedType] = useState("all")
   const [selectedSort, setSelectedSort] = useState("popular")
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
+
+  const [communitySearch, setCommunitySearch] = useState("")
+  const [communityFileType, setCommunityFileType] = useState<CommunityFileType>("all")
+  const [communitySort, setCommunitySort] = useState<CommunitySort>("recent")
+  const [communityViewMode, setCommunityViewMode] = useState<"card" | "list">("card")
 
   const filteredTemplates = useMemo(() => {
     let filtered = [...templates]
@@ -64,38 +73,62 @@ export default function TemplatesPage() {
         </p>
       </div>
 
-      <div className="shrink-0 mb-4">
-        <TemplateFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedType={selectedType}
-          onTypeChange={setSelectedType}
-          selectedSort={selectedSort}
-          onSortChange={setSelectedSort}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 min-h-0 flex flex-col">
+        <div className="shrink-0 flex items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="system">Hệ thống</TabsTrigger>
+            <TabsTrigger value="community">Cộng đồng</TabsTrigger>
+          </TabsList>
+        </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        {filteredTemplates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-lg font-semibold">Không tìm thấy mẫu hợp đồng</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Thử thay đổi bộ lọc hoặc tìm kiếm khác
-            </p>
+        <TabsContent value="system" className="flex-1 min-h-0 mt-4 data-[state=inactive]:hidden">
+          <div className="shrink-0 mb-4">
+            <TemplateFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedType={selectedType}
+              onTypeChange={setSelectedType}
+              selectedSort={selectedSort}
+              onSortChange={setSelectedSort}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
           </div>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground shrink-0 mb-2">
-              Tìm thấy {filteredTemplates.length} mẫu hợp đồng
-            </p>
-            <ScrollArea className="flex-1 min-h-0">
-              <TemplateGrid templates={filteredTemplates} onViewTemplate={handleViewTemplate} viewMode={viewMode} />
-            </ScrollArea>
-          </>
-        )}
-      </div>
+
+          <div className="flex-1 min-h-0 flex flex-col">
+            {filteredTemplates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-lg font-semibold">Không tìm thấy mẫu hợp đồng</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Thử thay đổi bộ lọc hoặc tìm kiếm khác
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground shrink-0 mb-2">
+                  Tìm thấy {filteredTemplates.length} mẫu hợp đồng
+                </p>
+                <ScrollArea className="flex-1 min-h-0">
+                  <TemplateGrid templates={filteredTemplates} onViewTemplate={handleViewTemplate} viewMode={viewMode} />
+                </ScrollArea>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="community" className="flex-1 min-h-0 mt-4 data-[state=inactive]:hidden">
+          <CommunityTemplatesTab
+            searchQuery={communitySearch}
+            onSearchChange={setCommunitySearch}
+            selectedFileType={communityFileType}
+            onFileTypeChange={setCommunityFileType}
+            selectedSort={communitySort}
+            onSortChange={setCommunitySort}
+            viewMode={communityViewMode}
+            onViewModeChange={setCommunityViewMode}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Modal
         open={!!selectedTemplate}

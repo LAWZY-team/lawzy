@@ -44,8 +44,7 @@ const navGroups = [
   {
     label: "Thư viện",
     items: [
-      { title: "Mẫu hợp đồng", href: "/templates", icon: Library },
-    ],
+      { title: "Mẫu hợp đồng", href: "/templates", icon: Library },    ],
   },
   {
     label: "Cài đặt",
