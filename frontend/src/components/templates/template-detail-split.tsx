@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { X, FileText, User, Calendar, Scale, Layers } from "lucide-react"
+import { X, FileText, Calendar, Scale, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -21,6 +21,7 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
   if (!template) return null
 
   const mergeFields = (template.mergeFields ?? []) as MergeFieldDefinition[]
+  const laws = template.metadata?.lawVersions ?? []
 
   return (
     <div className="flex flex-col h-full min-h-[400px] rounded-lg border-0 bg-card overflow-hidden">
@@ -28,7 +29,7 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
         <h3 className="font-semibold truncate">{template.title}</h3>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/editor/new?template=${template.templateId}`}>Sử dụng mẫu</Link>
+            <Link href={`/editor/new?template=${template.id}`}>Sử dụng mẫu</Link>
           </Button>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Đóng">
             <X className="h-4 w-4" />
@@ -37,7 +38,6 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
       </div>
 
       <div className="flex flex-1 min-h-0 w-full">
-        {/* Left: Xem trước — tối thiểu 55% hoặc 360px */}
         <div className="flex-1 min-w-[max(360px,55%)] border-r flex flex-col overflow-hidden">
           <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
             <FileText className="h-4 w-4" />
@@ -49,7 +49,6 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
           />
         </div>
 
-        {/* Right: Metadata — cố định 280px */}
         <div className="flex shrink-0 w-[280px] flex-col bg-muted/20 overflow-hidden">
           <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
             <Layers className="h-4 w-4" />
@@ -67,23 +66,13 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
                 <ul className="space-y-1.5 text-sm">
                   <li className="flex justify-between gap-2">
                     <span className="text-muted-foreground">Loại</span>
-                    <Badge variant="secondary">{template.type}</Badge>
+                    <Badge variant="secondary">{template.category}</Badge>
                   </li>
                   <li className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">Trạng thái</span>
-                    <Badge variant="outline" className="capitalize">{template.status}</Badge>
+                    <span className="text-muted-foreground">Phạm vi</span>
+                    <Badge variant="outline" className="capitalize">{template.scope}</Badge>
                   </li>
                 </ul>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <User className="h-3.5 w-3.5" />
-                  Tác giả
-                </h4>
-                <p className="text-sm">{template.author}</p>
               </div>
 
               <Separator />
@@ -105,25 +94,22 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
                 </ul>
               </div>
 
-              <Separator />
-
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Scale className="h-3.5 w-3.5" />
-                  Nguồn
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {template.primaryLaw && (
-                    <Badge>{template.primaryLaw}</Badge>
-                  )}
-                  {(template.secondaryLaw ?? []).map((law) => (
-                    <Badge key={law} variant="secondary">{law}</Badge>
-                  ))}
-                  {(template.lawVersions ?? []).filter((l) => l !== template.primaryLaw && !(template.secondaryLaw ?? []).includes(l)).map((law) => (
-                    <Badge key={law} variant="outline">{law}</Badge>
-                  ))}
-                </div>
-              </div>
+              {laws.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <Scale className="h-3.5 w-3.5" />
+                      Nguồn
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {laws.map((law) => (
+                        <Badge key={law} variant="secondary">{law}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
 

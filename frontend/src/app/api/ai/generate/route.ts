@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GeminiClient } from '@/lib/ai/gemini-client'
 import { buildSourcesContext } from '@/lib/sources/build-context'
-import uploadSourcesData from '@/mock/upload-sources.json'
-import type { UploadSource } from '@/types/upload-source'
-
-function getWorkspaceSources(workspaceId: string): UploadSource[] {
-  const list = (uploadSourcesData as { sources: UploadSource[] }).sources
-  return list.filter(
-    (s) => s.workspaceId === workspaceId && s.status === 'ready'
-  )
-}
 
 export async function POST(req: NextRequest) {
   try {
-    const { metadata, prompt, workspaceId = 'org001', existingContent, mergeFieldValues, attachedSources } = await req.json()
+    const { metadata, prompt, existingContent, mergeFieldValues, attachedSources } = await req.json()
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -23,16 +14,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const workspaceSources = getWorkspaceSources(workspaceId)
-    const sourcesContext = buildSourcesContext(
-      workspaceSources.map((s) => ({
-        sourceId: s.sourceId,
-        fileName: s.fileName,
-        title: s.title,
-        previewText: s.previewText,
-        pageCount: s.pageCount,
-      }))
-    )
+    const sourcesContext = buildSourcesContext([])
 
     const gemini = new GeminiClient(apiKey)
     const normalizedAttached =

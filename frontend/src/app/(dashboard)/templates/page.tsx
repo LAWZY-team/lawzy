@@ -8,17 +8,18 @@ import { CommunityTemplatesTab } from "@/components/templates/community-template
 import { Modal } from "@/components/ui/modal"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import templatesData from "@/mock/templates.json"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useTemplates } from "@/hooks/templates/use-templates"
 import type { Template } from "@/types/template"
 import type { CommunityFileType, CommunitySort } from "@/components/templates/community-template-filters"
-
-const templates = templatesData.templates as Template[]
+import { useT } from "@/components/i18n-provider"
 
 export default function TemplatesPage() {
+  const { t } = useT()
   const [activeTab, setActiveTab] = useState<"system" | "community">("system")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedType, setSelectedType] = useState("all")
-  const [selectedSort, setSelectedSort] = useState("popular")
+  const [selectedSort, setSelectedSort] = useState("recent")
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
 
@@ -27,6 +28,8 @@ export default function TemplatesPage() {
   const [communitySort, setCommunitySort] = useState<CommunitySort>("recent")
   const [communityViewMode, setCommunityViewMode] = useState<"card" | "list">("card")
 
+  const { data: templates = [], isLoading } = useTemplates("system")
+
   const filteredTemplates = useMemo(() => {
     let filtered = [...templates]
 
@@ -34,18 +37,15 @@ export default function TemplatesPage() {
       filtered = filtered.filter(
         (t) =>
           t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.description.toLowerCase().includes(searchQuery.toLowerCase())
+          (t.description ?? "").toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
 
     if (selectedType !== "all") {
-      filtered = filtered.filter((t) => t.type === selectedType)
+      filtered = filtered.filter((t) => t.category === selectedType)
     }
 
     switch (selectedSort) {
-      case "popular":
-        filtered.sort((a, b) => b.popularity - a.popularity)
-        break
       case "recent":
         filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         break
@@ -58,26 +58,22 @@ export default function TemplatesPage() {
     }
 
     return filtered
-  }, [searchQuery, selectedType, selectedSort])
-
-  const handleViewTemplate = (template: Template) => {
-    setSelectedTemplate(template)
-  }
+  }, [templates, searchQuery, selectedType, selectedSort])
 
   return (
     <div className="flex flex-1 flex-col min-h-0 p-6">
       <div className="shrink-0 mb-6">
-        <h2 className="text-3xl font-bold tracking-tight">Mẫu hợp đồng</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("tmpl_title")}</h2>
         <p className="text-muted-foreground">
-          Thư viện {templates.length} mẫu hợp đồng có sẵn
+          {t("tmpl_library", { n: templates.length })}
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "system" | "community")} className="flex-1 min-h-0 flex flex-col">
         <div className="shrink-0 flex items-center justify-between gap-3">
           <TabsList>
-            <TabsTrigger value="system">Hệ thống</TabsTrigger>
-            <TabsTrigger value="community">Cộng đồng</TabsTrigger>
+            <TabsTrigger value="system">{t("tmpl_system")}</TabsTrigger>
+            <TabsTrigger value="community">{t("tmpl_community")}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -99,20 +95,26 @@ export default function TemplatesPage() {
           </div>
 
           <div className="flex-1 min-h-0 flex flex-col">
-            {filteredTemplates.length === 0 ? (
+            {isLoading ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-64 rounded-xl" />
+                ))}
+              </div>
+            ) : filteredTemplates.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-lg font-semibold">Không tìm thấy mẫu hợp đồng</p>
+                <p className="text-lg font-semibold">{t("tmpl_not_found")}</p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Thử thay đổi bộ lọc hoặc tìm kiếm khác
+                  {t("tmpl_try_different")}
                 </p>
               </div>
             ) : (
               <>
                 <p className="text-sm text-muted-foreground shrink-0 mb-2">
-                  Tìm thấy {filteredTemplates.length} mẫu hợp đồng
+                  {t("tmpl_found", { n: filteredTemplates.length })}
                 </p>
                 <ScrollArea className="flex-1 min-h-0">
-                  <TemplateGrid templates={filteredTemplates} onViewTemplate={handleViewTemplate} viewMode={viewMode} />
+                  <TemplateGrid templates={filteredTemplates} onViewTemplate={setSelectedTemplate} viewMode={viewMode} />
                 </ScrollArea>
               </>
             )}

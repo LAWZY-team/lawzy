@@ -6,66 +6,112 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import paymentsData from "@/mock/payments.json"
-import usersData from "@/mock/users.json"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
 import { useAuthStore } from "@/stores/auth-store"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+
+const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024
+
+const plans = [
+  {
+    planId: "free",
+    name: "Free",
+    description: "Dùng thử miễn phí",
+    price: 0,
+    billingCycle: "monthly",
+    highlighted: false,
+    contactSales: false,
+    features: {
+      dailyQuota: 5,
+      templates: 3,
+      storage: "500 MB",
+      workspaceMembers: 1,
+      aiAssistant: false,
+    },
+  },
+  {
+    planId: "pro",
+    name: "Professional",
+    description: "Cho cá nhân & nhóm nhỏ",
+    price: 299000,
+    billingCycle: "monthly",
+    highlighted: true,
+    contactSales: false,
+    features: {
+      dailyQuota: 100,
+      templates: "unlimited",
+      storage: "10 GB",
+      workspaceMembers: 10,
+      aiAssistant: true,
+    },
+  },
+  {
+    planId: "enterprise",
+    name: "Enterprise",
+    description: "Cho doanh nghiệp",
+    price: 0,
+    billingCycle: "monthly",
+    highlighted: false,
+    contactSales: true,
+    features: {
+      dailyQuota: "unlimited",
+      templates: "unlimited",
+      storage: "100 GB",
+      workspaceMembers: "unlimited",
+      aiAssistant: true,
+    },
+  },
+]
+
+const formatBytes = (bytes: number, decimals = 2) => {
+  if (!+bytes) return "0 Bytes"
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
 
 export default function PaymentPage() {
   const { user } = useAuthStore()
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
+  const { data: overview, isLoading } = useDashboardOverview()
 
-  // Simulate current user (mock)
-  const currentUser = usersData.users[0]
-  const quota = currentUser.quota
-
-  // Calculate percentages
-  const dailyQuotaPercent = (quota.dailyRemaining / quota.dailyLimit) * 100
-  const storagePercent = (quota.storageUsed / quota.storageLimit) * 100
-
-  // Format bytes
-  const formatBytes = (bytes: number, decimals = 2) => {
-    if (!+bytes) return '0 Bytes'
-    const k = 1024
-    const dm = decimals < 0 ? 0 : decimals
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
-  }
+  const storageUsed = overview?.storageUsed ?? 0
+  const storagePercent = STORAGE_LIMIT > 0 ? (storageUsed / STORAGE_LIMIT) * 100 : 0
+  const currentPlan = "pro"
 
   const handleUpgrade = async (planId: string) => {
-    if (planId === 'free') return
-    
+    if (planId === "free") return
     setLoading(planId)
-    
+
     try {
-      const plan = paymentsData.plans.find((p) => p.planId === planId)
-      
-      if (planId === 'enterprise') {
-        toast.info('Vui lòng liên hệ sales để được tư vấn gói Enterprise')
+      if (planId === "enterprise") {
+        toast.info("Vui lòng liên hệ sales để được tư vấn gói Enterprise")
         setLoading(null)
         return
       }
 
-      const response = await fetch('/api/payment/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const plan = plans.find((p) => p.planId === planId)
+      const response = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user?.id || 'demo',
+          userId: user?.id || "demo",
           plan: planId,
           amount: plan?.price || 0,
         }),
       })
 
       const result = await response.json()
-
       if (result.checkoutUrl) {
         router.push(result.checkoutUrl)
       }
     } catch (error) {
-      toast.error('Có lỗi xảy ra khi tạo thanh toán')
+      toast.error("Có lỗi xảy ra khi tạo thanh toán")
       console.error(error)
     } finally {
       setLoading(null)
@@ -81,24 +127,26 @@ export default function PaymentPage() {
         </p>
       </div>
 
-      {/* Quota Usage Section */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Hạn mức theo ngày</CardTitle>
+            <CardTitle className="text-sm font-medium">Tổng tài liệu</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{quota.dailyRemaining}</span>
-                <span className="text-muted-foreground text-sm">/ {quota.dailyLimit} yêu cầu</span>
-              </div>
-            </div>
-            <Progress value={dailyQuotaPercent} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-2">
-              Sẽ được làm mới vào ngày mai
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold">{overview?.totalDocuments ?? 0}</span>
+                  <span className="text-muted-foreground text-sm">tài liệu</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {overview?.draftDocuments ?? 0} nháp &bull; {overview?.completedDocuments ?? 0} hoàn thành
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -107,17 +155,23 @@ export default function PaymentPage() {
             <CardTitle className="text-sm font-medium">Dung lượng lưu trữ</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <span className="text-2xl font-bold">{formatBytes(quota.storageUsed)}</span>
-                <span className="text-muted-foreground text-sm">/ {formatBytes(quota.storageLimit)}</span>
-              </div>
-            </div>
-            <Progress value={storagePercent} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-2">
-              Bao gồm tài liệu và tập tin tải lên
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-2xl font-bold">{formatBytes(storageUsed)}</span>
+                    <span className="text-muted-foreground text-sm">/ {formatBytes(STORAGE_LIMIT)}</span>
+                  </div>
+                </div>
+                <Progress value={storagePercent} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Bao gồm tài liệu và tập tin tải lên
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -125,10 +179,10 @@ export default function PaymentPage() {
       <div className="mt-6">
         <h3 className="text-xl font-semibold mb-4">Gói dịch vụ</h3>
         <div className="grid gap-6 md:grid-cols-3">
-          {paymentsData.plans.map((plan) => (
+          {plans.map((plan) => (
             <Card
               key={plan.planId}
-              className={plan.highlighted ? 'border-primary shadow-lg relative' : 'relative'}
+              className={plan.highlighted ? "border-primary shadow-lg relative" : "relative"}
             >
               <CardHeader>
                 {plan.highlighted && (
@@ -137,8 +191,8 @@ export default function PaymentPage() {
                     Phổ biến nhất
                   </Badge>
                 )}
-                {currentUser.quota.subscriptionPlan === plan.planId && (
-                   <Badge variant="secondary" className="w-fit mb-2 absolute top-6 right-6">
+                {currentPlan === plan.planId && (
+                  <Badge variant="secondary" className="w-fit mb-2 absolute top-6 right-6">
                     Đang sử dụng
                   </Badge>
                 )}
@@ -152,9 +206,9 @@ export default function PaymentPage() {
                   ) : (
                     <>
                       <p className="text-3xl font-bold">
-                        {plan.price.toLocaleString('vi-VN')} ₫
+                        {plan.price.toLocaleString("vi-VN")} ₫
                       </p>
-                      <p className="text-sm text-muted-foreground">/{plan.billingCycle === 'monthly' ? 'tháng' : plan.billingCycle}</p>
+                      <p className="text-sm text-muted-foreground">/tháng</p>
                     </>
                   )}
                 </div>
@@ -164,14 +218,14 @@ export default function PaymentPage() {
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" />
-                    {typeof plan.features.dailyQuota === 'number'
+                    {typeof plan.features.dailyQuota === "number"
                       ? `${plan.features.dailyQuota} yêu cầu/ngày`
-                      : 'Không giới hạn yêu cầu'}
+                      : "Không giới hạn yêu cầu"}
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" />
-                    {plan.features.templates === 'unlimited'
-                      ? 'Không giới hạn templates'
+                    {plan.features.templates === "unlimited"
+                      ? "Không giới hạn templates"
                       : `${plan.features.templates} templates`}
                   </li>
                   <li className="flex items-center gap-2">
@@ -180,9 +234,9 @@ export default function PaymentPage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" />
-                    {typeof plan.features.workspaceMembers === 'number'
+                    {typeof plan.features.workspaceMembers === "number"
                       ? `${plan.features.workspaceMembers} thành viên`
-                      : 'Không giới hạn thành viên'}
+                      : "Không giới hạn thành viên"}
                   </li>
                   {plan.features.aiAssistant && (
                     <li className="flex items-center gap-2">
@@ -196,17 +250,17 @@ export default function PaymentPage() {
               <CardFooter>
                 <Button
                   className="w-full"
-                  variant={plan.highlighted ? 'default' : 'outline'}
+                  variant={plan.highlighted ? "default" : "outline"}
                   onClick={() => handleUpgrade(plan.planId)}
-                  disabled={loading === plan.planId || currentUser.quota.subscriptionPlan === plan.planId}
+                  disabled={loading === plan.planId || currentPlan === plan.planId}
                 >
                   {loading === plan.planId
-                    ? 'Đang xử lý...'
+                    ? "Đang xử lý..."
                     : plan.contactSales
-                    ? 'Liên hệ Sales'
-                    : currentUser.quota.subscriptionPlan === plan.planId
-                    ? 'Đang sử dụng'
-                    : 'Nâng cấp'}
+                    ? "Liên hệ Sales"
+                    : currentPlan === plan.planId
+                    ? "Đang sử dụng"
+                    : "Nâng cấp"}
                 </Button>
               </CardFooter>
             </Card>

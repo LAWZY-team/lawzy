@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import contractsData from "@/mock/contracts.json"
-import workspacesData from "@/mock/workspaces.json"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useWorkspaceBreakdown } from "@/hooks/dashboard/use-dashboard"
+import { useT } from "@/components/i18n-provider"
 
 function SimpleBarList({
   items,
@@ -41,30 +41,29 @@ function SimpleBarList({
 }
 
 export function StatsByWorkspace() {
-  const byWorkspace = useMemo(() => {
-    const count: Record<string, number> = {}
-    contractsData.contracts.forEach((c) => {
-      const id = (c as { workspaceId?: string }).workspaceId ?? "Khác"
-      count[id] = (count[id] ?? 0) + 1
-    })
-    const workspaces = workspacesData.workspaces as { workspaceId: string; name: string }[]
-    return workspaces.map((w) => ({
-      name: w.name,
-      value: count[w.workspaceId] ?? 0,
-    }))
-  }, [])
+  const { data, isLoading } = useWorkspaceBreakdown()
+  const { t } = useT()
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Thống kê theo không gian làm việc</CardTitle>
-        <CardDescription>Số văn bản theo từng workspace</CardDescription>
+        <CardTitle>{t("dash_stats_by_ws")}</CardTitle>
+        <CardDescription>{t("dash_docs_per_ws")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <SimpleBarList
-          items={byWorkspace}
-          valueFormatter={(n) => `${n} văn bản`}
-        />
+        {isLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        ) : !data?.length ? (
+          <p className="text-sm text-muted-foreground">{t("dash_no_data")}</p>
+        ) : (
+          <SimpleBarList
+            items={data}
+            valueFormatter={(n) => t("dash_n_documents", { n })}
+          />
+        )}
       </CardContent>
     </Card>
   )

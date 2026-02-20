@@ -13,8 +13,6 @@ import { Separator } from '@/components/ui/separator'
 
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
-import contractsData from '@/mock/contracts.json'
-import mergeFieldsData from '@/mock/merge-fields.json'
 import { toast } from 'sonner'
 
 interface RightPanelProps {
@@ -31,27 +29,11 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
 
-  const currentContract = contractsData.contracts.find(c => c.contractId === currentDocumentId)
-
-  // Danh sách trường: từ contract hoặc template; giá trị đọc/ghi từ store (mergeFieldValues)
-  const baseMergeFields: MergeFieldItem[] = currentContract
-    ? Object.keys(currentContract.mergeFieldValues || {}).map((key) => {
-        let label = key
-        for (const cat of mergeFieldsData.categories) {
-          const field = cat.fields.find(f => f.key.replace(/{{|}}/g, '') === key || f.key === `{{${key}}}`)
-          if (field) {
-            label = field.label
-            break
-          }
-        }
-        const contractValues = currentContract.mergeFieldValues as unknown as Record<string, string> | undefined
-        return { key, label, value: mergeFieldValues[key] ?? contractValues?.[key] ?? '' }
-      })
-    : (templateMergeFields ?? []).map((f) => ({
-        key: f.fieldKey,
-        label: f.label,
-        value: mergeFieldValues[f.fieldKey] ?? f.sampleValue ?? '',
-      }))
+  const baseMergeFields: MergeFieldItem[] = (templateMergeFields ?? []).map((f) => ({
+    key: f.fieldKey,
+    label: f.label,
+    value: mergeFieldValues[f.fieldKey] ?? f.sampleValue ?? '',
+  }))
 
   const mergeFields: MergeFieldItem[] = useMemo(() => {
     const list: MergeFieldItem[] = [...baseMergeFields]
@@ -222,7 +204,7 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
                   <Label className="text-xs text-muted-foreground">Trạng thái</Label>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-500 text-xs border border-yellow-500/20 capitalize">
-                      {currentContract?.status || "draft"}
+                      draft
                     </span>
                   </div>
                 </div>
@@ -231,9 +213,9 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
                   <Label className="text-xs text-muted-foreground">Người tạo</Label>
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white">
-                      {currentContract?.createdBy ? "U" : "L"}
+                      L
                     </div>
-                    <span className="text-sm text-foreground">{currentContract?.createdBy || "Luật sư Admin"}</span>
+                    <span className="text-sm text-foreground">Lawzy</span>
                   </div>
                 </div>
               </div>

@@ -20,7 +20,13 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
+  refreshTokens    RefreshToken[]
+  workspaceMemberships WorkspaceMember[]
+  createdDocuments Document[]       @relation("DocumentCreator")
+  createdTemplates Template[]       @relation("TemplateCreator")
+  files            File[]
+  sources          Source[]
+  chatMessages     ChatMessage[]
 
   @@map("users")
 }
@@ -36,4 +42,155 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  logo        String?
+  plan        String   @default("free")
+  settings    Json     @default("{}")
+  quotaLimits Json?    @map("quota_limits")
+  aiConfig    Json?    @map("ai_config")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members   WorkspaceMember[]
+  documents Document[]
+  files     File[]
+  sources   Source[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  userId      String   @map("user_id")
+  role        String   @default("viewer")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model Document {
+  id               String   @id @default(uuid())
+  title            String
+  type             String   @default("contract")
+  status           String   @default("draft")
+  contentJSON      Json?    @map("content_json")
+  metadata         Json?
+  mergeFieldValues Json?    @map("merge_field_values")
+  templateId       String?  @map("template_id")
+  workspaceId      String   @map("workspace_id")
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator      User             @relation("DocumentCreator", fields: [createdBy], references: [id])
+  template     Template?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  versions     DocumentVersion[]
+  chatMessages ChatMessage[]
+
+  @@index([workspaceId])
+  @@index([createdBy])
+  @@index([templateId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id          String   @id @default(uuid())
+  documentId  String   @map("document_id")
+  contentJSON Json?    @map("content_json")
+  label       String?
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_versions")
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  category    String   @default("general")
+  scope       String   @default("system")
+  contentJSON Json?    @map("content_json")
+  mergeFields Json?    @map("merge_fields")
+  metadata    Json?
+  s3Key       String?  @map("s3_key")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  documents Document[]
+  creator   User?      @relation("TemplateCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([createdBy])
+  @@map("templates")
+}
+
+model File {
+  id          String   @id @default(uuid())
+  name        String
+  size        Int
+  mimeType    String   @map("mime_type")
+  s3Key       String   @map("s3_key")
+  userId      String   @map("user_id")
+  workspaceId String   @map("workspace_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("files")
+}
+
+model Source {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   @default("pdf")
+  status      String   @default("pending")
+  s3Key       String?  @map("s3_key")
+  content     String?  @db.LongText
+  tags        Json?
+  workspaceId String   @map("workspace_id")
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("sources")
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  documentId String   @map("document_id")
+  role       String
+  content    String   @db.LongText
+  metadata   Json?
+  userId     String   @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([userId])
+  @@map("chat_messages")
 }

@@ -2,50 +2,37 @@
 
 import { FileText, FileCheck, FileEdit, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import contractsData from "@/mock/contracts.json"
-
-function useStats() {
-  const contracts = contractsData.contracts
-  const now = new Date()
-  const thisMonth = now.getMonth()
-  const thisYear = now.getFullYear()
-
-  const total = contracts.length
-  const signedThisMonth = contracts.filter((c) => {
-    const d = new Date(c.updatedAt)
-    return (c.status === "active" || c.status === "signed") && d.getMonth() === thisMonth && d.getFullYear() === thisYear
-  }).length
-  const draft = contracts.filter((c) => c.status === "draft").length
-
-  return { total, signedThisMonth, draft }
-}
+import { Skeleton } from "@/components/ui/skeleton"
+import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
+import { useT } from "@/components/i18n-provider"
 
 export function StatsCards() {
-  const { total, signedThisMonth, draft } = useStats()
+  const { data, isLoading } = useDashboardOverview()
+  const { t } = useT()
 
   const cards = [
     {
-      title: "Tổng văn bản",
-      value: total,
-      sub: "hợp đồng trong workspace",
+      title: t("dash_total_docs"),
+      value: data?.totalDocuments ?? 0,
+      sub: t("dash_contracts_in_ws"),
       icon: FileText,
     },
     {
-      title: "Đã ký tháng này",
-      value: signedThisMonth,
-      sub: "văn bản có hiệu lực",
+      title: t("dash_completed"),
+      value: data?.completedDocuments ?? 0,
+      sub: t("dash_effective_docs"),
       icon: FileCheck,
     },
     {
-      title: "Đang soạn thảo",
-      value: draft,
-      sub: "bản nháp",
+      title: t("dash_drafting"),
+      value: data?.draftDocuments ?? 0,
+      sub: t("dash_drafts"),
       icon: FileEdit,
     },
     {
-      title: "So với tháng trước",
-      value: "+12%",
-      sub: "tăng hoạt động",
+      title: t("dash_total_files"),
+      value: data?.totalFiles ?? 0,
+      sub: t("dash_uploaded_files"),
       icon: TrendingUp,
     },
   ]
@@ -59,7 +46,11 @@ export function StatsCards() {
             <item.icon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{item.value}</div>
+            {isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <div className="text-2xl font-bold">{item.value}</div>
+            )}
             <p className="text-xs text-muted-foreground">{item.sub}</p>
           </CardContent>
         </Card>

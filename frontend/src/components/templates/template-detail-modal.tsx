@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import type { Template as TemplateType, MergeFieldDefinition } from "@/types/template"
-
-interface Template extends Pick<TemplateType, "templateId" | "title" | "description" | "type" | "lawVersions" | "author" | "createdAt"> {
-  mergeFields?: MergeFieldDefinition[] | string[]
-}
+import type { Template, MergeFieldDefinition } from "@/types/template"
 
 interface TemplateDetailModalProps {
   template: Template | null
@@ -21,6 +17,9 @@ interface TemplateDetailModalProps {
 
 export function TemplateDetailModal({ template, open, onOpenChange }: TemplateDetailModalProps) {
   if (!template) return null
+
+  const laws = template.metadata?.lawVersions ?? []
+  const mergeFields = (template.mergeFields ?? []) as MergeFieldDefinition[]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,46 +36,45 @@ export function TemplateDetailModal({ template, open, onOpenChange }: TemplateDe
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Loại:</span>
-                  <Badge variant="secondary" className="ml-2">{template.type}</Badge>
+                  <Badge variant="secondary" className="ml-2">{template.category}</Badge>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Tác giả:</span>
-                  <span className="ml-2">{template.author}</span>
+                  <span className="text-muted-foreground">Phạm vi:</span>
+                  <span className="ml-2 capitalize">{template.scope}</span>
                 </div>
               </div>
             </div>
 
             <Separator />
 
-            <div>
-              <h4 className="text-sm font-semibold mb-2">Nguồn</h4>
-              <div className="flex flex-wrap gap-2">
-                {template.lawVersions.map((law) => (
-                  <Badge key={law}>{law}</Badge>
-                ))}
-              </div>
-            </div>
+            {laws.length > 0 && (
+              <>
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">Nguồn</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {laws.map((law) => (
+                      <Badge key={law}>{law}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
 
-            <Separator />
-
             <div>
-              <h4 className="text-sm font-semibold mb-2">Merge Fields ({template.mergeFields?.length ?? 0})</h4>
+              <h4 className="text-sm font-semibold mb-2">Merge Fields ({mergeFields.length})</h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                {(template.mergeFields ?? []).slice(0, 10).map((field, i) => {
-                  const key = typeof field === "string" ? field : field.fieldKey
-                  const label = typeof field === "string" ? field : field.label
-                  return (
-                    <div key={typeof field === "string" ? field : `${field.fieldKey}-${i}`} className="flex flex-col gap-0.5">
-                      <code className="px-2 py-1 bg-muted rounded text-xs">{`{{${key}}}`}</code>
-                      {typeof field === "object" && label !== key && (
-                        <span className="text-muted-foreground text-xs">{label}</span>
-                      )}
-                    </div>
-                  )
-                })}
-                {(template.mergeFields?.length ?? 0) > 10 && (
+                {mergeFields.slice(0, 10).map((field, i) => (
+                  <div key={`${field.fieldKey}-${i}`} className="flex flex-col gap-0.5">
+                    <code className="px-2 py-1 bg-muted rounded text-xs">{`{{${field.fieldKey}}}`}</code>
+                    {field.label !== field.fieldKey && (
+                      <span className="text-muted-foreground text-xs">{field.label}</span>
+                    )}
+                  </div>
+                ))}
+                {mergeFields.length > 10 && (
                   <span className="text-muted-foreground text-xs col-span-2">
-                    và {(template.mergeFields?.length ?? 0) - 10} field khác...
+                    và {mergeFields.length - 10} field khác...
                   </span>
                 )}
               </div>
@@ -89,7 +87,7 @@ export function TemplateDetailModal({ template, open, onOpenChange }: TemplateDe
             Đóng
           </Button>
           <Button asChild>
-            <Link href={`/editor/new?template=${template.templateId}`}>
+            <Link href={`/editor/new?template=${template.id}`}>
               Sử dụng mẫu này
             </Link>
           </Button>

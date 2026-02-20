@@ -1,15 +1,15 @@
 services:
+  # ─── Database ───
   mysql:
     image: mysql:8.0
     container_name: lawzy-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-lawzy2026}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: lawzy
-    ports:
-      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - lawzy-network
     healthcheck:
@@ -18,82 +18,138 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Backend Production (NestJS) ───
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: lawzy-backend
     restart: unless-stopped
-    ports:
-      - "5000:5000"
     environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD:-lawzy2026}@mysql:3306/lawzy
-      - JWT_SECRET=${JWT_SECRET:-lawzy-jwt-secret-change-in-production}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-lawzy-refresh-secret-change-in-production}
-      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
-      - R2_ACCESS_KEY=${R2_ACCESS_KEY}
-      - R2_SECRET_KEY=${R2_SECRET_KEY}
-      - R2_BUCKET=${R2_BUCKET}
-      - R2_REGION=${R2_REGION}
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/lawzy
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION}
+      NODE_ENV: production
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - lawzy-network
 
+  # ─── Frontend Production (Next.js) ───
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - GEMINI_API_KEY=${GEMINI_API_KEY}
-        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:5000}
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: https://lawzy.vn
+        BACKEND_URL: http://backend:5000
     container_name: lawzy-frontend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:5000}
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: http://backend:5000
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-prod.rule=Host(`lawzy.vn`) || Host(`www.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-prod.entrypoints=https"
+      - "traefik.http.routers.lawzy-prod.tls=true"
+      - "traefik.http.routers.lawzy-prod.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-prod.loadbalancer.server.port=3000"
     networks:
       - lawzy-network
+      - coolify
 
-  nginx:
-    image: nginx:alpine
-    container_name: lawzy-nginx
+  # ─── Backend UAT ───
+  backend-uat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lawzy-backend-uat
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - certbot-webroot:/var/www/certbot:ro
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/lawzy_uat
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION}
+      NODE_ENV: production
     depends_on:
-      - frontend
-      - backend
+      mysql:
+        condition: service_healthy
     networks:
       - lawzy-network
 
-  certbot:
-    image: certbot/certbot
-    container_name: lawzy-certbot
+  # ─── Frontend UAT ───
+  frontend-uat:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
+        BACKEND_URL: http://backend-uat:5000
+    container_name: lawzy-frontend-uat
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: http://backend-uat:5000
+    depends_on:
+      - backend-uat
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-uat.rule=Host(`uat.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-uat.entrypoints=https"
+      - "traefik.http.routers.lawzy-uat.tls=true"
+      - "traefik.http.routers.lawzy-uat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-uat.loadbalancer.server.port=3000"
+    networks:
+      - lawzy-network
+      - coolify
+
+  # ─── NocoDB ───
+  nocodb:
+    image: nocodb/nocodb:latest
+    container_name: lawzy-nocodb
+    restart: unless-stopped
+    environment:
+      NC_DB: "mysql2://mysql:3306?u=root&p=${MYSQL_ROOT_PASSWORD}&d=nocodb"
+      NC_AUTH_JWT_SECRET: ${JWT_SECRET}
     volumes:
-      - ./nginx/ssl:/etc/letsencrypt
-      - certbot-webroot:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+      - nocodb-data:/usr/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-nocodb.rule=Host(`nocodb.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-nocodb.entrypoints=https"
+      - "traefik.http.routers.lawzy-nocodb.tls=true"
+      - "traefik.http.routers.lawzy-nocodb.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-nocodb.loadbalancer.server.port=8080"
+    networks:
+      - lawzy-network
+      - coolify
 
 networks:
   lawzy-network:
     driver: bridge
+  coolify:
+    external: true
 
 volumes:
-  certbot-webroot:
   mysql-data:
+  nocodb-data:

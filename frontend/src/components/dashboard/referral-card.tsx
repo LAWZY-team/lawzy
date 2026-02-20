@@ -6,48 +6,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth-store"
 import { toast } from "sonner"
-import usersData from "@/mock/users.json"
+import { useT } from "@/components/i18n-provider"
 
 export function ReferralCard() {
   const { user } = useAuthStore()
   const [copied, setCopied] = React.useState(false)
+  const { t } = useT()
 
-  // Find user referral data from mock
-  const userData = usersData.users.find((u) => u.userId === user?.id)
-  const referralLink = userData?.referral?.link || "https://lawzy.app/ref/demo"
-  const invites = userData?.referral?.invites || 0
-  const converted = userData?.referral?.converted || 0
+  const referralLink = `https://lawzy.vn/ref/${user?.id?.slice(0, 8) ?? "demo"}`
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(referralLink)
       setCopied(true)
-      toast.success("Đã sao chép link giới thiệu!")
+      toast.success(t("referral_copied"))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error("Không thể sao chép link")
+      toast.error(t("referral_copy_fail"))
     }
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Giới thiệu bạn bè</CardTitle>
+        <CardTitle className="text-sm font-medium">{t("referral_title")}</CardTitle>
         <Gift className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold">{converted}</p>
-              <p className="text-xs text-muted-foreground">chuyển đổi thành công</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-muted-foreground">{invites}</p>
-              <p className="text-xs text-muted-foreground">lời mời</p>
-            </div>
-          </div>
-
+          <p className="text-sm text-muted-foreground">
+            {t("dash_share_lawzy")}
+          </p>
           <div className="flex gap-2">
             <input
               type="text"
@@ -63,9 +52,8 @@ export function ReferralCard() {
               )}
             </Button>
           </div>
-
           <p className="text-xs text-muted-foreground">
-            Nhận 10 credits cho mỗi người bạn đăng ký thành công
+            {t("referral_credits")}
           </p>
         </div>
       </CardContent>
