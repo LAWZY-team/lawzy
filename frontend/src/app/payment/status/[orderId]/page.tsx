@@ -22,7 +22,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
       return () => clearTimeout(timer)
     } else if (status === 'success' && countdown === 0) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [status, countdown, router])
 
@@ -151,7 +151,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
                   Chuyển về dashboard trong <span className="font-bold">{countdown}</span> giây...
                 </p>
               </div>
-              <Button className="w-full" onClick={() => router.push('/')}>
+              <Button className="w-full" onClick={() => router.push('/dashboard')}>
                 Về Dashboard
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -163,7 +163,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
               <Button className="flex-1" onClick={() => router.push('/payment')}>
                 Thử lại
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => router.push('/')}>
+              <Button variant="outline" className="flex-1" onClick={() => router.push('/dashboard')}>
                 Về Dashboard
               </Button>
             </div>
