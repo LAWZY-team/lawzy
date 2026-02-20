@@ -1,0 +1,100 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lawzy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: lawzy_uat
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - lawzy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-uat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lawzy-backend-uat
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/lawzy_uat
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION}
+      NODE_ENV: production
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lawzy-network
+
+  frontend-uat:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
+        BACKEND_URL: http://backend-uat:5000
+    container_name: lawzy-frontend-uat
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: http://backend-uat:5000
+    depends_on:
+      - backend-uat
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-uat.rule=Host(`uat.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-uat.entrypoints=https"
+      - "traefik.http.routers.lawzy-uat.tls=true"
+      - "traefik.http.routers.lawzy-uat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-uat.loadbalancer.server.port=3000"
+    networks:
+      - lawzy-network
+      - coolify
+
+  nocodb:
+    image: nocodb/nocodb:latest
+    container_name: lawzy-nocodb
+    restart: unless-stopped
+    environment:
+      NC_DB: "mysql2://mysql:3306?u=root&p=${MYSQL_ROOT_PASSWORD}&d=nocodb"
+      NC_AUTH_JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - nocodb-data:/usr/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-nocodb.rule=Host(`nocodb.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-nocodb.entrypoints=https"
+      - "traefik.http.routers.lawzy-nocodb.tls=true"
+      - "traefik.http.routers.lawzy-nocodb.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-nocodb.loadbalancer.server.port=8080"
+    networks:
+      - lawzy-network
+      - coolify
+
+networks:
+  lawzy-network:
+    driver: bridge
+  coolify:
+    external: true
+
+volumes:
+  mysql-data:
+  nocodb-data:
