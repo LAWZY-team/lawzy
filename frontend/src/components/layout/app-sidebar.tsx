@@ -36,7 +36,7 @@ const navGroups = [
   {
     label: "Không gian làm việc",
     items: [
-      { title: "Dashboard", href: "/", icon: LayoutDashboard },
+      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Văn bản", href: "/documents", icon: FileText },
       { title: "Nguồn", href: "/sources", icon: FolderInput },
     ],
@@ -44,7 +44,8 @@ const navGroups = [
   {
     label: "Thư viện",
     items: [
-      { title: "Mẫu hợp đồng", href: "/templates", icon: Library },    ],
+      { title: "Mẫu hợp đồng", href: "/templates", icon: Library },
+    ],
   },
   {
     label: "Cài đặt",
@@ -96,7 +97,7 @@ export function AppSidebar() {
                 className={cn(state === "collapsed" && "flex flex-col items-center gap-0.5")}
               >
                 {group.items.map((item) => {
-                  const isActive = pathname === item.href
+                  const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={isActive}>
