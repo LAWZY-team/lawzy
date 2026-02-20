@@ -23,3 +23,12 @@ export function getR2Env(): R2Env {
     region: requireEnv('R2_REGION'),
   };
 }
+
+export function isR2Configured(): boolean {
+  return !!(
+    process.env.R2_ENDPOINT_URL &&
+    process.env.R2_ACCESS_KEY &&
+    process.env.R2_SECRET_KEY &&
+    process.env.R2_BUCKET
+  );
+}

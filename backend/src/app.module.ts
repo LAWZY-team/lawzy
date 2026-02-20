@@ -2,26 +2,24 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { getR2Env } from './config/env';
+import { PrismaModule } from './integrations/prisma/prisma.module';
 import { R2Module } from './integrations/r2/r2.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import { ContractTemplatesModule } from './modules/contract-templates/contract-templates.module';
 import { PublicSharesModule } from './modules/public-shares/public-shares.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
     R2Module,
+    AuthModule,
+    UsersModule,
     ContractTemplatesModule,
     PublicSharesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {
-  constructor() {
-    // Fail fast if R2 env vars are not configured (names preserved from plans/R2storage.md)
-    getR2Env();
-  }
-}
+export class AppModule {}

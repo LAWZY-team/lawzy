@@ -31,9 +31,13 @@ export function UserNav() {
   const displayEmail = user?.email ?? ""
   const initials = displayName.substring(0, 2).toUpperCase()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // proceed with client-side logout regardless
+    }
     logout()
-    document.cookie = "auth_session=; path=/; max-age=0"
     router.push("/login")
   }
 
@@ -47,7 +51,7 @@ export function UserNav() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user?.avatar} alt={displayName} />
+                <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
@@ -66,7 +70,7 @@ export function UserNav() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user?.avatar} alt={displayName} />
+                  <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
                   <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">

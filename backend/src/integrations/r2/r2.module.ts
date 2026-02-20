@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
-import { getR2Env } from '../../config/env';
+import { getR2Env, isR2Configured } from '../../config/env';
 import { R2_S3_CLIENT } from './r2.constants';
 
 @Module({
@@ -8,6 +8,9 @@ import { R2_S3_CLIENT } from './r2.constants';
     {
       provide: R2_S3_CLIENT,
       useFactory: () => {
+        if (!isR2Configured()) {
+          return null;
+        }
         const env = getR2Env();
         return new S3Client({
           endpoint: env.endpointUrl,
@@ -16,7 +19,6 @@ import { R2_S3_CLIENT } from './r2.constants';
             accessKeyId: env.accessKeyId,
             secretAccessKey: env.secretAccessKey,
           },
-          // Commonly needed for S3-compatible endpoints (including R2)
           forcePathStyle: true,
         });
       },
@@ -25,4 +27,3 @@ import { R2_S3_CLIENT } from './r2.constants';
   exports: [R2_S3_CLIENT],
 })
 export class R2Module {}
-

@@ -53,7 +53,7 @@ export default function PaymentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user?.userId || 'demo',
+          userId: user?.id || 'demo',
           plan: planId,
           amount: plan?.price || 0,
         }),

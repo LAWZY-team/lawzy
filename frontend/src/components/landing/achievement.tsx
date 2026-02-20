@@ -24,13 +24,13 @@ export default function Achievement() {
   });
 
   return (
-    <section id="achievement" className="py-20 border-t border-gray-100 overflow-hidden relative">
+    <section id="achievement" className="py-20 border-t border-gray-100 dark:border-gray-800 overflow-hidden relative">
       <div className="container mx-auto px-4">
         <FadeInOnScroll>
           <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{t("achievement_title")}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">{t("achievement_title")}</h2>
             <div className="relative w-full shadow-2xl rounded-2xl overflow-hidden group">
-              <div className="relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden">
+              <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
                 <AnimatePresence mode="wait">
                   <motion.div key={currentIndex} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.5 }} className="absolute inset-0 w-full h-full">
                     <Image src={achievements[currentIndex].image} alt={achievements[currentIndex].title} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -50,7 +50,7 @@ export default function Achievement() {
             <div className="space-y-6 max-w-2xl min-h-[4rem]">
               <AnimatePresence mode="wait">
                 <motion.div key={currentIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-                  <h3 className="text-2xl font-bold text-gray-800 leading-tight">{achievements[currentIndex].title}</h3>
+                  <h3 className="text-2xl font-bold text-foreground leading-tight">{achievements[currentIndex].title}</h3>
                 </motion.div>
               </AnimatePresence>
             </div>

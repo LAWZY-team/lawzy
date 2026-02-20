@@ -17,14 +17,14 @@ export function Newspaper() {
   return (
     <section id="newspaper" className="py-16 mt-5">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-12 text-center tracking-tight">{t("newspaper_title")}</h2>
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-12 text-center tracking-tight">{t("newspaper_title")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
           {NEWSPAPERS.map((item, index) => (
             <Link key={index} href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center group transition-transform hover:-translate-y-1">
-              <div className={`h-16 w-full relative mb-4 flex items-center justify-center grayscale group-hover:grayscale-0 transition-all duration-300 ${item.extraClasses || ""}`}>
+              <div className={`h-16 w-full relative mb-4 flex items-center justify-center grayscale group-hover:grayscale-0 dark:invert dark:group-hover:invert-0 transition-all duration-300 ${item.extraClasses || ""}`}>
                 <Image src={item.logo} alt={item.logo_alt} width={150} height={60} className="object-contain max-h-full max-w-[150px]" />
               </div>
-              <p className="text-base text-center text-gray-600 line-clamp-3 group-hover:text-blue-600 transition-colors font-medium">{item.title}</p>
+              <p className="text-base text-center text-muted-foreground line-clamp-3 group-hover:text-blue-600 transition-colors font-medium">{item.title}</p>
             </Link>
           ))}
         </div>

@@ -13,7 +13,7 @@ export function ReferralCard() {
   const [copied, setCopied] = React.useState(false)
 
   // Find user referral data from mock
-  const userData = usersData.users.find((u) => u.userId === user?.userId)
+  const userData = usersData.users.find((u) => u.userId === user?.id)
   const referralLink = userData?.referral?.link || "https://lawzy.app/ref/demo"
   const invites = userData?.referral?.invites || 0
   const converted = userData?.referral?.converted || 0

@@ -13,7 +13,7 @@ const PROTECTED_PATHS = [
   "/sources",
 ];
 
-const AUTH_PATHS = ["/login"];
+const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some(

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -12,23 +12,18 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const ADMIN_CREDENTIALS = {
-  email: "admin@lawzy.vn",
-  password: "Lawzy@2026",
-};
-
-const ADMIN_USER = {
-  userId: "admin-001",
-  name: "Admin Lawzy",
-  email: "admin@lawzy.vn",
-  avatar: "",
-  roles: ["admin"],
-  workspaceId: "ws-default",
-  createdAt: new Date().toISOString(),
-};
-
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get("returnUrl") || "/dashboard";
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,15 +36,27 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      setUser(ADMIN_USER);
-      document.cookie = "auth_session=true; path=/; max-age=86400; SameSite=Lax";
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Email hoặc mật khẩu không đúng");
+        setIsLoading(false);
+        return;
+      }
+
+      setUser(data.user);
       toast.success("Đăng nhập thành công!");
-      router.push("/dashboard");
-    } else {
-      setError("Email hoặc mật khẩu không đúng");
+      router.push(returnUrl);
+    } catch {
+      setError("Không thể kết nối đến server");
       setIsLoading(false);
     }
   };
@@ -92,7 +99,15 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Mật khẩu</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Quên mật khẩu?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -132,8 +147,8 @@ export default function LoginPage() {
             </Button>
             <p className="text-sm text-muted-foreground text-center">
               Chưa có tài khoản?{" "}
-              <Link href="/#survey" className="text-primary font-medium hover:underline">
-                Đăng ký trải nghiệm
+              <Link href="/register" className="text-primary font-medium hover:underline">
+                Đăng ký ngay
               </Link>
             </p>
           </CardFooter>

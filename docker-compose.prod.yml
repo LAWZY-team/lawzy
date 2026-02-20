@@ -1,0 +1,89 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lawzy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-lawzy2026}
+      MYSQL_DATABASE: lawzy
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - lawzy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/lawzy-team/lawzy/backend:latest
+    container_name: lawzy-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=mysql://root:${MYSQL_ROOT_PASSWORD:-lawzy2026}@mysql:3306/lawzy
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL}
+      - R2_ACCESS_KEY=${R2_ACCESS_KEY}
+      - R2_SECRET_KEY=${R2_SECRET_KEY}
+      - R2_BUCKET=${R2_BUCKET}
+      - R2_REGION=${R2_REGION}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lawzy-network
+
+  frontend:
+    image: ghcr.io/lawzy-team/lawzy/frontend:latest
+    container_name: lawzy-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - NEXT_PUBLIC_API_URL=http://backend:5000
+    depends_on:
+      - backend
+    networks:
+      - lawzy-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: lawzy-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - lawzy-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: lawzy-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  lawzy-network:
+    driver: bridge
+
+volumes:
+  certbot-webroot:
+  mysql-data:

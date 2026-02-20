@@ -28,7 +28,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#faf9f5]">
+    <div className="min-h-screen bg-[#faf9f5] dark:bg-gray-950">
       <LandingHeader onOpenSurvey={() => setIsSurveyOpen(true)} />
       <HeroSection onOpenSurvey={() => setIsSurveyOpen(true)} />
       <Newspaper />
@@ -41,7 +41,7 @@ export default function LandingPage() {
       <div id="survey" className="sr-only" aria-hidden />
       <SurveySection isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} />
 
-      <footer id="contact" className="bg-gray-900 text-white py-12">
+      <footer id="contact" className="bg-gray-900 dark:bg-black text-white py-12">
         <div className="container mx-auto px-4 lg:px-6">
           <div className="grid md:grid-cols-2 gap-8 justify-between">
             <div className="flex flex-col items-start">

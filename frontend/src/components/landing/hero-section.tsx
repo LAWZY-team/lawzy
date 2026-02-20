@@ -19,19 +19,19 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8 text-center lg:text-left lg:mb-8">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black tracking-tight leading-[1.2]">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-[1.2]">
                 {t("hero_title_1")}
                 <br />
                 <span className="text-orange-600">{t("hero_title_2")}</span>
               </h1>
-              <p className="text-xl text-gray-700 leading-relaxed font-light max-w-xl mx-auto lg:mx-0">
+              <p className="text-xl text-muted-foreground leading-relaxed font-light max-w-xl mx-auto lg:mx-0">
                 {t("hero_subtitle")}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
                 <Button
                   type="button"
                   size="lg"
-                  className="bg-black hover:bg-gray-800 text-white text-lg px-8 py-6 rounded-full shadow-lg hover:shadow-xl transition-all"
+                  className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black text-lg px-8 py-6 rounded-full shadow-lg hover:shadow-xl transition-all"
                   onClick={onOpenSurvey}
                 >
                   {t("try_free")}
@@ -40,7 +40,7 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
               </div>
             </div>
             <div className="relative w-full max-w-2xl mx-auto lg:max-w-none lg:mb-8">
-              <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-gray-50 relative">
+              <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 relative">
                 <Image
                   src="/hero.gif"
                   alt="Lawzy product hero"
@@ -51,8 +51,8 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
                   unoptimized={true}
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-orange-100 rounded-full z-[-1] blur-2xl" aria-hidden />
-              <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-50 rounded-full z-[-1] blur-2xl" aria-hidden />
+              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-orange-100 dark:bg-orange-900/30 rounded-full z-[-1] blur-2xl" aria-hidden />
+              <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-50 dark:bg-blue-900/30 rounded-full z-[-1] blur-2xl" aria-hidden />
             </div>
           </div>
         </div>
