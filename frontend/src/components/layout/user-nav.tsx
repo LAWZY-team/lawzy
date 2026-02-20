@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronsUpDown, LogOut, Settings, User } from "lucide-react"
+import { ChevronsUpDown, LogOut, Settings, User, Globe } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -21,13 +21,15 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
+import { useT } from "@/components/i18n-provider"
 
 export function UserNav() {
   const { isMobile } = useSidebar()
   const router = useRouter()
   const { user, logout } = useAuthStore()
+  const { t, locale, setLocale } = useT()
 
-  const displayName = user?.name ?? "Người dùng"
+  const displayName = user?.name ?? "User"
   const displayEmail = user?.email ?? ""
   const initials = displayName.substring(0, 2).toUpperCase()
 
@@ -40,6 +42,8 @@ export function UserNav() {
     logout()
     router.push("/login")
   }
+
+  const toggleLocale = () => setLocale(locale === "vi" ? "en" : "vi")
 
   return (
     <SidebarMenu>
@@ -83,19 +87,23 @@ export function UserNav() {
             <DropdownMenuItem asChild>
               <Link href="/settings/profile">
                 <User className="mr-2 h-4 w-4" />
-                Tài khoản
+                {t("settings_account")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings">
                 <Settings className="mr-2 h-4 w-4" />
-                Cài đặt
+                {t("settings_title")}
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={toggleLocale}>
+              <Globe className="mr-2 h-4 w-4" />
+              {locale === "vi" ? "English" : "Tiếng Việt"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              Đăng xuất
+              {t("auth_logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,0 +1,135 @@
+name: Deploy to UAT (uat.lawzy.vn)
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  FRONTEND_IMAGE: ghcr.io/lawzy-team/lawzy/frontend
+  BACKEND_IMAGE: ghcr.io/lawzy-team/lawzy/backend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend (UAT)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:uat
+            ${{ env.FRONTEND_IMAGE }}:uat-${{ github.sha }}
+          build-args: |
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            NEXT_PUBLIC_APP_URL=https://uat.lawzy.vn
+            NEXT_PUBLIC_API_URL=http://backend-uat:5000
+            BACKEND_URL=http://backend-uat:5000
+
+      - name: Build and push backend (UAT)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:uat
+            ${{ env.BACKEND_IMAGE }}:uat-${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout for config files
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-compose.uat.yml
+            nginx
+
+      - name: Upload config files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          source: "docker-compose.uat.yml,nginx/"
+          target: /opt/lawzy
+          overwrite: true
+
+      - name: Deploy UAT on VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          command_timeout: 20m
+          script: |
+            cd /opt/lawzy
+
+            cat > .env <<EOF
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            NEXT_PUBLIC_APP_URL=https://uat.lawzy.vn
+            NEXT_PUBLIC_API_URL=http://backend-uat:5000
+            BACKEND_URL=http://backend-uat:5000
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
+            R2_ACCESS_KEY=${{ secrets.R2_ACCESS_KEY }}
+            R2_SECRET_KEY=${{ secrets.R2_SECRET_KEY }}
+            R2_BUCKET=${{ secrets.R2_BUCKET }}
+            R2_REGION=${{ secrets.R2_REGION }}
+            EOF
+
+            # SSL for uat.lawzy.vn
+            mkdir -p nginx/ssl/live/uat.lawzy.vn
+            if [ ! -f nginx/ssl/live/uat.lawzy.vn/privkey.pem ]; then
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout nginx/ssl/live/uat.lawzy.vn/privkey.pem \
+                -out nginx/ssl/live/uat.lawzy.vn/fullchain.pem \
+                -subj '/CN=uat.lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
+            fi
+
+            # SSL for lawzy.vn (keep existing if present)
+            mkdir -p nginx/ssl/live/lawzy.vn
+            if [ ! -f nginx/ssl/live/lawzy.vn/privkey.pem ]; then
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout nginx/ssl/live/lawzy.vn/privkey.pem \
+                -out nginx/ssl/live/lawzy.vn/fullchain.pem \
+                -subj '/CN=lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
+            fi
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Use the unified compose file that has both prod + UAT
+            cp docker-compose.uat.yml docker-compose.yml 2>/dev/null || true
+            docker compose pull backend-uat frontend-uat
+            docker compose up -d
+            docker image prune -f
+
+            sleep 10
+            UAT_STATUS=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:3001/)
+            echo "UAT Frontend status: $UAT_STATUS"
+            if [ "$UAT_STATUS" != "200" ]; then
+              echo "WARNING: UAT Frontend returned $UAT_STATUS"
+              docker compose logs frontend-uat --tail 30
+            fi
+
+            UAT_BACKEND=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:5001/)
+            echo "UAT Backend status: $UAT_BACKEND"
+
+            echo "UAT Deployment complete!"

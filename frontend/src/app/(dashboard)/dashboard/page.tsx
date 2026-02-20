@@ -18,29 +18,26 @@ import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
 import { useAuthStore } from "@/stores/auth-store"
-import { useWorkspaceStore, type Workspace } from "@/stores/workspace-store"
-import workspacesData from "@/mock/workspaces.json"
+import { useT } from "@/components/i18n-provider"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 
-const PERIOD_LABELS: Record<DashboardPeriod, string> = {
-  week: "Tuần này",
-  month: "Tháng nay",
-  year: "Năm nay",
-}
-
 export default function DashboardPage() {
   useAuthStore()
-  const { setCurrentWorkspace, setWorkspaces } = useWorkspaceStore()
+  const { t } = useT()
+
+  const PERIOD_LABELS: Record<DashboardPeriod, string> = {
+    week: t("dash_this_week"),
+    month: t("dash_this_month"),
+    year: t("dash_this_year"),
+  }
+  const { fetchWorkspaces } = useWorkspaceStore()
   const [period, setPeriod] = useState<DashboardPeriod>("year")
 
   useEffect(() => {
-    const workspaces = workspacesData.workspaces as unknown as Workspace[]
-    setWorkspaces(workspaces)
-    if (workspaces.length > 0) {
-      setCurrentWorkspace(workspaces[0])
-    }
-  }, [setWorkspaces, setCurrentWorkspace])
+    fetchWorkspaces()
+  }, [fetchWorkspaces])
 
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
@@ -48,13 +45,13 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4 px-0 pt-6 pb-2 shrink-0 flex-wrap">
           <h2 className="text-3xl font-bold tracking-tight shrink-0">Dashboard</h2>
           <TabsList className="shrink-0">
-            <TabsTrigger value="docs">Tài liệu</TabsTrigger>
-            <TabsTrigger value="storage">Dung lượng</TabsTrigger>
-            <TabsTrigger value="quota">Quota</TabsTrigger>
+            <TabsTrigger value="docs">{t("dash_documents")}</TabsTrigger>
+            <TabsTrigger value="storage">{t("dash_storage")}</TabsTrigger>
+            <TabsTrigger value="quota">{t("dash_quota")}</TabsTrigger>
           </TabsList>
           <Select value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
             <SelectTrigger className="w-[140px] shrink-0 ml-auto">
-              <SelectValue placeholder="Kỳ" />
+              <SelectValue placeholder={t("dash_period")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="week">{PERIOD_LABELS.week}</SelectItem>
@@ -70,7 +67,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <Card className="lg:col-span-4 py-3 gap-1.5 self-start">
                 <CardHeader className="pb-0 pt-0 px-4">
-                  <CardTitle className="text-sm">Văn bản theo kỳ</CardTitle>
+                  <CardTitle className="text-sm">{t("dash_chart_title")}</CardTitle>
                   <CardDescription className="text-xs">{PERIOD_LABELS[period]}</CardDescription>
                 </CardHeader>
                 <CardContent className="ps-2 pt-0 px-4 pb-2">

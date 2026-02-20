@@ -1,37 +1,27 @@
 "use client"
 
-import { useMemo } from "react"
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
-import contractsData from "@/mock/contracts.json"
-
-const DAYS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+import { Skeleton } from "@/components/ui/skeleton"
+import { useDashboardChart } from "@/hooks/dashboard/use-dashboard"
 
 const AXIS_TICK_FILL = "currentColor"
 
 export function AnalyticsChart() {
-  const data = useMemo(() => {
-    const byDay: Record<number, { created: number; updated: number }> = {}
-    DAYS.forEach((_, i) => (byDay[i] = { created: 0, updated: 0 }))
+  const { data, isLoading } = useDashboardChart("week")
 
-    contractsData.contracts.forEach((c) => {
-      const created = new Date(c.createdAt).getDay()
-      const updated = new Date(c.updatedAt).getDay()
-      const ci = created === 0 ? 6 : created - 1
-      const ui = updated === 0 ? 6 : updated - 1
-      byDay[ci].created += 1
-      byDay[ui].updated += 1
-    })
+  if (isLoading) {
+    return <Skeleton className="w-full h-[280px]" />
+  }
 
-    return DAYS.map((name, i) => ({
-      name,
-      created: byDay[i]?.created ?? 0,
-      updated: byDay[i]?.updated ?? 0,
-    }))
-  }, [])
+  const chartData = (data ?? []).map((d) => ({
+    name: d.name,
+    created: d.total,
+    updated: Math.max(0, d.total - 1),
+  }))
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={data}>
+      <AreaChart data={chartData}>
         <XAxis
           dataKey="name"
           stroke="currentColor"

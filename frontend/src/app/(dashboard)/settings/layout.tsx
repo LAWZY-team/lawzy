@@ -1,60 +1,59 @@
-import { Metadata } from "next"
+"use client"
+
 import { Bell, FileText, Monitor, Palette, UserCog, Wrench } from "lucide-react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { SidebarNav } from "@/components/settings/sidebar-nav"
-
-export const metadata: Metadata = {
-  title: "Cài đặt",
-  description: "Cài đặt tài khoản và ứng dụng.",
-}
-
-const sidebarNavItems = [
-  {
-    title: "Hồ sơ",
-    href: "/settings/profile",
-    icon: <UserCog className="w-4 h-4" />,
-  },
-  {
-    title: "Tài khoản",
-    href: "/settings/account",
-    icon: <Wrench className="w-4 h-4" />,
-  },
-  {
-    title: "Giao diện",
-    href: "/settings/appearance",
-    icon: <Palette className="w-4 h-4" />,
-  },
-  {
-    title: "Thông báo",
-    href: "/settings/notifications",
-    icon: <Bell className="w-4 h-4" />,
-  },
-  {
-    title: "Hiển thị",
-    href: "/settings/display",
-    icon: <Monitor className="w-4 h-4" />,
-  },
-  {
-    title: "Trường dữ liệu",
-    href: "/settings/fields",
-    icon: <FileText className="w-4 h-4" />,
-  },
-]
+import { useT } from "@/components/i18n-provider"
 
 interface SettingsLayoutProps {
   children: React.ReactNode
 }
 
 export default function SettingsLayout({ children }: SettingsLayoutProps) {
+  const { t } = useT()
+
+  const sidebarNavItems = [
+    {
+      title: t("settings_profile"),
+      href: "/settings/profile",
+      icon: <UserCog className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_account"),
+      href: "/settings/account",
+      icon: <Wrench className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_appearance"),
+      href: "/settings/appearance",
+      icon: <Palette className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_notifications"),
+      href: "/settings/notifications",
+      icon: <Bell className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_display"),
+      href: "/settings/display",
+      icon: <Monitor className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_fields"),
+      href: "/settings/fields",
+      icon: <FileText className="w-4 h-4" />,
+    },
+  ]
+
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
       <div className="shrink-0 p-6 pb-0 md:block">
         <div className="space-y-0.5">
-          <h2 className="text-2xl font-bold tracking-tight">Cài đặt</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t("settings_title")}</h2>
           <p className="text-muted-foreground">
-            Quản lý cài đặt tài khoản và tùy chọn email của bạn.
+            {t("settings_subtitle")}
           </p>
         </div>
       </div>

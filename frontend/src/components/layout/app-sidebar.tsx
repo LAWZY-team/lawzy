@@ -31,29 +31,34 @@ import {
 import { WorkspaceNav } from "./workspace-nav"
 import { UserNav } from "./user-nav"
 import { cn } from "@/lib/utils"
+import { useT } from "@/components/i18n-provider"
+import type { TranslationKey } from "@/lib/i18n"
 
-const navGroups = [
+type NavItem = { titleKey: TranslationKey; href: string; icon: React.ComponentType<{ className?: string }> }
+type NavGroup = { labelKey: TranslationKey; items: NavItem[] }
+
+const navGroups: NavGroup[] = [
   {
-    label: "Không gian làm việc",
+    labelKey: "sidebar_workspaces",
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "Văn bản", href: "/documents", icon: FileText },
-      { title: "Nguồn", href: "/sources", icon: FolderInput },
+      { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
+      { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
     ],
   },
   {
-    label: "Thư viện",
+    labelKey: "sidebar_library",
     items: [
-      { title: "Mẫu hợp đồng", href: "/templates", icon: Library },
+      { titleKey: "sidebar_templates", href: "/templates", icon: Library },
     ],
   },
   {
-    label: "Cài đặt",
+    labelKey: "sidebar_settings",
     items: [
-      { title: "Workspace", href: "/workspace", icon: Users },
-      { title: "Tập tin & Dung lượng", href: "/files", icon: HardDrive },
-      { title: "Thanh toán & Quota", href: "/payment", icon: CreditCard },
-      { title: "Cài đặt", href: "/settings", icon: Settings },
+      { titleKey: "sidebar_workspace", href: "/workspace", icon: Users },
+      { titleKey: "sidebar_files", href: "/files", icon: HardDrive },
+      { titleKey: "sidebar_payment", href: "/payment", icon: CreditCard },
+      { titleKey: "sidebar_settings", href: "/settings", icon: Settings },
     ],
   },
 ]
@@ -61,6 +66,7 @@ const navGroups = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
+  const { t } = useT()
 
   return (
     <Sidebar collapsible="icon">
@@ -83,14 +89,14 @@ export function AppSidebar() {
       >
         {navGroups.map((group) => (
           <SidebarGroup
-            key={group.label}
+            key={group.labelKey}
             className={cn(
               "gap-0.5",
               state === "collapsed" && "w-full max-w-[2.75rem] p-0 flex flex-col items-center"
             )}
           >
             <SidebarGroupLabel className="text-xs font-medium text-muted-foreground px-2 py-1">
-              {group.label}
+              {t(group.labelKey)}
             </SidebarGroupLabel>
             <SidebarGroupContent className={state === "collapsed" ? "w-full" : undefined}>
               <SidebarMenu
@@ -99,11 +105,11 @@ export function AppSidebar() {
                 {group.items.map((item) => {
                   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
                   return (
-                    <SidebarMenuItem key={item.title}>
+                    <SidebarMenuItem key={item.titleKey}>
                       <SidebarMenuButton asChild isActive={isActive}>
                         <Link href={item.href}>
                           <item.icon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{item.title}</span>
+                          <span className="truncate">{t(item.titleKey)}</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

@@ -1,11 +1,13 @@
 "use client"
 
-import * as React from "react"
 import { Zap, HardDrive } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import usersData from "@/mock/users.json"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
+import { useT } from "@/components/i18n-provider"
+
+const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024 // 100 GB (S3 plan)
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -19,60 +21,63 @@ const formatBytes = (bytes: number, decimals = 2) => {
 type QuotaCardVariant = "all" | "quota" | "storage"
 
 export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
-  const currentUser = usersData.users[0]
-  const q = currentUser.quota
-  const dailyUsed = q.dailyLimit - q.dailyRemaining
-  const dailyPercent = (dailyUsed / q.dailyLimit) * 100
-  const storagePercent = q.storageLimit > 0 ? (q.storageUsed / q.storageLimit) * 100 : 0
+  const { data, isLoading } = useDashboardOverview()
+  const { t } = useT()
+  const storageUsed = data?.storageUsed ?? 0
+  const storagePercent = STORAGE_LIMIT > 0 ? (storageUsed / STORAGE_LIMIT) * 100 : 0
+  const totalDocs = data?.totalDocuments ?? 0
 
   return (
     <>
       {(show === "all" || show === "quota") && (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Quota sử dụng</CardTitle>
-          <Zap className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">{q.dailyRemaining}</span>
-              <Badge variant="secondary" className="capitalize">
-                {q.subscriptionPlan}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              còn lại / {q.dailyLimit} yêu cầu hàng ngày
-            </p>
-            <Progress value={dailyPercent} className="h-2" />
-            {q.referralCredits > 0 && (
-              <div className="pt-2 border-t">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("dash_usage_stats")}</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-20 w-full" />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold">{totalDocs}</span>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">{q.referralCredits}</span> credits từ giới thiệu
+                  {t("dash_total_docs_created")}
                 </p>
+                <div className="pt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{data?.totalFiles ?? 0}</span> {t("dash_files")} &bull;{" "}
+                    <span className="font-semibold text-foreground">{data?.totalSources ?? 0}</span> {t("dash_sources")}
+                  </p>
+                </div>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
       {(show === "all" || show === "storage") && (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Dung lượng</CardTitle>
-          <HardDrive className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-bold">{formatBytes(q.storageUsed)}</span>
-              <span className="text-muted-foreground">/ {formatBytes(q.storageLimit)}</span>
-            </div>
-            <Progress value={storagePercent} className="h-2" />
-            <p className="text-xs text-muted-foreground">Tập tin tải lên & tài liệu</p>
-          </div>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("dash_storage_label")}</CardTitle>
+            <HardDrive className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold">{formatBytes(storageUsed)}</span>
+                  <span className="text-muted-foreground">/ {formatBytes(STORAGE_LIMIT)}</span>
+                </div>
+                <Progress value={storagePercent} className="h-2" />
+                <p className="text-xs text-muted-foreground">{t("dash_file_upload_docs")}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </>
   )

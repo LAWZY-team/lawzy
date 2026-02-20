@@ -24,49 +24,33 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import usersData from "@/mock/users.json"
+import { useAuthStore } from "@/stores/auth-store"
+import { api } from "@/lib/api/client"
 
-// Schema validation
 const profileFormSchema = z.object({
   username: z
-    .string({
-      error: "Vui lòng nhập tên người dùng.",
-    })
-    .min(2, {
-      message: "Tên người dùng phải có ít nhất 2 ký tự.",
-    })
-    .max(50, {
-      message: "Tên người dùng không được quá 50 ký tự.",
-    }),
-  email: z
-    .string({
-      error: "Vui lòng chọn email.",
-    })
-    .email(),
-  bio: z.string().max(250, { message: "Tiểu sử không được quá 250 ký tự." }).min(4, { message: "Tiểu sử quá ngắn." }),
+    .string({ error: "Vui lòng nhập tên người dùng." })
+    .min(2, { message: "Tên người dùng phải có ít nhất 2 ký tự." })
+    .max(50, { message: "Tên người dùng không được quá 50 ký tự." }),
+  email: z.string({ error: "Vui lòng chọn email." }).email(),
+  bio: z.string().max(250, { message: "Tiểu sử không được quá 250 ký tự." }).optional(),
   urls: z
-    .array(
-      z.object({
-        value: z.string().url({ message: "Vui lòng nhập URL hợp lệ." }),
-      })
-    )
+    .array(z.object({ value: z.string().url({ message: "Vui lòng nhập URL hợp lệ." }) }))
     .optional(),
 })
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
-// Simulate getting the current logged-in user (e.g., first user in mock)
-const currentUser = usersData.users[0]
-
-// Transform mock data to form values
-const defaultValues: Partial<ProfileFormValues> = {
-  username: currentUser.name,
-  email: currentUser.email,
-  bio: currentUser.bio || "Chưa có thông tin giới thiệu.",
-  urls: (currentUser.urls || []).map((url) => ({ value: url })),
-}
-
 export function ProfileForm() {
+  const { user, fetchUser } = useAuthStore()
+
+  const defaultValues: Partial<ProfileFormValues> = {
+    username: user?.name ?? "",
+    email: user?.email ?? "",
+    bio: "",
+    urls: [],
+  }
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues,
@@ -78,10 +62,14 @@ export function ProfileForm() {
     control: form.control,
   })
 
-  function onSubmit(data: ProfileFormValues) {
-    // In a real app, you would send this data to your API
-    console.log("Submitted data:", JSON.stringify(data, null, 2))
-    toast.success("Đã cập nhật hồ sơ thành công!")
+  async function onSubmit(data: ProfileFormValues) {
+    try {
+      await api.patch("/users/profile", { name: data.username })
+      await fetchUser()
+      toast.success("Đã cập nhật hồ sơ thành công!")
+    } catch {
+      toast.error("Cập nhật thất bại")
+    }
   }
 
   return (
@@ -116,7 +104,7 @@ export function ProfileForm() {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value={currentUser.email}>{currentUser.email}</SelectItem>
+                  <SelectItem value={user?.email ?? ""}>{user?.email}</SelectItem>
                 </SelectContent>
               </Select>
               <FormDescription>
@@ -160,9 +148,7 @@ export function ProfileForm() {
               name={`urls.${index}.value`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className={cn(index !== 0 && "sr-only")}>
-                    URLs
-                  </FormLabel>
+                  <FormLabel className={cn(index !== 0 && "sr-only")}>URLs</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
                       <Input {...field} />
@@ -174,18 +160,7 @@ export function ProfileForm() {
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <span className="sr-only">Xóa</span>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-4 w-4"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                           <path d="M3 6h18" />
                           <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                           <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />

@@ -16,11 +16,9 @@ import { useSidebar } from '@/components/ui/sidebar'
 import { useEditorStore } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
-import contractsData from '@/mock/contracts.json'
-import chatHistoryData from '@/mock/chat-history.json'
-import templatesData from '@/mock/templates.json'
-import usersData from '@/mock/users.json'
 import type { Template } from '@/types/template'
+import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api/client'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
 import type { DocContent } from '@/types/template'
@@ -36,7 +34,8 @@ import {
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 
-const templates = templatesData.templates as Template[]
+// Template type alias for editor usage
+type EditorTemplate = Template
 
 /** Hợp đồng lưu dạng template (clause/field) cần chuyển sang TipTap khi load */
 function isTemplateFormat(doc: unknown): doc is DocContent {
@@ -77,7 +76,7 @@ export default function EditorPage({
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   const { currentWorkspace } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
-  const workspaceId = currentWorkspace?.workspaceId ?? 'org001'
+  const workspaceId = currentWorkspace?.id ?? 'org001'
 
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
@@ -96,74 +95,69 @@ export default function EditorPage({
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [thinkingProgress, setThinkingProgress] = useThinkingProgress(isGenerating)
 
-  // Initialize: load contract by id hoặc template khi /editor/new?template=tmpl001
   useEffect(() => {
     if (resolvedParams.id !== 'new') {
-      const contract = contractsData.contracts.find((c) => c.contractId === resolvedParams.id)
-      if (contract) {
-        setCurrentDocument(contract.contractId)
-        setTemplateMergeFields(null)
-        setMergeFieldValues(
-          Object.fromEntries(
-            Object.entries((contract as { mergeFieldValues?: Record<string, unknown> }).mergeFieldValues ?? {}).map(
-              ([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]
-            )
+      api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
+        if (doc) {
+          setCurrentDocument(doc.id as string)
+          setTemplateMergeFields(null)
+          const mfv = (doc.mergeFieldValues as Record<string, unknown>) ?? {}
+          setMergeFieldValues(
+            Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
           )
-        )
-        const raw = contract.contentJSON
-        const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw) : (raw as JSONContent)
-        setEditorContent(content)
-        setDocumentTitle(contract.title)
-        updateMetadata({
-          title: contract.title,
-          type: contract.type,
-          tags: contract.metadata.tags,
-          riskLevel: contract.metadata.riskLevel as 'low' | 'medium' | 'high',
-          visibility: contract.metadata.visibility as 'workspace' | 'private' | 'public',
-        })
-        setIsCanvasMode(true)
-      }
-      const history = chatHistoryData.chatHistory.find((c) => c.contractId === resolvedParams.id)
-      if (history) {
-        type HistoryMsg = { id: string; role: string; content: string; timestamp: string; thinking?: string; hasContract?: boolean }
-        const mappedMessages: ChatMessage[] = (history.messages as HistoryMsg[]).map(msg => ({
-          id: msg.id,
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-          timestamp: new Date(msg.timestamp),
-          ...(msg.thinking != null && { thinking: msg.thinking }),
-          ...(msg.hasContract != null && { hasContract: msg.hasContract }),
-        }))
-        setChatMessages(mappedMessages)
-      } else {
+          const raw = doc.contentJSON
+          const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
+          if (content) setEditorContent(content)
+          setDocumentTitle((doc.title as string) || 'Hợp đồng')
+          const meta = (doc.metadata as Record<string, unknown>) ?? {}
+          updateMetadata({
+            title: (doc.title as string) || '',
+            type: (doc.type as string) || 'contract',
+            tags: (meta.tags as string[]) ?? [],
+            riskLevel: (meta.riskLevel as 'low' | 'medium' | 'high') ?? 'low',
+            visibility: (meta.visibility as 'workspace' | 'private' | 'public') ?? 'workspace',
+          })
+          setIsCanvasMode(true)
+
+          const chatMsgs = (doc.chatMessages as Array<{ id: string; role: string; content: string; createdAt: string }>) ?? []
+          setChatMessages(chatMsgs.map((m) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+          })))
+        }
+      }).catch(() => {
         setChatMessages([])
-      }
+      })
     } else {
       setCurrentDocument(null)
       if (templateId) {
-        const template = templates.find((t) => t.templateId === templateId)
-        if (template?.contentJSON) {
-          const tipTapContent = templateContentToEditorContent(template.contentJSON)
-          setEditorContent(tipTapContent)
-          setDocumentTitle(template.title)
-          updateMetadata({
-            title: template.title,
-            type: template.type,
-            tags: [],
-          })
-          setTemplateMergeFields(
-            (template.mergeFields ?? []).map((f) => ({
-              fieldKey: f.fieldKey,
-              label: f.label,
-              sampleValue: f.sampleValue,
-            }))
-          )
-          setMergeFieldValues(
-            Object.fromEntries((template.mergeFields ?? []).map((f) => [f.fieldKey, f.sampleValue ?? '']))
-          )
-          setIsCanvasMode(true)
-          return
-        }
+        api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
+          if (template?.contentJSON) {
+            const tipTapContent = templateContentToEditorContent(template.contentJSON as DocContent)
+            setEditorContent(tipTapContent)
+            setDocumentTitle(template.title)
+            updateMetadata({
+              title: template.title,
+              type: template.category ?? 'contract',
+              tags: [],
+            })
+            const fields = (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>
+            setTemplateMergeFields(
+              fields.map((f) => ({
+                fieldKey: f.fieldKey,
+                label: f.label,
+                sampleValue: f.sampleValue,
+              }))
+            )
+            setMergeFieldValues(
+              Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
+            )
+            setIsCanvasMode(true)
+          }
+        }).catch(() => {})
+        return
       }
       setTemplateMergeFields(null)
       setMergeFieldValues({})
@@ -415,7 +409,7 @@ export default function EditorPage({
               thinkingSteps={thinkingProgress}
               isCanvasMode={isCanvasMode}
               onOpenCanvas={() => setIsCanvasMode(true)}
-              userDisplayName={(usersData as { users: Array<{ name?: string }> }).users[0]?.name}
+              userDisplayName={useAuthStore.getState().user?.name}
               attachedFile={attachedFile ? { name: attachedFile.name } : null}
               onAttachFile={(file) => {
                 const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))

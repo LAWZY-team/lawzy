@@ -18,32 +18,54 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import contractsData from "@/mock/contracts.json"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
-
-const riskColors: Record<string, string> = {
-  low: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-}
+import { toast } from "sonner"
+import { useT } from "@/components/i18n-provider"
 
 export default function DocumentsPage() {
-  const contracts = contractsData.contracts
+  const { t } = useT()
+  const { currentWorkspace } = useWorkspaceStore()
+
+  const statusLabels: Record<string, string> = {
+    draft: t("status_draft"),
+    review: t("status_review"),
+    approved: t("status_approved"),
+    signed: t("status_signed"),
+    completed: t("status_completed"),
+    archived: t("status_archived"),
+  }
+  const workspaceId = currentWorkspace?.id ?? ""
+  const { data, isLoading } = useDocuments(workspaceId, { limit: 50 })
+  const deleteMutation = useDeleteDocument()
+
+  const documents = data?.data ?? []
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id)
+      toast.success(t("docs_deleted"))
+    } catch {
+      toast.error(t("docs_delete_failed"))
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Tài liệu của tôi</h2>
+          <h2 className="text-3xl font-bold tracking-tight">{t("docs_my_documents")}</h2>
           <p className="text-muted-foreground">
-            Quản lý tất cả hợp đồng của bạn
+            {t("docs_manage_all")}
           </p>
         </div>
         <Button asChild>
           <Link href="/editor/new">
             <Plus className="mr-2 h-4 w-4" />
-            Tạo tài liệu mới
+            {t("docs_create_new")}
           </Link>
         </Button>
       </div>
@@ -52,56 +74,51 @@ export default function DocumentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tên tài liệu</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Rủi ro</TableHead>
-              <TableHead>Cập nhật</TableHead>
+              <TableHead>{t("recent_docs_name")}</TableHead>
+              <TableHead>{t("recent_docs_type")}</TableHead>
+              <TableHead>{t("recent_docs_status")}</TableHead>
+              <TableHead>{t("recent_docs_updated")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {contracts.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell />
+                </TableRow>
+              ))
+            ) : documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground h-32">
-                  Chưa có tài liệu nào. Hãy tạo tài liệu đầu tiên của bạn!
+                <TableCell colSpan={5} className="text-center text-muted-foreground h-32">
+                  {t("docs_empty")}
                 </TableCell>
               </TableRow>
             ) : (
-              contracts.map((contract) => (
-                <TableRow key={contract.contractId}>
+              documents.map((doc) => (
+                <TableRow key={doc.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
-                      <Link
-                        href={`/editor/${contract.contractId}`}
-                        className="hover:underline"
-                      >
-                        {contract.title}
+                      <Link href={`/editor/${doc.id}`} className="hover:underline">
+                        {doc.title}
                       </Link>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{contract.type}</Badge>
+                    <Badge variant="outline">{doc.type}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="capitalize">
-                      {contract.status === 'draft' ? 'Nháp' : 
-                       contract.status === 'active' ? 'Đang hoạt động' : contract.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={riskColors[contract.metadata.riskLevel]}
-                    >
-                      {contract.metadata.riskLevel === 'low' && 'Thấp'}
-                      {contract.metadata.riskLevel === 'medium' && 'Trung bình'}
-                      {contract.metadata.riskLevel === 'high' && 'Cao'}
+                      {statusLabels[doc.status] ?? doc.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {formatDistanceToNow(new Date(contract.updatedAt), {
+                    {formatDistanceToNow(new Date(doc.updatedAt), {
                       addSuffix: true,
                       locale: vi,
                     })}
@@ -115,14 +132,14 @@ export default function DocumentsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/editor/${contract.contractId}`}>
-                            Mở
-                          </Link>
+                          <Link href={`/editor/${doc.id}`}>{t("recent_docs_open")}</Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Sao chép</DropdownMenuItem>
-                        <DropdownMenuItem>Chia sẻ</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Xóa
+                        <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDelete(doc.id)}
+                        >
+                          {t("common_delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

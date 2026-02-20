@@ -38,6 +38,7 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL || 'https://lawzy.vn' }}
             NEXT_PUBLIC_API_URL=http://backend:5000
+            BACKEND_URL=http://backend:5000
 
       - name: Build and push backend
         uses: docker/build-push-action@v5
@@ -56,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            docker-compose.prod.yml
+            docker-compose.uat.yml
             nginx
 
       - name: Upload config files to VPS
@@ -65,7 +66,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "docker-compose.prod.yml,nginx/"
+          source: "docker-compose.uat.yml,nginx/"
           target: /opt/lawzy
           overwrite: true
 
@@ -83,6 +84,7 @@ jobs:
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             NEXT_PUBLIC_APP_URL=https://lawzy.vn
             NEXT_PUBLIC_API_URL=http://backend:5000
+            BACKEND_URL=http://backend:5000
             MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
@@ -101,10 +103,18 @@ jobs:
                 -subj '/CN=lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
             fi
 
+            mkdir -p nginx/ssl/live/uat.lawzy.vn
+            if [ ! -f nginx/ssl/live/uat.lawzy.vn/privkey.pem ]; then
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout nginx/ssl/live/uat.lawzy.vn/privkey.pem \
+                -out nginx/ssl/live/uat.lawzy.vn/fullchain.pem \
+                -subj '/CN=uat.lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
+            fi
+
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            cp docker-compose.prod.yml docker-compose.yml 2>/dev/null || true
-            docker compose pull
+            cp docker-compose.uat.yml docker-compose.yml 2>/dev/null || true
+            docker compose pull backend frontend
             docker compose up -d
             docker image prune -f
 
@@ -119,4 +129,4 @@ jobs:
             BACKEND_STATUS=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:5000/)
             echo "Backend status: $BACKEND_STATUS"
 
-            echo "Deployment complete!"
+            echo "Production Deployment complete!"
