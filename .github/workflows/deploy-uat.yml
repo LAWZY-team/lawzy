@@ -1,8 +1,8 @@
-name: Deploy to Production
+name: Deploy to UAT (uat.lawzy.vn)
 
 on:
   push:
-    branches: [production]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -26,28 +26,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push frontend
+      - name: Build and push frontend (UAT)
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE }}:latest
-            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:uat
+            ${{ env.FRONTEND_IMAGE }}:uat-${{ github.sha }}
           build-args: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL || 'https://lawzy.vn' }}
-            NEXT_PUBLIC_API_URL=http://backend:5000
-            BACKEND_URL=http://backend:5000
+            NEXT_PUBLIC_APP_URL=https://uat.lawzy.vn
+            NEXT_PUBLIC_API_URL=http://backend-uat:5000
+            BACKEND_URL=http://backend-uat:5000
 
-      - name: Build and push backend
+      - name: Build and push backend (UAT)
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
           tags: |
-            ${{ env.BACKEND_IMAGE }}:latest
-            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:uat
+            ${{ env.BACKEND_IMAGE }}:uat-${{ github.sha }}
 
   deploy:
     needs: build-and-push
@@ -70,7 +70,7 @@ jobs:
           target: /opt/lawzy
           overwrite: true
 
-      - name: Deploy on VPS
+      - name: Deploy UAT on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -82,9 +82,9 @@ jobs:
 
             cat > .env <<EOF
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            NEXT_PUBLIC_APP_URL=https://lawzy.vn
-            NEXT_PUBLIC_API_URL=http://backend:5000
-            BACKEND_URL=http://backend:5000
+            NEXT_PUBLIC_APP_URL=https://uat.lawzy.vn
+            NEXT_PUBLIC_API_URL=http://backend-uat:5000
+            BACKEND_URL=http://backend-uat:5000
             MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
@@ -95,14 +95,7 @@ jobs:
             R2_REGION=${{ secrets.R2_REGION }}
             EOF
 
-            mkdir -p nginx/ssl/live/lawzy.vn
-            if [ ! -f nginx/ssl/live/lawzy.vn/privkey.pem ]; then
-              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout nginx/ssl/live/lawzy.vn/privkey.pem \
-                -out nginx/ssl/live/lawzy.vn/fullchain.pem \
-                -subj '/CN=lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
-            fi
-
+            # SSL for uat.lawzy.vn
             mkdir -p nginx/ssl/live/uat.lawzy.vn
             if [ ! -f nginx/ssl/live/uat.lawzy.vn/privkey.pem ]; then
               openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -111,22 +104,32 @@ jobs:
                 -subj '/CN=uat.lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
             fi
 
+            # SSL for lawzy.vn (keep existing if present)
+            mkdir -p nginx/ssl/live/lawzy.vn
+            if [ ! -f nginx/ssl/live/lawzy.vn/privkey.pem ]; then
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout nginx/ssl/live/lawzy.vn/privkey.pem \
+                -out nginx/ssl/live/lawzy.vn/fullchain.pem \
+                -subj '/CN=lawzy.vn/O=Lawzy/C=VN' 2>/dev/null
+            fi
+
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Use the unified compose file that has both prod + UAT
             cp docker-compose.uat.yml docker-compose.yml 2>/dev/null || true
-            docker compose pull backend frontend
+            docker compose pull backend-uat frontend-uat
             docker compose up -d
             docker image prune -f
 
             sleep 10
-            STATUS=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:3000/)
-            echo "Frontend status: $STATUS"
-            if [ "$STATUS" != "200" ]; then
-              echo "WARNING: Frontend returned $STATUS"
-              docker compose logs frontend --tail 30
+            UAT_STATUS=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:3001/)
+            echo "UAT Frontend status: $UAT_STATUS"
+            if [ "$UAT_STATUS" != "200" ]; then
+              echo "WARNING: UAT Frontend returned $UAT_STATUS"
+              docker compose logs frontend-uat --tail 30
             fi
 
-            BACKEND_STATUS=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:5000/)
-            echo "Backend status: $BACKEND_STATUS"
+            UAT_BACKEND=$(curl -sk -o /dev/null -w '%{http_code}' http://localhost:5001/)
+            echo "UAT Backend status: $UAT_BACKEND"
 
-            echo "Production Deployment complete!"
+            echo "UAT Deployment complete!"
