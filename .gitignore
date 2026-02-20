@@ -1,7 +1,12 @@
 node_modules/
 .next/
+.env
 .env.local
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
 nginx/ssl/
+*.tar.gz
+setup-vps*.py
+setup-git*.py
+deploy.py
