@@ -22,7 +22,7 @@ jobs:
             --exclude='*.tsbuildinfo' \
             .
 
-      - name: Deploy to VPS
+      - name: Stop and clean on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -31,6 +31,8 @@ jobs:
           script: |
             echo "Stopping containers..."
             cd /opt/lawzy && docker compose down 2>/dev/null || true
+            echo "Cleaning source files..."
+            rm -rf /opt/lawzy/frontend/src /opt/lawzy/backend/src
 
       - name: Upload to VPS
         uses: appleboy/scp-action@v0.1.7
