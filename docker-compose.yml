@@ -40,6 +40,8 @@ services:
         condition: service_healthy
     networks:
       - lawzy-network
+    ports:
+      - 5001:5000
 
   # ─── Frontend Production (Next.js) ───
   frontend:
@@ -68,6 +70,8 @@ services:
     networks:
       - lawzy-network
       - coolify
+    ports:
+      - 3001:3000
 
   # ─── Backend UAT ───
   backend-uat:
