@@ -46,13 +46,13 @@ services:
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}
         NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
-        BACKEND_URL: http://backend-uat:5000
+        BACKEND_URL: http://backend-uat:5001
     container_name: lawzy-frontend-uat
     restart: unless-stopped
     environment:
       NODE_ENV: production
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      BACKEND_URL: http://backend-uat:5000
+      BACKEND_URL: http://backend-uat:5001
     depends_on:
       - backend-uat
     labels:
