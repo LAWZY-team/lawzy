@@ -42,6 +42,8 @@ services:
       - lawzy-network
     ports:
       - 5001:5000
+    ports:
+      - 5001:5000
 
   # ─── Frontend Production (Next.js) ───
   frontend:
