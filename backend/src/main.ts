@@ -23,6 +23,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 5001);
+  // Frontend defaults to http://localhost:5000 in several places, so keep dev default aligned.
+  const port = Number(process.env.PORT) || 5000;
+  await app.listen(port);
 }
 bootstrap();

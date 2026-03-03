@@ -31,6 +31,12 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasAuthSession = request.cookies.has("auth_session");
 
+  // Allow guest users to start contract creation flow.
+  // Keep other editor routes protected to avoid exposing saved documents.
+  if (pathname === "/editor/new" || pathname === "/templates" || pathname === "/documents") {
+    return NextResponse.next();
+  }
+
   if (isProtectedPath(pathname) && !hasAuthSession) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("returnUrl", pathname);

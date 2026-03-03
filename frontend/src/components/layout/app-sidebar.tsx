@@ -6,12 +6,10 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FileText,
-  FolderInput,
+  // FolderInput,
   Library,
   Settings,
   CreditCard,
-  Users,
-  HardDrive,
 } from "lucide-react"
 
 import {
@@ -43,7 +41,7 @@ const navGroups: NavGroup[] = [
     items: [
       { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
       { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
-      { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
+      // { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
     ],
   },
   {
@@ -55,8 +53,6 @@ const navGroups: NavGroup[] = [
   {
     labelKey: "sidebar_settings",
     items: [
-      { titleKey: "sidebar_workspace", href: "/workspace", icon: Users },
-      { titleKey: "sidebar_files", href: "/files", icon: HardDrive },
       { titleKey: "sidebar_payment", href: "/payment", icon: CreditCard },
       { titleKey: "sidebar_settings", href: "/settings", icon: Settings },
     ],
