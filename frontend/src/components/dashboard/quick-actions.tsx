@@ -25,12 +25,12 @@ export function QuickActions() {
             Duyệt mẫu hợp đồng
           </Link>
         </Button>
-        <Button asChild variant="outline" className="w-full justify-start">
+        {/* <Button asChild variant="outline" className="w-full justify-start">
           <Link href="/workspace">
             <Users className="mr-2 h-4 w-4" />
             Mời thành viên
           </Link>
-        </Button>
+        </Button> */}
       </CardContent>
     </Card>
   )
