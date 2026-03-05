@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 // import { trackEvent } from "@/lib/analytics/track";
+import { useGuestFlowStore } from "@/stores/guest-flow-store";
 
 interface HeroSectionProps {
   onCreateContract?: () => void;
@@ -18,6 +19,7 @@ export default function HeroSection({ onCreateContract }: HeroSectionProps) {
 
   const handleCreateContract = () => {
     // trackEvent("CLICK_CREATE_CONTRACT_LP");
+    useGuestFlowStore.getState().startFromLanding();
     if (onCreateContract) return onCreateContract();
     router.push("/editor/new");
   };

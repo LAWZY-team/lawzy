@@ -31,6 +31,9 @@ import { UserNav } from "./user-nav"
 import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import type { TranslationKey } from "@/lib/i18n"
+import { useAuthStore } from "@/stores/auth-store"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import useStore from "@/lib/zustand/use-store"
 
 type NavItem = { titleKey: TranslationKey; href: string; icon: React.ComponentType<{ className?: string }> }
 type NavGroup = { labelKey: TranslationKey; items: NavItem[] }
@@ -64,6 +67,21 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const { t } = useT()
 
+  // Hydration-safe reads (guest-flow store uses skipHydration)
+  const guestEntry = useStore(useGuestFlowStore, (s) => s.entry)
+  const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
+  const authResolved = useStore(useAuthStore, (s) => s.authResolved)
+
+  // Hide settings for guest-from-landing. While auth is unknown, default to hide to prevent flicker.
+  const hideSettingsGroup =
+    guestEntry === "landing" && (authResolved ? isAuthenticated === false : true)
+
+  const visibleGroups = React.useMemo(() => {
+    return navGroups
+      .filter((g) => !(hideSettingsGroup && g.labelKey === "sidebar_settings"))
+      .filter((g) => g.items.length > 0)
+  }, [hideSettingsGroup])
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="flex flex-row items-center gap-2">
@@ -83,12 +101,12 @@ export function AppSidebar() {
           state === "collapsed" && "flex flex-col items-center gap-3 px-1 py-1"
         )}
       >
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <SidebarGroup
             key={group.labelKey}
             className={cn(
               "gap-0.5",
-              state === "collapsed" && "w-full max-w-[2.75rem] p-0 flex flex-col items-center"
+              state === "collapsed" && "w-full max-w-11 p-0 flex flex-col items-center"
             )}
           >
             <SidebarGroupLabel className="text-xs font-medium text-muted-foreground px-2 py-1">
