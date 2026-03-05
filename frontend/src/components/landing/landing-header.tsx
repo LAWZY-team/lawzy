@@ -9,6 +9,7 @@ import { useI18n } from "./language-provider";
 import { Menu, X, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
+import { useGuestFlowStore } from "@/stores/guest-flow-store";
 
 type HeaderProps = {
   onCreateContract?: () => void;
@@ -46,6 +47,7 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
 
   const handleCreateContract = () => {
     // trackEvent("CLICK_CREATE_CONTRACT_LP");
+    useGuestFlowStore.getState().startFromLanding();
     if (onCreateContract) return onCreateContract();
     router.push("/editor/new");
   };

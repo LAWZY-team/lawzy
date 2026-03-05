@@ -15,7 +15,13 @@ export interface User {
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
+  /**
+   * True once we've determined the auth state for the current tab/session.
+   * Prevents UI flicker (e.g. showing settings sidebar briefly) while auth is unknown.
+   */
+  authResolved: boolean
   setUser: (user: User | null) => void
+  setAuthResolved: (resolved: boolean) => void
   logout: () => void
   fetchUser: () => Promise<void>
 }
@@ -25,10 +31,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
+      authResolved: false,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
+      setAuthResolved: (resolved) => set({ authResolved: resolved }),
       logout: () => {
         document.cookie = "auth_session=; path=/; max-age=0";
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false, authResolved: true });
       },
       fetchUser: async () => {
         try {
@@ -36,13 +44,13 @@ export const useAuthStore = create<AuthState>()(
           if (res.ok) {
             const user = await res.json();
             if (user && !user.error) {
-              set({ user, isAuthenticated: true });
+              set({ user, isAuthenticated: true, authResolved: true });
               return;
             }
           }
-          set({ user: null, isAuthenticated: false });
+          set({ user: null, isAuthenticated: false, authResolved: true });
         } catch {
-          set({ user: null, isAuthenticated: false });
+          set({ user: null, isAuthenticated: false, authResolved: true });
         }
       },
     }),
