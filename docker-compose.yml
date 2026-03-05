@@ -72,6 +72,7 @@ services:
       - coolify
     ports:
       - 3001:3000
+
   # ─── Backend UAT ───
   backend-uat:
     build:
