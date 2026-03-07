@@ -45,12 +45,12 @@ export function StatsByWorkspace() {
   const { t } = useT()
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>{t("dash_stats_by_ws")}</CardTitle>
         <CardDescription>{t("dash_docs_per_ws")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-4 w-full" />

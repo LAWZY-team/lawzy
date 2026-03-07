@@ -5,13 +5,24 @@ import FadeInOnScroll from "./fade-in-on-scroll";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+// import { trackEvent } from "@/lib/analytics/track";
+import { useGuestFlowStore } from "@/stores/guest-flow-store";
 
 interface HeroSectionProps {
-  onOpenSurvey: () => void;
+  onCreateContract?: () => void;
 }
 
-export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
+export default function HeroSection({ onCreateContract }: HeroSectionProps) {
   const { t } = useI18n();
+  const router = useRouter();
+
+  const handleCreateContract = () => {
+    // trackEvent("CLICK_CREATE_CONTRACT_LP");
+    useGuestFlowStore.getState().startFromLanding();
+    if (onCreateContract) return onCreateContract();
+    router.push("/editor/new");
+  };
 
   return (
     <section className="lg:px-2 pt-32 pb-16 md:pt-30 lg:pt-30 lg:pb-5 overflow-hidden">
@@ -31,8 +42,8 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
                 <Button
                   type="button"
                   size="lg"
-                  className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black text-lg px-8 py-6 rounded-full shadow-lg hover:shadow-xl transition-all"
-                  onClick={onOpenSurvey}
+                  className="bg-black hover:bg-gray-800 text-white text-lg px-8 py-6 rounded-full shadow-lg hover:shadow-xl transition-all"
+                  onClick={handleCreateContract}
                 >
                   {t("try_free")}
                   <ChevronRight className="w-5 h-5 ml-2" />
@@ -40,7 +51,7 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
               </div>
             </div>
             <div className="relative w-full max-w-2xl mx-auto lg:max-w-none lg:mb-8">
-              <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 relative">
+              <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-gray-100 bg-gray-50 relative">
                 <Image
                   src="/hero.gif"
                   alt="Lawzy product hero"
@@ -51,8 +62,8 @@ export default function HeroSection({ onOpenSurvey }: HeroSectionProps) {
                   unoptimized={true}
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-orange-100 dark:bg-orange-900/30 rounded-full z-[-1] blur-2xl" aria-hidden />
-              <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-50 dark:bg-blue-900/30 rounded-full z-[-1] blur-2xl" aria-hidden />
+              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-orange-100 rounded-full z-[-1] blur-2xl" aria-hidden />
+              <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-50 rounded-full z-[-1] blur-2xl" aria-hidden />
             </div>
           </div>
         </div>
