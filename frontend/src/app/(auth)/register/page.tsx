@@ -8,20 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { validatePassword } from "@/lib/utils/password-validator";
+import { PasswordRequirements } from "@/components/password-requirements";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [step, setStep] = useState<"register" | "verify">("register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRequestRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -29,15 +34,17 @@ export default function RegisterPage() {
       setError("Mật khẩu xác nhận không khớp");
       return;
     }
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || "Mật khẩu không hợp lệ");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/api/auth/register/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, name, password }),
@@ -51,6 +58,41 @@ export default function RegisterPage() {
         return;
       }
 
+      toast.success("Mã OTP đã được gửi đến email của bạn");
+      setStep("verify");
+      setIsLoading(false);
+    } catch {
+      setError("Không thể kết nối đến server");
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (otp.length !== 6) {
+      setError("Mã OTP phải có 6 chữ số");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Xác thực OTP thất bại");
+        setIsLoading(false);
+        return;
+      }
+
       toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
       router.push("/login");
     } catch {
@@ -58,6 +100,87 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  if (step === "verify") {
+    return (
+      <div className="w-full max-w-md px-4">
+        <Card className="border-0 shadow-xl">
+          <CardHeader className="space-y-4 items-center text-center pb-2">
+            <Link href="/" className="inline-block">
+              <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
+            </Link>
+            <div>
+              <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
+              <CardDescription className="mt-1">
+                Nhập mã OTP đã được gửi đến email của bạn
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <form onSubmit={handleVerifyOTP}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email-display">Email</Label>
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{email}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="otp">Mã OTP</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Nhập 6 chữ số"
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setOtp(value);
+                  }}
+                  required
+                  maxLength={6}
+                  disabled={isLoading}
+                  className="text-center text-2xl tracking-widest"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Mã OTP có hiệu lực trong 10 phút
+                </p>
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xác thực...
+                  </>
+                ) : (
+                  "Xác thực OTP"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setStep("register")}
+                disabled={isLoading}
+              >
+                Quay lại
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md px-4">
@@ -74,7 +197,7 @@ export default function RegisterPage() {
           </div>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleRequestRegistration}>
           <CardContent className="space-y-4">
             {error && (
               <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -112,30 +235,46 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Ít nhất 6 ký tự"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  disabled={isLoading}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-              </div>
+              <PasswordRequirements
+                password={password}
+                open={showPasswordRequirements}
+                onOpenChange={setShowPasswordRequirements}
+              >
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Nhập mật khẩu"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (e.target.value.length > 0) {
+                        setShowPasswordRequirements(true);
+                      }
+                    }}
+                    onFocus={() => setShowPasswordRequirements(true)}
+                    onBlur={() => {
+                      // Delay closing to allow clicking on popover
+                      setTimeout(() => setShowPasswordRequirements(false), 200);
+                    }}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </Button>
+                </div>
+              </PasswordRequirements>
             </div>
 
             <div className="space-y-2">
@@ -154,11 +293,11 @@ export default function RegisterPage() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang đăng ký...
+                  Đang gửi OTP...
                 </>
               ) : (
                 "Đăng ký"

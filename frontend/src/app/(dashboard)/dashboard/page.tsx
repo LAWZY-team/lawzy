@@ -12,8 +12,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { QuotaCard } from "@/components/dashboard/quota-card"
 import { ReferralCard } from "@/components/dashboard/referral-card"
-import { QuickActions } from "@/components/dashboard/quick-actions"
-import { RecentDocs } from "@/components/dashboard/recent-docs"
+// import { QuickActions } from "@/components/dashboard/quick-actions"
+// import { RecentDocs } from "@/components/dashboard/recent-docs"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
@@ -21,6 +21,9 @@ import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Plus } from "lucide-react"
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 
 export default function DashboardPage() {
@@ -63,25 +66,51 @@ export default function DashboardPage() {
 
         <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
           <TabsContent value="docs" className="space-y-4 pt-4 pb-8 mt-0">
+            {/* Banner: Bắt đầu tạo hợp đồng */}
+            <div className="bg-black rounded-lg p-6 text-white">
+              <h3 className="text-xl font-semibold mb-2">Bắt đầu tạo hợp đồng</h3>
+              <p className="text-sm text-gray-300 mb-4">
+                Tạo hợp đồng mới trong vài giây và bắt đầu quản lý văn bản của bạn
+              </p>
+              <div className="flex justify-left">
+                <Button asChild className="bg-white text-black hover:bg-gray-100">
+                  <Link href="/editor/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Tạo hợp đồng mới
+                  </Link>
+                </Button>
+              </div>
+            </div>
             <StatsCards />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <Card className="lg:col-span-4 py-3 gap-1.5 self-start">
+              <Card className="lg:col-span-4 py-3 gap-1.5 h-full flex flex-col">
                 <CardHeader className="pb-0 pt-0 px-4">
                   <CardTitle className="text-sm">{t("dash_chart_title")}</CardTitle>
                   <CardDescription className="text-xs">{PERIOD_LABELS[period]}</CardDescription>
                 </CardHeader>
-                <CardContent className="ps-2 pt-0 px-4 pb-2">
+                <CardContent className="ps-2 pt-0 px-4 pb-2 flex-1">
                   <div className="text-foreground [&_text]:fill-current">
                     <OverviewChart period={period} height={160} />
                   </div>
                 </CardContent>
               </Card>
-              <div className="lg:col-span-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <QuickActions />
+              <div className="lg:col-span-4 h-full">
                 <StatsByWorkspace />
               </div>
+              <Card className="lg:col-span-4 h-full flex flex-col">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm">Tài liệu gần đây</CardTitle>
+                  <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-xs">
+                    <Link href="/documents">Xem tất cả</Link>
+                  </Button>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    Chưa có tài liệu nào
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <RecentDocs />
           </TabsContent>
 
           <TabsContent value="storage" className="space-y-4 pt-4 pb-8 mt-0">
