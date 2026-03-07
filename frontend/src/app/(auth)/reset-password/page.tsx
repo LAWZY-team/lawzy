@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import { validatePassword } from "@/lib/utils/password-validator";
+import { PasswordRequirements } from "@/components/password-requirements";
 
 export default function ResetPasswordPage() {
   return (
@@ -26,6 +28,7 @@ function ResetPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -38,10 +41,13 @@ function ResetPasswordForm() {
       setError("Mật khẩu xác nhận không khớp");
       return;
     }
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || "Mật khẩu không hợp lệ");
       return;
     }
+
     if (!token) {
       setError("Token không hợp lệ");
       return;
@@ -123,30 +129,46 @@ function ResetPasswordForm() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu mới</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Ít nhất 6 ký tự"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  disabled={isLoading}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-              </div>
+              <PasswordRequirements
+                password={password}
+                open={showPasswordRequirements}
+                onOpenChange={setShowPasswordRequirements}
+              >
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Nhập mật khẩu mới"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (e.target.value.length > 0) {
+                        setShowPasswordRequirements(true);
+                      }
+                    }}
+                    onFocus={() => setShowPasswordRequirements(true)}
+                    onBlur={() => {
+                      // Delay closing to allow clicking on popover
+                      setTimeout(() => setShowPasswordRequirements(false), 200);
+                    }}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </Button>
+                </div>
+              </PasswordRequirements>
             </div>
 
             <div className="space-y-2">
@@ -165,7 +187,7 @@ function ResetPasswordForm() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-3">
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

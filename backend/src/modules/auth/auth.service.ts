@@ -7,9 +7,11 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
+import { validatePassword } from '../../utils/password-validator';
 import type { Response } from 'express';
 
 const SALT_ROUNDS = 12;
@@ -25,6 +27,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(email: string, name: string, password: string) {
@@ -38,6 +41,53 @@ export class AuthService {
       name,
       password: hashed,
     });
+    return this.usersService.sanitize(user);
+  }
+
+  async requestRegistration(email: string, name: string, password: string) {
+    const existing = await this.usersService.findByEmail(email);
+    if (existing) {
+      throw new ConflictException('Email này đã được đăng ký');
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
+    const otp = randomInt(100000, 999999).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    await this.usersService.create({
+      email,
+      name,
+      password: hashed,
+      otpCode: otp,
+      otpExpires,
+      isVerified: false,
+    });
+
+    await this.emailService.sendOTPEmail(email, name, otp);
+
+    return { message: 'Mã OTP đã được gửi đến email của bạn' };
+  }
+
+  async verifyOTP(email: string, otp: string) {
+    const user = await this.usersService.findByEmailAndOTP(email, otp);
+    if (!user) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        otpCode: null,
+        otpExpires: null,
+      },
+    });
+
     return this.usersService.sanitize(user);
   }
 
@@ -142,9 +192,13 @@ export class AuthService {
     const expires = new Date(Date.now() + 60 * 60 * 1000);
     await this.usersService.setResetToken(email, token, expires);
 
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    await this.emailService.sendPasswordResetEmail(email, user.name, resetLink);
+
     return {
       message: 'Nếu email tồn tại, bạn sẽ nhận được link đặt lại mật khẩu',
-      resetToken: token,
     };
   }
 
@@ -152,6 +206,11 @@ export class AuthService {
     const user = await this.usersService.findByResetToken(token);
     if (!user) {
       throw new BadRequestException('Token không hợp lệ hoặc đã hết hạn');
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
     }
 
     const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);

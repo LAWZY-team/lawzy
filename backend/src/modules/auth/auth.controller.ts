@@ -17,6 +17,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -35,6 +36,23 @@ export class AuthController {
       dto.name,
       dto.password,
     );
+    return { message: 'Đăng ký thành công', user };
+  }
+
+  @Post('register/request')
+  @HttpCode(HttpStatus.OK)
+  async requestRegistration(@Body() dto: RegisterDto) {
+    return this.authService.requestRegistration(
+      dto.email,
+      dto.name,
+      dto.password,
+    );
+  }
+
+  @Post('register/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyOTP(@Body() dto: VerifyOtpDto) {
+    const user = await this.authService.verifyOTP(dto.email, dto.otp);
     return { message: 'Đăng ký thành công', user };
   }
 

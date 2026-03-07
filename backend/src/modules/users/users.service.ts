@@ -19,6 +19,9 @@ export class UsersService {
     name: string;
     password: string;
     roles?: string[];
+    otpCode?: string;
+    otpExpires?: Date;
+    isVerified?: boolean;
   }): Promise<User> {
     return this.prisma.user.create({
       data: {
@@ -26,6 +29,9 @@ export class UsersService {
         name: data.name,
         password: data.password,
         roles: JSON.stringify(data.roles ?? ['user']),
+        otpCode: data.otpCode,
+        otpExpires: data.otpExpires,
+        isVerified: data.isVerified ?? false,
       },
     });
   }
@@ -67,8 +73,25 @@ export class UsersService {
     });
   }
 
+  async setOTP(email: string, otp: string, expires: Date): Promise<User> {
+    return this.prisma.user.update({
+      where: { email },
+      data: { otpCode: otp, otpExpires: expires },
+    });
+  }
+
+  async findByEmailAndOTP(email: string, otp: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        email,
+        otpCode: otp,
+        otpExpires: { gt: new Date() },
+      },
+    });
+  }
+
   sanitize(user: User) {
-    const { password, resetToken, resetExpires, ...safe } = user;
+    const { password, resetToken, resetExpires, otpCode, otpExpires, ...safe } = user;
     return {
       ...safe,
       roles: typeof safe.roles === 'string' ? JSON.parse(safe.roles as string) : safe.roles,
