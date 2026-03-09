@@ -13,19 +13,22 @@ import { Separator } from '@/components/ui/separator'
 
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { toast } from 'sonner'
 
 interface RightPanelProps {
   editor: Editor | null
   onClose?: () => void
+  onAuthRequired?: () => boolean | void
 }
 
 type MergeFieldItem = { key: string; label: string; value: string }
 
-export function RightPanel({ editor, onClose }: RightPanelProps) {
+export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState('fields')
   const { currentDocumentId, metadata, templateMergeFields, mergeFieldValues, updateMergeFieldValue } = useEditorStore()
   const { customFields, addCustomField } = useUserFieldsStore()
+  const { isAuthenticated } = useAuthStore()
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
 
@@ -50,6 +53,12 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
   }, [baseMergeFields, customFields, mergeFieldValues])
 
   const insertField = (field: MergeFieldItem) => {
+    // Check auth for guest users
+    if (!isAuthenticated && onAuthRequired) {
+      const authRequired = onAuthRequired()
+      if (authRequired) return
+    }
+    
     editor?.chain().focus().insertContent({
       type: 'mergeField',
       attrs: {
@@ -61,6 +70,12 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
   }
 
   const handleAddCustomField = () => {
+    // Check auth for guest users
+    if (!isAuthenticated && onAuthRequired) {
+      const authRequired = onAuthRequired()
+      if (authRequired) return
+    }
+
     const label = newFieldLabel.trim()
     if (!label) {
       toast.error('Vui lòng nhập tên nhãn.')
@@ -72,6 +87,15 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
     setNewFieldLabel('')
     setNewFieldDefault('')
     toast.success('Đã thêm trường dữ liệu')
+  }
+
+  const handleUpdateFieldValue = (fieldKey: string, value: string) => {
+    // Check auth for guest users when updating field values
+    if (!isAuthenticated && onAuthRequired) {
+      const authRequired = onAuthRequired()
+      if (authRequired) return
+    }
+    updateMergeFieldValue(fieldKey, value)
   }
 
   return (
@@ -149,9 +173,16 @@ export function RightPanel({ editor, onClose }: RightPanelProps) {
                     </p>
                     <Input
                       value={mergeFieldValues[field.key] ?? field.value}
-                      onChange={(e) => updateMergeFieldValue(field.key, e.target.value)}
+                      onChange={(e) => handleUpdateFieldValue(field.key, e.target.value)}
+                      onClick={() => {
+                        // Check auth when clicking on input
+                        if (!isAuthenticated && onAuthRequired) {
+                          onAuthRequired()
+                        }
+                      }}
                       className="h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
                       placeholder="Giá trị"
+                      readOnly={!isAuthenticated}
                     />
                   </Card>
                 ))}

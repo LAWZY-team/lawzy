@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "./language-provider";
 import { Menu, X, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTheme } from "next-themes";
 import { useGuestFlowStore } from "@/stores/guest-flow-store";
 
 type HeaderProps = {

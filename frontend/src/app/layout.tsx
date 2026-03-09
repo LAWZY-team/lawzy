@@ -82,9 +82,10 @@ export default function RootLayout({
         <Analytics />
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
+          forcedTheme="light"
         >
           <Providers>{children}</Providers>
           <Toaster />

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware'
+import { useAuthStore } from './auth-store'
 
 export interface UserCustomField {
   /** Unique key used by mergeField nodes and mergeFieldValues map */
@@ -21,6 +22,43 @@ interface UserFieldsState {
   toggleHiddenFieldKey: (key: string) => void
   hideAll: (keys: string[]) => void
   showAll: () => void
+}
+
+/** Get storage key based on user ID */
+function getStorageKey(): string {
+  const user = useAuthStore.getState().user
+  if (user?.id) {
+    return `lawzy-user-fields-${user.id}`
+  }
+  return 'lawzy-user-fields-guest'
+}
+
+/** Custom storage that uses user-specific keys */
+const userFieldsStorage: StateStorage = {
+  getItem: (_name: string): string | null => {
+    const key = getStorageKey()
+    try {
+      return localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  setItem: (_name: string, value: string): void => {
+    const key = getStorageKey()
+    try {
+      localStorage.setItem(key, value)
+    } catch {
+      // Ignore storage errors
+    }
+  },
+  removeItem: (_name: string): void => {
+    const key = getStorageKey()
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // Ignore storage errors
+    }
+  },
 }
 
 function slugifyKey(input: string): string {
@@ -88,9 +126,42 @@ export const useUserFieldsStore = create<UserFieldsState>()(
       showAll: () => set({ hiddenFieldKeys: [] }),
     }),
     {
-      name: 'lawzy-user-fields',
+      name: 'lawzy-user-fields', // Base name, actual key is handled by custom storage
+      storage: createJSONStorage(() => userFieldsStorage),
       version: 1,
     }
   )
 )
 
+// Subscribe to auth changes to reload fields when user logs in/out
+if (typeof window !== 'undefined') {
+  let previousUserId: string | null = useAuthStore.getState().user?.id ?? null
+  
+  useAuthStore.subscribe((state) => {
+    const currentUserId = state.user?.id ?? null
+    // Only reload if the user ID actually changed
+    if (currentUserId !== previousUserId) {
+      previousUserId = currentUserId
+      // When user changes, reload the store from the new storage key
+      const key = getStorageKey()
+      try {
+        const stored = localStorage.getItem(key)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          useUserFieldsStore.setState({
+            customFields: parsed.state?.customFields ?? [],
+            hiddenFieldKeys: parsed.state?.hiddenFieldKeys ?? [],
+          })
+        } else {
+          // Clear if no data for this user
+          useUserFieldsStore.setState({
+            customFields: [],
+            hiddenFieldKeys: [],
+          })
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  })
+}
