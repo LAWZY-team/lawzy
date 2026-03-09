@@ -65,9 +65,7 @@ function LoginForm() {
     <div className="w-full max-w-md px-4">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
-          <Link href="/" className="inline-block">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          </Link>
           <div>
             <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
             <CardDescription className="mt-1">
