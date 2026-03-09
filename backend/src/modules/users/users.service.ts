@@ -46,6 +46,71 @@ export class UsersService {
     });
   }
 
+  async getCustomFields(userId: string) {
+    // Use raw SQL to avoid requiring regenerated Prisma client model
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        user_id: string;
+        key: string;
+        label: string;
+        default_value: string | null;
+        is_hidden: 0 | 1;
+      }>
+    >`SELECT id, user_id, \`key\`, label, default_value, is_hidden FROM user_custom_fields WHERE user_id = ${userId} ORDER BY created_at ASC`;
+
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      key: r.key,
+      label: r.label,
+      defaultValue: r.default_value,
+      isHidden: !!r.is_hidden,
+    }));
+  }
+
+  /**
+   * Replace custom fields for a user. Uses upsert per key and deletes removed keys.
+   */
+  async replaceCustomFields(
+    userId: string,
+    fields: Array<{
+      key: string;
+      label: string;
+      defaultValue?: string | null;
+      isHidden?: boolean;
+    }>,
+  ) {
+    const normalized = fields
+      .filter((f) => f && typeof f.key === 'string' && f.key.trim().length > 0)
+      .map((f) => ({
+        key: f.key.trim(),
+        label: String(f.label ?? '').trim() || f.key.trim(),
+        defaultValue:
+          f.defaultValue === null || f.defaultValue === undefined
+            ? null
+            : String(f.defaultValue),
+        isHidden: !!f.isHidden,
+      }));
+
+    const keys = normalized.map((f) => f.key);
+
+    await this.prisma.$transaction(async (tx) => {
+      // Remove existing rows for user
+      await tx.$executeRaw`DELETE FROM user_custom_fields WHERE user_id = ${userId}`;
+
+      // Insert normalized fields (generate id via UUID())
+      for (const f of normalized) {
+        await tx.$executeRaw`
+          INSERT INTO user_custom_fields (id, user_id, \`key\`, label, default_value, is_hidden, created_at, updated_at)
+          VALUES (UUID(), ${userId}, ${f.key}, ${f.label}, ${f.defaultValue}, ${f.isHidden ? 1 : 0}, NOW(), NOW())
+        `;
+      }
+    });
+
+    return this.getCustomFields(userId);
+  }
+
   async setResetToken(
     email: string,
     token: string,

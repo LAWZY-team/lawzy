@@ -149,7 +149,11 @@ export class DocumentsService {
 
   async createVersion(
     documentId: string,
-    data: { contentJSON: any; label?: string; createdBy: string },
+    data: {
+      contentJSON: any;
+      label?: string;
+      createdBy: string;
+    },
   ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
@@ -181,6 +185,69 @@ export class DocumentsService {
     return this.prisma.documentVersion.findMany({
       where: { documentId },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getVersion(documentId: string, versionId: string) {
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: versionId, documentId },
+    });
+
+    if (!version) {
+      throw new NotFoundException('Version not found');
+    }
+
+    return version;
+  }
+
+  async createChatMessage(
+    documentId: string,
+    data: { userId: string; role: 'user' | 'assistant'; content: string; metadata?: any },
+  ) {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return this.prisma.chatMessage.create({
+      data: {
+        documentId,
+        userId: data.userId,
+        role: data.role,
+        content: data.content,
+        metadata: data.metadata,
+      },
+    });
+  }
+
+  async getChatMessages(
+    documentId: string,
+    opts: { userId: string; to?: string },
+  ) {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const toDate =
+      opts.to && typeof opts.to === 'string' && opts.to.trim().length > 0
+        ? new Date(opts.to)
+        : undefined;
+    const effectiveToDate =
+      toDate && !Number.isNaN(toDate.getTime()) ? toDate : undefined;
+
+    return this.prisma.chatMessage.findMany({
+      where: {
+        documentId,
+        ...(effectiveToDate ? { createdAt: { lte: effectiveToDate } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

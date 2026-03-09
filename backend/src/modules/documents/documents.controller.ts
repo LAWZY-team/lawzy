@@ -108,7 +108,13 @@ export class DocumentsController {
   async createVersion(
     @Request() req: any,
     @Param('id') documentId: string,
-    @Body() body: { contentJSON: any; label?: string },
+    @Body()
+    body: {
+      contentJSON: any;
+      mergeFieldValues?: any;
+      chatCursorAt?: string;
+      label?: string;
+    },
   ) {
     const userId = req.user.userId;
     return this.documentsService.createVersion(documentId, {
@@ -120,5 +126,40 @@ export class DocumentsController {
   @Get(':id/versions')
   async getVersions(@Param('id') documentId: string) {
     return this.documentsService.getVersions(documentId);
+  }
+
+  @Get(':id/versions/:versionId')
+  async getVersion(
+    @Param('id') documentId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.documentsService.getVersion(documentId, versionId);
+  }
+
+  @Post(':id/chat-messages')
+  async createChatMessage(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @Body()
+    body: { role: 'user' | 'assistant'; content: string; metadata?: any },
+  ) {
+    const userId = req.user.userId;
+    return this.documentsService.createChatMessage(documentId, {
+      ...body,
+      userId,
+    });
+  }
+
+  @Get(':id/chat-messages')
+  async getChatMessages(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @Query('to') to?: string,
+  ) {
+    const userId = req.user.userId;
+    return this.documentsService.getChatMessages(documentId, {
+      userId,
+      to,
+    });
   }
 }

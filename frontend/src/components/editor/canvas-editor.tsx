@@ -7,13 +7,12 @@
  * Nội dung load từ template đã có align/divider; khi cần căn chỉnh trong editor có thể bổ sung
  * extension text-align cho TipTap.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, Editor } from "@tiptap/react";
 import { useEditorStore } from "@/stores/editor-store";
 import { useUserFieldsStore } from "@/stores/user-fields-store";
 import {
-  X,
   Play,
   MoreHorizontal,
   FileText,
@@ -87,7 +86,7 @@ const getPublicAppBaseUrl = (): string => {
 interface CanvasEditorProps {
   editor: Editor | null;
   title?: string;
-  onClose: () => void;
+  // onClose: () => void;
   onRun?: () => void;
   isCode?: boolean;
   /** Panel công cụ (Dữ liệu, Thông tin) đang mở */
@@ -101,7 +100,7 @@ interface CanvasEditorProps {
 export function CanvasEditor({
   editor,
   title = "Hợp đồng chưa đặt tên",
-  onClose,
+  // onClose,
   onRun,
   isCode = false,
   toolsPanelOpen = true,
@@ -156,6 +155,30 @@ export function CanvasEditor({
     (currentFontSize && currentFontSize.length > 0
       ? currentFontSize
       : undefined) ?? "Cỡ chữ";
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !editor.view) return;
+    const handleEditorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Find the closest ancestor or the target itself that has data-field-key
+      const fieldEl = target.closest('[data-field-key]');
+      if (fieldEl) {
+        const fieldKey = fieldEl.getAttribute('data-field-key');
+        if (fieldKey) {
+          // Dispatch a custom event to focus the field in the RightPanel
+          if (!toolsPanelOpen && onToggleTools) {
+            // Defer the state update to avoid interfering with TipTap's native event loop
+            setTimeout(() => onToggleTools(), 0);
+          }
+          window.dispatchEvent(new CustomEvent('lawzy:focus-field', { detail: { fieldKey } }));
+        }
+      }
+    };
+    
+    const dom = editor.view.dom;
+    dom.addEventListener('click', handleEditorClick);
+    return () => dom.removeEventListener('click', handleEditorClick);
+  }, [editor, toolsPanelOpen, onToggleTools]);
 
   if (!editor) return null;
 
@@ -349,13 +372,6 @@ export function CanvasEditor({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background z-20 sticky top-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-1.5 bg-muted rounded-lg">
-            {isCode ? (
-              <Code className="w-4 h-4 text-blue-400" />
-            ) : (
-              <FileText className="w-4 h-4 text-purple-400" />
-            )}
-          </div>
           <input
             value={docTitle}
             onChange={(e) => setDocTitle(e.target.value)}
@@ -376,27 +392,6 @@ export function CanvasEditor({
             </Button>
           )}
 
-          {onToggleTools && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleTools}
-              className={cn(
-                "h-8 w-8 rounded-full",
-                toolsPanelOpen
-                  ? "text-foreground bg-accent"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent",
-              )}
-              title={toolsPanelOpen ? "Đóng công cụ" : "Mở công cụ"}
-            >
-              {toolsPanelOpen ? (
-                <PanelRightClose className="w-4 h-4" />
-              ) : (
-                <PanelRightOpen className="w-4 h-4" />
-              )}
-            </Button>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -412,30 +407,23 @@ export function CanvasEditor({
               align="end"
               className="bg-popover border-border text-popover-foreground"
             >
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={handlePrint}
                 className="hover:bg-accent cursor-pointer"
               >
                 <Printer className="w-4 h-4 mr-2" /> In / Lưu PDF
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuItem
                 onClick={handleExportPdf}
                 className="hover:bg-accent cursor-pointer"
               >
                 <Download className="w-4 h-4 mr-2" /> Xuất PDF
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuItem
                 onClick={handleExportWord}
                 className="hover:bg-accent cursor-pointer"
               >
                 <FileText className="w-4 h-4 mr-2" /> Xuất Word (.docx)
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportHTML}
-                className="hover:bg-accent cursor-pointer"
-              >
-                <Code className="w-4 h-4 mr-2" /> Xuất HTML
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -565,18 +553,26 @@ export function CanvasEditor({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <div className="h-4 w-px bg-border mx-1"></div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-            title="Đóng canvas"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          {onToggleTools && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleTools}
+              className={cn(
+                "h-8 w-8 rounded-full",
+                toolsPanelOpen
+                  ? "text-foreground bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+              title={toolsPanelOpen ? "Đóng công cụ" : "Mở công cụ"}
+            >
+              {toolsPanelOpen ? (
+                <PanelRightClose className="w-4 h-4" />
+              ) : (
+                <PanelRightOpen className="w-4 h-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 

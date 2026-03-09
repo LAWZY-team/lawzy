@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, use, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { JSONContent } from '@tiptap/core'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -67,6 +68,7 @@ export default function EditorPage({
   params: Promise<{ id: string }>
   searchParams?: Promise<{ template?: string }>
 }) {
+  const router = useRouter()
   const resolvedParams = use(params)
   const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string }>)
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
@@ -80,11 +82,13 @@ export default function EditorPage({
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   const { currentWorkspace } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
-  const workspaceId = currentWorkspace?.id ?? 'org001'
+  const workspaceId = currentWorkspace?.id
 
+  // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
 
   // Chỉ thu gọn sidebar khi vừa chuyển sang canvas (false → true); nếu user tự mở lại sidebar thì không ép đóng
   useEffect(() => {
@@ -97,30 +101,155 @@ export default function EditorPage({
   const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
   const [documentTitle, setDocumentTitle] = useState('Hợp đồng dịch vụ')
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
-  const [thinkingProgress, setThinkingProgress] = useThinkingProgress(isGenerating)
+  const thinkingProgress = useThinkingProgress(isGenerating)[0]
+  const setThinkingProgress = useThinkingProgress(isGenerating)[1]
+  const draftInitRef = useRef(false)
+  const guestRestoredRef = useRef(false)
+  const initialLoadRef = useRef(true)
 
-  // Restore guest session when authenticated user logs in
+  // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
-    if (isAuthenticated && resolvedParams.id === 'new') {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ messages?: Array<{ id: string; role: string; content: string; createdAt: string }> }>
+      const msgs = ce.detail?.messages
+      if (!Array.isArray(msgs)) return
+      setChatMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+        }))
+      )
+    }
+    window.addEventListener('lawzy:restore-chat', handler as EventListener)
+    return () => window.removeEventListener('lawzy:restore-chat', handler as EventListener)
+  }, [])
+
+  // Ensure guest editor session store is hydrated (persist.skipHydration)
+  useEffect(() => {
+    useGuestEditorSessionStore.persist.rehydrate()
+  }, [])
+
+  // Restore draft when coming back to /editor/new (guest) OR migrate guest draft into account on login
+  useEffect(() => {
+    if (resolvedParams.id !== 'new') return
+
+    let cancelled = false
+
+    async function run() {
+      // Wait for hydration to complete so getSession returns correct values.
+      await useGuestEditorSessionStore.persist.rehydrate()
+      if (cancelled) return
+
       const session = getSession()
-      if (session.editorContent) {
-        setEditorContent(session.editorContent)
-        setDocumentTitle(session.documentTitle)
-        setMergeFieldValues(session.mergeFieldValues)
-        if (session.templateMergeFields) {
-          setTemplateMergeFields(session.templateMergeFields)
+
+      // Guest returning to /editor/new: restore from sessionStorage
+      if (!isAuthenticated) {
+        if (!guestRestoredRef.current && session.editorContent) {
+          guestRestoredRef.current = true
+          setEditorContent(session.editorContent)
+          setDocumentTitle(session.documentTitle)
+          setMergeFieldValues(session.mergeFieldValues)
+          if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
+          if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
+          if (session.metadata) updateMetadata(session.metadata)
+          setIsCanvasMode(true)
         }
-        if (session.chatMessages.length > 0) {
-          setChatMessages(session.chatMessages)
+        return
+      }
+
+      // Logged-in: redirect to existing draft if present
+      const existingDraftId =
+        typeof window !== 'undefined' ? sessionStorage.getItem('lawzy-active-editor-draft-id') : null
+      if (existingDraftId) {
+        router.replace(`/editor/${existingDraftId}`)
+        return
+      }
+
+      if (draftInitRef.current) return
+      draftInitRef.current = true
+
+      // If guest had a draft, migrate it into a server draft document
+      const sourceContent = session.editorContent ?? useEditorStore.getState().content ?? DEFAULT_CONTENT
+      const sourceTitle = session.documentTitle || useEditorStore.getState().metadata?.title || 'Hợp đồng'
+      const sourceMerge = Object.keys(session.mergeFieldValues ?? {}).length ? session.mergeFieldValues : useEditorStore.getState().mergeFieldValues
+      const sourceMetadata = session.metadata ?? useEditorStore.getState().metadata
+
+      try {
+        if (!workspaceId) {
+          // Không có workspace hợp lệ -> tạm thời giữ behaviour local như trước,
+          // không cố tạo draft server.
+          if (!guestRestoredRef.current && session.editorContent) {
+            guestRestoredRef.current = true
+            setEditorContent(session.editorContent)
+            setDocumentTitle(session.documentTitle)
+            setMergeFieldValues(session.mergeFieldValues)
+            if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
+            if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
+            if (session.metadata) updateMetadata(session.metadata)
+            setIsCanvasMode(true)
+          }
+          return
         }
-        if (session.metadata) {
-          updateMetadata(session.metadata)
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: sourceTitle,
+          type: sourceMetadata?.type ?? 'contract',
+          workspaceId,
+          contentJSON: sourceContent,
+          metadata: sourceMetadata,
+          mergeFieldValues: sourceMerge,
+        })
+
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create draft')
+
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('lawzy-active-editor-draft-id', newId)
         }
-        setIsCanvasMode(true)
+
+        // Migrate chat messages (best-effort)
+        if (session.chatMessages?.length) {
+          for (const m of session.chatMessages) {
+            await api.post(`/documents/${newId}/chat-messages`, {
+              role: m.role,
+              content: m.content,
+              metadata: { migratedFromGuest: true },
+            })
+          }
+        }
+
         clearSession()
+        router.replace(`/editor/${newId}`)
+      } catch (e) {
+        console.error(e)
+        // Fall back to local restored state (still better than blank)
+        if (!guestRestoredRef.current && session.editorContent) {
+          guestRestoredRef.current = true
+          setEditorContent(session.editorContent)
+          setDocumentTitle(session.documentTitle)
+          setMergeFieldValues(session.mergeFieldValues)
+          if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
+          if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
+          if (session.metadata) updateMetadata(session.metadata)
+          setIsCanvasMode(true)
+        }
       }
     }
-  }, [isAuthenticated, resolvedParams.id, getSession, clearSession, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
+    run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    resolvedParams.id,
+    isAuthenticated,
+    getSession,
+    clearSession,
+    router,
+    workspaceId,
+  ])
 
   // Save guest session periodically
   useEffect(() => {
@@ -136,7 +265,21 @@ export default function EditorPage({
         })
       }, 5000) // Save every 5 seconds
 
-      return () => clearInterval(interval)
+      return () => {
+        try {
+          // Save once on unmount/navigation to avoid losing recent changes
+          saveSession({
+            editorContent,
+            documentTitle,
+            mergeFieldValues,
+            templateMergeFields: useEditorStore.getState().templateMergeFields,
+            chatMessages,
+            metadata: useEditorStore.getState().metadata,
+          })
+        } finally {
+          clearInterval(interval)
+        }
+      }
     }
   }, [isAuthenticated, resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
 
@@ -151,6 +294,7 @@ export default function EditorPage({
 
   useEffect(() => {
     if (resolvedParams.id !== 'new') {
+      initialLoadRef.current = true
       api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
         if (doc) {
           setCurrentDocument(doc.id as string)
@@ -180,9 +324,13 @@ export default function EditorPage({
             content: m.content,
             timestamp: new Date(m.createdAt),
           })))
+          queueMicrotask(() => {
+            initialLoadRef.current = false
+          })
         }
       }).catch(() => {
         setChatMessages([])
+        initialLoadRef.current = false
       })
     } else {
       setCurrentDocument(null)
@@ -209,6 +357,9 @@ export default function EditorPage({
               Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
             )
             setIsCanvasMode(true)
+            queueMicrotask(() => {
+              initialLoadRef.current = false
+            })
           }
         }).catch(() => {})
         return
@@ -217,8 +368,10 @@ export default function EditorPage({
       setMergeFieldValues({})
       setEditorContent(DEFAULT_CONTENT)
       setDocumentTitle('Hợp đồng dịch vụ')
+      // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
       setIsCanvasMode(false)
       setChatMessages([])
+      initialLoadRef.current = false
     }
   }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
 
@@ -257,10 +410,10 @@ export default function EditorPage({
       MergeFieldExtension,
     ],
     content: editorContent,
-    editorProps: {
+      editorProps: {
       attributes: {
-        class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-500/30 selection:text-blue-200',
-      },
+         class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-300 selection:text-black',
+        },
       handleDrop: (view, event, slice, moved) => {
         if (!moved && event.dataTransfer && event.dataTransfer.types.includes('application/lawzy-merge-field')) {
           const data = event.dataTransfer.getData('application/lawzy-merge-field')
@@ -284,20 +437,25 @@ export default function EditorPage({
       },
     },
     onUpdate: ({ editor }) => {
-      setContent(editor.getJSON())
-      setEditorContent(editor.getJSON())
+      // Defer state update to next tick to avoid React 18 'flushSync' collisions with TipTap NodeViews
+      setTimeout(() => {
+        setContent(editor.getJSON())
+        setEditorContent(editor.getJSON())
+      }, 0)
     },
   })
 
-  // Sync editor content (defer to microtask to avoid flushSync inside React lifecycle)
+  // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
     if (!editor || !editorContent || JSON.stringify(editorContent) === JSON.stringify(editor.getJSON())) return
     const pending = editorContent
-    queueMicrotask(() => {
+    const id = setTimeout(() => {
+      if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
         editor.commands.setContent(pending)
       }
-    })
+    }, 0)
+    return () => clearTimeout(id)
   }, [editorContent, editor])
 
   // Add click handler for guest users when they click on editor content
@@ -329,12 +487,52 @@ export default function EditorPage({
     }
   }, [editor, isAuthenticated, isCanvasMode, editorContent, handleAuthRequired])
 
+  // Autosave authenticated documents (update live document, versions are manual)
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (resolvedParams.id === 'new') return
+    if (initialLoadRef.current) return
+
+    const t = setTimeout(() => {
+      api
+        .patch(`/documents/${resolvedParams.id}`, {
+          title: documentTitle,
+          contentJSON: editorContent,
+          mergeFieldValues,
+          metadata: useEditorStore.getState().metadata,
+        })
+        .catch((e) => {
+          console.error(e)
+        })
+    }, 800)
+
+    return () => clearTimeout(t)
+  }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
+
   const handleSave = async () => {
+    if (!isAuthenticated || resolvedParams.id === 'new') {
+      toast.error('Vui lòng đăng nhập để lưu phiên bản.')
+      return
+    }
+
     setSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSaving(false)
-    setLastSaved(new Date().toISOString())
-    toast.success('Đã lưu')
+    try {
+      const now = new Date()
+      await api.post(`/documents/${resolvedParams.id}/versions`, {
+        contentJSON: editorContent,
+        mergeFieldValues,
+        chatCursorAt: now.toISOString(),
+        label: `Lưu bản nháp (${now.toLocaleString('vi-VN')})`,
+      })
+      window.dispatchEvent(new Event('lawzy:refresh-versions'))
+      setLastSaved(now.toISOString())
+      toast.success('Đã lưu phiên bản')
+    } catch (e) {
+      console.error(e)
+      toast.error('Lưu phiên bản thất bại')
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Handle chat messages
@@ -349,6 +547,15 @@ export default function EditorPage({
     setChatMessages((prev) => [...prev, userMessage])
     setIsGenerating(true)
     setThinkingProgress([])
+
+    // Persist user message (best-effort)
+    if (isAuthenticated && resolvedParams.id !== 'new') {
+      api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+        role: 'user',
+        content: message,
+        metadata: attachedFile ? { attachedFileName: attachedFile.name } : undefined,
+      }).catch((e) => console.error(e))
+    }
 
     let attachedSources: Array<{ fileName: string; text: string }> | undefined
     if (attachedFile) {
@@ -445,6 +652,15 @@ export default function EditorPage({
       
       setChatMessages((prev) => [...prev, aiMessage])
 
+      // Persist assistant message (best-effort)
+      if (isAuthenticated && resolvedParams.id !== 'new') {
+        api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+          role: 'assistant',
+          content: aiContent,
+          metadata: aiMessage.thinking ? { thinking: aiMessage.thinking, hasContract: aiMessage.hasContract } : { hasContract: aiMessage.hasContract },
+        }).catch((e) => console.error(e))
+      }
+
     } catch (error) {
       console.error('Error generating contract:', error)
       toast.error('Có lỗi xảy ra khi tạo hợp đồng')
@@ -519,26 +735,26 @@ export default function EditorPage({
               className="h-full relative z-0 flex gap-2"
             >
               <div className="flex-1 h-full min-w-0">
-                <CanvasEditor 
+                <CanvasEditor
                   editor={editor}
                   title={documentTitle}
-                  onClose={() => setIsCanvasMode(false)}
+                  // onClose={() => setIsCanvasMode(false)}
                   onRun={() => toast.info("Đang kiểm tra...")}
                   isCode={false}
-                  toolsPanelOpen={true}
-                  onToggleTools={() => {}} // Disabled - panel always visible
+                  toolsPanelOpen={toolsPanelOpen}
+                  onToggleTools={() => setToolsPanelOpen((v) => !v)}
                   onSave={handleSave}
                 />
               </div>
 
-              {/* Right Panel - Always visible when canvas is open */}
-              <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
-                <RightPanel 
-                  editor={editor} 
-                  onClose={() => {}} // Disabled - panel always visible
-                  onAuthRequired={handleAuthRequired}
-                />
-              </div>
+              {toolsPanelOpen && (
+                <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
+                  <RightPanel
+                    editor={editor}
+                    onAuthRequired={handleAuthRequired}
+                  />
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -550,24 +766,9 @@ export default function EditorPage({
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
         onSuccess={() => {
-          // After successful auth, restore session and open tools panel
-          const session = getSession()
-          if (session.editorContent) {
-            setEditorContent(session.editorContent)
-            setDocumentTitle(session.documentTitle)
-            setMergeFieldValues(session.mergeFieldValues)
-            if (session.templateMergeFields) {
-              setTemplateMergeFields(session.templateMergeFields)
-            }
-            if (session.chatMessages.length > 0) {
-              setChatMessages(session.chatMessages)
-            }
-            if (session.metadata) {
-              updateMetadata(session.metadata)
-            }
-            setIsCanvasMode(true)
-            clearSession()
-          }
+          // Auth state update will be handled by auth store effects; just close modal.
+          setShowAuthModal(false)
+          setToolsPanelOpen(true)
         }}
       />
     </div>
