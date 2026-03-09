@@ -35,12 +35,11 @@ export function UserNav() {
   const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
   const authResolved = useStore(useAuthStore, (s) => s.authResolved)
 
-  // While auth is unresolved, default to guest behavior to prevent flicker.
-  const isGuestFromLanding =
-    guestEntry === "landing" && (authResolved ? isAuthenticated === false : true)
+  // Treat as guest if we know they are not authenticated, or if unresolved but they came from landing.
+  const isGuest = authResolved ? !isAuthenticated : (guestEntry === "landing")
 
-  const displayName = isGuestFromLanding ? "Khách" : (user?.name ?? "User")
-  const displayEmail = isGuestFromLanding ? "" : (user?.email ?? "")
+  const displayName = isGuest ? "Khách" : (user?.name ?? "User")
+  const displayEmail = isGuest ? "" : (user?.email ?? "")
   const initials = displayName.substring(0, 2).toUpperCase()
 
   const handleLogout = async () => {
@@ -50,7 +49,7 @@ export function UserNav() {
       // proceed with client-side logout regardless
     }
     logout()
-    router.push("/login")
+    router.push("/")
   }
 
   const toggleLocale = () => setLocale(locale === "vi" ? "en" : "vi")
@@ -95,13 +94,15 @@ export function UserNav() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
-            {isGuestFromLanding ? (
-              <DropdownMenuItem asChild>
-                <Link href="/register">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Tạo tài khoản
-                </Link>
-              </DropdownMenuItem>
+            {isGuest ? (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/login">
+                    <User className="mr-2 h-4 w-4" />
+                    Đăng nhập
+                  </Link>
+                </DropdownMenuItem>
+              </>
             ) : (
               <>
                 <DropdownMenuItem asChild>
@@ -124,7 +125,7 @@ export function UserNav() {
               {locale === "vi" ? "English" : "Tiếng Việt"}
             </DropdownMenuItem>
 
-            {!isGuestFromLanding && (
+            {!isGuest && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>

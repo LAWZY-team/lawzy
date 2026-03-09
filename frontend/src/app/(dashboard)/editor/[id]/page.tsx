@@ -144,96 +144,16 @@ export default function EditorPage({
 
       const session = getSession()
 
-      // Guest returning to /editor/new: restore from sessionStorage
-      if (!isAuthenticated) {
-        if (!guestRestoredRef.current && session.editorContent) {
-          guestRestoredRef.current = true
-          setEditorContent(session.editorContent)
-          setDocumentTitle(session.documentTitle)
-          setMergeFieldValues(session.mergeFieldValues)
-          if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
-          if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
-          if (session.metadata) updateMetadata(session.metadata)
-          setIsCanvasMode(true)
-        }
-        return
-      }
-
-      // Logged-in: redirect to existing draft if present
-      const existingDraftId =
-        typeof window !== 'undefined' ? sessionStorage.getItem('lawzy-active-editor-draft-id') : null
-      if (existingDraftId) {
-        router.replace(`/editor/${existingDraftId}`)
-        return
-      }
-
-      if (draftInitRef.current) return
-      draftInitRef.current = true
-
-      // If guest had a draft, migrate it into a server draft document
-      const sourceContent = session.editorContent ?? useEditorStore.getState().content ?? DEFAULT_CONTENT
-      const sourceTitle = session.documentTitle || useEditorStore.getState().metadata?.title || 'Hợp đồng'
-      const sourceMerge = Object.keys(session.mergeFieldValues ?? {}).length ? session.mergeFieldValues : useEditorStore.getState().mergeFieldValues
-      const sourceMetadata = session.metadata ?? useEditorStore.getState().metadata
-
-      try {
-        if (!workspaceId) {
-          // Không có workspace hợp lệ -> tạm thời giữ behaviour local như trước,
-          // không cố tạo draft server.
-          if (!guestRestoredRef.current && session.editorContent) {
-            guestRestoredRef.current = true
-            setEditorContent(session.editorContent)
-            setDocumentTitle(session.documentTitle)
-            setMergeFieldValues(session.mergeFieldValues)
-            if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
-            if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
-            if (session.metadata) updateMetadata(session.metadata)
-            setIsCanvasMode(true)
-          }
-          return
-        }
-        const created = await api.post<Record<string, unknown>>('/documents', {
-          title: sourceTitle,
-          type: sourceMetadata?.type ?? 'contract',
-          workspaceId,
-          contentJSON: sourceContent,
-          metadata: sourceMetadata,
-          mergeFieldValues: sourceMerge,
-        })
-
-        const newId = String((created as { id?: unknown }).id ?? '')
-        if (!newId) throw new Error('Failed to create draft')
-
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('lawzy-active-editor-draft-id', newId)
-        }
-
-        // Migrate chat messages (best-effort)
-        if (session.chatMessages?.length) {
-          for (const m of session.chatMessages) {
-            await api.post(`/documents/${newId}/chat-messages`, {
-              role: m.role,
-              content: m.content,
-              metadata: { migratedFromGuest: true },
-            })
-          }
-        }
-
-        clearSession()
-        router.replace(`/editor/${newId}`)
-      } catch (e) {
-        console.error(e)
-        // Fall back to local restored state (still better than blank)
-        if (!guestRestoredRef.current && session.editorContent) {
-          guestRestoredRef.current = true
-          setEditorContent(session.editorContent)
-          setDocumentTitle(session.documentTitle)
-          setMergeFieldValues(session.mergeFieldValues)
-          if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
-          if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
-          if (session.metadata) updateMetadata(session.metadata)
-          setIsCanvasMode(true)
-        }
+      // Everyone returning to /editor/new: restore from sessionStorage
+      if (!guestRestoredRef.current && session.editorContent) {
+        guestRestoredRef.current = true
+        setEditorContent(session.editorContent)
+        setDocumentTitle(session.documentTitle)
+        setMergeFieldValues(session.mergeFieldValues)
+        if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
+        if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
+        if (session.metadata) updateMetadata(session.metadata)
+        setIsCanvasMode(true)
       }
     }
 
@@ -243,17 +163,16 @@ export default function EditorPage({
       cancelled = true
     }
   }, [
-    resolvedParams.id,
-    isAuthenticated,
+    resolvedParams.id, // Ensure we re-run when id changes
     getSession,
-    clearSession,
-    router,
-    workspaceId,
+    setMergeFieldValues,
+    setTemplateMergeFields,
+    updateMetadata,
   ])
 
-  // Save guest session periodically
+  // Save local session periodically on /editor/new
   useEffect(() => {
-    if (!isAuthenticated && resolvedParams.id === 'new' && isCanvasMode) {
+    if (resolvedParams.id === 'new' && isCanvasMode) {
       const interval = setInterval(() => {
         saveSession({
           editorContent,
@@ -281,7 +200,7 @@ export default function EditorPage({
         }
       }
     }
-  }, [isAuthenticated, resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+  }, [resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
 
   // Handle auth requirement for guest actions
   const handleAuthRequired = useCallback(() => {
@@ -510,13 +429,48 @@ export default function EditorPage({
   }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
 
   const handleSave = async () => {
-    if (!isAuthenticated || resolvedParams.id === 'new') {
-      toast.error('Vui lòng đăng nhập để lưu phiên bản.')
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để lưu.')
       return
     }
 
     setSaving(true)
     try {
+      if (resolvedParams.id === 'new') {
+        if (!workspaceId) {
+            toast.error('Không tìm thấy workspace hợp lệ.')
+            setSaving(false)
+            return;
+        }
+        const sourceMetadata = useEditorStore.getState().metadata
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: documentTitle || sourceMetadata?.title || 'Hợp đồng',
+          type: sourceMetadata?.type ?? 'contract',
+          workspaceId,
+          contentJSON: editorContent,
+          metadata: sourceMetadata,
+          mergeFieldValues,
+        })
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create draft')
+
+        // Migrate chat messages to the new document
+        if (chatMessages && chatMessages.length > 0) {
+          for (const m of chatMessages) {
+            await api.post(`/documents/${newId}/chat-messages`, {
+              role: m.role,
+              content: m.content,
+              metadata: { migratedFromGuest: true },
+            }).catch(e => console.error(e))
+          }
+        }
+
+        clearSession()
+        toast.success('Đã lưu bản thảo')
+        router.replace(`/editor/${newId}`)
+        return
+      }
+
       const now = new Date()
       await api.post(`/documents/${resolvedParams.id}/versions`, {
         contentJSON: editorContent,
