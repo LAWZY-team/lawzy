@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { JSONContent } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { FileText, Info, X, Plus } from 'lucide-react'
+import { FileText, Info, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -14,23 +15,59 @@ import { Separator } from '@/components/ui/separator'
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api/client'
 import { toast } from 'sonner'
 
 interface RightPanelProps {
   editor: Editor | null
-  onClose?: () => void
   onAuthRequired?: () => boolean | void
 }
 
 type MergeFieldItem = { key: string; label: string; value: string }
 
-export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps) {
+export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState('fields')
-  const { currentDocumentId, metadata, templateMergeFields, mergeFieldValues, updateMergeFieldValue } = useEditorStore()
+  const {
+    currentDocumentId,
+    metadata,
+    templateMergeFields,
+    mergeFieldValues,
+    updateMergeFieldValue,
+    setMergeFieldValues,
+  } = useEditorStore()
   const { customFields, addCustomField } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({})
+  const [versions, setVersions] = useState<
+    Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>
+  >([])
+  const [restoring, setRestoring] = useState<string | null>(null)
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const loadVersions = useCallback(() => {
+    if (!isAuthenticated || !currentDocumentId) {
+      setVersions([])
+      return
+    }
+    api
+      .get<Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>>(
+        `/documents/${currentDocumentId}/versions`
+      )
+      .then((data) => setVersions(Array.isArray(data) ? data : []))
+      .catch(() => setVersions([]))
+  }, [isAuthenticated, currentDocumentId])
+
+  useEffect(() => {
+    loadVersions()
+  }, [loadVersions])
+
+  useEffect(() => {
+    const handler = () => loadVersions()
+    window.addEventListener('lawzy:refresh-versions', handler)
+    return () => window.removeEventListener('lawzy:refresh-versions', handler)
+  }, [loadVersions])
 
   const baseMergeFields: MergeFieldItem[] = (templateMergeFields ?? []).map((f) => ({
     key: f.fieldKey,
@@ -51,6 +88,11 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
     }
     return list
   }, [baseMergeFields, customFields, mergeFieldValues])
+
+  // Khi đổi tài liệu, reset toàn bộ draftValues để tránh "dính" giá trị cũ sang tài liệu mới
+  useEffect(() => {
+    setDraftValues({})
+  }, [currentDocumentId])
 
   const insertField = (field: MergeFieldItem) => {
     // Check auth for guest users
@@ -89,53 +131,74 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
     toast.success('Đã thêm trường dữ liệu')
   }
 
-  const handleUpdateFieldValue = (fieldKey: string, value: string) => {
+  const commitFieldValue = (fieldKey: string, value: string) => {
     // Check auth for guest users when updating field values
     if (!isAuthenticated && onAuthRequired) {
       const authRequired = onAuthRequired()
       if (authRequired) return
     }
     updateMergeFieldValue(fieldKey, value)
-    updateMergeFieldValue(fieldKey, value)
   }
 
-  useEffect(() => {
-    const handleFocusField = (e: Event) => {
-      const customEvent = e as CustomEvent<{ fieldKey: string }>;
-      const fieldKey = customEvent.detail?.fieldKey;
-      if (fieldKey) {
-        setActiveTab('fields');
-        // Small delay to allow tab to switch if needed
-        setTimeout(() => {
-          const el = document.getElementById(`field-card-${fieldKey}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            const input = el.querySelector('input');
-            if (input) {
-              input.focus();
-              input.classList.add('ring-2', 'ring-primary', 'transition-all');
-              setTimeout(() => input.classList.remove('ring-2', 'ring-primary'), 1500);
-            }
-          }
-        }, 50);
+  // Cập nhật draft + debounce commit vào store để tránh canvas re-render từng phím
+  const handleDraftChange = (fieldKey: string, value: string) => {
+    setDraftValues((prev) => ({
+      ...prev,
+      [fieldKey]: value,
+    }))
+
+    if (debounceTimers.current[fieldKey]) {
+      clearTimeout(debounceTimers.current[fieldKey])
+    }
+
+    debounceTimers.current[fieldKey] = setTimeout(() => {
+      commitFieldValue(fieldKey, value)
+    }, 250)
+  }
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!isAuthenticated || !currentDocumentId) return
+    if (!editor) return
+
+    setRestoring(versionId)
+    try {
+      const version = await api.get<{
+        contentJSON?: Record<string, unknown>
+        mergeFieldValues?: Record<string, unknown>
+        chatCursorAt?: string | null
+      }>(`/documents/${currentDocumentId}/versions/${versionId}`)
+
+      const content = version?.contentJSON
+      if (content) {
+        editor.commands.setContent(content as unknown as JSONContent)
       }
-    };
-    
-    window.addEventListener('lawzy:focus-field', handleFocusField);
-    return () => window.removeEventListener('lawzy:focus-field', handleFocusField);
-  }, []);
+
+      const mfv = (version?.mergeFieldValues ?? {}) as Record<string, unknown>
+      setMergeFieldValues(
+        Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
+      )
+
+      if (version?.chatCursorAt) {
+        const msgs = await api.get<Array<{ id: string; role: string; content: string; createdAt: string }>>(
+          `/documents/${currentDocumentId}/chat-messages?to=${encodeURIComponent(version.chatCursorAt)}`
+        )
+        window.dispatchEvent(new CustomEvent('lawzy:restore-chat', { detail: { messages: msgs } }))
+      }
+
+      toast.success('Đã khôi phục phiên bản')
+    } catch (e) {
+      console.error(e)
+      toast.error('Khôi phục phiên bản thất bại')
+    } finally {
+      setRestoring(null)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground border-l border-border">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-background">
-        <h3 className="font-semibold text-sm">Công cụ</h3>
-        {onClose && (
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent">
-            <X className="w-4 h-4" />
-          </Button>
-        )}
+        <h3 className="font-semibold text-sm">Công Cụ</h3>
       </div>
 
       {/* Tabs — min-h-0 để flex con không tràn */}
@@ -158,15 +221,14 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
           <ScrollArea className="flex-1 min-h-0 px-3 py-2">
             <div className="space-y-2 min-w-0 pr-1">
               <div className="space-y-0.5">
-                <h4 className="text-sm font-medium text-black uppercase ">Danh sách trường dữ liệu</h4>
-                <p className="text-[12px] text-gray-500">Nhấn tên trường hoặc + để chèn vào văn bản. Sửa giá trị bên dưới.</p>
+                <h4 className="text-sm font-medium text-black uppercase">Danh sách trường dữ liệu</h4>
+                <p className="text-sm text-gray-500">Nhấn tên trường hoặc + để chèn vào văn bản. Sửa giá trị bên dưới.</p>
               </div>
 
               <div className="grid gap-1.5">
                 {mergeFields.map((field) => (
                   <Card
                     key={field.key}
-                    id={`field-card-${field.key}`}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
@@ -201,8 +263,8 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
                       Key: {`{{${field.key}}}`}
                     </p>
                     <Input
-                      value={mergeFieldValues[field.key] ?? field.value}
-                      onChange={(e) => handleUpdateFieldValue(field.key, e.target.value)}
+                      value={draftValues[field.key] ?? mergeFieldValues[field.key] ?? field.value}
+                      onChange={(e) => handleDraftChange(field.key, e.target.value)}
                       onClick={() => {
                         // Check auth when clicking on input
                         if (!isAuthenticated && onAuthRequired) {
@@ -253,7 +315,7 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
           <ScrollArea className="flex-1 min-h-0 p-3">
             <div className="space-y-6">
               <div className="space-y-4">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thông tin chung</h4>
+                <h4 className="text-sm font-medium text-black uppercase">Thông tin chung</h4>
                 
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Tên hợp đồng</Label>
@@ -284,21 +346,48 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
 
               <div className="space-y-4">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lịch sử phiên bản</h4>
-                <div className="space-y-3">
-                  {[
-                    { ver: 'v1.2', time: 'Vừa xong', user: 'AI Assistant' },
-                    { ver: 'v1.1', time: '10 phút trước', user: 'Bạn' },
-                    { ver: 'v1.0', time: '15 phút trước', user: 'Hệ thống' },
-                  ].map((ver, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">{ver.ver}</span>
-                        <span className="text-foreground">{ver.user}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{ver.time}</span>
-                    </div>
-                  ))}
-                </div>
+                {!isAuthenticated ? (
+                  <div className="text-sm text-muted-foreground">
+                    Đăng nhập để xem và khôi phục phiên bản.
+                  </div>
+                ) : !currentDocumentId ? (
+                  <div className="text-sm text-muted-foreground">
+                    Chưa có tài liệu để hiển thị phiên bản.
+                  </div>
+                ) : versions.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Chưa có phiên bản. Dùng menu “Lưu bản nháp” trong editor để tạo phiên bản.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {versions.map((v, idx) => (
+                      <Card
+                        key={v.id}
+                        className="p-3 bg-background border-border flex items-start justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {v.label || `Phiên bản ${versions.length - idx}`}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {new Date(v.createdAt).toLocaleString('vi-VN')}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-8"
+                          disabled={restoring === v.id}
+                          onClick={() => handleRestoreVersion(v.id)}
+                          title="Khôi phục phiên bản"
+                        >
+                          {restoring === v.id ? 'Đang khôi phục...' : 'Khôi phục'}
+                        </Button>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </ScrollArea>

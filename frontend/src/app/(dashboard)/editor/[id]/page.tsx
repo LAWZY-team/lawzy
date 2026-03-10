@@ -9,6 +9,7 @@ import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyleKit } from '@tiptap/extension-text-style'
+import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
@@ -326,6 +327,7 @@ export default function EditorPage({
       Placeholder.configure({
         placeholder: 'Bắt đầu soạn thảo hoặc gõ / để xem lệnh...',
       }),
+      Underline,
       MergeFieldExtension,
     ],
     content: editorContent,
@@ -356,11 +358,16 @@ export default function EditorPage({
       },
     },
     onUpdate: ({ editor }) => {
-      // Defer state update to next tick to avoid React 18 'flushSync' collisions with TipTap NodeViews
-      setTimeout(() => {
-        setContent(editor.getJSON())
-        setEditorContent(editor.getJSON())
-      }, 0)
+      // Debounce updates by 300ms to avoid locking the UI during fast typing
+      const win = window as Window & { _lawzyEditorUpdateTimeout?: number }
+      if (win._lawzyEditorUpdateTimeout) {
+        clearTimeout(win._lawzyEditorUpdateTimeout)
+      }
+      win._lawzyEditorUpdateTimeout = window.setTimeout(() => {
+        const json = editor.getJSON()
+        setContent(json)
+        setEditorContent(json)
+      }, 300)
     },
   })
 

@@ -1,17 +1,16 @@
 "use client"
 
-import { FormItem, FormLabel, FormDescription } from "@/components/ui/form"
 import { Card, CardContent } from "@/components/ui/card"
 import { Info } from "lucide-react"
 
 export function AppearanceForm() {
   return (
     <div className="space-y-8">
-      <FormItem className="space-y-1">
-        <FormLabel>Giao diện</FormLabel>
-        <FormDescription>
+      <div className="space-y-1">
+        <label className="text-sm font-medium leading-none">Giao diện</label>
+        <p className="text-sm text-muted-foreground">
           Giao diện đã được cố định ở chế độ sáng (light mode).
-        </FormDescription>
+        </p>
         <Card className="mt-4 border-blue-200 bg-blue-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
@@ -43,7 +42,7 @@ export function AppearanceForm() {
             Sáng (Đang sử dụng)
           </span>
         </div>
-      </FormItem>
+      </div>
     </div>
   )
 }
