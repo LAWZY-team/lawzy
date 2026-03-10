@@ -10,3 +10,4 @@ next-env.d.ts
 nginx/ssl/
 *.tar.gz
 coverage/
+backend/docs/LOCAL-DEV-UAT-DATABASE.md
