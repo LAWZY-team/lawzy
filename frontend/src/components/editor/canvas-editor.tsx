@@ -10,6 +10,7 @@
 import { useMemo, useState, useEffect } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, Editor } from "@tiptap/react";
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from "@/stores/editor-store";
 import { useUserFieldsStore } from "@/stores/user-fields-store";
 import {
@@ -19,6 +20,7 @@ import {
   Code,
   Bold,
   Italic,
+  Underline as UnderlineIcon,
   List,
   ListOrdered,
   Undo,
@@ -108,7 +110,11 @@ export function CanvasEditor({
   onSave,
 }: CanvasEditorProps) {
   const [docTitle, setDocTitle] = useState(title);
-  const { mergeFieldValues, templateMergeFields } = useEditorStore();
+  
+  // Track ONLY the keys of merge fields to build the toggle list, preventing re-renders on every keystroke
+  // `useShallow` prevents the infinite loop from returning a new Array reference on every check
+  const mergeFieldKeys = useEditorStore(useShallow((state: { mergeFieldValues: Record<string, string> }) => Object.keys(state.mergeFieldValues)));
+  const templateMergeFields = useEditorStore((state) => state.templateMergeFields);
   const {
     customFields,
     hiddenFieldKeys,
@@ -122,7 +128,8 @@ export function CanvasEditor({
   const [shareLoading, setShareLoading] = useState(false);
 
   const fieldsForToggles = useMemo(() => {
-    const keySet = new Set<string>(Object.keys(mergeFieldValues));
+    // Only re-check lists when the keys change or custom/template fields are added
+    const keySet = new Set<string>(mergeFieldKeys);
     for (const f of customFields) keySet.add(f.key);
     for (const f of templateMergeFields ?? []) keySet.add(f.fieldKey);
 
@@ -138,7 +145,7 @@ export function CanvasEditor({
         key,
         label: customLabelByKey.get(key) ?? templateLabelByKey.get(key) ?? key,
       }));
-  }, [mergeFieldValues, customFields, templateMergeFields]);
+  }, [mergeFieldKeys, customFields, templateMergeFields]);
 
   const currentFontFamily = editor?.getAttributes("textStyle")?.fontFamily as
     | string
@@ -184,7 +191,9 @@ export function CanvasEditor({
 
   /** Convert editor HTML to final HTML (replace merge fields; apply hide rules; strip merge-field styling) */
   const finalizeContractHtml = (rawHtml: string): string => {
-    if (Object.keys(mergeFieldValues).length === 0) return rawHtml;
+    const currentValues = useEditorStore.getState().mergeFieldValues;
+    if (Object.keys(currentValues).length === 0) return rawHtml;
+    
     const div = document.createElement("div");
     div.innerHTML = rawHtml;
     div.querySelectorAll("[data-field-key]").forEach((el) => {
@@ -192,7 +201,7 @@ export function CanvasEditor({
       if (!key) return;
 
       const isHidden = hiddenFieldKeys.includes(key);
-      const value = mergeFieldValues[key];
+      const value = currentValues[key];
 
       if (isHidden) {
         // Export behavior: hidden fields should become blank whitespace (not show label/key)
@@ -224,7 +233,9 @@ export function CanvasEditor({
         const attrs = (node as { attrs?: { fieldKey?: string } }).attrs;
         const fieldKey = attrs?.fieldKey;
         const isHidden = fieldKey ? hiddenFieldKeys.includes(fieldKey) : false;
-        const value = fieldKey ? mergeFieldValues[fieldKey] : undefined;
+        
+        // Lookup dynamic value without reactive binding
+        const value = fieldKey ? useEditorStore.getState().mergeFieldValues[fieldKey] : undefined;
 
         if (isHidden) {
           return { type: "text", text: "\u00A0" };
@@ -313,17 +324,6 @@ export function CanvasEditor({
     }
   };
 
-  const handleExportHTML = () => {
-    if (!editor) return;
-    const htmlContent = getFinalHtml();
-    const blob = new Blob([htmlContent], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${docTitle || "document"}.html`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleCopyContent = async () => {
     if (!editor) return;
@@ -775,6 +775,19 @@ export function CanvasEditor({
           title="In nghiêng"
         >
           <Italic className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          className={cn(
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            editor.isActive("underline") && "bg-accent text-foreground",
+          )}
+          title="Gạch chân"
+        >
+          <UnderlineIcon className="w-4 h-4" />
         </Button>
 
         <div className="h-4 w-px bg-border mx-2"></div>
