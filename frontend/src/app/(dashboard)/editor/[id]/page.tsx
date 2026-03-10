@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, use } from 'react'
+import { useState, useEffect, useRef, use, useCallback } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -18,6 +18,8 @@ import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
 import { useAuthStore } from '@/stores/auth-store'
+import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
+import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
@@ -71,6 +73,8 @@ export default function EditorPage({
 
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
   const { customFields } = useUserFieldsStore()
+  const { isAuthenticated } = useAuthStore()
+  const { saveSession, getSession, clearSession } = useGuestEditorSessionStore()
 
   /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -80,6 +84,7 @@ export default function EditorPage({
 
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
   // Chỉ thu gọn sidebar khi vừa chuyển sang canvas (false → true); nếu user tự mở lại sidebar thì không ép đóng
   useEffect(() => {
@@ -91,9 +96,58 @@ export default function EditorPage({
   const [isGenerating, setIsGenerating] = useState(false)
   const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
   const [documentTitle, setDocumentTitle] = useState('Hợp đồng dịch vụ')
-  const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [thinkingProgress, setThinkingProgress] = useThinkingProgress(isGenerating)
+
+  // Restore guest session when authenticated user logs in
+  useEffect(() => {
+    if (isAuthenticated && resolvedParams.id === 'new') {
+      const session = getSession()
+      if (session.editorContent) {
+        setEditorContent(session.editorContent)
+        setDocumentTitle(session.documentTitle)
+        setMergeFieldValues(session.mergeFieldValues)
+        if (session.templateMergeFields) {
+          setTemplateMergeFields(session.templateMergeFields)
+        }
+        if (session.chatMessages.length > 0) {
+          setChatMessages(session.chatMessages)
+        }
+        if (session.metadata) {
+          updateMetadata(session.metadata)
+        }
+        setIsCanvasMode(true)
+        clearSession()
+      }
+    }
+  }, [isAuthenticated, resolvedParams.id, getSession, clearSession, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
+  // Save guest session periodically
+  useEffect(() => {
+    if (!isAuthenticated && resolvedParams.id === 'new' && isCanvasMode) {
+      const interval = setInterval(() => {
+        saveSession({
+          editorContent,
+          documentTitle,
+          mergeFieldValues,
+          templateMergeFields: useEditorStore.getState().templateMergeFields,
+          chatMessages,
+          metadata: useEditorStore.getState().metadata,
+        })
+      }, 5000) // Save every 5 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [isAuthenticated, resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+
+  // Handle auth requirement for guest actions
+  const handleAuthRequired = useCallback(() => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true)
+      return true // Return true to indicate auth is required
+    }
+    return false
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (resolvedParams.id !== 'new') {
@@ -227,7 +281,7 @@ export default function EditorPage({
           }
         }
         return false
-      }
+      },
     },
     onUpdate: ({ editor }) => {
       setContent(editor.getJSON())
@@ -245,6 +299,35 @@ export default function EditorPage({
       }
     })
   }, [editorContent, editor])
+
+  // Add click handler for guest users when they click on editor content
+  useEffect(() => {
+    if (!editor || isAuthenticated) return
+
+    const handleEditorClick = () => {
+      // Check if guest has generated content
+      if (isCanvasMode && editorContent && editorContent.content && editorContent.content.length > 1) {
+        // Check if content is more than just default empty content
+        const hasRealContent = editorContent.content.some((node: JSONContent) => {
+          if (node.type === 'heading' && node.content && Array.isArray(node.content) && node.content.length > 0) {
+            const text = node.content.find((c: JSONContent) => c.type === 'text' && 'text' in c && typeof c.text === 'string' && c.text.trim())
+            return text && typeof text.text === 'string' && text.text.trim() !== 'HỢP ĐỒNG MỚI'
+          }
+          return false
+        })
+        if (hasRealContent) {
+          handleAuthRequired()
+        }
+      }
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleEditorClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleEditorClick)
+    }
+  }, [editor, isAuthenticated, isCanvasMode, editorContent, handleAuthRequired])
 
   const handleSave = async () => {
     setSaving(true)
@@ -442,22 +525,51 @@ export default function EditorPage({
                   onClose={() => setIsCanvasMode(false)}
                   onRun={() => toast.info("Đang kiểm tra...")}
                   isCode={false}
-                  toolsPanelOpen={toolsPanelOpen}
-                  onToggleTools={() => setToolsPanelOpen((v) => !v)}
+                  toolsPanelOpen={true}
+                  onToggleTools={() => {}} // Disabled - panel always visible
                   onSave={handleSave}
                 />
               </div>
 
-              {toolsPanelOpen && (
-                <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
-                  <RightPanel editor={editor} onClose={() => setToolsPanelOpen(false)} />
-                </div>
-              )}
+              {/* Right Panel - Always visible when canvas is open */}
+              <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
+                <RightPanel 
+                  editor={editor} 
+                  onClose={() => {}} // Disabled - panel always visible
+                  onAuthRequired={handleAuthRequired}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
       </div>
+
+      {/* Auth Modal for guest users */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onSuccess={() => {
+          // After successful auth, restore session and open tools panel
+          const session = getSession()
+          if (session.editorContent) {
+            setEditorContent(session.editorContent)
+            setDocumentTitle(session.documentTitle)
+            setMergeFieldValues(session.mergeFieldValues)
+            if (session.templateMergeFields) {
+              setTemplateMergeFields(session.templateMergeFields)
+            }
+            if (session.chatMessages.length > 0) {
+              setChatMessages(session.chatMessages)
+            }
+            if (session.metadata) {
+              updateMetadata(session.metadata)
+            }
+            setIsCanvasMode(true)
+            clearSession()
+          }
+        }}
+      />
     </div>
   )
 }

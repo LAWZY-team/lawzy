@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Modal } from "@/components/ui/modal";
 import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { validatePassword } from "@/lib/utils/password-validator";
@@ -25,10 +27,28 @@ export default function RegisterPage() {
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsContent, setTermsContent] = useState("");
+
+  useEffect(() => {
+    // Load terms content when modal opens
+    if (showTermsModal && !termsContent) {
+      fetch("/term2.html")
+        .then((res) => res.text())
+        .then((text) => setTermsContent(text))
+        .catch(() => setTermsContent("Không thể tải nội dung điều khoản."));
+    }
+  }, [showTermsModal, termsContent]);
 
   const handleRequestRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!agreedToTerms) {
+      setError("Vui lòng đồng ý với các điều khoản sử dụng");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp");
@@ -106,9 +126,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md px-4">
         <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-4 items-center text-center pb-2">
-            <Link href="/" className="inline-block">
               <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-            </Link>
             <div>
               <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
               <CardDescription className="mt-1">
@@ -186,9 +204,7 @@ export default function RegisterPage() {
     <div className="w-full max-w-md px-4">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
-          <Link href="/" className="inline-block">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          </Link>
           <div>
             <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
             <CardDescription className="mt-1">
@@ -290,10 +306,36 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
             </div>
+
+            <div className="flex items-start space-x-2 pt-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                disabled={isLoading}
+                className="mt-0.5"
+              />
+              <Label
+                htmlFor="terms"
+                className="text-sm font-normal cursor-pointer leading-relaxed"
+              >
+                Tôi đồng ý với các điều khoản của Lawzy
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowTermsModal(true);
+                  }}
+                  className= "underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
+                >
+                  ĐIỀU KHOẢN
+                </button>{" "}
+              </Label>
+            </div>
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading || !agreedToTerms}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -316,6 +358,27 @@ export default function RegisterPage() {
       <p className="text-xs text-muted-foreground text-center mt-6">
         &copy; {new Date().getFullYear()} Lawzy. Nền tảng quản lý hợp đồng pháp lý.
       </p>
+
+      <Modal
+        open={showTermsModal}
+        onOpenChange={setShowTermsModal}
+        size="lg"
+        title="Điều Khoản Sử Dụng"
+      >
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Điều Khoản Sử Dụng</h2>
+          <div className="max-h-[60vh] overflow-y-auto pr-2">
+            {termsContent ? (
+              <div
+                className="lawzy-terms prose prose-sm max-w-none text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_p]:mb-3 [&_p]:leading-relaxed [&_strong]:font-semibold"
+                dangerouslySetInnerHTML={{ __html: termsContent }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Đang tải nội dung...</p>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
