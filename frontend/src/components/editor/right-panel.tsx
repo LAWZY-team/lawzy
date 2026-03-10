@@ -94,6 +94,31 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     setDraftValues({})
   }, [currentDocumentId])
 
+  // Khi nhấn vào merge field trong canvas → smooth scroll + focus input tương ứng
+  useEffect(() => {
+    const handleFocusField = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fieldKey: string }>;
+      const fieldKey = customEvent.detail?.fieldKey;
+      if (fieldKey) {
+        setActiveTab('fields');
+        setTimeout(() => {
+          const el = document.getElementById(`field-card-${fieldKey}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const input = el.querySelector('input');
+            if (input) {
+              input.focus();
+              input.classList.add('ring-2', 'ring-primary', 'transition-all');
+              setTimeout(() => input.classList.remove('ring-2', 'ring-primary'), 1500);
+            }
+          }
+        }, 50);
+      }
+    };
+    window.addEventListener('lawzy:focus-field', handleFocusField);
+    return () => window.removeEventListener('lawzy:focus-field', handleFocusField);
+  }, []);
+
   const insertField = (field: MergeFieldItem) => {
     // Check auth for guest users
     if (!isAuthenticated && onAuthRequired) {
@@ -229,6 +254,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                 {mergeFields.map((field) => (
                   <Card
                     key={field.key}
+                    id={`field-card-${field.key}`}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({

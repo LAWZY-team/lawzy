@@ -16,14 +16,19 @@ export const MergeFieldComponent = ({ node, selected }: NodeViewProps) => {
     <NodeViewWrapper className="merge-field-wrapper inline">
       <span
         className={[
-          'inline-flex items-center px-2 py-0.5 rounded-md text-sm text-black font-medium max-w-auto truncate select-none',
+          'inline-flex items-center px-2 py-0.5 rounded-md text-sm text-black font-medium max-w-auto truncate select-none cursor-pointer',
           selected
             ? 'bg-blue-200 border border-blue-500 shadow-[0_0_0_1px_rgba(37,99,235,0.8)]'
-            : 'bg-blue-100 border border-blue-200',
+            : 'bg-blue-100 border border-blue-200 hover:bg-blue-150',
         ].join(' ')}
         contentEditable={false}
         data-field-key={fieldKey}
         title={isHidden ? `${label} (Ẩn)` : label}
+        onClick={() => {
+          if (fieldKey) {
+            window.dispatchEvent(new CustomEvent('lawzy:focus-field', { detail: { fieldKey } }))
+          }
+        }}
       >
         {displayText}
       </span>
