@@ -3,9 +3,6 @@ services:
     image: mysql:8.0
     container_name: lawzy-mysql
     restart: unless-stopped
-    ports:
-      # Expose on localhost only so local dev can use SSH tunnel: ssh -L 3307:localhost:3306 root@<UAT_SERVER_IP>
-      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: lawzy_uat
