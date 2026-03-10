@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { Editor } from '@tiptap/react'
 import { FileText, Info, X, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -96,7 +96,35 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
       if (authRequired) return
     }
     updateMergeFieldValue(fieldKey, value)
+    updateMergeFieldValue(fieldKey, value)
   }
+
+  useEffect(() => {
+    const handleFocusField = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fieldKey: string }>;
+      const fieldKey = customEvent.detail?.fieldKey;
+      if (fieldKey) {
+        setActiveTab('fields');
+        // Small delay to allow tab to switch if needed
+        setTimeout(() => {
+          const el = document.getElementById(`field-card-${fieldKey}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            const input = el.querySelector('input');
+            if (input) {
+              input.focus();
+              input.classList.add('ring-2', 'ring-primary', 'transition-all');
+              setTimeout(() => input.classList.remove('ring-2', 'ring-primary'), 1500);
+            }
+          }
+        }, 50);
+      }
+    };
+    
+    window.addEventListener('lawzy:focus-field', handleFocusField);
+    return () => window.removeEventListener('lawzy:focus-field', handleFocusField);
+  }, []);
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground border-l border-border">
@@ -130,14 +158,15 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
           <ScrollArea className="flex-1 min-h-0 px-3 py-2">
             <div className="space-y-2 min-w-0 pr-1">
               <div className="space-y-0.5">
-                <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Danh sách trường dữ liệu</h4>
-                <p className="text-[11px] text-muted-foreground/70">Nhấn tên trường hoặc + để chèn vào văn bản. Sửa giá trị bên dưới.</p>
+                <h4 className="text-sm font-medium text-black uppercase ">Danh sách trường dữ liệu</h4>
+                <p className="text-[12px] text-gray-500">Nhấn tên trường hoặc + để chèn vào văn bản. Sửa giá trị bên dưới.</p>
               </div>
 
               <div className="grid gap-1.5">
                 {mergeFields.map((field) => (
                   <Card
                     key={field.key}
+                    id={`field-card-${field.key}`}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
@@ -151,7 +180,7 @@ export function RightPanel({ editor, onClose, onAuthRequired }: RightPanelProps)
                   >
                     <div className="flex items-center gap-1.5">
                       <span
-                        className="text-xs font-medium text-blue-400 group-hover:text-blue-300 cursor-pointer truncate flex-1 min-w-0"
+                        className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
                         onClick={() => insertField(field)}
                         title="Chèn vào vị trí con trỏ"
                       >

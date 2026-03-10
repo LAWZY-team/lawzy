@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from 'react'
-import { Send, Sparkles, FileText, Briefcase, Home } from 'lucide-react'
+import { Send, FileText, Briefcase, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 interface InitialChatInterfaceProps {
   onGenerate: (prompt: string) => void
@@ -51,8 +52,14 @@ export function InitialChatInterface({ onGenerate, isGenerating }: InitialChatIn
       <div className="w-full max-w-4xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-            <Sparkles className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
+            <Image
+              src="/logo/lawzy-triangle.png"
+              width={64}
+              height={64}
+              alt="Lawzy"
+              className="object-contain"
+            />
           </div>
           <h1 className="text-4xl font-bold">Soạn thảo hợp đồng với AI</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -115,7 +122,15 @@ export function InitialChatInterface({ onGenerate, isGenerating }: InitialChatIn
             >
               {isGenerating ? (
                 <>
-                  <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                  <span className="mr-2 inline-flex items-center">
+                    <Image
+                      src="/logo/lawzy-triangle.png"
+                      width={16}
+                      height={16}
+                      alt="Lawzy"
+                      className="object-contain animate-pulse"
+                    />
+                  </span>
                   Đang soạn thảo...
                 </>
               ) : (

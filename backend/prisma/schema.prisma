@@ -29,6 +29,7 @@ model User {
   files            File[]
   sources          Source[]
   chatMessages     ChatMessage[]
+  customFields     UserCustomField[]
 
   @@map("users")
 }
@@ -110,6 +111,8 @@ model DocumentVersion {
   id          String   @id @default(uuid())
   documentId  String   @map("document_id")
   contentJSON Json?    @map("content_json")
+  mergeFieldValues Json? @map("merge_field_values")
+  chatCursorAt DateTime? @map("chat_cursor_at")
   label       String?
   createdBy   String   @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -195,4 +198,21 @@ model ChatMessage {
   @@index([documentId])
   @@index([userId])
   @@map("chat_messages")
+}
+
+model UserCustomField {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  key          String   @db.VarChar(80)
+  label        String
+  defaultValue String?  @db.Text @map("default_value")
+  isHidden     Boolean  @default(false) @map("is_hidden")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("user_custom_fields")
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware'
 import { useAuthStore } from './auth-store'
+import { api } from '@/lib/api/client'
 
 export interface UserCustomField {
   /** Unique key used by mergeField nodes and mergeFieldValues map */
@@ -22,6 +23,13 @@ interface UserFieldsState {
   toggleHiddenFieldKey: (key: string) => void
   hideAll: (keys: string[]) => void
   showAll: () => void
+}
+
+type ServerCustomField = {
+  key: string
+  label: string
+  defaultValue: string | null
+  isHidden: boolean
 }
 
 /** Get storage key based on user ID */
@@ -77,6 +85,34 @@ function makeUniqueKey(base: string, existing: Set<string>): string {
   return `${base}_${i}`
 }
 
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+let suppressNextSync = false
+
+function scheduleServerSync() {
+  if (typeof window === 'undefined') return
+  const { isAuthenticated } = useAuthStore.getState()
+  if (!isAuthenticated) return
+  if (suppressNextSync) return
+
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(async () => {
+    try {
+      const { customFields, hiddenFieldKeys } = useUserFieldsStore.getState()
+      await api.put('/users/me/custom-fields', {
+        fields: customFields.map((f) => ({
+          key: f.key,
+          label: f.label,
+          defaultValue: f.defaultValue ?? '',
+          isHidden: hiddenFieldKeys.includes(f.key),
+        })),
+      })
+    } catch (e) {
+      // Best-effort; keep local state and retry on next change
+      console.error(e)
+    }
+  }, 600)
+}
+
 export const useUserFieldsStore = create<UserFieldsState>()(
   persist(
     (set, get) => ({
@@ -97,12 +133,17 @@ export const useUserFieldsStore = create<UserFieldsState>()(
             },
           ],
         })
+        scheduleServerSync()
         return key
       },
 
       updateCustomField: (key, updates) =>
-        set({
-          customFields: get().customFields.map((f) => (f.key === key ? { ...f, ...updates } : f)),
+        set(() => {
+          const next = {
+            customFields: get().customFields.map((f) => (f.key === key ? { ...f, ...updates } : f)),
+          }
+          queueMicrotask(scheduleServerSync)
+          return next
         }),
 
       removeCustomField: (key) =>
@@ -111,7 +152,10 @@ export const useUserFieldsStore = create<UserFieldsState>()(
           hiddenFieldKeys: get().hiddenFieldKeys.filter((k) => k !== key),
         }),
 
-      setHiddenFieldKeys: (keys) => set({ hiddenFieldKeys: Array.from(new Set(keys)) }),
+      setHiddenFieldKeys: (keys) => {
+        set({ hiddenFieldKeys: Array.from(new Set(keys)) })
+        scheduleServerSync()
+      },
 
       toggleHiddenFieldKey: (key) => {
         const { hiddenFieldKeys } = get()
@@ -120,10 +164,17 @@ export const useUserFieldsStore = create<UserFieldsState>()(
             ? hiddenFieldKeys.filter((k) => k !== key)
             : [...hiddenFieldKeys, key],
         })
+        scheduleServerSync()
       },
 
-      hideAll: (keys) => set({ hiddenFieldKeys: Array.from(new Set(keys)) }),
-      showAll: () => set({ hiddenFieldKeys: [] }),
+      hideAll: (keys) => {
+        set({ hiddenFieldKeys: Array.from(new Set(keys)) })
+        scheduleServerSync()
+      },
+      showAll: () => {
+        set({ hiddenFieldKeys: [] })
+        scheduleServerSync()
+      },
     }),
     {
       name: 'lawzy-user-fields', // Base name, actual key is handled by custom storage
@@ -133,7 +184,34 @@ export const useUserFieldsStore = create<UserFieldsState>()(
   )
 )
 
-// Subscribe to auth changes to reload fields when user logs in/out
+function parsePersistedState(raw: string | null): { customFields: UserCustomField[]; hiddenFieldKeys: string[] } | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      customFields: parsed.state?.customFields ?? [],
+      hiddenFieldKeys: parsed.state?.hiddenFieldKeys ?? [],
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchServerFields(): Promise<{ customFields: UserCustomField[]; hiddenFieldKeys: string[] }> {
+  const rows = await api.get<Array<ServerCustomField & { id?: string }>>('/users/me/custom-fields')
+  const safe = Array.isArray(rows) ? rows : []
+  return {
+    customFields: safe.map((r) => ({
+      key: String(r.key),
+      label: String(r.label ?? r.key),
+      defaultValue: typeof r.defaultValue === 'string' ? r.defaultValue : '',
+    })),
+    hiddenFieldKeys: safe.filter((r) => !!r.isHidden).map((r) => String(r.key)),
+  }
+}
+
+// Subscribe to auth changes to reload fields when user logs in/out.
+// Guest: use localStorage. Auth: hydrate from server and sync changes.
 if (typeof window !== 'undefined') {
   let previousUserId: string | null = useAuthStore.getState().user?.id ?? null
   
@@ -142,26 +220,66 @@ if (typeof window !== 'undefined') {
     // Only reload if the user ID actually changed
     if (currentUserId !== previousUserId) {
       previousUserId = currentUserId
-      // When user changes, reload the store from the new storage key
-      const key = getStorageKey()
-      try {
-        const stored = localStorage.getItem(key)
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          useUserFieldsStore.setState({
-            customFields: parsed.state?.customFields ?? [],
-            hiddenFieldKeys: parsed.state?.hiddenFieldKeys ?? [],
-          })
-        } else {
-          // Clear if no data for this user
-          useUserFieldsStore.setState({
-            customFields: [],
-            hiddenFieldKeys: [],
-          })
-        }
-      } catch {
-        // Ignore parse errors
+      suppressNextSync = true
+      queueMicrotask(() => {
+        suppressNextSync = false
+      })
+
+      if (!currentUserId) {
+        // Guest: load from local persisted key
+        const guestRaw = localStorage.getItem('lawzy-user-fields-guest')
+        const guest = parsePersistedState(guestRaw)
+        useUserFieldsStore.setState({
+          customFields: guest?.customFields ?? [],
+          hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
+        })
+        return
       }
+
+      // Authenticated: hydrate from server and merge guest fields once
+      void (async () => {
+        try {
+          const server = await fetchServerFields()
+          const guestRaw = localStorage.getItem('lawzy-user-fields-guest')
+          const guest = parsePersistedState(guestRaw)
+
+          const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
+          const mergedCustom: UserCustomField[] = [...server.customFields]
+
+          for (const gf of guest?.customFields ?? []) {
+            if (!serverByKey.has(gf.key)) mergedCustom.push(gf)
+          }
+
+          const mergedHidden = Array.from(new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])]))
+
+          suppressNextSync = true
+          useUserFieldsStore.setState({
+            customFields: mergedCustom,
+            hiddenFieldKeys: mergedHidden,
+          })
+          suppressNextSync = false
+
+          // Push merged result to server (best-effort)
+          await api.put('/users/me/custom-fields', {
+            fields: mergedCustom.map((f) => ({
+              key: f.key,
+              label: f.label,
+              defaultValue: f.defaultValue ?? '',
+              isHidden: mergedHidden.includes(f.key),
+            })),
+          })
+
+          // Clear guest local fields after merge
+          try {
+            localStorage.removeItem('lawzy-user-fields-guest')
+          } catch {
+            // ignore
+          }
+        } catch (e) {
+          console.error(e)
+          suppressNextSync = false
+        }
+      })()
     }
   })
 }

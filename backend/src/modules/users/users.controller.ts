@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Put, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { Request } from 'express';
@@ -26,5 +26,34 @@ export class UsersController {
       body,
     );
     return this.usersService.sanitize(updated);
+  }
+
+  @Get('me/custom-fields')
+  @UseGuards(JwtAuthGuard)
+  async getCustomFields(@Req() req: Request) {
+    return this.usersService.getCustomFields((req as any).user.userId);
+  }
+
+  @Put('me/custom-fields')
+  @UseGuards(JwtAuthGuard)
+  async replaceCustomFields(
+    @Req() req: Request,
+    @Body()
+    body: {
+      fields: Array<{
+        key: string;
+        label: string;
+        defaultValue?: string | null;
+        isHidden?: boolean;
+      }>;
+    },
+  ) {
+    if (!body || !Array.isArray(body.fields)) {
+      throw new BadRequestException('fields must be an array');
+    }
+    return this.usersService.replaceCustomFields(
+      (req as any).user.userId,
+      body.fields,
+    );
   }
 }
