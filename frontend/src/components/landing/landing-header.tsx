@@ -40,7 +40,7 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
     { href: "#features", label: t("nav_features") },
     { href: "#target", label: t("nav_target") },
     { href: "#achievement", label: t("nav_achievement") },
-    { href: "#team", label: t("nav_team") },
+    // { href: "#team", label: t("nav_team") },
     { href: "#contact", label: t("nav_contact") },
   ];
 
@@ -116,12 +116,6 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
               </a>
             ))}
             <div className="pt-6 border-t border-gray-100 w-full space-y-4">
-              <Button variant="outline" className="w-full justify-start text-lg h-12" asChild>
-                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <LogIn className="w-5 h-5 mr-2" />
-                  {t("login")}
-                </Link>
-              </Button>
               <Button variant="outline" className="w-full justify-start text-lg h-12" onClick={() => { setLocale(locale === "vi" ? "en" : "vi"); setIsMobileMenuOpen(false); }}>
                 {locale === "vi" ? t("language_vietnamese") : t("language_english")}
               </Button>

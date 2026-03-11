@@ -44,14 +44,24 @@ export async function convertTipTapToDocx(content: JSONContent, metadata?: Expor
 
 interface TipTapNode {
   type?: string
-  attrs?: Record<string, unknown> & { level?: number; fieldKey?: string }
+  attrs?: Record<string, unknown> & { level?: number; fieldKey?: string; textAlign?: string }
   content?: TipTapNode[]
-  marks?: Array<{ type?: string }>
+  marks?: Array<{ type?: string; attrs?: Record<string, unknown> }>
   text?: string
 }
 
 function convertNode(node: TipTapNode): Paragraph[] {
   const result: Paragraph[] = []
+
+  let alignment: any
+  if (node.attrs?.textAlign) {
+    switch (node.attrs.textAlign) {
+      case 'left': alignment = AlignmentType.LEFT; break;
+      case 'center': alignment = AlignmentType.CENTER; break;
+      case 'right': alignment = AlignmentType.RIGHT; break;
+      case 'justify': alignment = AlignmentType.JUSTIFIED; break;
+    }
+  }
 
   switch (node.type) {
     case 'heading':
@@ -65,6 +75,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
         new Paragraph({
           children: convertInlineContent(node.content || []),
           heading: headingLevel,
+          alignment,
           spacing: { before: 240, after: 120 },
         })
       )
@@ -74,6 +85,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
       result.push(
         new Paragraph({
           children: convertInlineContent(node.content || []),
+          alignment,
           spacing: { after: 120 },
         })
       )
@@ -87,6 +99,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
               result.push(
                 new Paragraph({
                   children: convertInlineContent(para.content || []),
+                  alignment,
                   bullet: { level: 0 },
                 })
               )
@@ -104,6 +117,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
               result.push(
                 new Paragraph({
                   children: convertInlineContent(para.content || []),
+                  alignment,
                   numbering: { reference: 'default', level: 0 },
                 })
               )
@@ -127,6 +141,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
         result.push(
           new Paragraph({
             children: convertInlineContent(node.content),
+            alignment,
           })
         )
       }
@@ -143,6 +158,19 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
       const isBold = node.marks?.some((m) => m.type === 'bold')
       const isItalic = node.marks?.some((m) => m.type === 'italic')
       const isUnderline = node.marks?.some((m) => m.type === 'underline')
+      
+      const textStyleMark = node.marks?.find((m) => m.type === 'textStyle')
+      const fontFamily = textStyleMark?.attrs?.fontFamily as string | undefined
+      const fontSizeStr = textStyleMark?.attrs?.fontSize as string | undefined
+      
+      let size: number | undefined
+      if (fontSizeStr) {
+        const num = parseFloat(fontSizeStr)
+        if (!isNaN(num)) {
+          // TipTap pixels to Word half-points (1px = 0.75pt, 1pt = 2 half-points => 1.5)
+          size = Math.round(num * 1.5)
+        }
+      }
 
       runs.push(
         new TextRun({
@@ -150,6 +178,8 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
           bold: isBold,
           italics: isItalic,
           underline: isUnderline ? {} : undefined,
+          font: fontFamily,
+          size: size,
         })
       )
     } else if (node.type === 'mergeField' || node.type === 'field') {

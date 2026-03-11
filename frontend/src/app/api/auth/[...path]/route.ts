@@ -40,6 +40,12 @@ async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }
 
   const responseBody = await backendRes.text();
 
+  // If we hit a 401 Unauthorized globally (or specifically on /auth/me), 
+  // explicitly clear the auth_session cookie so NextJS middleware stops redirecting to /dashboard.
+  if (backendRes.status === 401) {
+    resHeaders.append('Set-Cookie', 'auth_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  }
+
   return new NextResponse(responseBody, {
     status: backendRes.status,
     headers: resHeaders,

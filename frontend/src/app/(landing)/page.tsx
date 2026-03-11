@@ -8,7 +8,7 @@ import { Newspaper } from "@/components/landing/newspaper";
 import FeaturesSection from "@/components/landing/features-section";
 import TargetSection from "@/components/landing/target-section";
 import Achievement from "@/components/landing/achievement";
-import Members from "@/components/landing/members";
+// import Members from "@/components/landing/members";
 import { Incubation } from "@/components/landing/incubation";
 import SurveySection from "@/components/landing/survey-section";
 import { useI18n } from "@/components/landing/language-provider";
@@ -35,7 +35,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <TargetSection />
       <Achievement />
-      <Members />
+      {/* <Members /> */}
       <Incubation />
 
       <div id="survey" className="sr-only" aria-hidden />
