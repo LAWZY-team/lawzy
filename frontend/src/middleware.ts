@@ -33,7 +33,7 @@ export function middleware(request: NextRequest) {
 
   // Allow guest users to start contract creation flow.
   // Keep other editor routes protected to avoid exposing saved documents.
-  if (pathname === "/editor/new" || pathname === "/templates" || pathname === "/documents") {
+  if (pathname === "/editor/new" || pathname === "/templates" || pathname === "/dashboard" || pathname === "/documents") {
     return NextResponse.next();
   }
 
