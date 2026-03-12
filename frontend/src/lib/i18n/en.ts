@@ -70,7 +70,7 @@ const en: Record<TranslationKey, string> = {
   // Documents page
   docs_my_documents: "My Documents",
   docs_manage_all: "Manage all your contracts",
-  docs_create_new: "Create new document",
+  docs_create_new: "Create new contract",
   docs_empty: "No documents yet. Create your first document!",
   docs_deleted: "Document deleted",
   docs_delete_failed: "Failed to delete document",

@@ -272,7 +272,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                 <div>
                   <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
                   <CardDescription className="mt-1">
-                    Nhập mã OTP đã được gửi đến email của bạn
+                    Nhập mã OTP đã được gửi đến email của bạn. <br/>Vui lòng kiểm tra hòm thư rác và spam
                   </CardDescription>
                 </div>
               </CardHeader>

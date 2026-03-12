@@ -47,13 +47,11 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md px-4">
         <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-4 items-center text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Mail className="w-8 h-8 text-primary" />
-            </div>
             <div>
               <CardTitle className="text-2xl font-bold">Kiểm tra email</CardTitle>
               <CardDescription className="mt-2">
-                Nếu tài khoản với email <strong>{email}</strong> tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.
+                Nếu tài khoản với email <strong>{email}</strong> tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu. <br />
+                <strong>Vui lòng kiểm tra hòm thư rác và spam</strong>
               </CardDescription>
             </div>
           </CardHeader>

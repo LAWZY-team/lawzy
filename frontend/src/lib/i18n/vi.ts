@@ -68,7 +68,7 @@ const vi = {
   // Documents page
   docs_my_documents: "Tài liệu của tôi",
   docs_manage_all: "Quản lý tất cả hợp đồng của bạn",
-  docs_create_new: "Tạo tài liệu mới",
+  docs_create_new: "Tạo hợp đồng mới",
   docs_empty: "Chưa có tài liệu nào. Hãy tạo tài liệu đầu tiên của bạn!",
   docs_deleted: "Đã xóa tài liệu",
   docs_delete_failed: "Không thể xóa tài liệu",
