@@ -543,6 +543,11 @@ export default function EditorPage({
 
     try {
       const existingContentText = editorContentToPlainText(editorContent)
+      // Send previous chat turns (exclude the current message just added) for conversational context
+      const previousMessages = chatMessages
+        .filter((m) => m.id !== userMessage.id && (m.role === 'user' || m.role === 'assistant'))
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -555,6 +560,7 @@ export default function EditorPage({
           existingContent: existingContentText || undefined,
           mergeFieldValues: Object.keys(mergeFieldValues).length > 0 ? mergeFieldValues : undefined,
           attachedSources,
+          chatHistory: previousMessages.length > 0 ? previousMessages : undefined,
         })
       })
 

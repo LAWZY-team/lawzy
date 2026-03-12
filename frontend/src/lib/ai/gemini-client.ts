@@ -8,6 +8,11 @@ export interface ContractMetadata {
   tags?: string[]
 }
 
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export interface GenerateContractRequest {
   type: 'generate_contract'
   metadata: ContractMetadata
@@ -194,6 +199,7 @@ export class GeminiClient {
       existingContent?: string
       mergeFieldValues?: Record<string, string>
       attachedSources?: Array<{ fileName: string; text: string }>
+      chatHistory?: ChatHistoryItem[]
     }
   ) {
     const request: GenerateContractRequest = {
@@ -222,9 +228,21 @@ export class GeminiClient {
       userContent += `\n\n---\n[NGUỒN THAM CHIẾU TỪ WORKSPACE - ưu tiên đối chiếu và trích dẫn khi soạn hợp đồng]\n${sourcesContext.trim()}`
     }
 
-    const result = await this.model.generateContent(userContent)
-    const response = await result.response
-    const text = response.text()
+    // Build Gemini-compatible history from previous chat turns (max 20 turns to limit tokens)
+    const history = (options?.chatHistory ?? []).slice(-20).map((item) => ({
+      role: item.role === 'assistant' ? ('model' as const) : ('user' as const),
+      parts: [{ text: item.content }],
+    }))
+
+    let text: string
+    if (history.length > 0) {
+      const chat = this.model.startChat({ history })
+      const result = await chat.sendMessage(userContent)
+      text = result.response.text()
+    } else {
+      const result = await this.model.generateContent(userContent)
+      text = result.response.text()
+    }
 
     return this.parseResponse(text)
   }
