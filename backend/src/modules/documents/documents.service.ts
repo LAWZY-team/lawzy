@@ -14,6 +14,7 @@ export class DocumentsService {
     contentJSON?: any;
     metadata?: any;
     mergeFieldValues?: any;
+    status?: string;
   }) {
     return this.prisma.document.create({
       data: {
@@ -25,6 +26,7 @@ export class DocumentsService {
         contentJSON: data.contentJSON,
         metadata: data.metadata,
         mergeFieldValues: data.mergeFieldValues,
+        ...(data.status !== undefined && { status: data.status }),
       },
       include: {
         creator: {

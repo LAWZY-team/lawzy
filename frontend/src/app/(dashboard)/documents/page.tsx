@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FileText, MoreVertical, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -21,12 +23,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 
 export default function DocumentsPage() {
+  const router = useRouter()
+  const { clear: clearGuestFlow } = useGuestFlowStore()
+  const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
   const { currentWorkspace } = useWorkspaceStore()
 
@@ -41,7 +48,6 @@ export default function DocumentsPage() {
   const workspaceId = currentWorkspace?.id ?? ""
   const { data, isLoading } = useDocuments(workspaceId, { limit: 50 })
   const deleteMutation = useDeleteDocument()
-
   const documents = data?.data ?? []
 
   const handleDelete = async (id: string) => {
@@ -62,11 +68,15 @@ export default function DocumentsPage() {
             {t("docs_manage_all")}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/editor/new">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("docs_create_new")}
-          </Link>
+        <Button
+          onClick={() => {
+            clearGuestFlow()
+            clearEditorSession()
+            router.push("/editor/new")
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          {t("docs_create_new")}
         </Button>
       </div>
 
@@ -75,7 +85,7 @@ export default function DocumentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>{t("recent_docs_name")}</TableHead>
-              <TableHead>{t("recent_docs_type")}</TableHead>
+              {/* <TableHead>{t("recent_docs_type")}</TableHead> */}
               <TableHead>{t("recent_docs_status")}</TableHead>
               <TableHead>{t("recent_docs_updated")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
@@ -104,13 +114,18 @@ export default function DocumentsPage() {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
-                      <Link href={`/editor/${doc.id}`} className="hover:underline">
+                      <Link 
+                        href={`/editor/${doc.id}`} 
+                        className="hover:underline flex items-center gap-2"
+                      >
                         {doc.title}
+                        {/* {doc.isLocal && (
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-orange-100/50 text-orange-700 border-orange-200">
+                            Local
+                          </Badge>
+                        )} */}
                       </Link>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{doc.type}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="capitalize">

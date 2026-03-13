@@ -223,7 +223,7 @@ export function CanvasEditor({
 
   const getFinalHtml = (): string => finalizeContractHtml(editor.getHTML());
 
-  const getFinalExportContent = (): JSONContent => {
+  const getFinalExportContent = (excludeFirstHeading = false): JSONContent => {
     const json = editor.getJSON() as JSONContent;
 
     const transformNode = (node: JSONContent): JSONContent => {
@@ -260,13 +260,22 @@ export function CanvasEditor({
       return node;
     };
 
-    if (!json || !json.content) {
-      return { type: "doc", content: [] };
+    let finalContent = json.content.map((node) => transformNode(node as JSONContent));
+    
+    if (excludeFirstHeading && finalContent.length > 0) {
+      // Find the first heading level 1 and skip it
+      if (finalContent[0].type === "heading" && finalContent[0].attrs?.level === 1) {
+        finalContent = finalContent.slice(1);
+        // Also skip empty paragraph immediately after title if exists
+        if (finalContent.length > 0 && finalContent[0].type === "paragraph" && (!finalContent[0].content || finalContent[0].content.length === 0)) {
+          finalContent = finalContent.slice(1);
+        }
+      }
     }
 
     return {
       ...json,
-      content: json.content.map((node) => transformNode(node as JSONContent)),
+      content: finalContent,
     };
   };
 
@@ -297,7 +306,7 @@ export function CanvasEditor({
     if (!editor) return;
 
     try {
-      const exportContent = getFinalExportContent();
+      const exportContent = getFinalExportContent(true);
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -413,12 +422,12 @@ export function CanvasEditor({
               >
                 <Printer className="w-4 h-4 mr-2" /> In / Lưu PDF
               </DropdownMenuItem> */}
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={handleExportPdf}
                 className="hover:bg-accent cursor-pointer"
               >
                 <Download className="w-4 h-4 mr-2" /> Xuất PDF
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuItem
                 onClick={handleExportWord}
                 className="hover:bg-accent cursor-pointer"

@@ -50,9 +50,18 @@ export class DocumentsController {
       contentJSON?: any;
       metadata?: any;
       mergeFieldValues?: any;
+      status?: string;
     },
   ) {
     const userId = req.user.userId;
+    if (
+      body.status !== undefined &&
+      !['draft', 'completed', 'review', 'approved', 'signed', 'archived'].includes(
+        body.status,
+      )
+    ) {
+      throw new BadRequestException('Invalid status');
+    }
     return this.documentsService.create({
       ...body,
       createdBy: userId,

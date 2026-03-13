@@ -37,6 +37,8 @@ import {
 } from '@/lib/editor/contract-result'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
+import { useNavigationGuard } from '@/hooks/use-navigation-guard'
+import { SaveDraftModal } from '@/components/editor/save-draft-modal'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -67,12 +69,13 @@ export default function EditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ template?: string }>
+  searchParams?: Promise<{ template?: string; draft?: string }>
 }) {
   const router = useRouter()
   const resolvedParams = use(params)
-  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string }>)
+  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
+  const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
 
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
   const { customFields } = useUserFieldsStore()
@@ -81,9 +84,18 @@ export default function EditorPage({
 
   /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  const { currentWorkspace } = useWorkspaceStore()
+  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
+
+  // Ensure we always have a default workspace selected (first workspace)
+  useEffect(() => {
+    if (!currentWorkspace) {
+      fetchWorkspaces().catch((err) => {
+        console.error('Failed to load workspaces for editor', err)
+      })
+    }
+  }, [currentWorkspace, fetchWorkspaces])
 
   // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
@@ -107,6 +119,9 @@ export default function EditorPage({
   const draftInitRef = useRef(false)
   const guestRestoredRef = useRef(false)
   const initialLoadRef = useRef(true)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -244,9 +259,6 @@ export default function EditorPage({
             content: m.content,
             timestamp: new Date(m.createdAt),
           })))
-          queueMicrotask(() => {
-            initialLoadRef.current = false
-          })
         }
       }).catch(() => {
         setChatMessages([])
@@ -277,9 +289,6 @@ export default function EditorPage({
               Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
             )
             setIsCanvasMode(true)
-            queueMicrotask(() => {
-              initialLoadRef.current = false
-            })
           }
         }).catch(() => {})
         return
@@ -367,18 +376,89 @@ export default function EditorPage({
         const json = editor.getJSON()
         setContent(json)
         setEditorContent(json)
+        if (!initialLoadRef.current) {
+          setIsDirty(true)
+        }
       }, 300)
     },
+  })
+
+  const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
+    if (!isAuthenticated) {
+      handleAuthRequired()
+      toast.error('Vui lòng đăng nhập để lưu.')
+      return
+    }
+
+    try {
+      if (resolvedParams.id === 'new') {
+        if (!workspaceId) {
+          toast.error('Không tìm thấy workspace hợp lệ.')
+          return
+        }
+        const sourceMetadata = useEditorStore.getState().metadata
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: documentTitle || (sourceMetadata?.title as string | undefined) || 'Hợp đồng',
+          type: (sourceMetadata?.type as string | undefined) ?? 'contract',
+          workspaceId,
+          contentJSON: editorContent,
+          metadata: sourceMetadata,
+          mergeFieldValues,
+          status,
+        })
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create document')
+
+        setIsDirty(false)
+        toast.success('Đã lưu')
+
+        if (pendingUrl) {
+          router.push(pendingUrl)
+        } else {
+          router.replace(`/editor/${newId}`)
+        }
+        return
+      }
+
+      await api.patch(`/documents/${resolvedParams.id}`, {
+        title: documentTitle,
+        status,
+        contentJSON: editorContent,
+        mergeFieldValues,
+        metadata: useEditorStore.getState().metadata,
+      })
+
+      setIsDirty(false)
+      toast.success('Đã lưu')
+      if (pendingUrl) {
+        router.push(pendingUrl)
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Lưu thất bại')
+    }
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
+
+  useNavigationGuard(isDirty, () => {
+    setShowSaveDraftModal(true)
   })
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
     if (!editor || !editorContent || JSON.stringify(editorContent) === JSON.stringify(editor.getJSON())) return
     const pending = editorContent
+    const wasInitial = initialLoadRef.current
     const id = setTimeout(() => {
       if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
         editor.commands.setContent(pending)
+      }
+      // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
+      // so the first content sync never marks the document as dirty.
+      if (wasInitial) {
+        setTimeout(() => {
+          initialLoadRef.current = false
+        }, 350)
       }
     }, 0)
     return () => clearTimeout(id)
@@ -426,6 +506,9 @@ export default function EditorPage({
           contentJSON: editorContent,
           mergeFieldValues,
           metadata: useEditorStore.getState().metadata,
+        })
+        .then(() => {
+          setIsDirty(false)
         })
         .catch((e) => {
           console.error(e)
@@ -736,6 +819,26 @@ export default function EditorPage({
           // Auth state update will be handled by auth store effects; just close modal.
           setShowAuthModal(false)
           setToolsPanelOpen(true)
+        }}
+      />
+
+      <SaveDraftModal
+        open={showSaveDraftModal}
+        onOpenChange={setShowSaveDraftModal}
+        onSave={(status) => {
+          void handleSaveDraftToDb(status)
+          setShowSaveDraftModal(false)
+        }}
+        onDiscard={() => {
+          setIsDirty(false)
+          setShowSaveDraftModal(false)
+          // Navigation is handled by the browser if it was a link click,
+          // but our hook prevented it. We should probably trigger it manually if needed.
+          // For simplicity, we just let them click again or use a pending URL if we captured it.
+          const anchor = document.activeElement as HTMLAnchorElement
+          if (anchor && anchor.href) {
+             window.location.href = anchor.href
+          }
         }}
       />
     </div>
