@@ -39,7 +39,6 @@ import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-con
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
 import { SaveDraftModal } from '@/components/editor/save-draft-modal'
-import { DraftService } from '@/lib/draft/draft-service'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -85,9 +84,18 @@ export default function EditorPage({
 
   /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  const { currentWorkspace } = useWorkspaceStore()
+  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
+
+  // Ensure we always have a default workspace selected (first workspace)
+  useEffect(() => {
+    if (!currentWorkspace) {
+      fetchWorkspaces().catch((err) => {
+        console.error('Failed to load workspaces for editor', err)
+      })
+    }
+  }, [currentWorkspace, fetchWorkspaces])
 
   // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
@@ -114,7 +122,6 @@ export default function EditorPage({
   const [isDirty, setIsDirty] = useState(false)
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
   const [pendingUrl, setPendingUrl] = useState<string | null>(null)
-  const [currentLocalDraftId, setCurrentLocalDraftId] = useState<string | null>(draftId ?? null)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -252,9 +259,6 @@ export default function EditorPage({
             content: m.content,
             timestamp: new Date(m.createdAt),
           })))
-          queueMicrotask(() => {
-            initialLoadRef.current = false
-          })
         }
       }).catch(() => {
         setChatMessages([])
@@ -262,29 +266,6 @@ export default function EditorPage({
       })
     } else {
       setCurrentDocument(null)
-      if (draftId) {
-        const draft = DraftService.getDraft(draftId)
-        if (draft) {
-          setEditorContent(draft.content)
-          setDocumentTitle(draft.title)
-          setMergeFieldValues(draft.mergeFieldValues)
-          if (draft.chatMessages) {
-             setChatMessages(draft.chatMessages.map(m => ({
-               ...m,
-               timestamp: new Date(m.timestamp)
-             })))
-          }
-          if (draft.templateMergeFields) {
-            setTemplateMergeFields(draft.templateMergeFields)
-          }
-          if (draft.metadata) {
-            updateMetadata(draft.metadata)
-          }
-          setIsCanvasMode(true)
-          initialLoadRef.current = false
-          return
-        }
-      }
       if (templateId) {
         api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
           if (template?.contentJSON) {
@@ -308,9 +289,6 @@ export default function EditorPage({
               Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
             )
             setIsCanvasMode(true)
-            queueMicrotask(() => {
-              initialLoadRef.current = false
-            })
           }
         }).catch(() => {})
         return
@@ -405,38 +383,61 @@ export default function EditorPage({
     },
   })
 
-  const handleSaveToLocalDraft = useCallback((status: 'draft' | 'completed' = 'draft') => {
-    let activeDraftId = currentLocalDraftId
-    
-    // If it's a new document and we don't have a local draft ID yet, generate one
-    if (resolvedParams.id === 'new' && !activeDraftId) {
-      activeDraftId = `local-${crypto.randomUUID()}`
-      setCurrentLocalDraftId(activeDraftId)
-      
-      // Update URL without reloading to reflect the new draft ID
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.set('draft', activeDraftId)
-      window.history.replaceState({ ...window.history.state, as: newUrl.pathname + newUrl.search }, '', newUrl.href)
+  const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
+    if (!isAuthenticated) {
+      handleAuthRequired()
+      toast.error('Vui lòng đăng nhập để lưu.')
+      return
     }
 
-    const targetId = activeDraftId || resolvedParams.id
-    
-    DraftService.saveDraft({
-      id: targetId,
-      title: documentTitle,
-      content: editorContent,
-      mergeFieldValues,
-      status,
-      chatMessages,
-      templateMergeFields: useEditorStore.getState().templateMergeFields,
-      metadata: useEditorStore.getState().metadata,
-    })
-    setIsDirty(false)
-    toast.success('Đã lưu')
-    if (pendingUrl) {
-      router.push(pendingUrl)
+    try {
+      if (resolvedParams.id === 'new') {
+        if (!workspaceId) {
+          toast.error('Không tìm thấy workspace hợp lệ.')
+          return
+        }
+        const sourceMetadata = useEditorStore.getState().metadata
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: documentTitle || (sourceMetadata?.title as string | undefined) || 'Hợp đồng',
+          type: (sourceMetadata?.type as string | undefined) ?? 'contract',
+          workspaceId,
+          contentJSON: editorContent,
+          metadata: sourceMetadata,
+          mergeFieldValues,
+          status,
+        })
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create document')
+
+        setIsDirty(false)
+        toast.success('Đã lưu')
+
+        if (pendingUrl) {
+          router.push(pendingUrl)
+        } else {
+          router.replace(`/editor/${newId}`)
+        }
+        return
+      }
+
+      await api.patch(`/documents/${resolvedParams.id}`, {
+        title: documentTitle,
+        status,
+        contentJSON: editorContent,
+        mergeFieldValues,
+        metadata: useEditorStore.getState().metadata,
+      })
+
+      setIsDirty(false)
+      toast.success('Đã lưu')
+      if (pendingUrl) {
+        router.push(pendingUrl)
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Lưu thất bại')
     }
-  }, [resolvedParams.id, currentLocalDraftId, documentTitle, editorContent, mergeFieldValues, chatMessages, pendingUrl, router])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
 
   useNavigationGuard(isDirty, () => {
     setShowSaveDraftModal(true)
@@ -446,10 +447,18 @@ export default function EditorPage({
   useEffect(() => {
     if (!editor || !editorContent || JSON.stringify(editorContent) === JSON.stringify(editor.getJSON())) return
     const pending = editorContent
+    const wasInitial = initialLoadRef.current
     const id = setTimeout(() => {
       if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
         editor.commands.setContent(pending)
+      }
+      // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
+      // so the first content sync never marks the document as dirty.
+      if (wasInitial) {
+        setTimeout(() => {
+          initialLoadRef.current = false
+        }, 350)
       }
     }, 0)
     return () => clearTimeout(id)
@@ -497,6 +506,9 @@ export default function EditorPage({
           contentJSON: editorContent,
           mergeFieldValues,
           metadata: useEditorStore.getState().metadata,
+        })
+        .then(() => {
+          setIsDirty(false)
         })
         .catch((e) => {
           console.error(e)
@@ -808,7 +820,7 @@ export default function EditorPage({
         open={showSaveDraftModal}
         onOpenChange={setShowSaveDraftModal}
         onSave={(status) => {
-          handleSaveToLocalDraft(status)
+          void handleSaveDraftToDb(status)
           setShowSaveDraftModal(false)
         }}
         onDiscard={() => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FileText, MoreVertical, Plus } from "lucide-react"
@@ -29,7 +29,6 @@ import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
-import { DraftService, type LocalDraft } from "@/lib/draft/draft-service"
 
 export default function DocumentsPage() {
   const router = useRouter()
@@ -49,39 +48,12 @@ export default function DocumentsPage() {
   const workspaceId = currentWorkspace?.id ?? ""
   const { data, isLoading } = useDocuments(workspaceId, { limit: 50 })
   const deleteMutation = useDeleteDocument()
+  const documents = data?.data ?? []
 
-  const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([])
-
-  useEffect(() => {
-    setLocalDrafts(DraftService.getDrafts())
-  }, [])
-
-  const serverDocuments = data?.data ?? []
-
-  // Combine local drafts and server documents
-  // Note: Local drafts are prioritized and shown at the top
-  const documents = [
-    ...localDrafts.map((d) => ({
-      ...d,
-      isLocal: true,
-      updatedAt: d.updatedAt,
-      // Map local status to status labels
-      status: d.status === 'completed' ? 'completed' : 'draft',
-      type: 'contract'
-    })),
-    ...serverDocuments.map((d: any) => ({ ...d, isLocal: false }))
-  ]
-
-  const handleDelete = async (id: string, isLocal: boolean) => {
+  const handleDelete = async (id: string) => {
     try {
-      if (isLocal) {
-        DraftService.deleteDraft(id)
-        setLocalDrafts(DraftService.getDrafts())
-        toast.success(t("docs_deleted"))
-      } else {
-        await deleteMutation.mutateAsync(id)
-        toast.success(t("docs_deleted"))
-      }
+      await deleteMutation.mutateAsync(id)
+      toast.success(t("docs_deleted"))
     } catch {
       toast.error(t("docs_delete_failed"))
     }
@@ -143,7 +115,7 @@ export default function DocumentsPage() {
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <Link 
-                        href={doc.isLocal ? `/editor/new?draft=${doc.id}` : `/editor/${doc.id}`} 
+                        href={`/editor/${doc.id}`} 
                         className="hover:underline flex items-center gap-2"
                       >
                         {doc.title}
@@ -180,7 +152,7 @@ export default function DocumentsPage() {
                         <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDelete(doc.id, doc.isLocal)}
+                          onClick={() => handleDelete(doc.id)}
                         >
                           {t("common_delete")}
                         </DropdownMenuItem>
