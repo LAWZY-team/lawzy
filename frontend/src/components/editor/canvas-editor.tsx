@@ -260,7 +260,7 @@ export function CanvasEditor({
       return node;
     };
 
-    let finalContent = json.content.map((node) => transformNode(node as JSONContent));
+    let finalContent = (json.content ?? []).map((node) => transformNode(node as JSONContent));
     
     if (excludeFirstHeading && finalContent.length > 0) {
       // Find the first heading level 1 and skip it
