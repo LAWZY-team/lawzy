@@ -149,6 +149,13 @@ const vi = {
   auth_password: "Mật khẩu",
   auth_name: "Họ tên",
   auth_forgot_password: "Quên mật khẩu?",
+  
+  // Save Draft Modal
+  save_draft_title: "Lưu bản thảo?",
+  save_draft_description: "Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại dưới dạng bản thảo trước khi rời đi không?",
+  save_draft_save: "Lưu bản thảo",
+  save_draft_discard: "Hủy bỏ thay đổi",
+  save_draft_status_label: "Trạng thái hợp đồng",
 } as const;
 
 export default vi;

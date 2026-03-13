@@ -25,9 +25,15 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
   useAuthStore()
+  const router = useRouter()
+  const { clear: clearGuestFlow } = useGuestFlowStore()
+  const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
 
   const PERIOD_LABELS: Record<DashboardPeriod, string> = {
@@ -73,11 +79,16 @@ export default function DashboardPage() {
                 Tạo hợp đồng mới trong vài giây và bắt đầu quản lý văn bản của bạn
               </p>
               <div className="flex justify-left">
-                <Button asChild className="bg-white text-black hover:bg-gray-100">
-                  <Link href="/editor/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Tạo hợp đồng mới
-                  </Link>
+                <Button
+                  className="bg-white text-black hover:bg-gray-100"
+                  onClick={() => {
+                    clearGuestFlow()
+                    clearEditorSession()
+                    router.push("/editor/new")
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t("docs_create_new")}
                 </Button>
               </div>
             </div>

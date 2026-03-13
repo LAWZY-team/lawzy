@@ -49,7 +49,7 @@ export function ChatMessageBubble({
       <div
         className={cn(
           'flex flex-col max-w-[85%] md:max-w-[75%]',
-          message.role === 'user' ? 'items-end' : 'items-start'
+          message.role === 'user' ? 'items-end' : 'items-start pl-2'
         )}
       >
         {message.role !== 'user' && (
@@ -61,7 +61,7 @@ export function ChatMessageBubble({
             'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm',
             message.role === 'user'
               ? 'bg-muted text-foreground rounded-tr-sm'
-              : 'bg-transparent text-foreground pl-0'
+              : 'bg-transparent text-foreground'
           )}
         >
           {message.thinking && (

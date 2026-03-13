@@ -37,6 +37,9 @@ import {
 } from '@/lib/editor/contract-result'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
+import { useNavigationGuard } from '@/hooks/use-navigation-guard'
+import { SaveDraftModal } from '@/components/editor/save-draft-modal'
+import { DraftService } from '@/lib/draft/draft-service'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -67,12 +70,13 @@ export default function EditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ template?: string }>
+  searchParams?: Promise<{ template?: string; draft?: string }>
 }) {
   const router = useRouter()
   const resolvedParams = use(params)
-  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string }>)
+  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
+  const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
 
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
   const { customFields } = useUserFieldsStore()
@@ -107,6 +111,10 @@ export default function EditorPage({
   const draftInitRef = useRef(false)
   const guestRestoredRef = useRef(false)
   const initialLoadRef = useRef(true)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const [currentLocalDraftId, setCurrentLocalDraftId] = useState<string | null>(draftId ?? null)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -254,6 +262,29 @@ export default function EditorPage({
       })
     } else {
       setCurrentDocument(null)
+      if (draftId) {
+        const draft = DraftService.getDraft(draftId)
+        if (draft) {
+          setEditorContent(draft.content)
+          setDocumentTitle(draft.title)
+          setMergeFieldValues(draft.mergeFieldValues)
+          if (draft.chatMessages) {
+             setChatMessages(draft.chatMessages.map(m => ({
+               ...m,
+               timestamp: new Date(m.timestamp)
+             })))
+          }
+          if (draft.templateMergeFields) {
+            setTemplateMergeFields(draft.templateMergeFields)
+          }
+          if (draft.metadata) {
+            updateMetadata(draft.metadata)
+          }
+          setIsCanvasMode(true)
+          initialLoadRef.current = false
+          return
+        }
+      }
       if (templateId) {
         api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
           if (template?.contentJSON) {
@@ -367,8 +398,48 @@ export default function EditorPage({
         const json = editor.getJSON()
         setContent(json)
         setEditorContent(json)
+        if (!initialLoadRef.current) {
+          setIsDirty(true)
+        }
       }, 300)
     },
+  })
+
+  const handleSaveToLocalDraft = useCallback((status: 'draft' | 'completed' = 'draft') => {
+    let activeDraftId = currentLocalDraftId
+    
+    // If it's a new document and we don't have a local draft ID yet, generate one
+    if (resolvedParams.id === 'new' && !activeDraftId) {
+      activeDraftId = `local-${crypto.randomUUID()}`
+      setCurrentLocalDraftId(activeDraftId)
+      
+      // Update URL without reloading to reflect the new draft ID
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.set('draft', activeDraftId)
+      window.history.replaceState({ ...window.history.state, as: newUrl.pathname + newUrl.search }, '', newUrl.href)
+    }
+
+    const targetId = activeDraftId || resolvedParams.id
+    
+    DraftService.saveDraft({
+      id: targetId,
+      title: documentTitle,
+      content: editorContent,
+      mergeFieldValues,
+      status,
+      chatMessages,
+      templateMergeFields: useEditorStore.getState().templateMergeFields,
+      metadata: useEditorStore.getState().metadata,
+    })
+    setIsDirty(false)
+    toast.success('Đã lưu')
+    if (pendingUrl) {
+      router.push(pendingUrl)
+    }
+  }, [resolvedParams.id, currentLocalDraftId, documentTitle, editorContent, mergeFieldValues, chatMessages, pendingUrl, router])
+
+  useNavigationGuard(isDirty, () => {
+    setShowSaveDraftModal(true)
   })
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
@@ -730,6 +801,26 @@ export default function EditorPage({
           // Auth state update will be handled by auth store effects; just close modal.
           setShowAuthModal(false)
           setToolsPanelOpen(true)
+        }}
+      />
+
+      <SaveDraftModal
+        open={showSaveDraftModal}
+        onOpenChange={setShowSaveDraftModal}
+        onSave={(status) => {
+          handleSaveToLocalDraft(status)
+          setShowSaveDraftModal(false)
+        }}
+        onDiscard={() => {
+          setIsDirty(false)
+          setShowSaveDraftModal(false)
+          // Navigation is handled by the browser if it was a link click,
+          // but our hook prevented it. We should probably trigger it manually if needed.
+          // For simplicity, we just let them click again or use a pending URL if we captured it.
+          const anchor = document.activeElement as HTMLAnchorElement
+          if (anchor && anchor.href) {
+             window.location.href = anchor.href
+          }
         }}
       />
     </div>

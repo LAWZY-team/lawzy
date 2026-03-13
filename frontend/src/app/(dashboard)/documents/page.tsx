@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FileText, MoreVertical, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -21,12 +23,18 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
+import { DraftService, type LocalDraft } from "@/lib/draft/draft-service"
 
 export default function DocumentsPage() {
+  const router = useRouter()
+  const { clear: clearGuestFlow } = useGuestFlowStore()
+  const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
   const { currentWorkspace } = useWorkspaceStore()
 
@@ -42,12 +50,38 @@ export default function DocumentsPage() {
   const { data, isLoading } = useDocuments(workspaceId, { limit: 50 })
   const deleteMutation = useDeleteDocument()
 
-  const documents = data?.data ?? []
+  const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([])
 
-  const handleDelete = async (id: string) => {
+  useEffect(() => {
+    setLocalDrafts(DraftService.getDrafts())
+  }, [])
+
+  const serverDocuments = data?.data ?? []
+
+  // Combine local drafts and server documents
+  // Note: Local drafts are prioritized and shown at the top
+  const documents = [
+    ...localDrafts.map((d) => ({
+      ...d,
+      isLocal: true,
+      updatedAt: d.updatedAt,
+      // Map local status to status labels
+      status: d.status === 'completed' ? 'completed' : 'draft',
+      type: 'contract'
+    })),
+    ...serverDocuments.map((d: any) => ({ ...d, isLocal: false }))
+  ]
+
+  const handleDelete = async (id: string, isLocal: boolean) => {
     try {
-      await deleteMutation.mutateAsync(id)
-      toast.success(t("docs_deleted"))
+      if (isLocal) {
+        DraftService.deleteDraft(id)
+        setLocalDrafts(DraftService.getDrafts())
+        toast.success(t("docs_deleted"))
+      } else {
+        await deleteMutation.mutateAsync(id)
+        toast.success(t("docs_deleted"))
+      }
     } catch {
       toast.error(t("docs_delete_failed"))
     }
@@ -62,11 +96,15 @@ export default function DocumentsPage() {
             {t("docs_manage_all")}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/editor/new">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("docs_create_new")}
-          </Link>
+        <Button
+          onClick={() => {
+            clearGuestFlow()
+            clearEditorSession()
+            router.push("/editor/new")
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          {t("docs_create_new")}
         </Button>
       </div>
 
@@ -75,7 +113,7 @@ export default function DocumentsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>{t("recent_docs_name")}</TableHead>
-              <TableHead>{t("recent_docs_type")}</TableHead>
+              {/* <TableHead>{t("recent_docs_type")}</TableHead> */}
               <TableHead>{t("recent_docs_status")}</TableHead>
               <TableHead>{t("recent_docs_updated")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
@@ -104,13 +142,18 @@ export default function DocumentsPage() {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
-                      <Link href={`/editor/${doc.id}`} className="hover:underline">
+                      <Link 
+                        href={doc.isLocal ? `/editor/new?draft=${doc.id}` : `/editor/${doc.id}`} 
+                        className="hover:underline flex items-center gap-2"
+                      >
                         {doc.title}
+                        {/* {doc.isLocal && (
+                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-orange-100/50 text-orange-700 border-orange-200">
+                            Local
+                          </Badge>
+                        )} */}
                       </Link>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{doc.type}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary" className="capitalize">
@@ -137,7 +180,7 @@ export default function DocumentsPage() {
                         <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDelete(doc.id)}
+                          onClick={() => handleDelete(doc.id, doc.isLocal)}
                         >
                           {t("common_delete")}
                         </DropdownMenuItem>
