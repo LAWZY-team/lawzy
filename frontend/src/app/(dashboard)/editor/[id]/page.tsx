@@ -570,6 +570,7 @@ export default function EditorPage({
       })
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
+      setIsDirty(false)
       toast.success('Đã lưu phiên bản')
     } catch (e) {
       console.error(e)
@@ -683,17 +684,20 @@ export default function EditorPage({
         setEditorContent(newContent)
         setDocumentTitle(genResult.content.title || documentTitle)
         setIsCanvasMode(true)
+      } else if (result.type === 'error') {
+        aiContent = result.message || 'Hệ thống chỉ hỗ trợ các nghiệp vụ liên quan đến soạn thảo và phân tích hợp đồng, pháp lý.'
       } else {
         // Handle other types or generic response
         aiContent = JSON.stringify(result, null, 2)
       }
 
-      const aiMessage: ChatMessage = {
+      const aiMessage: ChatMessage & { isError?: boolean } = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: aiContent,
         timestamp: new Date(),
         isStreaming: false,
+        isError: result.type === 'error',
         hasContract: result.type === 'contract_generation',
         ...(result.type === 'contract_generation' && {
           thinking: getSimulatedThinking(result as ContractGenerationResult),
@@ -720,6 +724,7 @@ export default function EditorPage({
         role: 'assistant',
         content: 'Xin lỗi, tôi gặp sự cố khi xử lý yêu cầu của bạn. Vui lòng thử lại.',
         timestamp: new Date(),
+        isError: true,
       }
       setChatMessages((prev) => [...prev, errorMessage])
     } finally {

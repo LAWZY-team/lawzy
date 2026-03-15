@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { FileText, Info, Plus } from 'lucide-react'
+import { FileText, Info, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -35,7 +35,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     updateMergeFieldValue,
     setMergeFieldValues,
   } = useEditorStore()
-  const { customFields, addCustomField } = useUserFieldsStore()
+  const { customFields, addCustomField, removeCustomField } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
@@ -218,6 +218,31 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       setRestoring(null)
     }
   }
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const allInputs = document.querySelectorAll('.field-value-input')
+      const nextInput = allInputs[index + 1] as HTMLInputElement
+      if (nextInput) {
+        nextInput.focus()
+        // Sync canvas view to show the next field
+        const nextField = mergeFields[index + 1]
+        if (nextField) {
+          window.dispatchEvent(new CustomEvent('lawzy:canvas-show-field', { 
+            detail: { fieldKey: nextField.key } 
+          }))
+        }
+      } else {
+        // Maybe blur if it's the last one
+        ;(e.target as HTMLInputElement).blur()
+      }
+    }
+  }
+
+  const handleDeleteField = (key: string) => {
+      removeCustomField(key)
+      toast.success('Đã xóa trường dữ liệu')
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground border-l border-border">
@@ -251,58 +276,76 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
               </div>
 
               <div className="grid gap-1.5">
-                {mergeFields.map((field) => (
-                  <Card
-                    key={field.key}
-                    id={`field-card-${field.key}`}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
-                        id: field.key,
-                        label: field.label,
-                        value: mergeFieldValues[field.key] ?? field.value
-                      }))
-                      e.dataTransfer.effectAllowed = 'copy'
-                    }}
-                    className="p-2 min-w-0 bg-background border-border hover:border-border/80 cursor-grab active:cursor-grabbing transition-colors group flex flex-col gap-1.5"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
-                        onClick={() => insertField(field)}
-                        title="Chèn vào vị trí con trỏ"
-                      >
-                        {field.label || field.key}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent"
-                        onClick={() => insertField(field)}
-                        title="Chèn trường dữ liệu"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/70 font-mono truncate" title={`Key: {{${field.key}}}`}>
-                      Key: {`{{${field.key}}}`}
-                    </p>
-                    <Input
-                      value={draftValues[field.key] ?? mergeFieldValues[field.key] ?? field.value}
-                      onChange={(e) => handleDraftChange(field.key, e.target.value)}
-                      onClick={() => {
-                        // Check auth when clicking on input
-                        if (!isAuthenticated && onAuthRequired) {
-                          onAuthRequired()
-                        }
+                {mergeFields.map((field, index) => {
+                  const isCustom = customFields.some((cf) => cf.key === field.key)
+                  return (
+                    <Card
+                      key={field.key}
+                      id={`field-card-${field.key}`}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
+                          id: field.key,
+                          label: field.label,
+                          value: mergeFieldValues[field.key] ?? field.value
+                        }))
+                        e.dataTransfer.effectAllowed = 'copy'
                       }}
-                      className="h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
-                      placeholder="Giá trị"
-                      readOnly={!isAuthenticated}
-                    />
-                  </Card>
-                ))}
+                      className="p-2 min-w-0 bg-background border-border hover:border-border/80 cursor-grab active:cursor-grabbing transition-colors group flex flex-col gap-1.5"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
+                          onClick={() => insertField(field)}
+                          title="Chèn vào vị trí con trỏ"
+                        >
+                          {field.label || field.key}
+                        </span>
+                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isCustom && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-white hover:bg-destructive"
+                              onClick={() => handleDeleteField(field.key)}
+                              title="Xóa trường dữ liệu"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-accent"
+                            onClick={() => insertField(field)}
+                            title="Chèn trường dữ liệu"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/70 font-mono truncate" title={`Key: {{${field.key}}}`}>
+                        Key: {`{{${field.key}}}`}
+                      </p>
+                      <Input
+                        value={draftValues[field.key] ?? mergeFieldValues[field.key] ?? field.value}
+                        onChange={(e) => handleDraftChange(field.key, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, index)}
+                        onClick={() => {
+                          // Check auth when clicking on input
+                          if (!isAuthenticated && onAuthRequired) {
+                            onAuthRequired()
+                          }
+                        }}
+                        className="field-value-input h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
+                        placeholder="Giá trị"
+                        readOnly={!isAuthenticated}
+                      />
+                    </Card>
+                  )
+                })}
               </div>
 
               <Separator className="bg-border my-2" />

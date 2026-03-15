@@ -5,6 +5,7 @@ export interface ChatMessage {
   thinking?: string
   timestamp: Date
   isStreaming?: boolean
+  isError?: boolean
   hasContract?: boolean
   attachedFileName?: string
 }
