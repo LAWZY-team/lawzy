@@ -71,6 +71,7 @@ const CONTRACT_BODY_CLASSES = [
   "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2",
   "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1",
   "[&_p]:text-[15px] [&_p]:leading-relaxed [&_p]:mb-3",
+  "[&_.ProseMirror]:font-['Times_New_Roman',_serif]",
   "[&_.merge-field]:inline-flex [&_.merge-field]:align-baseline",
 ].join(" ");
 
@@ -186,6 +187,33 @@ export function CanvasEditor({
     dom.addEventListener('click', handleEditorClick);
     return () => dom.removeEventListener('click', handleEditorClick);
   }, [editor, toolsPanelOpen, onToggleTools]);
+
+  // Sync canvas view when a field is focused from the RightPanel (e.g., via Enter key)
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !editor.view) return;
+
+    const handleCanvasShowField = (e: Event) => {
+      const fieldKey = (e as CustomEvent).detail?.fieldKey;
+      if (!fieldKey) return;
+
+      // Find the element in the editor DOM
+      const dom = editor.view.dom;
+      const fieldEl = dom.querySelector(`[data-field-key="${fieldKey}"]`);
+      
+      if (fieldEl) {
+        fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Add a temporary highlight effect (styled to match common UI patterns)
+        fieldEl.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'transition-all', 'duration-300');
+        setTimeout(() => {
+          fieldEl.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+        }, 1500);
+      }
+    };
+
+    window.addEventListener('lawzy:canvas-show-field', handleCanvasShowField);
+    return () => window.removeEventListener('lawzy:canvas-show-field', handleCanvasShowField);
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -538,7 +566,7 @@ export function CanvasEditor({
                   >
                     <Save className="w-4 h-4 mr-2" /> Lưu bản nháp
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
+                  {/* <DropdownMenuSeparator className="bg-border" /> */}
                 </>
               )}
               <DropdownMenuItem
@@ -547,16 +575,10 @@ export function CanvasEditor({
               >
                 <Copy className="w-4 h-4 mr-2" /> Sao chép nội dung
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handlePrint}
-                className="hover:bg-accent cursor-pointer"
-              >
-                <Printer className="w-4 h-4 mr-2" /> Chế độ in
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
+              {/* <DropdownMenuSeparator className="bg-border" /> */}
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer"
-                onClick={() => toast.info("Trợ giúp: Liên hệ support@lawzy.vn")}
+                onClick={() => toast.info("Trợ giúp: Liên hệ contact@lawzy.vn")}
               >
                 <HelpCircle className="w-4 h-4 mr-2" /> Trợ giúp
               </DropdownMenuItem>
@@ -653,7 +675,7 @@ export function CanvasEditor({
               Mặc định
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
-            {["Inter", "Arial", "Times New Roman", "Courier New"].map((ff) => (
+            {["Times New Roman", "Arial", "Inter", "Courier New"].map((ff) => (
               <DropdownMenuItem
                 key={ff}
                 onClick={() => editor.chain().focus().setFontFamily(ff).run()}
@@ -685,14 +707,21 @@ export function CanvasEditor({
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             {[
-              "12px",
-              "14px",
-              "16px",
-              "18px",
-              "20px",
-              "24px",
-              "28px",
-              "32px",
+              "8pt",
+              "9pt",
+              "10pt",
+              "11pt",
+              "12pt",
+              "13pt",
+              "14pt",
+              "16pt",
+              "18pt",
+              "20pt",
+              "24pt",
+              "28pt",
+              "36pt",
+              "48pt",
+              "72pt",
             ].map((sz) => (
               <DropdownMenuItem
                 key={sz}
@@ -707,58 +736,78 @@ export function CanvasEditor({
 
         <div className="h-4 w-px bg-border mx-2"></div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-            editor.isActive({ textAlign: "left" }) &&
-              "bg-accent text-foreground",
-          )}
-          title="Căn trái"
-        >
-          <AlignLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-            editor.isActive({ textAlign: "center" }) &&
-              "bg-accent text-foreground",
-          )}
-          title="Căn giữa"
-        >
-          <AlignCenter className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-            editor.isActive({ textAlign: "right" }) &&
-              "bg-accent text-foreground",
-          )}
-          title="Căn phải"
-        >
-          <AlignRight className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-          className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-            editor.isActive({ textAlign: "justify" }) &&
-              "bg-accent text-foreground",
-          )}
-          title="Căn đều"
-        >
-          <AlignJustify className="w-4 h-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent"
+              title="Căn chỉnh"
+            >
+              {editor.isActive({ textAlign: "center" }) ? (
+                <AlignCenter className="w-4 h-4" />
+              ) : editor.isActive({ textAlign: "right" }) ? (
+                <AlignRight className="w-4 h-4" />
+              ) : editor.isActive({ textAlign: "justify" }) ? (
+                <AlignJustify className="w-4 h-4" />
+              ) : (
+                <AlignLeft className="w-4 h-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground min-w-0 p-1">
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+                className={cn(
+                  "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+                  (editor.isActive({ textAlign: "left" }) || (!editor.isActive({ textAlign: "center" }) && !editor.isActive({ textAlign: "right" }) && !editor.isActive({ textAlign: "justify" }))) && "bg-accent text-foreground"
+                )}
+                title="Căn trái"
+              >
+                <AlignLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+                className={cn(
+                  "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+                  editor.isActive({ textAlign: "center" }) && "bg-accent text-foreground"
+                )}
+                title="Căn giữa"
+              >
+                <AlignCenter className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+                className={cn(
+                  "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+                  editor.isActive({ textAlign: "right" }) && "bg-accent text-foreground"
+                )}
+                title="Căn phải"
+              >
+                <AlignRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+                className={cn(
+                  "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+                  editor.isActive({ textAlign: "justify" }) && "bg-accent text-foreground"
+                )}
+                title="Căn đều"
+              >
+                <AlignJustify className="w-4 h-4" />
+              </Button>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Button
           variant="ghost"
@@ -801,7 +850,7 @@ export function CanvasEditor({
 
         <div className="h-4 w-px bg-border mx-2"></div>
 
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -825,7 +874,7 @@ export function CanvasEditor({
           title="Danh sách số"
         >
           <ListOrdered className="w-4 h-4" />
-        </Button>
+        </Button> */}
 
         <div className="flex-1"></div>
 

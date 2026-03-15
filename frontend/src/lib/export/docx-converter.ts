@@ -8,20 +8,6 @@ interface ExportMetadata {
 export async function convertTipTapToDocx(content: JSONContent, metadata?: ExportMetadata) {
   const children: Paragraph[] = []
 
-  // Add title
-  if (metadata?.title) {
-    children.push(
-      new Paragraph({
-        text: metadata.title,
-        heading: HeadingLevel.TITLE,
-        alignment: AlignmentType.CENTER,
-        spacing: {
-          after: 400,
-        },
-      })
-    )
-  }
-
   // Convert TipTap JSON to docx
   if (content?.content) {
     for (const node of content.content) {
@@ -31,6 +17,15 @@ export async function convertTipTapToDocx(content: JSONContent, metadata?: Expor
   }
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: "Times New Roman",
+          },
+        },
+      },
+    },
     sections: [
       {
         properties: {},
@@ -154,6 +149,11 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
   const runs: TextRun[] = []
 
   for (const node of content) {
+    if (node.type === 'hardBreak') {
+      runs.push(new TextRun({ break: 1 }))
+      continue
+    }
+
     if (node.type === 'text') {
       const isBold = node.marks?.some((m) => m.type === 'bold')
       const isItalic = node.marks?.some((m) => m.type === 'italic')
@@ -167,8 +167,16 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
       if (fontSizeStr) {
         const num = parseFloat(fontSizeStr)
         if (!isNaN(num)) {
-          // TipTap pixels to Word half-points (1px = 0.75pt, 1pt = 2 half-points => 1.5)
-          size = Math.round(num * 1.5)
+          // If the unit is 'pt', Word half-points = pt * 2
+          // If the unit is 'px', Word half-points = px * 0.75 * 2 = px * 1.5
+          if (fontSizeStr.includes('pt')) {
+            size = Math.round(num * 2)
+          } else if (fontSizeStr.includes('px')) {
+            size = Math.round(num * 1.5)
+          } else {
+            // Default to points if no unit found (common for Word-style input)
+            size = Math.round(num * 2)
+          }
         }
       }
 
@@ -178,7 +186,7 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
           bold: isBold,
           italics: isItalic,
           underline: isUnderline ? {} : undefined,
-          font: fontFamily,
+          font: fontFamily || "Times New Roman",
           size: size,
         })
       )
@@ -190,6 +198,7 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
           text: placeholder,
           bold: true,
           color: '0066CC',
+          font: "Times New Roman",
         })
       )
     }
@@ -197,3 +206,4 @@ function convertInlineContent(content: TipTapNode[]): TextRun[] {
 
   return runs.length > 0 ? runs : [new TextRun({ text: '' })]
 }
+
