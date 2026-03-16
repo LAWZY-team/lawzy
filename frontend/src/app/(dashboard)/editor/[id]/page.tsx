@@ -392,15 +392,11 @@ export default function EditorPage({
 
     try {
       if (resolvedParams.id === 'new') {
-        if (!workspaceId) {
-          toast.error('Không tìm thấy workspace hợp lệ.')
-          return
-        }
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || (sourceMetadata?.title as string | undefined) || 'Hợp đồng',
           type: (sourceMetadata?.type as string | undefined) ?? 'contract',
-          workspaceId,
+          ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
           mergeFieldValues,
@@ -438,6 +434,7 @@ export default function EditorPage({
       toast.error('Lưu thất bại')
     }
   }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
+  // Note: workspaceId kept in deps as it's still used (passed when available)
 
   useNavigationGuard(isDirty, () => {
     setShowSaveDraftModal(true)
@@ -527,16 +524,11 @@ export default function EditorPage({
     setSaving(true)
     try {
       if (resolvedParams.id === 'new') {
-        if (!workspaceId) {
-            toast.error('Không tìm thấy workspace hợp lệ.')
-            setSaving(false)
-            return;
-        }
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || sourceMetadata?.title || 'Hợp đồng',
           type: sourceMetadata?.type ?? 'contract',
-          workspaceId,
+          ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
           mergeFieldValues,

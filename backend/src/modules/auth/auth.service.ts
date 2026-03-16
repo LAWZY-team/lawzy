@@ -219,4 +219,32 @@ export class AuthService {
 
     return { message: 'Đặt lại mật khẩu thành công' };
   }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Người dùng không tồn tại');
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      throw new BadRequestException('Mật khẩu hiện tại không đúng');
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
+    const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.usersService.updatePassword(user.id, hashed);
+    await this.revokeRefreshTokens(user.id);
+
+    return { message: 'Đổi mật khẩu thành công' };
+  }
 }

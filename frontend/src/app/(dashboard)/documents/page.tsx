@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
-import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useGuestFlowStore } from "@/stores/guest-flow-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
@@ -35,8 +34,6 @@ export default function DocumentsPage() {
   const { clear: clearGuestFlow } = useGuestFlowStore()
   const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
-  const { currentWorkspace } = useWorkspaceStore()
-
   const statusLabels: Record<string, string> = {
     draft: t("status_draft"),
     review: t("status_review"),
@@ -45,8 +42,7 @@ export default function DocumentsPage() {
     completed: t("status_completed"),
     archived: t("status_archived"),
   }
-  const workspaceId = currentWorkspace?.id ?? ""
-  const { data, isLoading } = useDocuments(workspaceId, { limit: 50 })
+  const { data, isLoading } = useDocuments(undefined, { limit: 50 })
   const deleteMutation = useDeleteDocument()
   const documents = data?.data ?? []
 
