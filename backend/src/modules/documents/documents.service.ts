@@ -5,6 +5,23 @@ import { PrismaService } from '../../integrations/prisma/prisma.service';
 export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * MySQL JSON columns may store a serialised *string* instead of an object
+   * when data was inserted via external tools (NocoDB, raw SQL, imports).
+   * This helper transparently parses such values so callers always receive
+   * proper objects/arrays.
+   */
+  private parseJsonIfString(value: unknown): unknown {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
+
   async create(data: {
     title: string;
     type?: string;
@@ -143,7 +160,12 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    return document;
+    return {
+      ...document,
+      contentJSON: this.parseJsonIfString(document.contentJSON),
+      metadata: this.parseJsonIfString(document.metadata),
+      mergeFieldValues: this.parseJsonIfString(document.mergeFieldValues),
+    };
   }
 
   async update(
@@ -169,10 +191,14 @@ export class DocumentsService {
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.contentJSON !== undefined && { contentJSON: data.contentJSON }),
-        ...(data.metadata !== undefined && { metadata: data.metadata }),
+        ...(data.contentJSON !== undefined && {
+          contentJSON: this.parseJsonIfString(data.contentJSON) as any,
+        }),
+        ...(data.metadata !== undefined && {
+          metadata: this.parseJsonIfString(data.metadata) as any,
+        }),
         ...(data.mergeFieldValues !== undefined && {
-          mergeFieldValues: data.mergeFieldValues,
+          mergeFieldValues: this.parseJsonIfString(data.mergeFieldValues) as any,
         }),
       },
       include: {
