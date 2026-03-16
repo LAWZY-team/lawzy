@@ -105,12 +105,17 @@ export function UserNav() {
               </>
             ) : (
               <>
-                <DropdownMenuItem asChild>
+                {/* <DropdownMenuItem asChild>
                   <Link href="/settings/profile">
                     <User className="mr-2 h-4 w-4" />
                     {t("settings_account")}
                   </Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
+                
+            <DropdownMenuItem onClick={toggleLocale}>
+              <Globe className="mr-2 h-4 w-4" />
+              {locale === "vi" ? "English" : "Tiếng Việt"}
+            </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings">
                     <Settings className="mr-2 h-4 w-4" />
@@ -120,10 +125,6 @@ export function UserNav() {
               </>
             )}
 
-            <DropdownMenuItem onClick={toggleLocale}>
-              <Globe className="mr-2 h-4 w-4" />
-              {locale === "vi" ? "English" : "Tiếng Việt"}
-            </DropdownMenuItem>
 
             {!isGuest && (
               <>
