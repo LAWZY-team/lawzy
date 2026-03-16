@@ -77,6 +77,54 @@ export class DocumentsService {
     return { data, total, page, limit };
   }
 
+  async findByUser(
+    userId: string,
+    opts?: {
+      workspaceId?: string;
+      status?: string;
+      type?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    const page = opts?.page ?? 1;
+    const limit = opts?.limit ?? 50;
+    const skip = (page - 1) * limit;
+
+    const where: any = { createdBy: userId };
+    if (opts?.workspaceId) where.workspaceId = opts.workspaceId;
+    if (opts?.status) where.status = opts.status;
+    if (opts?.type) where.type = opts.type;
+
+    const [data, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          creator: {
+            select: { name: true, avatar: true },
+          },
+        },
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
+  }
+
+  async getDefaultWorkspaceId(): Promise<string | null> {
+    const ws = await this.prisma.workspace.findFirst();
+    return ws?.id ?? null;
+  }
+
   async findById(id: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
