@@ -19,6 +19,7 @@ export class UsersService {
     name: string;
     password: string;
     roles?: string[];
+    position?: string;
     otpCode?: string;
     otpExpires?: Date;
     isVerified?: boolean;
@@ -29,6 +30,7 @@ export class UsersService {
         name: data.name,
         password: data.password,
         roles: JSON.stringify(data.roles ?? ['user']),
+        position: data.position,
         otpCode: data.otpCode,
         otpExpires: data.otpExpires,
         isVerified: data.isVerified ?? false,
@@ -38,7 +40,7 @@ export class UsersService {
 
   async updateProfile(
     id: string,
-    data: { name?: string; avatar?: string },
+    data: { name?: string; avatar?: string; position?: string },
   ): Promise<User> {
     return this.prisma.user.update({
       where: { id },

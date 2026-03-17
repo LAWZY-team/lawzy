@@ -32,6 +32,7 @@ const profileFormSchema = z.object({
     .string({ error: "Vui lòng nhập tên người dùng." })
     .min(2, { message: "Tên người dùng phải có ít nhất 2 ký tự." })
     .max(50, { message: "Tên người dùng không được quá 50 ký tự." }),
+  position: z.string({ error: "Vui lòng nhập chức vụ." }),
   email: z.string({ error: "Vui lòng chọn email." }).email(),
   bio: z.string().max(250, { message: "Tiểu sử không được quá 250 ký tự." }).optional(),
   urls: z
@@ -46,6 +47,7 @@ export function ProfileForm() {
 
   const defaultValues: Partial<ProfileFormValues> = {
     username: user?.name ?? "",
+    position: user?.position ?? "",
     email: user?.email ?? "",
     bio: "",
     urls: [],
@@ -57,6 +59,7 @@ export function ProfileForm() {
     mode: "onChange",
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { fields, append, remove } = useFieldArray({
     name: "urls",
     control: form.control,
@@ -122,7 +125,10 @@ export function ProfileForm() {
 
   async function onSubmit(data: ProfileFormValues) {
     try {
-      await api.patch("/users/profile", { name: data.username })
+      await api.patch("/users/profile", { 
+        name: data.username,
+        position: data.position 
+      })
       await fetchUser()
       toast.success("Đã cập nhật hồ sơ thành công!")
     } catch {
@@ -145,6 +151,19 @@ export function ProfileForm() {
               <FormDescription>
                 Tên hiển thị công khai của bạn trong hệ thống Lawzy.
               </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="position"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Chức vụ / Công việc</FormLabel>
+              <FormControl>
+                <Input placeholder="Chức vụ của bạn" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -199,7 +218,7 @@ export function ProfileForm() {
                   <FormLabel className={cn(index !== 0 && "sr-only")}>URLs</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
-                      <Input {...field} />
+                       <Input {...field} />
                       <Button
                         type="button"
                         variant="ghost"

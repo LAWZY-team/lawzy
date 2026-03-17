@@ -14,6 +14,24 @@ import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { validatePassword } from "@/lib/utils/password-validator";
 import { PasswordRequirements } from "@/components/password-requirements";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const positionOptions = [
+  "Chủ doanh nghiệp / Founder",
+  "Nhân sự / HR",
+  "Kế toán / Account",
+  "Pháp chế",
+  "Luật sư / Legal",
+  "Sales / Kinh doanh",
+  "Kinh doanh tự do / Freelancer",
+  "Khác"
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,6 +40,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [position, setPosition] = useState("");
+  const [customPosition, setCustomPosition] = useState("");
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
@@ -61,13 +81,24 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!position) {
+      setError("Vui lòng chọn chức vụ của bạn");
+      return;
+    }
+
+    if (position === "Khác" && !customPosition.trim()) {
+      setError("Vui lòng nhập chức vụ của bạn");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      const finalPosition = position === "Khác" ? customPosition : position;
       const res = await fetch("/api/auth/register/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password }),
+        body: JSON.stringify({ email, name, password, position: finalPosition }),
       });
 
       const data = await res.json();
@@ -152,7 +183,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="otp">Mã OTP</Label>
+                <Label htmlFor="otp">Mã OTP <span className="text-destructive">*</span></Label>
                 <Input
                   id="otp"
                   type="text"
@@ -222,7 +253,7 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Họ và tên</Label>
+              <Label htmlFor="name">Họ và tên <span className="text-destructive">*</span></Label>
               <Input
                 id="name"
                 type="text"
@@ -236,7 +267,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
               <Input
                 id="email"
                 type="email"
@@ -250,7 +281,37 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
+              <Label htmlFor="position">Chức vụ / Công việc <span className="text-destructive">*</span></Label>
+              <Select onValueChange={setPosition} value={position} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn chức vụ của bạn" />
+                </SelectTrigger>
+                <SelectContent>
+                  {positionOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {position === "Khác" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                <Label htmlFor="customPosition">Nhập chức vụ khác <span className="text-destructive">*</span></Label>
+                <Input
+                  id="customPosition"
+                  placeholder="Nhập chức vụ của bạn"
+                  value={customPosition}
+                  onChange={(e) => setCustomPosition(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu <span className="text-destructive">*</span></Label>
               <PasswordRequirements
                 password={password}
                 open={showPasswordRequirements}
@@ -294,7 +355,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu <span className="text-destructive">*</span></Label>
               <Input
                 id="confirmPassword"
                 type="password"
