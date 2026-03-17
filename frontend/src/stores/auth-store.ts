@@ -7,6 +7,7 @@ export interface User {
   email: string
   avatar?: string | null
   roles: string[]
+  position?: string | null
   isVerified: boolean
   createdAt: string
   updatedAt: string

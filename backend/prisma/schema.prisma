@@ -14,6 +14,7 @@ model User {
   password     String
   avatar       String?
   roles        Json      @default("[\"user\"]")
+  position     String?
   isVerified   Boolean   @default(false) @map("is_verified")
   resetToken   String?   @map("reset_token")
   resetExpires DateTime? @map("reset_expires")

@@ -36,6 +36,7 @@ export class AuthController {
       dto.email,
       dto.name,
       dto.password,
+      dto.position,
     );
     return { message: 'Đăng ký thành công', user };
   }
@@ -47,6 +48,7 @@ export class AuthController {
       dto.email,
       dto.name,
       dto.password,
+      dto.position,
     );
   }
 
