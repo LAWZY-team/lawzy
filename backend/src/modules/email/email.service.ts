@@ -130,4 +130,81 @@ export class EmailService {
       );
     }
   }
+
+  async sendFeedbackToTeam(data: {
+    userName: string;
+    userEmail: string;
+    type: string;
+    title: string;
+    description: string;
+    attachments?: Array<{ filename: string; content: Buffer }>;
+  }): Promise<void> {
+    const mailOptions = {
+      from: 'contact@lawzy.vn',
+      to: 'contact@lawzy.vn',
+      subject: `[Lawzy Help Center] ${data.type}: ${data.title}`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #f54900;">Yêu cầu hỗ trợ mới</h2>
+          <p><strong>Người gửi:</strong> ${data.userName} (${data.userEmail})</p>
+          <p><strong>Loại:</strong> ${data.type}</p>
+          <p><strong>Tiêu đề:</strong> ${data.title}</p>
+          <hr />
+          <p><strong>Mô tả:</strong></p>
+          <div style="white-space: pre-wrap; background: #f9f9f9; padding: 15px; border-radius: 5px;">${data.description}</div>
+        </div>
+      `,
+      attachments: data.attachments,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  async sendFeedbackReceiptToUser(email: string, type: string): Promise<void> {
+    const timestamp = new Date().toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
+    const mailOptions = {
+      from: 'contact@lawzy.vn',
+      to: email,
+      subject: '[Lawzy Help Center]Lawzy đã nhận được ý kiến của bạn',
+      html: `
+        <div style="font-family: 'Inter', system-ui, sans-serif; padding: 40px 20px; color: #000000; background-color: #ffffff; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border: 1px solid #000000; padding: 40px;">
+            <div style="margin-bottom: 30px; border-bottom: 1px solid #000000; padding-bottom: 20px;">
+              <h1 style="font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Lawzy Support</h1>
+            </div>
+            
+            <p>Xin chào <strong>${email}</strong>,</p>
+            
+            <p>Cảm ơn bạn đã thông báo lỗi/góp ý trong quá trình sử dụng Lawzy.</p>
+            
+            <p>Chúng tôi đã ghi nhận yêu cầu của bạn với thông tin như sau:</p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border: 1px solid #e5e5e5; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Thời gian tiếp nhận:</strong> ${timestamp}</p>
+              <p style="margin: 5px 0;"><strong>Loại yêu cầu:</strong> ${type.toUpperCase()}</p>
+            </div>
+            
+            <p>Đội ngũ kỹ thuật của Lawzy sẽ tiến hành kiểm tra và phản hồi trong tối đa 24 giờ làm việc.</p>
+            
+            <p>Trong trường hợp cần thêm thông tin để tiến hành hỗ trợ, chúng tôi có thể liên hệ lại với bạn qua email này.</p>
+            
+            <p>Phản hồi của bạn đóng vai trò rất quan trọng trong việc giúp Lawzy cải thiện và hoàn thiện sản phẩm.</p>
+            
+            <div style="margin-top: 40px; border-top: 1px solid #000000; padding-top: 20px;">
+              <p style="margin: 0;">Trân trọng cảm ơn bạn đã đồng hành cùng Lawzy.</p>
+              <p style="margin: 5px 0; font-weight: bold;">Lawzy Support Team</p>
+              <p style="margin: 0; color: #666666;">contact@lawzy.vn</p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
 }
