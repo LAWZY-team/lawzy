@@ -10,6 +10,7 @@ import {
   Library,
   Settings,
   CreditCard,
+  Plus,
 } from "lucide-react"
 
 import {
@@ -44,7 +45,7 @@ const navGroups: NavGroup[] = [
     items: [
       { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
       { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
-      // { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
+      { titleKey: "docs_create_new", href: "/editor/new", icon: Plus },
     ],
   },
   {
@@ -53,13 +54,6 @@ const navGroups: NavGroup[] = [
       { titleKey: "sidebar_templates", href: "/templates", icon: Library },
     ],
   },
-  // {
-  //   labelKey: "sidebar_settings",
-  //   items: [
-  //     { titleKey: "sidebar_payment", href: "/payment", icon: CreditCard },
-  //     { titleKey: "sidebar_settings", href: "/settings", icon: Settings },
-  //   ],
-  // },
 ]
 
 export function AppSidebar() {
@@ -121,7 +115,7 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.titleKey}>
                       <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href}>
+                        <Link href={item.href} id={`sidebar-${item.href.replace(/\//g, '-') || 'home'}`}>
                           <item.icon className="h-4 w-4 shrink-0" />
                           <span className="truncate">{t(item.titleKey)}</span>
                         </Link>
@@ -134,7 +128,7 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter id="sidebar-user-nav">
         <UserNav />
       </SidebarFooter>
     </Sidebar>

@@ -20,26 +20,26 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
       href: "/settings/profile",
       icon: <UserCog className="w-4 h-4" />,
     },
-    {
-      title: t("settings_account"),
-      href: "/settings/account",
-      icon: <Wrench className="w-4 h-4" />,
-    },
-    {
-      title: t("settings_appearance"),
-      href: "/settings/appearance",
-      icon: <Palette className="w-4 h-4" />,
-    },
-    {
-      title: t("settings_notifications"),
-      href: "/settings/notifications",
-      icon: <Bell className="w-4 h-4" />,
-    },
-    {
-      title: t("settings_display"),
-      href: "/settings/display",
-      icon: <Monitor className="w-4 h-4" />,
-    },
+    // {
+    //   title: t("settings_account"),
+    //   href: "/settings/account",
+    //   icon: <Wrench className="w-4 h-4" />,
+    // },
+    // {
+    //   title: t("settings_appearance"),
+    //   href: "/settings/appearance",
+    //   icon: <Palette className="w-4 h-4" />,
+    // },
+    // {
+    //   title: t("settings_notifications"),
+    //   href: "/settings/notifications",
+    //   icon: <Bell className="w-4 h-4" />,
+    // },
+    // {
+    //   title: t("settings_display"),
+    //   href: "/settings/display",
+    //   icon: <Monitor className="w-4 h-4" />,
+    // },
     {
       title: t("settings_fields"),
       href: "/settings/fields",

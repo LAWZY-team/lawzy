@@ -60,6 +60,7 @@ export function UserNav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
+              id="user-menu-trigger"
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
@@ -117,7 +118,7 @@ export function UserNav() {
               {locale === "vi" ? "English" : "Tiếng Việt"}
             </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
+                  <Link href="/settings" id="dropdown-settings-link">
                     <Settings className="mr-2 h-4 w-4" />
                     {t("settings_title")}
                   </Link>
