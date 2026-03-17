@@ -70,7 +70,7 @@ export default function DashboardPage() {
           </Select>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+        <ScrollArea id="tour-dashboard-stats" className="flex-1 min-h-0 -mx-6 px-6">
           <TabsContent value="docs" className="space-y-4 pt-4 pb-8 mt-0">
             {/* Banner: Bắt đầu tạo hợp đồng */}
             <div className="bg-black rounded-lg p-6 text-white">

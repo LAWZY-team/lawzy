@@ -65,6 +65,7 @@ export default function DocumentsPage() {
           </p>
         </div>
         <Button
+          id="tour-documents-create"
           onClick={() => {
             clearGuestFlow()
             clearEditorSession()

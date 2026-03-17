@@ -20,6 +20,7 @@ import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
 import { useAuthStore } from '@/stores/auth-store'
+import { useOnboardingStore } from '@/stores/onboarding-store'
 import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
 import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
@@ -436,7 +437,9 @@ export default function EditorPage({
   }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
   // Note: workspaceId kept in deps as it's still used (passed when available)
 
-  useNavigationGuard(isDirty, () => {
+  const { isActive: isTourActive } = useOnboardingStore()
+
+  useNavigationGuard(isDirty && !isTourActive, () => {
     setShowSaveDraftModal(true)
   })
 
@@ -738,7 +741,7 @@ export default function EditorPage({
             !isCanvasMode && "items-center"
           )}
         >
-          <div className={cn(
+          <div id="tour-editor-chat" className={cn(
             "w-full h-full transition-all duration-500",
             !isCanvasMode ? "max-w-3xl mx-auto" : "w-full"
           )}>
