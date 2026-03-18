@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 
 @Injectable()
@@ -33,6 +33,13 @@ export class DocumentsService {
     mergeFieldValues?: any;
     status?: string;
   }) {
+    const ws = await this.prisma.workspace.findUnique({
+      where: { id: data.workspaceId },
+      select: { id: true },
+    });
+    if (!ws) {
+      throw new BadRequestException('Workspace not found');
+    }
     return this.prisma.document.create({
       data: {
         title: data.title,
