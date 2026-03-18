@@ -30,7 +30,7 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  async register(email: string, name: string, password: string) {
+  async register(email: string, name: string, password: string, position: string) {
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
       throw new ConflictException('Email đã được sử dụng');
@@ -40,11 +40,12 @@ export class AuthService {
       email,
       name,
       password: hashed,
+      position,
     });
     return this.usersService.sanitize(user);
   }
 
-  async requestRegistration(email: string, name: string, password: string) {
+  async requestRegistration(email: string, name: string, password: string, position: string) {
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
       throw new ConflictException('Email này đã được đăng ký');
@@ -63,6 +64,7 @@ export class AuthService {
       email,
       name,
       password: hashed,
+      position,
       otpCode: otp,
       otpExpires,
       isVerified: false,

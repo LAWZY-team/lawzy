@@ -4,13 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { useState } from "react"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { Modal } from "@/components/ui/modal"
-import { Label } from "@/components/ui/label"
-import { PasswordRequirements } from "@/components/password-requirements"
-import { validatePassword } from "@/lib/utils/password-validator"
-
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -83,64 +76,6 @@ export function AccountForm() {
     resolver: zodResolver(accountFormSchema),
     defaultValues,
   })
-
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
-  const [passwordError, setPasswordError] = useState("")
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setPasswordError("")
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError("Mật khẩu xác nhận không khớp")
-      return
-    }
-
-    if (currentPassword === newPassword) {
-      setPasswordError("Mật khẩu mới không được trùng với mật khẩu hiện tại")
-      return
-    }
-
-    const validation = validatePassword(newPassword)
-    if (!validation.valid) {
-      setPasswordError(validation.message || "Mật khẩu không hợp lệ")
-      return
-    }
-
-    setIsChangingPassword(true)
-    try {
-      const res = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setPasswordError(data.message || "Đổi mật khẩu thất bại")
-        return
-      }
-
-      toast.success("Đổi mật khẩu thành công!")
-      setShowPasswordModal(false)
-      // Reset fields
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
-    } catch (err) {
-      setPasswordError("Không thể kết nối đến máy chủ")
-    } finally {
-      setIsChangingPassword(false)
-    }
-  }
 
   function onSubmit(data: AccountFormValues) {
     toast.success("Đã cập nhật tài khoản thành công!")
@@ -247,129 +182,8 @@ export function AccountForm() {
             </FormItem>
           )}
         />
-        {/* a button "Change password left si" */}
-        <div className="flex justify-start gap-2">
         <Button type="submit">Cập nhật tài khoản</Button>
-        <Button type="button" variant="outline" onClick={() => setShowPasswordModal(true)}>Đổi mật khẩu</Button>
-        </div>
-
       </form>
-
-      <Modal
-        open={showPasswordModal}
-        onOpenChange={setShowPasswordModal}
-        title="Đổi mật khẩu"
-        size="md"
-      >
-        <form onSubmit={handlePasswordChange} className="space-y-4 pt-4">
-          {passwordError && (
-            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {passwordError}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
-            <div className="relative">
-              <Input
-                id="currentPassword"
-                type={showCurrentPassword ? "text" : "password"}
-                placeholder="Nhập mật khẩu hiện tại"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-                disabled={isChangingPassword}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                tabIndex={-1}
-              >
-                {showCurrentPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">Mật khẩu mới</Label>
-            <PasswordRequirements
-              password={newPassword}
-              open={showPasswordRequirements}
-              onOpenChange={setShowPasswordRequirements}
-            >
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? "text" : "password"}
-                  placeholder="Nhập mật khẩu mới"
-                  value={newPassword}
-                  onChange={(e) => {
-                    setNewPassword(e.target.value)
-                    if (e.target.value.length > 0) {
-                      setShowPasswordRequirements(true)
-                    }
-                  }}
-                  onFocus={() => setShowPasswordRequirements(true)}
-                  onBlur={() => {
-                    setTimeout(() => setShowPasswordRequirements(false), 200)
-                  }}
-                  required
-                  disabled={isChangingPassword}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  tabIndex={-1}
-                >
-                  {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-              </div>
-            </PasswordRequirements>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Nhập lại mật khẩu mới"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={isChangingPassword}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowPasswordModal(false)}
-              disabled={isChangingPassword}
-            >
-              Hủy
-            </Button>
-            <Button type="submit" disabled={isChangingPassword}>
-              {isChangingPassword ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xử lý...
-                </>
-              ) : (
-                "Đổi mật khẩu"
-              )}
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </Form>
   )
 }
