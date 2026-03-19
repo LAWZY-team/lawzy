@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, ChevronLeft, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,6 @@ const STEPS: Step[] = [
 ]
 
 export function OnboardingTour() {
-  const router = useRouter()
   const pathname = usePathname()
   const { locale } = useT()
   const { isAuthenticated, authResolved } = useAuthStore()
@@ -115,11 +114,11 @@ export function OnboardingTour() {
   
   const tOnboarding = (key: string) => {
     const keys = key.split(".")
-    let val: any = (onboardingData as any)[locale]
+    let val: unknown = (onboardingData as Record<string, unknown>)[locale]
     for (const k of keys) {
-      val = val?.[k]
+      val = (val as Record<string, unknown>)?.[k]
     }
-    return val || key
+    return typeof val === "string" ? val : key
   }
 
   const currentStep = STEPS[currentStepIndex]
@@ -156,16 +155,19 @@ export function OnboardingTour() {
 
   // Sync isInteracting with step requirements
   useEffect(() => {
-    if (isActive) {
-      if (currentStep.requiresInteraction) {
-        setIsInteracting(true)
-      } else if (currentStep.route && !pathname.startsWith(currentStep.route)) {
-        setIsInteracting(true)
-      } else {
-        setIsInteracting(false)
-      }
-    }
+    if (!isActive) return
+    const next = currentStep.requiresInteraction ||
+      (currentStep.route && !pathname.startsWith(currentStep.route))
+    queueMicrotask(() => setIsInteracting(!!next))
   }, [isActive, currentStepIndex, currentStep.requiresInteraction, currentStep.route, pathname])
+
+  const handleNext = useCallback(() => {
+    if (currentStepIndex < STEPS.length - 1) {
+      setStepIndex(currentStepIndex + 1)
+    } else {
+      completeTour()
+    }
+  }, [currentStepIndex, setStepIndex, completeTour])
 
   // Special handling for dropdown interaction - Poll for state
   useEffect(() => {
@@ -179,24 +181,17 @@ export function OnboardingTour() {
         }, 500)
         return () => clearInterval(interval)
     }
-  }, [isActive, currentStepIndex])
+  }, [isActive, currentStep.id, handleNext])
 
   // Proceed automatically when pathname matches the target route
   useEffect(() => {
     if (isActive && isInteracting && currentStep.route && pathname.startsWith(currentStep.route)) {
+      queueMicrotask(() => {
         setIsInteracting(false)
         setTargetRect(null)
+      })
     }
   }, [pathname, isActive, isInteracting, currentStep.route])
-
-  const handleNext = () => {
-    if (currentStepIndex < STEPS.length - 1) {
-      const nextStepIndex = currentStepIndex + 1
-      setStepIndex(nextStepIndex)
-    } else {
-      handleFinish()
-    }
-  }
 
   const handlePrev = () => {
     if (currentStepIndex > 0) {
@@ -207,10 +202,6 @@ export function OnboardingTour() {
 
   const handleSkip = () => {
     stopTour()
-    completeTour()
-  }
-
-  const handleFinish = () => {
     completeTour()
   }
 

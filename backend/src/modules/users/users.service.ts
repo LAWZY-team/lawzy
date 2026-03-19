@@ -10,6 +10,12 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async findByProviderId(provider: string, providerId: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { provider, providerId },
+    });
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
@@ -23,6 +29,8 @@ export class UsersService {
     otpCode?: string;
     otpExpires?: Date;
     isVerified?: boolean;
+    provider?: string;
+    providerId?: string;
   }): Promise<User> {
     return this.prisma.user.create({
       data: {
@@ -34,6 +42,8 @@ export class UsersService {
         otpCode: data.otpCode,
         otpExpires: data.otpExpires,
         isVerified: data.isVerified ?? false,
+        provider: data.provider,
+        providerId: data.providerId,
       },
     });
   }

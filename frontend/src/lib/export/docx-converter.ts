@@ -48,7 +48,7 @@ interface TipTapNode {
 function convertNode(node: TipTapNode): Paragraph[] {
   const result: Paragraph[] = []
 
-  let alignment: any
+  let alignment: (typeof AlignmentType)[keyof typeof AlignmentType] | undefined
   if (node.attrs?.textAlign) {
     switch (node.attrs.textAlign) {
       case 'left': alignment = AlignmentType.LEFT; break;

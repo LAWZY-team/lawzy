@@ -91,7 +91,7 @@ export function RecentDocs() {
                   <TableCell>
                     <Badge variant="secondary">
                       {statusKeys[doc.status]
-                        ? t(statusKeys[doc.status] as any)
+                        ? t(statusKeys[doc.status] as Parameters<typeof t>[0])
                         : doc.status}
                     </Badge>
                   </TableCell>

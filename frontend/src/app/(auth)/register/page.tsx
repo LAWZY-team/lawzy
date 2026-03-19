@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { useAuthStore } from "@/stores/auth-store";
 import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { validatePassword } from "@/lib/utils/password-validator";
@@ -35,6 +37,7 @@ const positionOptions = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { setUser } = useAuthStore();
   const [step, setStep] = useState<"register" | "verify">("register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -117,6 +120,34 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  const handleGoogleSuccess = useCallback(
+    async (idToken: string) => {
+      setError("");
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ idToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Đăng ký Google thất bại");
+          return;
+        }
+        setUser(data.user);
+        toast.success("Tạo tài khoản thành công!");
+        router.push("/dashboard");
+      } catch {
+        setError("Không thể kết nối đến server");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [router, setUser]
+  );
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,14 +275,31 @@ export default function RegisterPage() {
           </div>
         </CardHeader>
 
-        <form onSubmit={handleRequestRegistration}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
+        <CardContent className="space-y-4 pt-0">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <GoogleSignInButton
+            onSuccess={handleGoogleSuccess}
+            onError={(err) => setError(err.message || "Đăng ký Google thất bại")}
+            disabled={isLoading}
+            label="signup"
+            className="w-full"
+          />
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+            </div>
+          </div>
+        </CardContent>
 
+        <form onSubmit={handleRequestRegistration}>
+          <CardContent className="space-y-4 pt-0">
             <div className="space-y-2">
               <Label htmlFor="name">Họ và tên <span className="text-destructive">*</span></Label>
               <Input
