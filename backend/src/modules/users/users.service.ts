@@ -31,6 +31,7 @@ export class UsersService {
     isVerified?: boolean;
     provider?: string;
     providerId?: string;
+    avatar?: string;
   }): Promise<User> {
     return this.prisma.user.create({
       data: {
@@ -44,6 +45,7 @@ export class UsersService {
         isVerified: data.isVerified ?? false,
         provider: data.provider,
         providerId: data.providerId,
+        avatar: data.avatar,
       },
     });
   }
