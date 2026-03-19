@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/auth-store";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,13 +62,39 @@ function LoginForm() {
     }
   };
 
+  const handleGoogleSuccess = useCallback(
+    async (idToken: string) => {
+      setError("");
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ idToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Đăng nhập Google thất bại");
+          return;
+        }
+        setUser(data.user);
+        toast.success("Đăng nhập thành công!");
+        router.push(returnUrl);
+      } catch {
+        setError("Không thể kết nối đến server");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [returnUrl, router, setUser]
+  );
+
   return (
     <div className="w-full max-w-md px-4">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
-          <Link href="/" className="inline-block">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          </Link>
           <div>
             <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
             <CardDescription className="mt-1">
@@ -135,7 +162,7 @@ function LoginForm() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -145,6 +172,25 @@ function LoginForm() {
                 "Đăng nhập"
               )}
             </Button>
+
+            <div className="relative w-full">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+              </div>
+            </div>
+
+            <GoogleSignInButton
+              onSuccess={handleGoogleSuccess}
+              onError={(err) => {
+                setError(err.message || "Đăng nhập Google thất bại");
+              }}
+              disabled={isLoading}
+              className="w-full flex justify-center"
+            />
+
             <p className="text-sm text-muted-foreground text-center">
               Chưa có tài khoản?{" "}
               <Link href="/register" className="text-primary font-medium hover:underline">

@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lawzy-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: lawzy
+    ports:
+      - "3307:3306"  # expose MySQL to your host on 3307
+    volumes:
+      - mysql-data-dev:/var/lib/mysql
+
+volumes:
+  mysql-data-dev:

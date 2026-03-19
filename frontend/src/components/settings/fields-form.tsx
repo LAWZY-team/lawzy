@@ -51,17 +51,6 @@ export function FieldsForm() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => hideAll(customKeys)} disabled={customKeys.length === 0}>
-          <EyeOff className="h-4 w-4 mr-2" />
-          Ẩn tất cả
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => showAll()} disabled={customKeys.length === 0}>
-          <Eye className="h-4 w-4 mr-2" />
-          Hiện tất cả
-        </Button>
-      </div>
-
       <div className="grid gap-3">
         {customFields.length === 0 ? (
           <div className="text-sm text-muted-foreground">Chưa có trường nào. Hãy thêm bên dưới.</div>
@@ -96,12 +85,6 @@ export function FieldsForm() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={isHidden} onCheckedChange={() => toggleHiddenFieldKey(f.key)} />
-                        <span className="text-sm">Ẩn khi hiển thị/xuất file</span>
-                      </div>
-                    </div>
                   </div>
 
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeCustomField(f.key)} className="shrink-0">

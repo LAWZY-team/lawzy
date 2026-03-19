@@ -1,12 +1,13 @@
 'use client'
 
-import { Sparkles, PanelRightOpen, Paperclip } from 'lucide-react'
+import { PanelRightOpen, Paperclip } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ExpandableMessage } from './expandable-message'
 import { ChatThinkingBlock } from './chat-thinking-block'
 import type { ChatMessage } from './types'
+import Image from 'next/image'
 
 interface ChatMessageBubbleProps {
   message: ChatMessage
@@ -34,17 +35,21 @@ export function ChatMessageBubble({
       )}
     >
       {message.role === 'assistant' && (
-        <div className="flex-shrink-0 mt-1">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-blue-400 fill-blue-400/20 animate-pulse-slow" />
-          </div>
+        <div className="shrink-0 mt-1">
+          <Image
+            src="/logo/lawzy-triangle.png"
+            width={24}
+            height={24}
+            alt="Lawzy"
+            className="object-contain"
+          />
         </div>
       )}
 
       <div
         className={cn(
           'flex flex-col max-w-[85%] md:max-w-[75%]',
-          message.role === 'user' ? 'items-end' : 'items-start'
+          message.role === 'user' ? 'items-end' : 'items-start pl-2'
         )}
       >
         {message.role !== 'user' && (
@@ -56,7 +61,7 @@ export function ChatMessageBubble({
             'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm',
             message.role === 'user'
               ? 'bg-muted text-foreground rounded-tr-sm'
-              : 'bg-transparent text-foreground pl-0'
+              : 'bg-transparent text-foreground'
           )}
         >
           {message.thinking && (
@@ -76,7 +81,7 @@ export function ChatMessageBubble({
 
           {message.role === 'user' && message.attachedFileName && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Paperclip className="w-3.5 h-3.5 flex-shrink-0" />
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
               <span>Đính kèm: {message.attachedFileName}</span>
             </div>
           )}

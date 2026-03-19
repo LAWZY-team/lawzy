@@ -66,4 +66,19 @@ export class TemplatesController {
     await this.service.delete(id);
     return { success: true };
   }
+
+  @Post('import-from-s3')
+  async importFromS3(
+    @Body()
+    body?: {
+      key?: string;
+      scope?: string;
+    },
+  ) {
+    const result = await this.service.importFromS3Json({
+      key: body?.key,
+      scope: body?.scope,
+    });
+    return result;
+  }
 }

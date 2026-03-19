@@ -5,9 +5,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --only=production && \
-    cp -R node_modules /tmp/prod_modules && \
-    npm ci
+RUN npm ci --only=production
 
 FROM base AS builder
 WORKDIR /app
@@ -16,11 +14,13 @@ COPY . .
 
 ARG GEMINI_API_KEY
 ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_BACKEND_URL
 ARG NEXT_PUBLIC_API_URL
 ARG BACKEND_URL
 
 ENV GEMINI_API_KEY=${GEMINI_API_KEY}
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV BACKEND_URL=${BACKEND_URL}
 

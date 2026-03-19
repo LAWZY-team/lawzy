@@ -1,9 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 
 @Injectable()
 export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * MySQL JSON columns may store a serialised *string* instead of an object
+   * when data was inserted via external tools (NocoDB, raw SQL, imports).
+   * This helper transparently parses such values so callers always receive
+   * proper objects/arrays.
+   */
+  private parseJsonIfString(value: unknown): unknown {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
 
   async create(data: {
     title: string;
@@ -14,7 +31,15 @@ export class DocumentsService {
     contentJSON?: any;
     metadata?: any;
     mergeFieldValues?: any;
+    status?: string;
   }) {
+    const ws = await this.prisma.workspace.findUnique({
+      where: { id: data.workspaceId },
+      select: { id: true },
+    });
+    if (!ws) {
+      throw new BadRequestException('Workspace not found');
+    }
     return this.prisma.document.create({
       data: {
         title: data.title,
@@ -25,6 +50,7 @@ export class DocumentsService {
         contentJSON: data.contentJSON,
         metadata: data.metadata,
         mergeFieldValues: data.mergeFieldValues,
+        ...(data.status !== undefined && { status: data.status }),
       },
       include: {
         creator: {
@@ -75,6 +101,54 @@ export class DocumentsService {
     return { data, total, page, limit };
   }
 
+  async findByUser(
+    userId: string,
+    opts?: {
+      workspaceId?: string;
+      status?: string;
+      type?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    const page = opts?.page ?? 1;
+    const limit = opts?.limit ?? 50;
+    const skip = (page - 1) * limit;
+
+    const where: any = { createdBy: userId };
+    if (opts?.workspaceId) where.workspaceId = opts.workspaceId;
+    if (opts?.status) where.status = opts.status;
+    if (opts?.type) where.type = opts.type;
+
+    const [data, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          creator: {
+            select: { name: true, avatar: true },
+          },
+        },
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
+  }
+
+  async getDefaultWorkspaceId(): Promise<string | null> {
+    const ws = await this.prisma.workspace.findFirst();
+    return ws?.id ?? null;
+  }
+
   async findById(id: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
@@ -93,7 +167,12 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    return document;
+    return {
+      ...document,
+      contentJSON: this.parseJsonIfString(document.contentJSON),
+      metadata: this.parseJsonIfString(document.metadata),
+      mergeFieldValues: this.parseJsonIfString(document.mergeFieldValues),
+    };
   }
 
   async update(
@@ -119,10 +198,14 @@ export class DocumentsService {
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.contentJSON !== undefined && { contentJSON: data.contentJSON }),
-        ...(data.metadata !== undefined && { metadata: data.metadata }),
+        ...(data.contentJSON !== undefined && {
+          contentJSON: this.parseJsonIfString(data.contentJSON) as any,
+        }),
+        ...(data.metadata !== undefined && {
+          metadata: this.parseJsonIfString(data.metadata) as any,
+        }),
         ...(data.mergeFieldValues !== undefined && {
-          mergeFieldValues: data.mergeFieldValues,
+          mergeFieldValues: this.parseJsonIfString(data.mergeFieldValues) as any,
         }),
       },
       include: {
@@ -149,7 +232,11 @@ export class DocumentsService {
 
   async createVersion(
     documentId: string,
-    data: { contentJSON: any; label?: string; createdBy: string },
+    data: {
+      contentJSON: any;
+      label?: string;
+      createdBy: string;
+    },
   ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
@@ -181,6 +268,69 @@ export class DocumentsService {
     return this.prisma.documentVersion.findMany({
       where: { documentId },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getVersion(documentId: string, versionId: string) {
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: versionId, documentId },
+    });
+
+    if (!version) {
+      throw new NotFoundException('Version not found');
+    }
+
+    return version;
+  }
+
+  async createChatMessage(
+    documentId: string,
+    data: { userId: string; role: 'user' | 'assistant'; content: string; metadata?: any },
+  ) {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return this.prisma.chatMessage.create({
+      data: {
+        documentId,
+        userId: data.userId,
+        role: data.role,
+        content: data.content,
+        metadata: data.metadata,
+      },
+    });
+  }
+
+  async getChatMessages(
+    documentId: string,
+    opts: { userId: string; to?: string },
+  ) {
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const toDate =
+      opts.to && typeof opts.to === 'string' && opts.to.trim().length > 0
+        ? new Date(opts.to)
+        : undefined;
+    const effectiveToDate =
+      toDate && !Number.isNaN(toDate.getTime()) ? toDate : undefined;
+
+    return this.prisma.chatMessage.findMany({
+      where: {
+        documentId,
+        ...(effectiveToDate ? { createdAt: { lte: effectiveToDate } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

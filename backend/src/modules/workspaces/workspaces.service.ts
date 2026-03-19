@@ -31,7 +31,7 @@ export class WorkspacesService {
   }
 
   async findByUser(userId: string) {
-    const memberships = await this.prisma.workspaceMember.findMany({
+    let memberships = await this.prisma.workspaceMember.findMany({
       where: { userId },
       include: {
         workspace: {
@@ -43,6 +43,32 @@ export class WorkspacesService {
         },
       },
     });
+
+    // Nếu user chưa thuộc workspace nào, tự động thêm vào workspace mặc định (workspace đầu tiên)
+    if (memberships.length === 0) {
+      const defaultWorkspace = await this.prisma.workspace.findFirst();
+
+      if (defaultWorkspace) {
+        const membership = await this.prisma.workspaceMember.create({
+          data: {
+            workspaceId: defaultWorkspace.id,
+            userId,
+            role: 'admin',
+          },
+          include: {
+            workspace: {
+              include: {
+                _count: {
+                  select: { members: true },
+                },
+              },
+            },
+          },
+        });
+
+        memberships = [membership];
+      }
+    }
 
     return memberships.map((m) => ({
       ...m.workspace,

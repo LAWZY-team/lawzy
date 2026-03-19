@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, use } from 'react'
+import { useState, useEffect, useRef, use, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { JSONContent } from '@tiptap/core'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -8,6 +9,7 @@ import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyleKit } from '@tiptap/extension-text-style'
+import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
@@ -18,6 +20,9 @@ import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
 import { useAuthStore } from '@/stores/auth-store'
+import { useOnboardingStore } from '@/stores/onboarding-store'
+import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
+import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
@@ -33,6 +38,8 @@ import {
 } from '@/lib/editor/contract-result'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
+import { useNavigationGuard } from '@/hooks/use-navigation-guard'
+import { SaveDraftModal } from '@/components/editor/save-draft-modal'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -63,23 +70,39 @@ export default function EditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ template?: string }>
+  searchParams?: Promise<{ template?: string; draft?: string }>
 }) {
+  const router = useRouter()
   const resolvedParams = use(params)
-  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string }>)
+  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
+  const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
 
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
   const { customFields } = useUserFieldsStore()
+  const { isAuthenticated } = useAuthStore()
+  const { saveSession, getSession, clearSession } = useGuestEditorSessionStore()
 
   /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
   const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  const { currentWorkspace } = useWorkspaceStore()
+  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
-  const workspaceId = currentWorkspace?.id ?? 'org001'
+  const workspaceId = currentWorkspace?.id
 
+  // Ensure we always have a default workspace selected (first workspace)
+  useEffect(() => {
+    if (!currentWorkspace) {
+      fetchWorkspaces().catch((err) => {
+        console.error('Failed to load workspaces for editor', err)
+      })
+    }
+  }, [currentWorkspace, fetchWorkspaces])
+
+  // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
   const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
 
   // Chỉ thu gọn sidebar khi vừa chuyển sang canvas (false → true); nếu user tự mở lại sidebar thì không ép đóng
   useEffect(() => {
@@ -91,21 +114,140 @@ export default function EditorPage({
   const [isGenerating, setIsGenerating] = useState(false)
   const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
   const [documentTitle, setDocumentTitle] = useState('Hợp đồng dịch vụ')
-  const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
-  const [thinkingProgress, setThinkingProgress] = useThinkingProgress(isGenerating)
+  const thinkingProgress = useThinkingProgress(isGenerating)[0]
+  const setThinkingProgress = useThinkingProgress(isGenerating)[1]
+  const draftInitRef = useRef(false)
+  const guestRestoredRef = useRef(false)
+  const initialLoadRef = useRef(true)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+
+  // Allow RightPanel to request chat restoration when restoring a version
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ messages?: Array<{ id: string; role: string; content: string; createdAt: string }> }>
+      const msgs = ce.detail?.messages
+      if (!Array.isArray(msgs)) return
+      setChatMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+        }))
+      )
+    }
+    window.addEventListener('lawzy:restore-chat', handler as EventListener)
+    return () => window.removeEventListener('lawzy:restore-chat', handler as EventListener)
+  }, [])
+
+  // Ensure guest editor session store is hydrated (persist.skipHydration)
+  useEffect(() => {
+    useGuestEditorSessionStore.persist.rehydrate()
+  }, [])
+
+  // Restore draft when coming back to /editor/new (guest) OR migrate guest draft into account on login
+  useEffect(() => {
+    if (resolvedParams.id !== 'new') return
+
+    let cancelled = false
+
+    async function run() {
+      // Wait for hydration to complete so getSession returns correct values.
+      await useGuestEditorSessionStore.persist.rehydrate()
+      if (cancelled) return
+
+      const session = getSession()
+
+      // Everyone returning to /editor/new: restore from sessionStorage
+      if (!guestRestoredRef.current && session.editorContent) {
+        guestRestoredRef.current = true
+        setEditorContent(session.editorContent)
+        setDocumentTitle(session.documentTitle)
+        setMergeFieldValues(session.mergeFieldValues)
+        if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
+        if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
+        if (session.metadata) updateMetadata(session.metadata)
+        setIsCanvasMode(true)
+      }
+    }
+
+    run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    resolvedParams.id, // Ensure we re-run when id changes
+    getSession,
+    setMergeFieldValues,
+    setTemplateMergeFields,
+    updateMetadata,
+  ])
+
+  // Save local session periodically on /editor/new
+  useEffect(() => {
+    if (resolvedParams.id === 'new' && isCanvasMode) {
+      const interval = setInterval(() => {
+        saveSession({
+          editorContent,
+          documentTitle,
+          mergeFieldValues,
+          templateMergeFields: useEditorStore.getState().templateMergeFields,
+          chatMessages,
+          metadata: useEditorStore.getState().metadata,
+        })
+      }, 5000) // Save every 5 seconds
+
+      return () => {
+        try {
+          // Save once on unmount/navigation to avoid losing recent changes
+          saveSession({
+            editorContent,
+            documentTitle,
+            mergeFieldValues,
+            templateMergeFields: useEditorStore.getState().templateMergeFields,
+            chatMessages,
+            metadata: useEditorStore.getState().metadata,
+          })
+        } finally {
+          clearInterval(interval)
+        }
+      }
+    }
+  }, [resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+
+  // Handle auth requirement for guest actions
+  const handleAuthRequired = useCallback(() => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true)
+      return true // Return true to indicate auth is required
+    }
+    return false
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (resolvedParams.id !== 'new') {
+      initialLoadRef.current = true
       api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
         if (doc) {
           setCurrentDocument(doc.id as string)
           setTemplateMergeFields(null)
-          const mfv = (doc.mergeFieldValues as Record<string, unknown>) ?? {}
+          const rawMfv = doc.mergeFieldValues
+          const parsedMfv: Record<string, unknown> =
+            typeof rawMfv === 'string'
+              ? (() => { try { return JSON.parse(rawMfv) } catch { return {} } })()
+              : ((rawMfv as Record<string, unknown>) ?? {})
           setMergeFieldValues(
-            Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
+            Object.fromEntries(Object.entries(parsedMfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
           )
-          const raw = doc.contentJSON
+          const rawContent = doc.contentJSON
+          const raw =
+            typeof rawContent === 'string'
+              ? (() => { try { return JSON.parse(rawContent) } catch { return rawContent } })()
+              : rawContent
           const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
           if (content) setEditorContent(content)
           setDocumentTitle((doc.title as string) || 'Hợp đồng')
@@ -129,6 +271,7 @@ export default function EditorPage({
         }
       }).catch(() => {
         setChatMessages([])
+        initialLoadRef.current = false
       })
     } else {
       setCurrentDocument(null)
@@ -163,8 +306,10 @@ export default function EditorPage({
       setMergeFieldValues({})
       setEditorContent(DEFAULT_CONTENT)
       setDocumentTitle('Hợp đồng dịch vụ')
+      // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
       setIsCanvasMode(false)
       setChatMessages([])
+      initialLoadRef.current = false
     }
   }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
 
@@ -200,13 +345,14 @@ export default function EditorPage({
       Placeholder.configure({
         placeholder: 'Bắt đầu soạn thảo hoặc gõ / để xem lệnh...',
       }),
+      Underline,
       MergeFieldExtension,
     ],
     content: editorContent,
-    editorProps: {
+      editorProps: {
       attributes: {
-        class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-500/30 selection:text-blue-200',
-      },
+         class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-300 selection:text-black',
+        },
       handleDrop: (view, event, slice, moved) => {
         if (!moved && event.dataTransfer && event.dataTransfer.types.includes('application/lawzy-merge-field')) {
           const data = event.dataTransfer.getData('application/lawzy-merge-field')
@@ -227,31 +373,214 @@ export default function EditorPage({
           }
         }
         return false
-      }
+      },
     },
     onUpdate: ({ editor }) => {
-      setContent(editor.getJSON())
-      setEditorContent(editor.getJSON())
+      // Debounce updates by 300ms to avoid locking the UI during fast typing
+      const win = window as Window & { _lawzyEditorUpdateTimeout?: number }
+      if (win._lawzyEditorUpdateTimeout) {
+        clearTimeout(win._lawzyEditorUpdateTimeout)
+      }
+      win._lawzyEditorUpdateTimeout = window.setTimeout(() => {
+        const json = editor.getJSON()
+        setContent(json)
+        setEditorContent(json)
+        if (!initialLoadRef.current) {
+          setIsDirty(true)
+        }
+      }, 300)
     },
   })
 
-  // Sync editor content (defer to microtask to avoid flushSync inside React lifecycle)
+  const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
+    if (!isAuthenticated) {
+      handleAuthRequired()
+      toast.error('Vui lòng đăng nhập để lưu.')
+      return
+    }
+
+    try {
+      if (resolvedParams.id === 'new') {
+        const sourceMetadata = useEditorStore.getState().metadata
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: documentTitle || (sourceMetadata?.title as string | undefined) || 'Hợp đồng',
+          type: (sourceMetadata?.type as string | undefined) ?? 'contract',
+          ...(workspaceId && { workspaceId }),
+          contentJSON: editorContent,
+          metadata: sourceMetadata,
+          mergeFieldValues,
+          status,
+        })
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create document')
+
+        setIsDirty(false)
+        toast.success('Đã lưu')
+
+        if (pendingUrl) {
+          router.push(pendingUrl)
+        } else {
+          router.replace(`/editor/${newId}`)
+        }
+        return
+      }
+
+      await api.patch(`/documents/${resolvedParams.id}`, {
+        title: documentTitle,
+        status,
+        contentJSON: editorContent,
+        mergeFieldValues,
+        metadata: useEditorStore.getState().metadata,
+      })
+
+      setIsDirty(false)
+      toast.success('Đã lưu')
+      if (pendingUrl) {
+        router.push(pendingUrl)
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Lưu thất bại')
+    }
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
+  // Note: workspaceId kept in deps as it's still used (passed when available)
+
+  const { isActive: isTourActive } = useOnboardingStore()
+
+  useNavigationGuard(isDirty && !isTourActive, () => {
+    setShowSaveDraftModal(true)
+  })
+
+  // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
     if (!editor || !editorContent || JSON.stringify(editorContent) === JSON.stringify(editor.getJSON())) return
     const pending = editorContent
-    queueMicrotask(() => {
+    const wasInitial = initialLoadRef.current
+    const id = setTimeout(() => {
+      if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
         editor.commands.setContent(pending)
       }
-    })
+      // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
+      // so the first content sync never marks the document as dirty.
+      if (wasInitial) {
+        setTimeout(() => {
+          initialLoadRef.current = false
+        }, 350)
+      }
+    }, 0)
+    return () => clearTimeout(id)
   }, [editorContent, editor])
 
+  // Add click handler for guest users when they click on editor content
+  useEffect(() => {
+    if (!editor || isAuthenticated) return
+
+    const handleEditorClick = () => {
+      // Check if guest has generated content
+      if (isCanvasMode && editorContent && editorContent.content && editorContent.content.length > 1) {
+        // Check if content is more than just default empty content
+        const hasRealContent = editorContent.content.some((node: JSONContent) => {
+          if (node.type === 'heading' && node.content && Array.isArray(node.content) && node.content.length > 0) {
+            const text = node.content.find((c: JSONContent) => c.type === 'text' && 'text' in c && typeof c.text === 'string' && c.text.trim())
+            return text && typeof text.text === 'string' && text.text.trim() !== 'HỢP ĐỒNG MỚI'
+          }
+          return false
+        })
+        if (hasRealContent) {
+          handleAuthRequired()
+        }
+      }
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleEditorClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleEditorClick)
+    }
+  }, [editor, isAuthenticated, isCanvasMode, editorContent, handleAuthRequired])
+
+  // Autosave authenticated documents (update live document, versions are manual)
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (resolvedParams.id === 'new') return
+    if (initialLoadRef.current) return
+
+    const t = setTimeout(() => {
+      api
+        .patch(`/documents/${resolvedParams.id}`, {
+          title: documentTitle,
+          contentJSON: editorContent,
+          mergeFieldValues,
+          metadata: useEditorStore.getState().metadata,
+        })
+        .then(() => {
+          setIsDirty(false)
+        })
+        .catch((e) => {
+          console.error(e)
+        })
+    }, 800)
+
+    return () => clearTimeout(t)
+  }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
+
   const handleSave = async () => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để lưu.')
+      return
+    }
+
     setSaving(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSaving(false)
-    setLastSaved(new Date().toISOString())
-    toast.success('Đã lưu')
+    try {
+      if (resolvedParams.id === 'new') {
+        const sourceMetadata = useEditorStore.getState().metadata
+        const created = await api.post<Record<string, unknown>>('/documents', {
+          title: documentTitle || sourceMetadata?.title || 'Hợp đồng',
+          type: sourceMetadata?.type ?? 'contract',
+          ...(workspaceId && { workspaceId }),
+          contentJSON: editorContent,
+          metadata: sourceMetadata,
+          mergeFieldValues,
+        })
+        const newId = String((created as { id?: unknown }).id ?? '')
+        if (!newId) throw new Error('Failed to create draft')
+
+        // Migrate chat messages to the new document
+        if (chatMessages && chatMessages.length > 0) {
+          for (const m of chatMessages) {
+            await api.post(`/documents/${newId}/chat-messages`, {
+              role: m.role,
+              content: m.content,
+              metadata: { migratedFromGuest: true },
+            }).catch(e => console.error(e))
+          }
+        }
+
+        clearSession()
+        toast.success('Đã lưu bản thảo')
+        router.replace(`/editor/${newId}`)
+        return
+      }
+
+      const now = new Date()
+      await api.post(`/documents/${resolvedParams.id}/versions`, {
+        contentJSON: editorContent,
+        mergeFieldValues,
+        chatCursorAt: now.toISOString(),
+        label: `Lưu bản nháp (${now.toLocaleString('vi-VN')})`,
+      })
+      window.dispatchEvent(new Event('lawzy:refresh-versions'))
+      setLastSaved(now.toISOString())
+      setIsDirty(false)
+      toast.success('Đã lưu phiên bản')
+    } catch (e) {
+      console.error(e)
+      toast.error('Lưu phiên bản thất bại')
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Handle chat messages
@@ -266,6 +595,15 @@ export default function EditorPage({
     setChatMessages((prev) => [...prev, userMessage])
     setIsGenerating(true)
     setThinkingProgress([])
+
+    // Persist user message (best-effort)
+    if (isAuthenticated && resolvedParams.id !== 'new') {
+      api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+        role: 'user',
+        content: message,
+        metadata: attachedFile ? { attachedFileName: attachedFile.name } : undefined,
+      }).catch((e) => console.error(e))
+    }
 
     let attachedSources: Array<{ fileName: string; text: string }> | undefined
     if (attachedFile) {
@@ -292,6 +630,11 @@ export default function EditorPage({
 
     try {
       const existingContentText = editorContentToPlainText(editorContent)
+      // Send previous chat turns (exclude the current message just added) for conversational context
+      const previousMessages = chatMessages
+        .filter((m) => m.id !== userMessage.id && (m.role === 'user' || m.role === 'assistant'))
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,6 +647,7 @@ export default function EditorPage({
           existingContent: existingContentText || undefined,
           mergeFieldValues: Object.keys(mergeFieldValues).length > 0 ? mergeFieldValues : undefined,
           attachedSources,
+          chatHistory: previousMessages.length > 0 ? previousMessages : undefined,
         })
       })
 
@@ -343,17 +687,20 @@ export default function EditorPage({
         setEditorContent(newContent)
         setDocumentTitle(genResult.content.title || documentTitle)
         setIsCanvasMode(true)
+      } else if (result.type === 'error') {
+        aiContent = result.message || 'Hệ thống chỉ hỗ trợ các nghiệp vụ liên quan đến soạn thảo và phân tích hợp đồng, pháp lý.'
       } else {
         // Handle other types or generic response
         aiContent = JSON.stringify(result, null, 2)
       }
 
-      const aiMessage: ChatMessage = {
+      const aiMessage: ChatMessage & { isError?: boolean } = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: aiContent,
         timestamp: new Date(),
         isStreaming: false,
+        isError: result.type === 'error',
         hasContract: result.type === 'contract_generation',
         ...(result.type === 'contract_generation' && {
           thinking: getSimulatedThinking(result as ContractGenerationResult),
@@ -361,6 +708,15 @@ export default function EditorPage({
       }
       
       setChatMessages((prev) => [...prev, aiMessage])
+
+      // Persist assistant message (best-effort)
+      if (isAuthenticated && resolvedParams.id !== 'new') {
+        api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+          role: 'assistant',
+          content: aiContent,
+          metadata: aiMessage.thinking ? { thinking: aiMessage.thinking, hasContract: aiMessage.hasContract } : { hasContract: aiMessage.hasContract },
+        }).catch((e) => console.error(e))
+      }
 
     } catch (error) {
       console.error('Error generating contract:', error)
@@ -371,6 +727,7 @@ export default function EditorPage({
         role: 'assistant',
         content: 'Xin lỗi, tôi gặp sự cố khi xử lý yêu cầu của bạn. Vui lòng thử lại.',
         timestamp: new Date(),
+        isError: true,
       }
       setChatMessages((prev) => [...prev, errorMessage])
     } finally {
@@ -398,7 +755,7 @@ export default function EditorPage({
             !isCanvasMode && "items-center"
           )}
         >
-          <div className={cn(
+          <div id="tour-editor-chat" className={cn(
             "w-full h-full transition-all duration-500",
             !isCanvasMode ? "max-w-3xl mx-auto" : "w-full"
           )}>
@@ -436,10 +793,10 @@ export default function EditorPage({
               className="h-full relative z-0 flex gap-2"
             >
               <div className="flex-1 h-full min-w-0">
-                <CanvasEditor 
+                <CanvasEditor
                   editor={editor}
                   title={documentTitle}
-                  onClose={() => setIsCanvasMode(false)}
+                  // onClose={() => setIsCanvasMode(false)}
                   onRun={() => toast.info("Đang kiểm tra...")}
                   isCode={false}
                   toolsPanelOpen={toolsPanelOpen}
@@ -450,7 +807,10 @@ export default function EditorPage({
 
               {toolsPanelOpen && (
                 <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
-                  <RightPanel editor={editor} onClose={() => setToolsPanelOpen(false)} />
+                  <RightPanel
+                    editor={editor}
+                    onAuthRequired={handleAuthRequired}
+                  />
                 </div>
               )}
             </motion.div>
@@ -458,6 +818,37 @@ export default function EditorPage({
         </AnimatePresence>
 
       </div>
+
+      {/* Auth Modal for guest users */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onSuccess={() => {
+          // Auth state update will be handled by auth store effects; just close modal.
+          setShowAuthModal(false)
+          setToolsPanelOpen(true)
+        }}
+      />
+
+      <SaveDraftModal
+        open={showSaveDraftModal}
+        onOpenChange={setShowSaveDraftModal}
+        onSave={(status) => {
+          void handleSaveDraftToDb(status)
+          setShowSaveDraftModal(false)
+        }}
+        onDiscard={() => {
+          setIsDirty(false)
+          setShowSaveDraftModal(false)
+          // Navigation is handled by the browser if it was a link click,
+          // but our hook prevented it. We should probably trigger it manually if needed.
+          // For simplicity, we just let them click again or use a pending URL if we captured it.
+          const anchor = document.activeElement as HTMLAnchorElement
+          if (anchor && anchor.href) {
+             window.location.href = anchor.href
+          }
+        }}
+      />
     </div>
   )
 }

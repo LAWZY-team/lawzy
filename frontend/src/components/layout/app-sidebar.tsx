@@ -6,12 +6,11 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   FileText,
-  FolderInput,
+  // FolderInput,
   Library,
   Settings,
   CreditCard,
-  Users,
-  HardDrive,
+  Plus,
 } from "lucide-react"
 
 import {
@@ -33,6 +32,9 @@ import { UserNav } from "./user-nav"
 import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import type { TranslationKey } from "@/lib/i18n"
+import { useAuthStore } from "@/stores/auth-store"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import useStore from "@/lib/zustand/use-store"
 
 type NavItem = { titleKey: TranslationKey; href: string; icon: React.ComponentType<{ className?: string }> }
 type NavGroup = { labelKey: TranslationKey; items: NavItem[] }
@@ -43,7 +45,7 @@ const navGroups: NavGroup[] = [
     items: [
       { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
       { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
-      { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
+      { titleKey: "docs_create_new", href: "/editor/new", icon: Plus },
     ],
   },
   {
@@ -52,21 +54,27 @@ const navGroups: NavGroup[] = [
       { titleKey: "sidebar_templates", href: "/templates", icon: Library },
     ],
   },
-  {
-    labelKey: "sidebar_settings",
-    items: [
-      { titleKey: "sidebar_workspace", href: "/workspace", icon: Users },
-      { titleKey: "sidebar_files", href: "/files", icon: HardDrive },
-      { titleKey: "sidebar_payment", href: "/payment", icon: CreditCard },
-      { titleKey: "sidebar_settings", href: "/settings", icon: Settings },
-    ],
-  },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
   const { t } = useT()
+
+  // Hydration-safe reads (guest-flow store uses skipHydration)
+  const guestEntry = useStore(useGuestFlowStore, (s) => s.entry)
+  const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
+  const authResolved = useStore(useAuthStore, (s) => s.authResolved)
+
+  // Hide settings for guest-from-landing. While auth is unknown, default to hide to prevent flicker.
+  const hideSettingsGroup =
+    guestEntry === "landing" && (authResolved ? isAuthenticated === false : true)
+
+  const visibleGroups = React.useMemo(() => {
+    return navGroups
+      .filter((g) => !(hideSettingsGroup && g.labelKey === "sidebar_settings"))
+      .filter((g) => g.items.length > 0)
+  }, [hideSettingsGroup])
 
   return (
     <Sidebar collapsible="icon">
@@ -87,12 +95,12 @@ export function AppSidebar() {
           state === "collapsed" && "flex flex-col items-center gap-3 px-1 py-1"
         )}
       >
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <SidebarGroup
             key={group.labelKey}
             className={cn(
               "gap-0.5",
-              state === "collapsed" && "w-full max-w-[2.75rem] p-0 flex flex-col items-center"
+              state === "collapsed" && "w-full max-w-11 p-0 flex flex-col items-center"
             )}
           >
             <SidebarGroupLabel className="text-xs font-medium text-muted-foreground px-2 py-1">
@@ -107,7 +115,7 @@ export function AppSidebar() {
                   return (
                     <SidebarMenuItem key={item.titleKey}>
                       <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href}>
+                        <Link href={item.href} id={`sidebar-${item.href.replace(/\//g, '-') || 'home'}`}>
                           <item.icon className="h-4 w-4 shrink-0" />
                           <span className="truncate">{t(item.titleKey)}</span>
                         </Link>
@@ -120,7 +128,7 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter id="sidebar-user-nav">
         <UserNav />
       </SidebarFooter>
     </Sidebar>

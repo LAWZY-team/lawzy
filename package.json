@@ -1,0 +1,12 @@
+{
+  "name": "lawzy-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && yarn dev",
+    "dev:frontend": "cd frontend && yarn dev",
+    "dev:backend": "cd backend && yarn start:dev",
+    "build": "cd frontend && yarn build",
+    "build:backend": "cd backend && yarn build"
+  }
+}

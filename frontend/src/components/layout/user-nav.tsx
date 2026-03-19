@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronsUpDown, LogOut, Settings, User, Globe } from "lucide-react"
+import { ChevronsUpDown, LogOut, Settings, User, Globe, UserPlus } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -22,6 +22,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
+import { useGuestFlowStore } from "@/stores/guest-flow-store"
+import useStore from "@/lib/zustand/use-store"
 
 export function UserNav() {
   const { isMobile } = useSidebar()
@@ -29,8 +31,15 @@ export function UserNav() {
   const { user, logout } = useAuthStore()
   const { t, locale, setLocale } = useT()
 
-  const displayName = user?.name ?? "User"
-  const displayEmail = user?.email ?? ""
+  const guestEntry = useStore(useGuestFlowStore, (s) => s.entry)
+  const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
+  const authResolved = useStore(useAuthStore, (s) => s.authResolved)
+
+  // Treat as guest if we know they are not authenticated, or if unresolved but they came from landing.
+  const isGuest = authResolved ? !isAuthenticated : (guestEntry === "landing")
+
+  const displayName = isGuest ? "Khách" : (user?.name ?? "User")
+  const displayEmail = isGuest ? "" : (user?.email ?? "")
   const initials = displayName.substring(0, 2).toUpperCase()
 
   const handleLogout = async () => {
@@ -40,7 +49,7 @@ export function UserNav() {
       // proceed with client-side logout regardless
     }
     logout()
-    router.push("/login")
+    router.push("/")
   }
 
   const toggleLocale = () => setLocale(locale === "vi" ? "en" : "vi")
@@ -51,6 +60,7 @@ export function UserNav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
+              id="user-menu-trigger"
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
@@ -84,27 +94,48 @@ export function UserNav() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings/profile">
-                <User className="mr-2 h-4 w-4" />
-                {t("settings_account")}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                {t("settings_title")}
-              </Link>
-            </DropdownMenuItem>
+
+            {isGuest ? (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/login">
+                    <User className="mr-2 h-4 w-4" />
+                    Đăng nhập
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                {/* <DropdownMenuItem asChild>
+                  <Link href="/settings/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    {t("settings_account")}
+                  </Link>
+                </DropdownMenuItem> */}
+                
             <DropdownMenuItem onClick={toggleLocale}>
               <Globe className="mr-2 h-4 w-4" />
               {locale === "vi" ? "English" : "Tiếng Việt"}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              {t("auth_logout")}
-            </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" id="dropdown-settings-link">
+                    <Settings className="mr-2 h-4 w-4" />
+                    {t("settings_title")}
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
+
+
+            {!isGuest && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  {t("auth_logout")}
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

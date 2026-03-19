@@ -7,9 +7,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
+import { validatePassword } from '../../utils/password-validator';
 import type { Response } from 'express';
 
 const SALT_ROUNDS = 12;
@@ -25,9 +28,10 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {}
 
-  async register(email: string, name: string, password: string) {
+  async register(email: string, name: string, password: string, position: string) {
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
       throw new ConflictException('Email đã được sử dụng');
@@ -37,7 +41,56 @@ export class AuthService {
       email,
       name,
       password: hashed,
+      position,
     });
+    return this.usersService.sanitize(user);
+  }
+
+  async requestRegistration(email: string, name: string, password: string, position: string) {
+    const existing = await this.usersService.findByEmail(email);
+    if (existing) {
+      throw new ConflictException('Email này đã được đăng ký');
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
+    const otp = randomInt(100000, 999999).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    await this.usersService.create({
+      email,
+      name,
+      password: hashed,
+      position,
+      otpCode: otp,
+      otpExpires,
+      isVerified: false,
+    });
+
+    await this.emailService.sendOTPEmail(email, name, otp);
+
+    return { message: 'Mã OTP đã được gửi đến email của bạn' };
+  }
+
+  async verifyOTP(email: string, otp: string) {
+    const user = await this.usersService.findByEmailAndOTP(email, otp);
+    if (!user) {
+      throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        otpCode: null,
+        otpExpires: null,
+      },
+    });
+
     return this.usersService.sanitize(user);
   }
 
@@ -50,6 +103,58 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
+    return this.usersService.sanitize(user);
+  }
+
+  async loginWithGoogle(idToken: string) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId) {
+      throw new BadRequestException('Google OAuth chưa được cấu hình');
+    }
+
+    const client = new OAuth2Client(clientId);
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+    } catch {
+      throw new UnauthorizedException('Token Google không hợp lệ');
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new UnauthorizedException('Không thể xác thực thông tin từ Google');
+    }
+
+    const { sub: providerId, email, name, picture } = payload;
+
+    let user = await this.usersService.findByProviderId('google', providerId);
+    if (user) {
+      return this.usersService.sanitize(user);
+    }
+
+    const existingByEmail = await this.usersService.findByEmail(email);
+    if (existingByEmail) {
+      await this.prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: { provider: 'google', providerId, avatar: picture ?? undefined },
+      });
+      return this.usersService.sanitize(existingByEmail);
+    }
+
+    const randomPassword = randomBytes(32).toString('hex');
+    const hashed = await bcrypt.hash(randomPassword, SALT_ROUNDS);
+    user = await this.usersService.create({
+      email,
+      name: name ?? email.split('@')[0],
+      password: hashed,
+      provider: 'google',
+      providerId,
+      avatar: picture ?? undefined,
+      isVerified: true,
+    });
     return this.usersService.sanitize(user);
   }
 
@@ -142,9 +247,13 @@ export class AuthService {
     const expires = new Date(Date.now() + 60 * 60 * 1000);
     await this.usersService.setResetToken(email, token, expires);
 
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    await this.emailService.sendPasswordResetEmail(email, user.name, resetLink);
+
     return {
       message: 'Nếu email tồn tại, bạn sẽ nhận được link đặt lại mật khẩu',
-      resetToken: token,
     };
   }
 
@@ -154,10 +263,43 @@ export class AuthService {
       throw new BadRequestException('Token không hợp lệ hoặc đã hết hạn');
     }
 
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
     const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await this.usersService.updatePassword(user.id, hashed);
     await this.revokeRefreshTokens(user.id);
 
     return { message: 'Đặt lại mật khẩu thành công' };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Người dùng không tồn tại');
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      throw new BadRequestException('Mật khẩu hiện tại không đúng');
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
+    const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.usersService.updatePassword(user.id, hashed);
+    await this.revokeRefreshTokens(user.id);
+
+    return { message: 'Đổi mật khẩu thành công' };
   }
 }

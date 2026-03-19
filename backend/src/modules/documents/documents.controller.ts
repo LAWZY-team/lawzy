@@ -21,16 +21,16 @@ export class DocumentsController {
 
   @Get()
   async list(
-    @Query('workspaceId') workspaceId: string,
+    @Request() req: any,
+    @Query('workspaceId') workspaceId?: string,
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    if (!workspaceId) {
-      throw new BadRequestException('workspaceId is required');
-    }
-    return this.documentsService.findByWorkspace(workspaceId, {
+    const userId = req.user.userId;
+    return this.documentsService.findByUser(userId, {
+      workspaceId,
       status,
       type,
       page: page ? parseInt(page, 10) : undefined,
@@ -45,16 +45,31 @@ export class DocumentsController {
     body: {
       title: string;
       type?: string;
-      workspaceId: string;
+      workspaceId?: string;
       templateId?: string;
       contentJSON?: any;
       metadata?: any;
       mergeFieldValues?: any;
+      status?: string;
     },
   ) {
     const userId = req.user.userId;
+    if (
+      body.status !== undefined &&
+      !['draft', 'completed', 'review', 'approved', 'signed', 'archived'].includes(
+        body.status,
+      )
+    ) {
+      throw new BadRequestException('Invalid status');
+    }
+    const workspaceId =
+      body.workspaceId ?? (await this.documentsService.getDefaultWorkspaceId());
+    if (!workspaceId) {
+      throw new BadRequestException('No workspace available');
+    }
     return this.documentsService.create({
       ...body,
+      workspaceId,
       createdBy: userId,
     });
   }
@@ -108,7 +123,13 @@ export class DocumentsController {
   async createVersion(
     @Request() req: any,
     @Param('id') documentId: string,
-    @Body() body: { contentJSON: any; label?: string },
+    @Body()
+    body: {
+      contentJSON: any;
+      mergeFieldValues?: any;
+      chatCursorAt?: string;
+      label?: string;
+    },
   ) {
     const userId = req.user.userId;
     return this.documentsService.createVersion(documentId, {
@@ -120,5 +141,40 @@ export class DocumentsController {
   @Get(':id/versions')
   async getVersions(@Param('id') documentId: string) {
     return this.documentsService.getVersions(documentId);
+  }
+
+  @Get(':id/versions/:versionId')
+  async getVersion(
+    @Param('id') documentId: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.documentsService.getVersion(documentId, versionId);
+  }
+
+  @Post(':id/chat-messages')
+  async createChatMessage(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @Body()
+    body: { role: 'user' | 'assistant'; content: string; metadata?: any },
+  ) {
+    const userId = req.user.userId;
+    return this.documentsService.createChatMessage(documentId, {
+      ...body,
+      userId,
+    });
+  }
+
+  @Get(':id/chat-messages')
+  async getChatMessages(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @Query('to') to?: string,
+  ) {
+    const userId = req.user.userId;
+    return this.documentsService.getChatMessages(documentId, {
+      userId,
+      to,
+    });
   }
 }

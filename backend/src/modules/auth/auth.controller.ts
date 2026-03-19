@@ -16,9 +16,12 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
@@ -34,7 +37,26 @@ export class AuthController {
       dto.email,
       dto.name,
       dto.password,
+      dto.position,
     );
+    return { message: 'Đăng ký thành công', user };
+  }
+
+  @Post('register/request')
+  @HttpCode(HttpStatus.OK)
+  async requestRegistration(@Body() dto: RegisterDto) {
+    return this.authService.requestRegistration(
+      dto.email,
+      dto.name,
+      dto.password,
+      dto.position,
+    );
+  }
+
+  @Post('register/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyOTP(@Body() dto: VerifyOtpDto) {
+    const user = await this.authService.verifyOTP(dto.email, dto.otp);
     return { message: 'Đăng ký thành công', user };
   }
 
@@ -45,6 +67,18 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.login(dto.email, dto.password);
+    const tokens = await this.authService.generateTokens(user.id, user.email);
+    this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user };
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async loginWithGoogle(
+    @Body() dto: GoogleLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.authService.loginWithGoogle(dto.idToken);
     const tokens = await this.authService.generateTokens(user.id, user.email);
     this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { user };
@@ -104,5 +138,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(@Req() req: Request, @Body() dto: ChangePasswordDto) {
+    const userId = (req as any).user.userId;
+    return this.authService.changePassword(
+      userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 }

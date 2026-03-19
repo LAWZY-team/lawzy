@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,45 +8,169 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Modal } from "@/components/ui/modal";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { useAuthStore } from "@/stores/auth-store";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { validatePassword } from "@/lib/utils/password-validator";
+import { PasswordRequirements } from "@/components/password-requirements";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const positionOptions = [
+  "Chủ doanh nghiệp / Founder",
+  "Nhân sự / HR",
+  "Kế toán / Account",
+  "Pháp chế",
+  "Luật sư / Legal",
+  "Sales / Kinh doanh",
+  "Kinh doanh tự do / Freelancer",
+  "Khác"
+];
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { setUser } = useAuthStore();
+  const [step, setStep] = useState<"register" | "verify">("register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [position, setPosition] = useState("");
+  const [customPosition, setCustomPosition] = useState("");
+  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsContent, setTermsContent] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Load terms content when modal opens
+    if (showTermsModal && !termsContent) {
+      fetch("/term2.html")
+        .then((res) => res.text())
+        .then((text) => setTermsContent(text))
+        .catch(() => setTermsContent("Không thể tải nội dung điều khoản."));
+    }
+  }, [showTermsModal, termsContent]);
+
+  const handleRequestRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!agreedToTerms) {
+      setError("Vui lòng đồng ý với các điều khoản sử dụng");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp");
       return;
     }
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || "Mật khẩu không hợp lệ");
+      return;
+    }
+
+    if (!position) {
+      setError("Vui lòng chọn chức vụ của bạn");
+      return;
+    }
+
+    if (position === "Khác" && !customPosition.trim()) {
+      setError("Vui lòng nhập chức vụ của bạn");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const finalPosition = position === "Khác" ? customPosition : position;
+      const res = await fetch("/api/auth/register/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password }),
+        body: JSON.stringify({ email, name, password, position: finalPosition }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.message || "Đăng ký thất bại");
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success("Mã OTP đã được gửi đến email của bạn");
+      setStep("verify");
+      setIsLoading(false);
+    } catch {
+      setError("Không thể kết nối đến server");
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = useCallback(
+    async (idToken: string) => {
+      setError("");
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ idToken }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || "Đăng ký Google thất bại");
+          return;
+        }
+        setUser(data.user);
+        toast.success("Tạo tài khoản thành công!");
+        router.push("/dashboard");
+      } catch {
+        setError("Không thể kết nối đến server");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [router, setUser]
+  );
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (otp.length !== 6) {
+      setError("Mã OTP phải có 6 chữ số");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Xác thực OTP thất bại");
         setIsLoading(false);
         return;
       }
@@ -59,13 +183,90 @@ export default function RegisterPage() {
     }
   };
 
+  if (step === "verify") {
+    return (
+      <div className="w-full max-w-md px-4">
+        <Card className="border-0 shadow-xl">
+          <CardHeader className="space-y-4 items-center text-center pb-2">
+              <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
+            <div>
+              <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
+              <CardDescription className="mt-1">
+                    Nhập mã OTP đã được gửi đến email của bạn. <br/><strong>Vui lòng kiểm tra hòm thư rác và spam</strong>
+              </CardDescription>
+            </div>
+          </CardHeader>
+
+          <form onSubmit={handleVerifyOTP}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email-display">Email</Label>
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{email}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="otp">Mã OTP <span className="text-destructive">*</span></Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Nhập 6 chữ số"
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setOtp(value);
+                  }}
+                  required
+                  maxLength={6}
+                  disabled={isLoading}
+                  className="text-center text-2xl tracking-widest"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Mã OTP có hiệu lực trong 10 phút
+                </p>
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xác thực...
+                  </>
+                ) : (
+                  "Xác thực OTP"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setStep("register")}
+                disabled={isLoading}
+              >
+                Quay lại
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-md px-4">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
-          <Link href="/" className="inline-block">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          </Link>
           <div>
             <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
             <CardDescription className="mt-1">
@@ -74,16 +275,33 @@ export default function RegisterPage() {
           </div>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
+        <CardContent className="space-y-4 pt-0">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <GoogleSignInButton
+            onSuccess={handleGoogleSuccess}
+            onError={(err) => setError(err.message || "Đăng ký Google thất bại")}
+            disabled={isLoading}
+            label="signup"
+            className="w-full"
+          />
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+            </div>
+          </div>
+        </CardContent>
 
+        <form onSubmit={handleRequestRegistration}>
+          <CardContent className="space-y-4 pt-0">
             <div className="space-y-2">
-              <Label htmlFor="name">Họ và tên</Label>
+              <Label htmlFor="name">Họ và tên <span className="text-destructive">*</span></Label>
               <Input
                 id="name"
                 type="text"
@@ -97,7 +315,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
               <Input
                 id="email"
                 type="email"
@@ -111,35 +329,81 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
+              <Label htmlFor="position">Chức vụ / Công việc <span className="text-destructive">*</span></Label>
+              <Select onValueChange={setPosition} value={position} disabled={isLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn chức vụ của bạn" />
+                </SelectTrigger>
+                <SelectContent>
+                  {positionOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {position === "Khác" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                <Label htmlFor="customPosition">Nhập chức vụ khác <span className="text-destructive">*</span></Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Ít nhất 6 ký tự"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
+                  id="customPosition"
+                  placeholder="Nhập chức vụ của bạn"
+                  value={customPosition}
+                  onChange={(e) => setCustomPosition(e.target.value)}
                   disabled={isLoading}
-                  className="pr-10"
+                  required
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                </Button>
               </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu <span className="text-destructive">*</span></Label>
+              <PasswordRequirements
+                password={password}
+                open={showPasswordRequirements}
+                onOpenChange={setShowPasswordRequirements}
+              >
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Nhập mật khẩu"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (e.target.value.length > 0) {
+                        setShowPasswordRequirements(true);
+                      }
+                    }}
+                    onFocus={() => setShowPasswordRequirements(true)}
+                    onBlur={() => {
+                      // Delay closing to allow clicking on popover
+                      setTimeout(() => setShowPasswordRequirements(false), 200);
+                    }}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </Button>
+                </div>
+              </PasswordRequirements>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+              <Label htmlFor="confirmPassword">Xác nhận mật khẩu <span className="text-destructive">*</span></Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -151,14 +415,40 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
             </div>
+
+            <div className="flex items-start space-x-2 pt-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                disabled={isLoading}
+                className="mt-0.5"
+              />
+              <Label
+                htmlFor="terms"
+                className="text-sm font-normal cursor-pointer leading-relaxed"
+              >
+                Tôi đồng ý với các điều khoản của Lawzy
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowTermsModal(true);
+                  }}
+                  className= "underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
+                >
+                  ĐIỀU KHOẢN
+                </button>{" "}
+              </Label>
+            </div>
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading || !agreedToTerms}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang đăng ký...
+                  Đang gửi OTP...
                 </>
               ) : (
                 "Đăng ký"
@@ -177,6 +467,27 @@ export default function RegisterPage() {
       <p className="text-xs text-muted-foreground text-center mt-6">
         &copy; {new Date().getFullYear()} Lawzy. Nền tảng quản lý hợp đồng pháp lý.
       </p>
+
+      <Modal
+        open={showTermsModal}
+        onOpenChange={setShowTermsModal}
+        size="lg"
+        title="Điều Khoản Sử Dụng"
+      >
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Điều Khoản Sử Dụng</h2>
+          <div className="max-h-[60vh] overflow-y-auto pr-2">
+            {termsContent ? (
+              <div
+                className="lawzy-terms prose prose-sm max-w-none text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_p]:mb-3 [&_p]:leading-relaxed [&_strong]:font-semibold"
+                dangerouslySetInnerHTML={{ __html: termsContent }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Đang tải nội dung...</p>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -19,17 +19,17 @@ interface PaginatedDocs {
   limit: number;
 }
 
-export function useDocuments(workspaceId: string, opts?: { status?: string; type?: string; page?: number; limit?: number }) {
-  const params = new URLSearchParams({ workspaceId });
+export function useDocuments(workspaceId?: string, opts?: { status?: string; type?: string; page?: number; limit?: number }) {
+  const params = new URLSearchParams();
+  if (workspaceId) params.set('workspaceId', workspaceId);
   if (opts?.status) params.set('status', opts.status);
   if (opts?.type) params.set('type', opts.type);
   if (opts?.page) params.set('page', String(opts.page));
   if (opts?.limit) params.set('limit', String(opts.limit));
 
   return useQuery<PaginatedDocs>({
-    queryKey: ['documents', workspaceId, opts],
+    queryKey: ['documents', workspaceId ?? 'mine', opts],
     queryFn: () => api.get(`/documents?${params.toString()}`),
-    enabled: !!workspaceId,
   });
 }
 
@@ -44,7 +44,7 @@ export function useDocument(id: string) {
 export function useCreateDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; type?: string; workspaceId: string; templateId?: string; contentJSON?: unknown }) =>
+    mutationFn: (data: { title: string; type?: string; workspaceId?: string; templateId?: string; contentJSON?: unknown }) =>
       api.post('/documents', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   });

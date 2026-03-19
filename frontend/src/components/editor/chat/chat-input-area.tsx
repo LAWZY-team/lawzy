@@ -12,6 +12,7 @@ interface ChatInputAreaProps {
   setInput: React.Dispatch<React.SetStateAction<string>>
   onSubmit: () => void
   isLoading: boolean
+  isCanvasMode?: boolean
   attachedFile: { name: string } | null
   onAttachFile?: (file: File) => void
   onRemoveAttachedFile?: () => void
@@ -22,6 +23,7 @@ export function ChatInputArea({
   setInput,
   onSubmit,
   isLoading,
+  isCanvasMode = false,
   attachedFile,
   onAttachFile,
   onRemoveAttachedFile,
@@ -154,8 +156,8 @@ export function ChatInputArea({
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-3 bg-background z-20 border-t border-border">
-      <div className="relative max-w-3xl mx-auto w-full">
+    <div className="shrink-0 p-4 md:p-3 bg-background z-20 border-t border-border">
+      <div className={cn('relative w-full', isCanvasMode ? 'max-w-none' : 'max-w-3xl mx-auto')}>
         <div
           className={cn(
             'relative bg-background rounded-[24px] border transition-all flex flex-col min-h-[56px]',

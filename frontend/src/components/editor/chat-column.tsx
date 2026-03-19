@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatMessageList } from './chat/chat-message-list'
 import { ChatInputArea } from './chat/chat-input-area'
@@ -69,7 +69,7 @@ export function ChatColumn({
     <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
       <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background z-10 sticky top-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-blue-400" />
+          {/* <Sparkles className="w-5 h-5 text-blue-400" /> */}
           <h3 className="font-medium text-sm">Lawzy AI</h3>
         </div>
         {onClose && (
@@ -104,6 +104,7 @@ export function ChatColumn({
         setInput={setInput}
         onSubmit={handleSubmit}
         isLoading={isLoading}
+        isCanvasMode={isCanvasMode}
         attachedFile={attachedFile}
         onAttachFile={onAttachFile}
         onRemoveAttachedFile={onRemoveAttachedFile}

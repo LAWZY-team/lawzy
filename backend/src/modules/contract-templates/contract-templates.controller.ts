@@ -27,7 +27,15 @@ function parseScope(scope: string): TemplateScope {
 }
 
 const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx']);
-
+function sanitizeFilenameForHeader(input: string): string {
+  if (!input) return 'download';
+  // Loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
+  let cleaned = input.replace(/[\r\n]/g, ' ').replace(/[^\x20-\x7E]/g, '_');
+  // Tránh dấu ngoặc kép phá vỡ header
+  cleaned = cleaned.replace(/"/g, "'");
+  cleaned = cleaned.trim();
+  return cleaned.length ? cleaned : 'download';
+}
 @Controller('contract-templates')
 export class ContractTemplatesController {
   constructor(private readonly service: ContractTemplatesService) {}
@@ -115,7 +123,7 @@ export class ContractTemplatesController {
       const dispositionType = inline ? 'inline' : 'attachment';
       res.set({
         'Content-Type': obj.ContentType ?? 'application/octet-stream',
-        'Content-Disposition': `${dispositionType}; filename="${id}"`,
+        'Content-Disposition': `${dispositionType}; filename="${sanitizeFilenameForHeader(id)}"`,
       });
       return new StreamableFile(body as unknown as Uint8Array);
     } catch (e: unknown) {

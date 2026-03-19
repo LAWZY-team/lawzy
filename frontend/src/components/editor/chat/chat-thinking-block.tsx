@@ -26,9 +26,9 @@ export function ChatThinkingBlock({
       <button
         type="button"
         onClick={() => onToggle(messageId)}
-        className="flex items-center gap-2 w-full text-left py-1 -mx-1 hover:opacity-90 transition-opacity"
+        className="flex items-center gap-2 w-full text-left py-1 hover:opacity-90 transition-opacity"
       >
-        <span className="flex-1 text-sm font-semibold text-foreground">
+        <span className="flex-1 ml-2 text-sm font-semibold text-foreground">
           {isExpanded ? 'Ẩn suy luận' : label}
         </span>
         {isExpanded ? (
@@ -46,7 +46,7 @@ export function ChatThinkingBlock({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="mt-3 pl-4 border-l border-border text-sm text-muted-foreground italic max-h-[320px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap scrollbar-none">
+            <div className="mt-3 pl-1 border-l border-border text-sm text-muted-foreground italic max-h-[320px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap scrollbar-none">
               {renderSimpleMarkdown(thinking)}
             </div>
           </motion.div>

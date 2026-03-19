@@ -19,7 +19,7 @@ export function ExpandableMessage({ content, isStreaming, role }: ExpandableMess
       <div className="whitespace-pre-wrap markdown-content">
         {useMarkdown ? renderSimpleMarkdown(content) : content}
         {isStreaming && (
-          <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-blue-400 animate-pulse" />
+          <span className="inline-block w-2 h-4 ml-2 align-middle bg-blue-400 animate-pulse" />
         )}
       </div>
     )
@@ -34,7 +34,7 @@ export function ExpandableMessage({ content, isStreaming, role }: ExpandableMess
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="text-xs text-blue-400 hover:text-blue-300 mt-1 font-medium hover:underline focus:outline-none"
+        className="text-xs text-blue-500 hover:text-blue-700 mt-1 font-medium hover:underline focus:outline-none"
       >
         {isExpanded ? 'Thu gọn' : 'Xem thêm'}
       </button>

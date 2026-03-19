@@ -47,13 +47,11 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md px-4">
         <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-4 items-center text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Mail className="w-8 h-8 text-primary" />
-            </div>
             <div>
               <CardTitle className="text-2xl font-bold">Kiểm tra email</CardTitle>
               <CardDescription className="mt-2">
-                Nếu tài khoản với email <strong>{email}</strong> tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.
+                Nếu tài khoản với email <strong>{email}</strong> tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu. <br />
+                <strong>Vui lòng kiểm tra hòm thư rác và spam</strong>
               </CardDescription>
             </div>
           </CardHeader>
@@ -74,9 +72,7 @@ export default function ForgotPasswordPage() {
     <div className="w-full max-w-md px-4">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
-          <Link href="/" className="inline-block">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          </Link>
           <div>
             <CardTitle className="text-2xl font-bold">Quên mật khẩu</CardTitle>
             <CardDescription className="mt-1">
@@ -109,7 +105,7 @@ export default function ForgotPasswordPage() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-3">
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            <Button type="submit" className="w-full mt-3 " size="lg" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

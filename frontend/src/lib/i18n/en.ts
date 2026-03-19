@@ -70,7 +70,7 @@ const en: Record<TranslationKey, string> = {
   // Documents page
   docs_my_documents: "My Documents",
   docs_manage_all: "Manage all your contracts",
-  docs_create_new: "Create new document",
+  docs_create_new: "Create new contract",
   docs_empty: "No documents yet. Create your first document!",
   docs_deleted: "Document deleted",
   docs_delete_failed: "Failed to delete document",
@@ -151,6 +151,13 @@ const en: Record<TranslationKey, string> = {
   auth_password: "Password",
   auth_name: "Full name",
   auth_forgot_password: "Forgot password?",
+  
+  // Save Draft Modal
+  save_draft_title: "Save Draft?",
+  save_draft_description: "You have unsaved changes. Would you like to save them as a draft before leaving?",
+  save_draft_save: "Save Draft",
+  save_draft_discard: "Discard Changes",
+  save_draft_status_label: "Contract Status",
 };
 
 export default en;

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
 import { Newspaper } from "@/components/landing/newspaper";
 import FeaturesSection from "@/components/landing/features-section";
 import TargetSection from "@/components/landing/target-section";
 import Achievement from "@/components/landing/achievement";
-import Members from "@/components/landing/members";
+// import Members from "@/components/landing/members";
 import { Incubation } from "@/components/landing/incubation";
 import SurveySection from "@/components/landing/survey-section";
 import { useI18n } from "@/components/landing/language-provider";
@@ -28,20 +29,20 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] dark:bg-gray-950">
-      <LandingHeader onOpenSurvey={() => setIsSurveyOpen(true)} />
-      <HeroSection onOpenSurvey={() => setIsSurveyOpen(true)} />
+    <div className="landing-light min-h-screen bg-[#faf9f5]">
+      <LandingHeader />
+      <HeroSection />
       <Newspaper />
       <FeaturesSection />
       <TargetSection />
       <Achievement />
-      <Members />
+      {/* <Members /> */}
       <Incubation />
 
       <div id="survey" className="sr-only" aria-hidden />
       <SurveySection isOpen={isSurveyOpen} onClose={() => setIsSurveyOpen(false)} />
 
-      <footer id="contact" className="bg-gray-900 dark:bg-black text-white py-12">
+      <footer id="contact" className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4 lg:px-6">
           <div className="grid md:grid-cols-2 gap-8 justify-between">
             <div className="flex flex-col items-start">
@@ -79,7 +80,15 @@ export default function LandingPage() {
               <p className="text-gray-400 max-w-sm md:ml-auto">{t("footer_tagline")}</p>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 flex justify-center items-center">
+          <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <div className="flex gap-6 text-sm">
+              <Link href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                {t("footer_privacy")}
+              </Link>
+              <Link href="/term" className="text-gray-400 hover:text-white transition-colors">
+                {t("footer_terms")}
+              </Link>
+            </div>
             <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} Lawzy</p>
           </div>
         </div>

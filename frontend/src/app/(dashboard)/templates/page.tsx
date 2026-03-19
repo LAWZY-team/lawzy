@@ -113,7 +113,7 @@ export default function TemplatesPage() {
                 <p className="text-sm text-muted-foreground shrink-0 mb-2">
                   {t("tmpl_found", { n: filteredTemplates.length })}
                 </p>
-                <ScrollArea className="flex-1 min-h-0">
+                <ScrollArea id="tour-templates-list" className="flex-1 min-h-0">
                   <TemplateGrid templates={filteredTemplates} onViewTemplate={setSelectedTemplate} viewMode={viewMode} />
                 </ScrollArea>
               </>

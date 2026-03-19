@@ -1,32 +1,33 @@
-'use client'
+"use client";
 
-import { Scale, Sparkles, FileText, ShieldAlert, Search } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { ChatMessageBubble } from './chat-message-bubble'
-import { ChatLoadingThinking } from './chat-loading-thinking'
-import type { ChatMessage } from './types'
+import { motion, AnimatePresence } from "framer-motion";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatMessageBubble } from "./chat-message-bubble";
+import { ChatLoadingThinking } from "./chat-loading-thinking";
+import type { ChatMessage } from "./types";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 const QUICK_ACTIONS = [
-  { text: 'Soạn hợp đồng dịch vụ', icon: FileText },
-  { text: 'Kiểm tra rủi ro pháp lý', icon: ShieldAlert },
-  { text: 'Tra cứu Luật Dân sự 2015', icon: Search },
-  { text: 'Giải thích điều khoản', icon: Scale },
-] as const
+  { text: "Soạn hợp đồng dịch vụ" },
+  { text: "Kiểm tra rủi ro pháp lý"},
+  { text: "Tra cứu Luật Dân sự 2015"},
+  { text: "Giải thích điều khoản"},
+] as const;
 
 interface ChatMessageListProps {
-  scrollAreaRef: React.RefObject<HTMLDivElement | null>
-  messages: ChatMessage[]
-  isLoading: boolean
-  thinkingSteps: string[]
-  thinkingCollapsed: boolean
-  onToggleThinkingCollapsed: () => void
-  userDisplayName?: string
-  isCanvasMode: boolean
-  onOpenCanvas?: () => void
-  expandedThinkingId: string | null
-  onToggleThinking: (id: string) => void
-  onQuickAction: (text: string) => void
+  scrollAreaRef: React.RefObject<HTMLDivElement | null>;
+  messages: ChatMessage[];
+  isLoading: boolean;
+  thinkingSteps: string[];
+  thinkingCollapsed: boolean;
+  onToggleThinkingCollapsed: () => void;
+  userDisplayName?: string;
+  isCanvasMode: boolean;
+  onOpenCanvas?: () => void;
+  expandedThinkingId: string | null;
+  onToggleThinking: (id: string) => void;
+  onQuickAction: (text: string) => void;
 }
 
 export function ChatMessageList({
@@ -44,14 +45,26 @@ export function ChatMessageList({
 }: ChatMessageListProps) {
   return (
     <ScrollArea ref={scrollAreaRef} className="flex-1 w-full min-h-0">
-      <div className="px-4 py-6 md:px-6 space-y-8 max-w-3xl mx-auto w-full pb-4">
+      <div
+        className={cn(
+          "px-4 py-6 md:px-6 space-y-8 w-full pb-6",
+          isCanvasMode ? "max-w-none" : "max-w-3xl mx-auto"
+        )}
+      >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-6 animate-in fade-in duration-700">
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700">
             <div className="space-y-2 max-w-md">
-              <h2 className="text-2xl font-medium text-foreground">
-                {/* Xin chào, {userDisplayName?.trim() || 'Luật sư'} */}
-              </h2>
-              <p className="text-muted-foreground">Hôm nay tôi có thể giúp gì cho bạn?</p>
+              {/* Xin chào, {userDisplayName?.trim() || "Luật sư"} */}
+              <Image
+                width={90}
+                height={90}
+                src="/logo/lawzy-logo-whitebg.png"
+                alt="Lawzy"
+                className="object-contain"
+              />
+              <p className="text-muted-foreground">
+                Hôm nay tôi có thể giúp gì cho bạn?
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
@@ -62,9 +75,6 @@ export function ChatMessageList({
                   className="p-4 text-sm text-left bg-background hover:bg-accent border border-border rounded-xl transition-all flex items-center gap-3 text-foreground group"
                   onClick={() => onQuickAction(action.text)}
                 >
-                  <div className="p-2 rounded-lg bg-muted group-hover:bg-accent transition-colors">
-                    <action.icon className="w-4 h-4 text-blue-400" />
-                  </div>
                   <span>{action.text}</span>
                 </button>
               ))}
@@ -92,9 +102,13 @@ export function ChatMessageList({
             className="flex gap-4 w-full"
           >
             <div className="shrink-0 mt-1">
-              <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-blue-400 animate-spin-slow" />
-              </div>
+              <Image
+                src="/logo/lawzy-triangle.png"
+                width={24}
+                height={24}
+                alt="Lawzy"
+                className="object-contain"
+              />
             </div>
             <ChatLoadingThinking
               thinkingSteps={thinkingSteps}
@@ -105,5 +119,5 @@ export function ChatMessageList({
         )}
       </div>
     </ScrollArea>
-  )
+  );
 }

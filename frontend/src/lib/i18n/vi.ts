@@ -68,7 +68,7 @@ const vi = {
   // Documents page
   docs_my_documents: "Tài liệu của tôi",
   docs_manage_all: "Quản lý tất cả hợp đồng của bạn",
-  docs_create_new: "Tạo tài liệu mới",
+  docs_create_new: "Tạo hợp đồng mới",
   docs_empty: "Chưa có tài liệu nào. Hãy tạo tài liệu đầu tiên của bạn!",
   docs_deleted: "Đã xóa tài liệu",
   docs_delete_failed: "Không thể xóa tài liệu",
@@ -149,6 +149,13 @@ const vi = {
   auth_password: "Mật khẩu",
   auth_name: "Họ tên",
   auth_forgot_password: "Quên mật khẩu?",
+  
+  // Save Draft Modal
+  save_draft_title: "Lưu bản thảo?",
+  save_draft_description: "Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại dưới dạng bản thảo trước khi rời đi không?",
+  save_draft_save: "Lưu bản thảo",
+  save_draft_discard: "Hủy bỏ thay đổi",
+  save_draft_status_label: "Trạng thái hợp đồng",
 } as const;
 
 export default vi;

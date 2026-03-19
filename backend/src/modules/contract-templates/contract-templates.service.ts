@@ -24,6 +24,13 @@ function prefixForScope(scope: TemplateScope): string {
   return scope === 'system' ? SYSTEM_PREFIX : COMMUNITY_PREFIX;
 }
 
+function sanitizeHeaderValue(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+  // loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
+  const cleaned = input.replace(/[\r\n]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+  return cleaned.trim().slice(0, 200); // giới hạn độ dài cho chắc
+}
+
 function sanitizeBaseName(input: string): string {
   const trimmed = input.trim();
   const noExt = trimmed.replace(/\.[^/.]+$/, '');
@@ -179,8 +186,12 @@ export class ContractTemplatesService {
         Body: params.buffer,
         ContentType: params.contentType,
         Metadata: {
-          name: params.name,
-          ...(params.description ? { description: params.description } : {}),
+          ...(sanitizeHeaderValue(params.name)
+            ? { name: sanitizeHeaderValue(params.name)! }
+            : {}),
+          ...(sanitizeHeaderValue(params.description)
+            ? { description: sanitizeHeaderValue(params.description)! }
+            : {}),
         },
       }),
     );

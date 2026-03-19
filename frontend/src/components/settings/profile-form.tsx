@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+
 import { z } from "zod"
 import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -16,22 +18,21 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthStore } from "@/stores/auth-store"
 import { api } from "@/lib/api/client"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { Modal } from "@/components/ui/modal"
+import { Label } from "@/components/ui/label"
+import { PasswordRequirements } from "@/components/password-requirements"
+import { validatePassword } from "@/lib/utils/password-validator"
 
 const profileFormSchema = z.object({
   username: z
     .string({ error: "Vui lòng nhập tên người dùng." })
     .min(2, { message: "Tên người dùng phải có ít nhất 2 ký tự." })
     .max(50, { message: "Tên người dùng không được quá 50 ký tự." }),
+  position: z.string({ error: "Vui lòng nhập chức vụ." }),
   email: z.string({ error: "Vui lòng chọn email." }).email(),
   bio: z.string().max(250, { message: "Tiểu sử không được quá 250 ký tự." }).optional(),
   urls: z
@@ -46,6 +47,7 @@ export function ProfileForm() {
 
   const defaultValues: Partial<ProfileFormValues> = {
     username: user?.name ?? "",
+    position: user?.position ?? "",
     email: user?.email ?? "",
     bio: "",
     urls: [],
@@ -57,14 +59,76 @@ export function ProfileForm() {
     mode: "onChange",
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { fields, append, remove } = useFieldArray({
     name: "urls",
     control: form.control,
   })
 
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError("")
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Mật khẩu xác nhận không khớp")
+      return
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError("Mật khẩu mới không được trùng với mật khẩu hiện tại")
+      return
+    }
+
+    const validation = validatePassword(newPassword)
+    if (!validation.valid) {
+      setPasswordError(validation.message || "Mật khẩu không hợp lệ")
+      return
+    }
+
+    setIsChangingPassword(true)
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setPasswordError(data.message || "Đổi mật khẩu thất bại")
+        return
+      }
+
+      toast.success("Đổi mật khẩu thành công!")
+      setShowPasswordModal(false)
+      // Reset fields
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (err) {
+      setPasswordError("Không thể kết nối đến máy chủ")
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   async function onSubmit(data: ProfileFormValues) {
     try {
-      await api.patch("/users/profile", { name: data.username })
+      await api.patch("/users/profile", { 
+        name: data.username,
+        position: data.position 
+      })
       await fetchUser()
       toast.success("Đã cập nhật hồ sơ thành công!")
     } catch {
@@ -93,28 +157,31 @@ export function ProfileForm() {
         />
         <FormField
           control={form.control}
-          name="email"
+          name="position"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn email hiển thị" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={user?.email ?? ""}>{user?.email}</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                Email đăng nhập không thể thay đổi tại đây. Vui lòng liên hệ quản trị viên nếu cần thay đổi.
-              </FormDescription>
+              <FormLabel>Chức vụ / Công việc</FormLabel>
+              <FormControl>
+                <Input placeholder="Chức vụ của bạn" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} disabled />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {/* <FormField
           control={form.control}
           name="bio"
           render={({ field }) => (
@@ -133,15 +200,15 @@ export function ProfileForm() {
               <FormMessage />
             </FormItem>
           )}
-        />
+        /> */}
         <div>
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <FormLabel className="text-base">Liên kết</FormLabel>
             <FormDescription>
               Thêm liên kết đến trang web, blog hoặc hồ sơ mạng xã hội của bạn.
             </FormDescription>
-          </div>
-          {fields.map((field, index) => (
+          </div> */}
+          {/* {fields.map((field, index) => (
             <FormField
               control={form.control}
               key={field.id}
@@ -151,7 +218,7 @@ export function ProfileForm() {
                   <FormLabel className={cn(index !== 0 && "sr-only")}>URLs</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
-                      <Input {...field} />
+                       <Input {...field} />
                       <Button
                         type="button"
                         variant="ghost"
@@ -172,8 +239,8 @@ export function ProfileForm() {
                 </FormItem>
               )}
             />
-          ))}
-          <Button
+          ))} */}
+          {/* <Button
             type="button"
             variant="outline"
             size="sm"
@@ -181,10 +248,139 @@ export function ProfileForm() {
             onClick={() => append({ value: "" })}
           >
             Thêm URL
+          </Button> */}
+        </div>
+        <div className="flex justify-start gap-2">
+          <Button type="submit">Cập nhật hồ sơ</Button>
+          <Button type="button" variant="outline" onClick={() => setShowPasswordModal(true)}>
+            Đổi mật khẩu
           </Button>
         </div>
-        <Button type="submit">Cập nhật hồ sơ</Button>
       </form>
+
+      <Modal
+        open={showPasswordModal}
+        onOpenChange={setShowPasswordModal}
+        title="Đổi mật khẩu"
+        size="md"
+      >
+        <form onSubmit={handlePasswordChange} className="space-y-4 pt-4">
+          {passwordError && (
+            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {passwordError}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+            <div className="relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? "text" : "password"}
+                placeholder="Nhập mật khẩu hiện tại"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                disabled={isChangingPassword}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                tabIndex={-1}
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">Mật khẩu mới</Label>
+            <PasswordRequirements
+              password={newPassword}
+              open={showPasswordRequirements}
+              onOpenChange={setShowPasswordRequirements}
+            >
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Nhập mật khẩu mới"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value)
+                    if (e.target.value.length > 0) {
+                      setShowPasswordRequirements(true)
+                    }
+                  }}
+                  onFocus={() => setShowPasswordRequirements(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowPasswordRequirements(false), 200)
+                  }}
+                  required
+                  disabled={isChangingPassword}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </PasswordRequirements>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Nhập lại mật khẩu mới"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              disabled={isChangingPassword}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowPasswordModal(false)}
+              disabled={isChangingPassword}
+            >
+              Hủy
+            </Button>
+            <Button type="submit" disabled={isChangingPassword}>
+              {isChangingPassword ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Đổi mật khẩu"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </Form>
   )
 }
