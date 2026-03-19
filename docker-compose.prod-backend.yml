@@ -34,6 +34,9 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_REGION: ${R2_REGION}
       NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "5001:5001"
     depends_on:
       mysql:
         condition: service_healthy
