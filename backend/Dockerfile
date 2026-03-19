@@ -1,23 +1,14 @@
 FROM node:22-alpine AS base
 
-FROM base AS deps
+FROM base AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
-
-# Production deps only - significantly smaller than full node_modules
-FROM base AS prod-deps
-WORKDIR /app
-COPY package.json package-lock.json ./
+RUN rm -rf node_modules
 RUN npm ci --omit=dev
-COPY --from=builder /app/prisma ./prisma
 RUN npx prisma generate
 
 FROM base AS runner
@@ -25,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /app/dist ./dist
-COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/prisma ./prisma
 
