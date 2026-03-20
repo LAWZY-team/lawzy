@@ -14,6 +14,25 @@ import { validatePassword } from "@/lib/utils/password-validator"
 import { PasswordRequirements } from "@/components/password-requirements"
 import { useAuthStore } from "@/stores/auth-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const positionOptions = [
+  "Chủ doanh nghiệp / Founder",
+  "Nhân sự / HR",
+  "Kế toán / Account",
+  "Pháp chế",
+  "Luật sư / Legal",
+  "Sales / Kinh doanh",
+  "Kinh doanh tự do / Freelancer",
+  "Khác"
+]
 
 interface AuthModalProps {
   open: boolean
@@ -31,6 +50,8 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [position, setPosition] = useState("")
+  const [customPosition, setCustomPosition] = useState("")
   const [otp, setOtp] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
@@ -80,13 +101,24 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       return
     }
 
+    if (!position) {
+      setError("Vui lòng chọn chức vụ của bạn")
+      return
+    }
+
+    if (position === "Khác" && !customPosition.trim()) {
+      setError("Vui lòng nhập chức vụ của bạn")
+      return
+    }
+
     setIsLoading(true)
 
     try {
+      const finalPosition = position === "Khác" ? customPosition : position
       const res = await fetch("/api/auth/register/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password }),
+        body: JSON.stringify({ email, name, password, position: finalPosition }),
       })
 
       const data = await res.json()
@@ -202,6 +234,34 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
     }
   }
 
+  const handleGoogleSuccess = async (idToken: string) => {
+    setError("")
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ idToken }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.message || "Xác thực Google thất bại")
+        return
+      }
+      setUser(data.user)
+      await fetchUser()
+      clearSession()
+      toast.success("Đăng nhập thành công!")
+      onOpenChange(false)
+      onSuccess?.()
+    } catch {
+      setError("Không thể kết nối đến server")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -243,6 +303,8 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
         setEmail("")
         setPassword("")
         setConfirmPassword("")
+        setPosition("")
+        setCustomPosition("")
         setOtp("")
         setLoginEmail("")
         setLoginPassword("")
@@ -262,7 +324,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
         onOpenChange={onOpenChange}
         size="md"
         title=""
-        className="max-w-md"
+        className="max-w-md overflow-y-auto max-h-[95vh] sm:max-h-[85vh]"
       >
         <div className="w-full">
           {mode === "verify" ? (
@@ -351,14 +413,31 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
               </CardHeader>
 
               <form onSubmit={handleRequestRegistration}>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-0">
                   {error && (
                     <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
                       {error}
                     </div>
                   )}
 
-                  <div className="space-y-2">
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={(err) => setError(err.message || "Đăng ký Google thất bại")}
+                    disabled={isLoading}
+                    label="signup"
+                    className="w-full"
+                  />
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mt-4">
                     <Label htmlFor="name">Họ và tên</Label>
                     <Input
                       id="name"
@@ -385,6 +464,36 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       disabled={isLoading}
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="position">Chức vụ / Công việc <span className="text-destructive">*</span></Label>
+                    <Select onValueChange={setPosition} value={position} disabled={isLoading}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn chức vụ của bạn" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {positionOptions.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {position === "Khác" && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                      <Label htmlFor="customPosition">Nhập chức vụ khác <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="customPosition"
+                        placeholder="Nhập chức vụ của bạn"
+                        value={customPosition}
+                        onChange={(e) => setCustomPosition(e.target.value)}
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="password">Mật khẩu</Label>
@@ -684,6 +793,25 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       "Đăng nhập"
                     )}
                   </Button>
+
+                  <div className="relative w-full">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+                    </div>
+                  </div>
+
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={(err) => {
+                      setError(err.message || "Đăng nhập Google thất bại");
+                    }}
+                    disabled={isLoading}
+                    className="w-full flex justify-center"
+                  />
+
                   <p className="text-sm text-muted-foreground text-center">
                     Chưa có tài khoản?{" "}
                     <button
