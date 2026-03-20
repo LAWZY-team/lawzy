@@ -187,10 +187,18 @@ export default function EditorPage({
     updateMetadata,
   ])
 
+  const wasAuthRef = useRef(isAuthenticated)
+  useEffect(() => {
+    wasAuthRef.current = isAuthenticated
+  }, [isAuthenticated])
+
   // Save local session periodically on /editor/new
   useEffect(() => {
     if (resolvedParams.id === 'new' && isCanvasMode) {
       const interval = setInterval(() => {
+        const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+        if (isLoggingOut) return
+
         saveSession({
           editorContent,
           documentTitle,
@@ -203,6 +211,9 @@ export default function EditorPage({
 
       return () => {
         try {
+          const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+          if (isLoggingOut) return
+
           // Save once on unmount/navigation to avoid losing recent changes
           saveSession({
             editorContent,
@@ -450,6 +461,24 @@ export default function EditorPage({
   useNavigationGuard(isDirty && !isTourActive, () => {
     setShowSaveDraftModal(true)
   })
+
+  const autoSaveTriggeredRef = useRef(false)
+
+  // Migrates the guest draft silently to a real database document once authenticated and tour finishes
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      resolvedParams.id === 'new' &&
+      guestRestoredRef.current &&
+      !isTourActive &&
+      !autoSaveTriggeredRef.current
+    ) {
+      if (editorContent && editorContent.content && editorContent.content.length > 0) {
+        autoSaveTriggeredRef.current = true
+        handleSaveDraftToDb('draft')
+      }
+    }
+  }, [isAuthenticated, resolvedParams.id, isTourActive, editorContent, handleSaveDraftToDb])
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
