@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GeminiClient } from '@/lib/ai/gemini-client'
+import { GeminiClient, ChatHistoryItem } from '@/lib/ai/gemini-client'
 import { buildSourcesContext } from '@/lib/sources/build-context'
 
 export async function POST(req: NextRequest) {
   try {
-    const { metadata, prompt, existingContent, mergeFieldValues, attachedSources } = await req.json()
+    const { metadata, prompt, existingContent, mergeFieldValues, attachedSources, chatHistory } = await req.json()
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -28,6 +28,18 @@ export async function POST(req: NextRequest) {
           }))
         : undefined
 
+    const normalizedHistory: ChatHistoryItem[] | undefined =
+      Array.isArray(chatHistory) &&
+      chatHistory.every(
+        (h: unknown) =>
+          h && typeof h === 'object' && 'role' in h && 'content' in h &&
+          (h as { role: string }).role !== undefined
+      )
+        ? (chatHistory as { role: string; content: string }[])
+            .filter((h) => h.role === 'user' || h.role === 'assistant')
+            .map((h) => ({ role: h.role as 'user' | 'assistant', content: String(h.content ?? '') }))
+        : undefined
+
     const result = await gemini.generateContract(metadata, prompt, sourcesContext, {
       existingContent: typeof existingContent === 'string' ? existingContent : undefined,
       mergeFieldValues:
@@ -37,6 +49,7 @@ export async function POST(req: NextRequest) {
             )
           : undefined,
       attachedSources: normalizedAttached?.length ? normalizedAttached : undefined,
+      chatHistory: normalizedHistory?.length ? normalizedHistory : undefined,
     })
 
     return NextResponse.json(result)

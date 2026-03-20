@@ -5,9 +5,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --only=production && \
-    cp -R node_modules /tmp/prod_modules && \
-    npm ci
+RUN npm ci --only=production
 
 FROM base AS builder
 WORKDIR /app

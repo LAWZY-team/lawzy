@@ -33,6 +33,7 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_REGION: ${R2_REGION}
       NODE_ENV: production
+      PORT: 5001
     depends_on:
       mysql:
         condition: service_healthy
