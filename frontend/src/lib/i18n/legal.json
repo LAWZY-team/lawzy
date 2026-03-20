@@ -1,0 +1,16 @@
+{
+  "vi": {
+    "term_title": "Điều khoản sử dụng",
+    "privacy_title": "Chính sách bảo mật",
+    "footer_privacy": "Chính sách bảo mật",
+    "footer_terms": "Điều khoản sử dụng",
+    "back_home": "Về trang chủ"
+  },
+  "en": {
+    "term_title": "Terms of Use",
+    "privacy_title": "Privacy Policy",
+    "footer_privacy": "Privacy Policy",
+    "footer_terms": "Terms of Use",
+    "back_home": "Back to home"
+  }
+}

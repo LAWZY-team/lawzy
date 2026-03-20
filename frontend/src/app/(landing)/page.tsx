@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
 import { Newspaper } from "@/components/landing/newspaper";
@@ -79,7 +80,15 @@ export default function LandingPage() {
               <p className="text-gray-400 max-w-sm md:ml-auto">{t("footer_tagline")}</p>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 flex justify-center items-center">
+          <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <div className="flex gap-6 text-sm">
+              <Link href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                {t("footer_privacy")}
+              </Link>
+              <Link href="/term" className="text-gray-400 hover:text-white transition-colors">
+                {t("footer_terms")}
+              </Link>
+            </div>
             <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} Lawzy</p>
           </div>
         </div>

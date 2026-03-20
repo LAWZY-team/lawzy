@@ -48,7 +48,7 @@ export function HelpWidget() {
   if (!isAuthenticated) return null
 
   // Corner snapping logic
-  const handleDragEnd = (event: any, info: any) => {
+  const handleDragEnd = (_event: unknown, info: { offset: { x: number; y: number } }) => {
     // Small delay before allowing clicks again, to ensure the 'click' event 
     // that follows 'dragEnd' is ignored if it was a drag
     setTimeout(() => {

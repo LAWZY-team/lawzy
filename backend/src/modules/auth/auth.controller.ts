@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -66,6 +67,18 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.login(dto.email, dto.password);
+    const tokens = await this.authService.generateTokens(user.id, user.email);
+    this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { user };
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async loginWithGoogle(
+    @Body() dto: GoogleLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.authService.loginWithGoogle(dto.idToken);
     const tokens = await this.authService.generateTokens(user.id, user.email);
     this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { user };

@@ -235,11 +235,19 @@ export default function EditorPage({
         if (doc) {
           setCurrentDocument(doc.id as string)
           setTemplateMergeFields(null)
-          const mfv = (doc.mergeFieldValues as Record<string, unknown>) ?? {}
+          const rawMfv = doc.mergeFieldValues
+          const parsedMfv: Record<string, unknown> =
+            typeof rawMfv === 'string'
+              ? (() => { try { return JSON.parse(rawMfv) } catch { return {} } })()
+              : ((rawMfv as Record<string, unknown>) ?? {})
           setMergeFieldValues(
-            Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
+            Object.fromEntries(Object.entries(parsedMfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
           )
-          const raw = doc.contentJSON
+          const rawContent = doc.contentJSON
+          const raw =
+            typeof rawContent === 'string'
+              ? (() => { try { return JSON.parse(rawContent) } catch { return rawContent } })()
+              : rawContent
           const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
           if (content) setEditorContent(content)
           setDocumentTitle((doc.title as string) || 'Hợp đồng')

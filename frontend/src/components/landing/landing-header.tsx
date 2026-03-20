@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "./language-provider";
+import { LocaleSwitcher } from "./locale-switcher";
 import { Menu, X, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGuestFlowStore } from "@/stores/guest-flow-store";
@@ -15,7 +16,7 @@ type HeaderProps = {
 };
 
 export default function LandingHeader({ onCreateContract }: HeaderProps) {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -87,16 +88,16 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
               </AnimatePresence>
             )}
 
-            {/* <Button variant="outline" size="sm" className="hidden md:inline-flex border-gray-300 hover:bg-gray-100 h-9" asChild>
+            <Button variant="outline" size="sm" className="hidden md:inline-flex border-gray-300 hover:bg-gray-100 h-9" asChild>
               <Link href="/login">
                 <LogIn className="w-4 h-4 mr-1.5" />
                 {t("login")}
               </Link>
-            </Button> */}
-
-            <Button variant="outline" className="hidden md:inline-flex px-3 py-1 border-gray-300 hover:bg-gray-100 h-9" onClick={() => setLocale(locale === "vi" ? "en" : "vi")}>
-              {locale === "vi" ? t("language_vietnamese") : t("language_english")}
             </Button>
+
+            <div className="hidden md:block">
+              <LocaleSwitcher />
+            </div>
 
             <div className="flex items-center gap-4 md:hidden z-50">
               <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -116,9 +117,15 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
               </a>
             ))}
             <div className="pt-6 border-t border-gray-100 w-full space-y-4">
-              <Button variant="outline" className="w-full justify-start text-lg h-12" onClick={() => { setLocale(locale === "vi" ? "en" : "vi"); setIsMobileMenuOpen(false); }}>
-                {locale === "vi" ? t("language_vietnamese") : t("language_english")}
-              </Button>
+              <Link href="/login" className="block" onClick={() => setIsMobileMenuOpen(false)}>
+                <Button variant="outline" className="w-full justify-start text-lg h-12">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  {t("login")}
+                </Button>
+              </Link>
+              <div className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
+                <LocaleSwitcher className="w-full justify-start h-12 text-lg" />
+              </div>
               <Button className="w-full bg-black hover:bg-gray-800 text-white text-lg h-12 rounded-xl" onClick={() => { setIsMobileMenuOpen(false); handleCreateContract(); }}>
                 {t("try_free")}
               </Button>

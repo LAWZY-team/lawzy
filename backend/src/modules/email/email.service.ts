@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter | null = null;
 
   constructor(private readonly configService: ConfigService) {
     const smtpHost = this.configService.get<string>('SMTP_HOST');
@@ -12,9 +13,10 @@ export class EmailService {
     const smtpPass = this.configService.get<string>('SMTP_PASS');
 
     if (!smtpHost || !smtpUser || !smtpPass) {
-      throw new Error(
-        'SMTP configuration is missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.',
+      this.logger.warn(
+        'SMTP not configured (SMTP_HOST, SMTP_USER, SMTP_PASS). Email sending disabled.',
       );
+      return;
     }
 
     this.transporter = nodemailer.createTransport({
@@ -26,6 +28,12 @@ export class EmailService {
         pass: smtpPass,
       },
     });
+  }
+
+  private ensureTransporter(): void {
+    if (!this.transporter) {
+      throw new Error('Email service not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.');
+    }
   }
 
   async sendOTPEmail(email: string, name: string, otp: string): Promise<void> {
@@ -69,7 +77,8 @@ export class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      this.ensureTransporter();
+      await this.transporter!.sendMail(mailOptions);
     } catch (error) {
       throw new Error(
         `Failed to send OTP email: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -123,7 +132,8 @@ export class EmailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      this.ensureTransporter();
+      await this.transporter!.sendMail(mailOptions);
     } catch (error) {
       throw new Error(
         `Failed to send password reset email: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -157,7 +167,8 @@ export class EmailService {
       attachments: data.attachments,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    this.ensureTransporter();
+    await this.transporter!.sendMail(mailOptions);
   }
 
   async sendFeedbackReceiptToUser(email: string, type: string): Promise<void> {
@@ -205,6 +216,7 @@ export class EmailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    this.ensureTransporter();
+    await this.transporter!.sendMail(mailOptions);
   }
 }

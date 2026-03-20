@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes, randomInt } from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -102,6 +103,58 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
+    return this.usersService.sanitize(user);
+  }
+
+  async loginWithGoogle(idToken: string) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId) {
+      throw new BadRequestException('Google OAuth chưa được cấu hình');
+    }
+
+    const client = new OAuth2Client(clientId);
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+    } catch {
+      throw new UnauthorizedException('Token Google không hợp lệ');
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new UnauthorizedException('Không thể xác thực thông tin từ Google');
+    }
+
+    const { sub: providerId, email, name, picture } = payload;
+
+    let user = await this.usersService.findByProviderId('google', providerId);
+    if (user) {
+      return this.usersService.sanitize(user);
+    }
+
+    const existingByEmail = await this.usersService.findByEmail(email);
+    if (existingByEmail) {
+      await this.prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: { provider: 'google', providerId, avatar: picture ?? undefined },
+      });
+      return this.usersService.sanitize(existingByEmail);
+    }
+
+    const randomPassword = randomBytes(32).toString('hex');
+    const hashed = await bcrypt.hash(randomPassword, SALT_ROUNDS);
+    user = await this.usersService.create({
+      email,
+      name: name ?? email.split('@')[0],
+      password: hashed,
+      provider: 'google',
+      providerId,
+      avatar: picture ?? undefined,
+      isVerified: true,
+    });
     return this.usersService.sanitize(user);
   }
 

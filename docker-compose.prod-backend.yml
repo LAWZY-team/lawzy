@@ -1,0 +1,61 @@
+# Backend + MySQL - chạy trên VPS Backend (ví dụ: 103.172.79.196)
+# Coolify: tạo Application riêng, base_directory: /, compose: docker-compose.prod-backend.yml
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lawzy-mysql-prod
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: lawzy
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - lawzy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lawzy-backend-prod
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/lawzy
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_REGION: ${R2_REGION}
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "5001:5001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-api.rule=Host(`api.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-api.entrypoints=https"
+      - "traefik.http.routers.lawzy-api.tls=true"
+      - "traefik.http.routers.lawzy-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-api.loadbalancer.server.port=5001"
+    networks:
+      - lawzy-network
+      - coolify
+
+networks:
+  lawzy-network:
+    driver: bridge
+  coolify:
+    external: true
+
+volumes:
+  mysql-data:

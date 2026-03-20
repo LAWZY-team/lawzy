@@ -1,16 +1,15 @@
 FROM node:22-alpine AS base
 
-FROM base AS deps
+FROM base AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+RUN rm -rf node_modules
+RUN npm ci --omit=dev
+RUN npx prisma generate
 
 FROM base AS runner
 WORKDIR /app
