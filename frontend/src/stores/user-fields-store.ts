@@ -32,37 +32,35 @@ type ServerCustomField = {
   isHidden: boolean
 }
 
-/** Get storage key based on user ID */
+/** Get storage key */
 function getStorageKey(): string {
-  const user = useAuthStore.getState().user
-  if (user?.id) {
-    return `lawzy-user-fields-${user.id}`
-  }
   return 'lawzy-user-fields-guest'
 }
 
-/** Custom storage that uses user-specific keys */
+/** Custom storage that uses guest-only key in sessionStorage */
 const userFieldsStorage: StateStorage = {
   getItem: (_name: string): string | null => {
-    const key = getStorageKey()
+    const user = useAuthStore.getState().user
+    if (user?.id) return null
     try {
-      return localStorage.getItem(key)
+      return sessionStorage.getItem(getStorageKey())
     } catch {
       return null
     }
   },
   setItem: (_name: string, value: string): void => {
-    const key = getStorageKey()
+    const user = useAuthStore.getState().user
+    if (user?.id) return
     try {
-      localStorage.setItem(key, value)
+      sessionStorage.setItem(getStorageKey(), value)
     } catch {
       // Ignore storage errors
     }
   },
   removeItem: (_name: string): void => {
-    const key = getStorageKey()
     try {
-      localStorage.removeItem(key)
+      sessionStorage.removeItem(getStorageKey())
+      localStorage.removeItem(getStorageKey()) // cleanup legacy
     } catch {
       // Ignore storage errors
     }
@@ -227,7 +225,7 @@ if (typeof window !== 'undefined') {
 
       if (!currentUserId) {
         // Guest: load from local persisted key
-        const guestRaw = localStorage.getItem('lawzy-user-fields-guest')
+        const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
         const guest = parsePersistedState(guestRaw)
         useUserFieldsStore.setState({
           customFields: guest?.customFields ?? [],
@@ -240,7 +238,7 @@ if (typeof window !== 'undefined') {
       void (async () => {
         try {
           const server = await fetchServerFields()
-          const guestRaw = localStorage.getItem('lawzy-user-fields-guest')
+          const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
           const guest = parsePersistedState(guestRaw)
 
           const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
@@ -271,6 +269,7 @@ if (typeof window !== 'undefined') {
 
           // Clear guest local fields after merge
           try {
+            sessionStorage.removeItem('lawzy-user-fields-guest')
             localStorage.removeItem('lawzy-user-fields-guest')
           } catch {
             // ignore

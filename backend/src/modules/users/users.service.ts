@@ -137,12 +137,22 @@ export class UsersService {
   }
 
   async findByResetToken(token: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        resetToken: token,
-        resetExpires: { gt: new Date() },
-      },
+    const user = await this.prisma.user.findFirst({
+      where: { resetToken: token },
     });
+
+    if (!user) return null;
+
+    if (user.resetExpires && user.resetExpires < new Date()) {
+      // Tiêu hủy token vì đã quá hạn
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: null, resetExpires: null },
+      }).catch(() => {});
+      return null;
+    }
+
+    return user;
   }
 
   async updatePassword(id: string, password: string): Promise<User> {
@@ -160,13 +170,22 @@ export class UsersService {
   }
 
   async findByEmailAndOTP(email: string, otp: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        email,
-        otpCode: otp,
-        otpExpires: { gt: new Date() },
-      },
+    const user = await this.prisma.user.findFirst({
+      where: { email, otpCode: otp },
     });
+
+    if (!user) return null;
+
+    if (user.otpExpires && user.otpExpires < new Date()) {
+      // Tiêu hủy mã OTP vì đã quá hạn
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { otpCode: null, otpExpires: null },
+      }).catch(() => {});
+      return null;
+    }
+
+    return user;
   }
 
   sanitize(user: User) {

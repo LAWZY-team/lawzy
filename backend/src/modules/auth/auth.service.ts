@@ -48,7 +48,7 @@ export class AuthService {
 
   async requestRegistration(email: string, name: string, password: string, position: string) {
     const existing = await this.usersService.findByEmail(email);
-    if (existing) {
+    if (existing && existing.isVerified) {
       throw new ConflictException('Email này đã được đăng ký');
     }
 
@@ -61,15 +61,30 @@ export class AuthService {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-    await this.usersService.create({
-      email,
-      name,
-      password: hashed,
-      position,
-      otpCode: otp,
-      otpExpires,
-      isVerified: false,
-    });
+
+    if (existing && !existing.isVerified) {
+      // Cập nhật lại user chưa verify với mã OTP mới thay vì tạo mới
+      await this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          name,
+          password: hashed,
+          position,
+          otpCode: otp,
+          otpExpires,
+        },
+      });
+    } else {
+      await this.usersService.create({
+        email,
+        name,
+        password: hashed,
+        position,
+        otpCode: otp,
+        otpExpires,
+        isVerified: false,
+      });
+    }
 
     await this.emailService.sendOTPEmail(email, name, otp);
 
@@ -240,11 +255,12 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      return { message: 'Nếu email tồn tại, bạn sẽ nhận được link đặt lại mật khẩu' };
+      throw new BadRequestException('Không có tài khoản trên hệ thống');
     }
 
     const token = randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    // OTP / Token giới hạn trong 10 phút
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
     await this.usersService.setResetToken(email, token, expires);
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');

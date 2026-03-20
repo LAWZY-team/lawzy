@@ -219,18 +219,19 @@ export function HelpWidget() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="title">Tiêu đề</Label>
+                <Label htmlFor="title">Tiêu đề <span className="text-destructive">*</span></Label>
                 <Input
                   id="title"
                   placeholder="Vấn đề bạn đang gặp phải..."
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={isLoading}
+                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Mô tả chi tiết</Label>
+                <Label htmlFor="description">Mô tả chi tiết <span className="text-destructive">*</span></Label>
                 <Textarea
                   id="description"
                   placeholder="Hãy mô tả chi tiết để chúng tôi hỗ trợ bạn tốt nhất..."
@@ -238,6 +239,7 @@ export function HelpWidget() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   disabled={isLoading}
+                  required
                 />
               </div>
 
