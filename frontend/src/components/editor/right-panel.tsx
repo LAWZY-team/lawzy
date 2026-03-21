@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 
+import { LAWZY_FLUSH_MERGE_FIELD_DRAFTS } from '@/lib/editor/flush-merge-field-drafts'
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -32,14 +33,17 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     metadata,
     templateMergeFields,
     mergeFieldValues,
+    pendingMergeFieldDrafts,
     updateMergeFieldValue,
     setMergeFieldValues,
+    setPendingMergeFieldDraft,
+    clearPendingMergeFieldKey,
+    clearPendingMergeFieldDrafts,
   } = useEditorStore()
   const { customFields, addCustomField, removeCustomField } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
-  const [draftValues, setDraftValues] = useState<Record<string, string>>({})
   const [versions, setVersions] = useState<
     Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>
   >([])
@@ -69,6 +73,34 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     return () => window.removeEventListener('lawzy:refresh-versions', handler)
   }, [loadVersions])
 
+  useEffect(() => {
+    const clearDebounceTimers = () => {
+      for (const k of Object.keys(debounceTimers.current)) {
+        clearTimeout(debounceTimers.current[k])
+      }
+      debounceTimers.current = {}
+    }
+    window.addEventListener(LAWZY_FLUSH_MERGE_FIELD_DRAFTS, clearDebounceTimers)
+    return () => window.removeEventListener(LAWZY_FLUSH_MERGE_FIELD_DRAFTS, clearDebounceTimers)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      for (const k of Object.keys(debounceTimers.current)) {
+        clearTimeout(debounceTimers.current[k])
+      }
+      debounceTimers.current = {}
+    }
+  }, [])
+
+  const humanizeFieldKey = useCallback((key: string) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  }, [])
+
   const baseMergeFields: MergeFieldItem[] = (templateMergeFields ?? []).map((f) => ({
     key: f.fieldKey,
     label: f.label,
@@ -86,13 +118,17 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
         value: mergeFieldValues[cf.key] ?? cf.defaultValue ?? '',
       })
     }
+    for (const key of Object.keys(mergeFieldValues)) {
+      if (existing.has(key)) continue
+      list.push({
+        key,
+        label: humanizeFieldKey(key),
+        value: mergeFieldValues[key] ?? '',
+      })
+      existing.add(key)
+    }
     return list
-  }, [baseMergeFields, customFields, mergeFieldValues])
-
-  // Khi đổi tài liệu, reset toàn bộ draftValues để tránh "dính" giá trị cũ sang tài liệu mới
-  useEffect(() => {
-    setDraftValues({})
-  }, [currentDocumentId])
+  }, [baseMergeFields, customFields, mergeFieldValues, humanizeFieldKey])
 
   // Khi nhấn vào merge field trong canvas → smooth scroll + focus input tương ứng
   useEffect(() => {
@@ -163,14 +199,12 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       if (authRequired) return
     }
     updateMergeFieldValue(fieldKey, value)
+    clearPendingMergeFieldKey(fieldKey)
   }
 
   // Cập nhật draft + debounce commit vào store để tránh canvas re-render từng phím
   const handleDraftChange = (fieldKey: string, value: string) => {
-    setDraftValues((prev) => ({
-      ...prev,
-      [fieldKey]: value,
-    }))
+    setPendingMergeFieldDraft(fieldKey, value)
 
     if (debounceTimers.current[fieldKey]) {
       clearTimeout(debounceTimers.current[fieldKey])
@@ -202,6 +236,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       setMergeFieldValues(
         Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
       )
+      clearPendingMergeFieldDrafts()
 
       if (version?.chatCursorAt) {
         const msgs = await api.get<Array<{ id: string; role: string; content: string; createdAt: string }>>(
@@ -240,8 +275,9 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
   }
 
   const handleDeleteField = (key: string) => {
-      removeCustomField(key)
-      toast.success('Đã xóa trường dữ liệu')
+    removeCustomField(key)
+    clearPendingMergeFieldKey(key)
+    toast.success('Đã xóa trường dữ liệu')
   }
 
   return (
@@ -330,7 +366,11 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                         Key: {`{{${field.key}}}`}
                       </p>
                       <Input
-                        value={draftValues[field.key] ?? mergeFieldValues[field.key] ?? field.value}
+                        value={
+                          pendingMergeFieldDrafts[field.key] ??
+                          mergeFieldValues[field.key] ??
+                          field.value
+                        }
                         onChange={(e) => handleDraftChange(field.key, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                         onClick={() => {

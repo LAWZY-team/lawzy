@@ -234,6 +234,8 @@ export class DocumentsService {
     documentId: string,
     data: {
       contentJSON: any;
+      mergeFieldValues?: any;
+      chatCursorAt?: string;
       label?: string;
       createdBy: string;
     },
@@ -246,10 +248,29 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
+    let chatCursorAt: Date | undefined;
+    if (
+      data.chatCursorAt != null &&
+      typeof data.chatCursorAt === 'string' &&
+      data.chatCursorAt.trim() !== ''
+    ) {
+      const d = new Date(data.chatCursorAt);
+      if (!Number.isNaN(d.getTime())) {
+        chatCursorAt = d;
+      }
+    }
+
     return this.prisma.documentVersion.create({
       data: {
         documentId,
-        contentJSON: data.contentJSON,
+        contentJSON:
+          data.contentJSON !== undefined
+            ? (this.parseJsonIfString(data.contentJSON) as any)
+            : undefined,
+        ...(data.mergeFieldValues !== undefined && {
+          mergeFieldValues: this.parseJsonIfString(data.mergeFieldValues) as any,
+        }),
+        ...(chatCursorAt !== undefined && { chatCursorAt }),
         label: data.label,
         createdBy: data.createdBy,
       },
@@ -280,7 +301,11 @@ export class DocumentsService {
       throw new NotFoundException('Version not found');
     }
 
-    return version;
+    return {
+      ...version,
+      contentJSON: this.parseJsonIfString(version.contentJSON),
+      mergeFieldValues: this.parseJsonIfString(version.mergeFieldValues),
+    };
   }
 
   async createChatMessage(

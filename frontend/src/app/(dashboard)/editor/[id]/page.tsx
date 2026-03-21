@@ -40,6 +40,7 @@ import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-con
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
 import { SaveDraftModal } from '@/components/editor/save-draft-modal'
+import { flushMergeFieldDrafts } from '@/lib/editor/flush-merge-field-drafts'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -411,6 +412,8 @@ export default function EditorPage({
     }
 
     try {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -419,7 +422,7 @@ export default function EditorPage({
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
           status,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
@@ -440,7 +443,7 @@ export default function EditorPage({
         title: documentTitle,
         status,
         contentJSON: editorContent,
-        mergeFieldValues,
+        mergeFieldValues: persistedMergeValues,
         metadata: useEditorStore.getState().metadata,
       })
 
@@ -453,7 +456,7 @@ export default function EditorPage({
       console.error(e)
       toast.error('Lưu thất bại')
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router])
   // Note: workspaceId kept in deps as it's still used (passed when available)
 
   const { isActive: isTourActive } = useOnboardingStore()
@@ -537,11 +540,13 @@ export default function EditorPage({
     if (initialLoadRef.current) return
 
     const t = setTimeout(() => {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       api
         .patch(`/documents/${resolvedParams.id}`, {
           title: documentTitle,
           contentJSON: editorContent,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
           metadata: useEditorStore.getState().metadata,
         })
         .then(() => {
@@ -563,6 +568,8 @@ export default function EditorPage({
 
     setSaving(true)
     try {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -571,7 +578,7 @@ export default function EditorPage({
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create draft')
@@ -596,7 +603,7 @@ export default function EditorPage({
       const now = new Date()
       await api.post(`/documents/${resolvedParams.id}/versions`, {
         contentJSON: editorContent,
-        mergeFieldValues,
+        mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
         label: `Lưu bản nháp (${now.toLocaleString('vi-VN')})`,
       })
