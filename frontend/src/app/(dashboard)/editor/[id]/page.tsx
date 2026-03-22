@@ -79,13 +79,13 @@ export default function EditorPage({
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
   const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
 
-  const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
+  const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues, metadata } = useEditorStore()
   const { customFields } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
   const { saveSession, getSession, clearSession } = useGuestEditorSessionStore()
 
-  /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
-  const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> SỐ HỢP ĐỒNG / CONTRACT NUMBER) */
+  const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').toUpperCase()
   const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
@@ -114,7 +114,7 @@ export default function EditorPage({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
-  const [documentTitle, setDocumentTitle] = useState('Hợp đồng dịch vụ')
+  const documentTitle = metadata.title || 'Hợp đồng mới'
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const thinkingProgress = useThinkingProgress(isGenerating)[0]
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
@@ -166,7 +166,7 @@ export default function EditorPage({
       if (!guestRestoredRef.current && session.editorContent) {
         guestRestoredRef.current = true
         setEditorContent(session.editorContent)
-        setDocumentTitle(session.documentTitle)
+        updateMetadata({ title: session.documentTitle })
         setMergeFieldValues(session.mergeFieldValues)
         if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
         if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
@@ -262,7 +262,7 @@ export default function EditorPage({
               : rawContent
           const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
           if (content) setEditorContent(content)
-          setDocumentTitle((doc.title as string) || 'Hợp đồng')
+          // Use updateMetadata below to set both title and other metadata
           const meta = (doc.metadata as Record<string, unknown>) ?? {}
           updateMetadata({
             title: (doc.title as string) || '',
@@ -270,6 +270,8 @@ export default function EditorPage({
             tags: (meta.tags as string[]) ?? [],
             riskLevel: (meta.riskLevel as 'low' | 'medium' | 'high') ?? 'low',
             visibility: (meta.visibility as 'workspace' | 'private' | 'public') ?? 'workspace',
+            status: (doc.status as string) || 'draft',
+            creator: (doc.creator as { name: string; email?: string; avatar?: string }) || undefined,
           })
           setIsCanvasMode(true)
 
@@ -292,7 +294,6 @@ export default function EditorPage({
           if (template?.contentJSON) {
             const tipTapContent = templateContentToEditorContent(template.contentJSON as DocContent)
             setEditorContent(tipTapContent)
-            setDocumentTitle(template.title)
             updateMetadata({
               title: template.title,
               type: template.category ?? 'contract',
@@ -317,7 +318,7 @@ export default function EditorPage({
       setTemplateMergeFields(null)
       setMergeFieldValues({})
       setEditorContent(DEFAULT_CONTENT)
-      setDocumentTitle('Hợp đồng dịch vụ')
+      updateMetadata({ title: 'Hợp đồng dịch vụ' })
       // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
       setIsCanvasMode(false)
       setChatMessages([])
@@ -427,6 +428,17 @@ export default function EditorPage({
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create document')
+
+        if (chatMessages && chatMessages.length > 0) {
+          for (const m of chatMessages) {
+            await api.post(`/documents/${newId}/chat-messages`, {
+              role: m.role,
+              content: m.content,
+              metadata: { migratedFromGuest: true },
+            }).catch(e => console.error(e))
+          }
+        }
+        clearSession()
 
         setIsDirty(false)
         toast.success('Đã lưu')
@@ -721,7 +733,7 @@ export default function EditorPage({
         }
 
         setEditorContent(newContent)
-        setDocumentTitle(genResult.content.title || documentTitle)
+        updateMetadata({ title: genResult.content.title || documentTitle })
         setIsCanvasMode(true)
       } else if (result.type === 'error') {
         aiContent = result.message || 'Hệ thống chỉ hỗ trợ các nghiệp vụ liên quan đến soạn thảo và phân tích hợp đồng, pháp lý.'
@@ -832,6 +844,10 @@ export default function EditorPage({
                 <CanvasEditor
                   editor={editor}
                   title={documentTitle}
+                  onChangeTitle={(val) => {
+                    updateMetadata({ title: val })
+                    setIsDirty(true)
+                  }}
                   // onClose={() => setIsCanvasMode(false)}
                   onRun={() => toast.info("Đang kiểm tra...")}
                   isCode={false}

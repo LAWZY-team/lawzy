@@ -89,6 +89,8 @@ const getPublicAppBaseUrl = (): string => {
 interface CanvasEditorProps {
   editor: Editor | null;
   title?: string;
+  /** Emit changes up to unify the title state */
+  onChangeTitle?: (val: string) => void;
   // onClose: () => void;
   onRun?: () => void;
   isCode?: boolean;
@@ -109,8 +111,15 @@ export function CanvasEditor({
   toolsPanelOpen = true,
   onToggleTools,
   onSave,
+  onChangeTitle,
 }: CanvasEditorProps) {
   const [docTitle, setDocTitle] = useState(title);
+
+  useEffect(() => {
+    if (title && title !== docTitle) {
+      setDocTitle(title);
+    }
+  }, [title]);
   
   // Track ONLY the keys of merge fields to build the toggle list, preventing re-renders on every keystroke
   // `useShallow` prevents the infinite loop from returning a new Array reference on every check
@@ -411,7 +420,10 @@ export function CanvasEditor({
         <div className="flex items-center gap-3 overflow-hidden">
           <input
             value={docTitle}
-            onChange={(e) => setDocTitle(e.target.value)}
+            onChange={(e) => {
+              setDocTitle(e.target.value);
+              onChangeTitle?.(e.target.value);
+            }}
             className="bg-transparent border-none outline-none font-medium text-sm text-foreground truncate w-[200px] hover:bg-muted/50 px-2 py-1 rounded transition-colors"
           />
         </div>
@@ -426,6 +438,18 @@ export function CanvasEditor({
             >
               <Play className="w-4 h-4 fill-current" />
               <span className="text-xs font-medium">Kiểm tra</span>
+            </Button>
+          )}
+
+          {onSave && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSave}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
+              title="Lưu bản nháp"
+            >
+              <Save className="w-4 h-4" />
             </Button>
           )}
 
@@ -558,17 +582,6 @@ export function CanvasEditor({
               align="end"
               className="bg-popover border-border text-popover-foreground"
             >
-              {onSave && (
-                <>
-                  <DropdownMenuItem
-                    onClick={onSave}
-                    className="hover:bg-accent cursor-pointer"
-                  >
-                    <Save className="w-4 h-4 mr-2" /> Lưu bản nháp
-                  </DropdownMenuItem>
-                  {/* <DropdownMenuSeparator className="bg-border" /> */}
-                </>
-              )}
               <DropdownMenuItem
                 onClick={handleCopyContent}
                 className="hover:bg-accent cursor-pointer"
