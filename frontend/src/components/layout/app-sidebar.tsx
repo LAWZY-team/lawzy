@@ -54,6 +54,13 @@ const navGroups: NavGroup[] = [
       { titleKey: "sidebar_templates", href: "/templates", icon: Library },
     ],
   },
+  // {
+  //   labelKey: "sidebar_settings",
+  //   items: [
+  //     { titleKey: "sidebar_payment", href: "/payment", icon: CreditCard },
+  //     { titleKey: "sidebar_settings", href: "/settings", icon: Settings },
+  //   ],
+  // },
 ]
 
 export function AppSidebar() {

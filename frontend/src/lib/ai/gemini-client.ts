@@ -196,6 +196,7 @@ export class GeminiClient {
     prompt?: string,
     sourcesContext?: string,
     options?: {
+      locale?: string
       existingContent?: string
       mergeFieldValues?: Record<string, string>
       attachedSources?: Array<{ fileName: string; text: string }>
@@ -227,6 +228,12 @@ export class GeminiClient {
     if (sourcesContext && sourcesContext.trim()) {
       userContent += `\n\n---\n[NGUỒN THAM CHIẾU TỪ WORKSPACE - ưu tiên đối chiếu và trích dẫn khi soạn hợp đồng]\n${sourcesContext.trim()}`
     }
+
+    userContent += `\n\n[QUAN TRỌNG TỐI CAO VỀ NGÔN NGỮ ĐẦU RA (OUTPUT LANGUAGE):
+- Bạn PHẢI tự động nhận diện ngôn ngữ trong yêu cầu (prompt) của người dùng hoặc theo chỉ định rõ ràng của họ.
+- NẾU NGƯỜI DÙNG YÊU CẦU HOẶC GIAO TIẾP BẰNG TIẾNG ANH (ENGLISH): Toàn bộ hợp đồng, văn bản, điều khoản và ĐẶC BIỆT LÀ CÁC MERGE FIELD (cả fieldKey và label) BẮT BUỘC PHẢI VIẾT 100% BẰNG TIẾNG ANH. Bất cứ điều luật hay căn cứ tài liệu tham khảo nào cũng phải được biên dịch sang Tiếng Anh.
+- NẾU NGƯỜI DÙNG YÊU CẦU BẰNG TIẾNG VIỆT: Toàn bộ hợp đồng và merge field viết bằng Tiếng Việt chuẩn.
+- Tuyệt đối KHÔNG trộn lẫn cấu trúc Tiếng Việt và Tiếng Anh trong cùng một tài liệu (trừ khi có yêu cầu làm hợp đồng song ngữ).]`
 
     // Build Gemini-compatible history from previous chat turns (max 20 turns to limit tokens)
     const history = (options?.chatHistory ?? []).slice(-20).map((item) => ({
