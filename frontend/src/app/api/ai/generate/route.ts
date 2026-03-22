@@ -4,7 +4,7 @@ import { buildSourcesContext } from '@/lib/sources/build-context'
 
 export async function POST(req: NextRequest) {
   try {
-    const { metadata, prompt, existingContent, mergeFieldValues, attachedSources, chatHistory } = await req.json()
+    const { locale, metadata, prompt, existingContent, mergeFieldValues, attachedSources, chatHistory } = await req.json()
 
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         : undefined
 
     const result = await gemini.generateContract(metadata, prompt, sourcesContext, {
+      locale: typeof locale === 'string' ? locale : undefined,
       existingContent: typeof existingContent === 'string' ? existingContent : undefined,
       mergeFieldValues:
         mergeFieldValues && typeof mergeFieldValues === 'object' && !Array.isArray(mergeFieldValues)
