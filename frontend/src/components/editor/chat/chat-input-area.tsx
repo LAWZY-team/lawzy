@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { ACCEPT_ATTACH, acceptFile } from './utils'
+import { useT } from '@/components/i18n-provider'
 
 interface ChatInputAreaProps {
   input: string
@@ -28,6 +29,7 @@ export function ChatInputArea({
   onAttachFile,
   onRemoveAttachedFile,
 }: ChatInputAreaProps) {
+  const { t } = useT()
   const [isDragOver, setIsDragOver] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -177,7 +179,7 @@ export function ChatInputArea({
                     type="button"
                     onClick={onRemoveAttachedFile}
                     className="hover:bg-accent rounded-full p-1 text-muted-foreground hover:text-red-500 transition-colors"
-                    aria-label="Gỡ file"
+                    aria-label={t("chat_remove_file")}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -188,7 +190,7 @@ export function ChatInputArea({
 
           {isDragOver && !hasAttachedFile && (
             <div className="absolute inset-0 flex items-center justify-center rounded-[24px] bg-blue-500/10 border-2 border-dashed border-blue-500/50 z-10 pointer-events-none">
-              <span className="text-sm font-medium text-blue-400">Thả file PDF/DOC vào đây</span>
+              <span className="text-sm font-medium text-blue-400">{t("chat_drop_file")}</span>
             </div>
           )}
 
@@ -199,8 +201,8 @@ export function ChatInputArea({
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 hasAttachedFile
-                  ? 'Hỏi hoặc yêu cầu dựa trên file đính kèm...'
-                  : 'Hỏi Lawzy về hợp đồng...'
+                  ? t("chat_input_placeholder_attach")
+                  : t("chat_input_placeholder")
               }
               className={cn(
                 'min-h-[56px] max-h-[200px] flex-1 w-full bg-transparent border-none focus-visible:ring-0 resize-none text-[16px] text-foreground placeholder:text-muted-foreground leading-relaxed rounded-[24px]',
@@ -237,7 +239,7 @@ export function ChatInputArea({
                     variant="ghost"
                     size="icon"
                     disabled={!!attachedFile || isLoading}
-                    title="Đính kèm file PDF, DOC hoặc DOCX (tối đa 25MB)"
+                    title={t("chat_attach_tooltip")}
                     className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-full h-10 w-10 transition-colors"
                     onClick={() => fileInputRef.current?.click()}
                   >
@@ -263,7 +265,7 @@ export function ChatInputArea({
                   variant="ghost"
                   size="icon"
                   disabled={isLoading}
-                  title={isListening ? 'Dừng ghi âm' : 'Nhập bằng giọng nói'}
+                  title={isListening ? t("chat_voice_stop") : t("chat_voice_start")}
                   className={cn(
                     'rounded-full h-10 w-10 transition-colors',
                     isListening
@@ -279,7 +281,7 @@ export function ChatInputArea({
           </div>
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground text-center">
-          Lawzy AI có thể mắc lỗi. Hãy kiểm tra lại thông tin quan trọng.
+          {t("chat_ai_warning")}
         </p>
       </div>
     </div>

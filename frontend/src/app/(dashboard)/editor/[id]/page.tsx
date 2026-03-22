@@ -41,6 +41,7 @@ import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
 import { SaveDraftModal } from '@/components/editor/save-draft-modal'
 import { flushMergeFieldDrafts } from '@/lib/editor/flush-merge-field-drafts'
+import { useT } from '@/components/i18n-provider'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -89,6 +90,7 @@ export default function EditorPage({
   const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
+  const { locale, t } = useT()
 
   // Ensure we always have a default workspace selected (first workspace)
   useEffect(() => {
@@ -408,7 +410,7 @@ export default function EditorPage({
   const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
     if (!isAuthenticated) {
       handleAuthRequired()
-      toast.error('Vui lòng đăng nhập để lưu.')
+      toast.error(t('toast_login_required'))
       return
     }
 
@@ -441,7 +443,7 @@ export default function EditorPage({
         clearSession()
 
         setIsDirty(false)
-        toast.success('Đã lưu')
+        toast.success(t('toast_saved'))
 
         if (pendingUrl) {
           router.push(pendingUrl)
@@ -460,13 +462,13 @@ export default function EditorPage({
       })
 
       setIsDirty(false)
-      toast.success('Đã lưu')
+      toast.success(t('toast_saved'))
       if (pendingUrl) {
         router.push(pendingUrl)
       }
     } catch (e) {
       console.error(e)
-      toast.error('Lưu thất bại')
+      toast.error(t('toast_save_failed'))
     }
   }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router])
   // Note: workspaceId kept in deps as it's still used (passed when available)
@@ -574,7 +576,7 @@ export default function EditorPage({
 
   const handleSave = async () => {
     if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để lưu.')
+      toast.error(t('toast_login_required'))
       return
     }
 
@@ -607,7 +609,7 @@ export default function EditorPage({
         }
 
         clearSession()
-        toast.success('Đã lưu bản thảo')
+        toast.success(t('toast_draft_saved'))
         router.replace(`/editor/${newId}`)
         return
       }
@@ -622,10 +624,10 @@ export default function EditorPage({
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
       setIsDirty(false)
-      toast.success('Đã lưu phiên bản')
+      toast.success(t('toast_version_saved'))
     } catch (e) {
       console.error(e)
-      toast.error('Lưu phiên bản thất bại')
+      toast.error(t('toast_version_save_failed'))
     } finally {
       setSaving(false)
     }
@@ -667,7 +669,7 @@ export default function EditorPage({
         }
       } catch (e) {
         console.error('Extract text failed', e)
-        toast.error('Không đọc được nội dung file đính kèm.')
+        toast.error(t('toast_extract_failed'))
       }
       setAttachedFile(null)
     }
@@ -688,6 +690,7 @@ export default function EditorPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: message,
+          locale,
           metadata: {
             contractType: 'general',
           },
@@ -711,7 +714,7 @@ export default function EditorPage({
 
       if (result.type === 'contract_generation') {
         const genResult = result as ContractGenerationResult
-        aiContent = buildContractSummaryMessage(genResult)
+        aiContent = buildContractSummaryMessage(genResult, locale)
 
         const { content: newContent, allMergeKeys } = contractResultToTipTapContent(genResult, {
           mergeKeyToLabel,
@@ -751,7 +754,7 @@ export default function EditorPage({
         isError: result.type === 'error',
         hasContract: result.type === 'contract_generation',
         ...(result.type === 'contract_generation' && {
-          thinking: getSimulatedThinking(result as ContractGenerationResult),
+          thinking: getSimulatedThinking(result as ContractGenerationResult, locale),
         }),
       }
       
@@ -768,12 +771,12 @@ export default function EditorPage({
 
     } catch (error) {
       console.error('Error generating contract:', error)
-      toast.error('Có lỗi xảy ra khi tạo hợp đồng')
+      toast.error(t('toast_generate_error'))
       setThinkingProgress([])
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Xin lỗi, tôi gặp sự cố khi xử lý yêu cầu của bạn. Vui lòng thử lại.',
+        content: t('toast_ai_error'),
         timestamp: new Date(),
         isError: true,
       }

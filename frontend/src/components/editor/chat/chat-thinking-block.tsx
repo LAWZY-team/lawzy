@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { renderSimpleMarkdown } from './utils'
+import { useT } from '@/components/i18n-provider'
 
 interface ChatThinkingBlockProps {
   messageId: string
@@ -17,9 +18,10 @@ export function ChatThinkingBlock({
   expandedMessageId,
   onToggle,
 }: ChatThinkingBlockProps) {
+  const { t } = useT()
   const isExpanded = expandedMessageId === messageId
   const stepCount = (thinking.match(/\*\*\d+\./g) || []).length
-  const label = stepCount ? `Xem suy luận (${stepCount} bước)` : 'Xem suy luận'
+  const label = stepCount ? t('chat_view_thinking_steps', { count: stepCount }) : t('chat_view_thinking')
 
   return (
     <div className="mb-3">
@@ -29,7 +31,7 @@ export function ChatThinkingBlock({
         className="flex items-center gap-2 w-full text-left py-1 hover:opacity-90 transition-opacity"
       >
         <span className="flex-1 ml-2 text-sm font-semibold text-foreground">
-          {isExpanded ? 'Ẩn suy luận' : label}
+          {isExpanded ? t('chat_hide_thinking') : label}
         </span>
         {isExpanded ? (
           <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" />

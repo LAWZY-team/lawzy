@@ -38,7 +38,7 @@ export function UserNav() {
   // Treat as guest if we know they are not authenticated, or if unresolved but they came from landing.
   const isGuest = authResolved ? !isAuthenticated : (guestEntry === "landing")
 
-  const displayName = isGuest ? "Khách" : (user?.name ?? "User")
+  const displayName = isGuest ? (locale === 'en' ? 'Guest' : 'Khách') : (user?.name ?? "User")
   const displayEmail = isGuest ? "" : (user?.email ?? "")
   const initials = displayName.substring(0, 2).toUpperCase()
 
@@ -95,12 +95,17 @@ export function UserNav() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
+            <DropdownMenuItem onClick={toggleLocale}>
+              <Globe className="mr-2 h-4 w-4" />
+              {locale === "vi" ? "English" : "Tiếng Việt"}
+            </DropdownMenuItem>
+
             {isGuest ? (
               <>
                 <DropdownMenuItem asChild>
                   <Link href="/login">
                     <User className="mr-2 h-4 w-4" />
-                    Đăng nhập
+                    {t("auth_login")}
                   </Link>
                 </DropdownMenuItem>
               </>
@@ -112,11 +117,6 @@ export function UserNav() {
                     {t("settings_account")}
                   </Link>
                 </DropdownMenuItem> */}
-                
-            <DropdownMenuItem onClick={toggleLocale}>
-              <Globe className="mr-2 h-4 w-4" />
-              {locale === "vi" ? "English" : "Tiếng Việt"}
-            </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings" id="dropdown-settings-link">
                     <Settings className="mr-2 h-4 w-4" />
