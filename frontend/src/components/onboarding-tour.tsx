@@ -106,7 +106,7 @@ const STEPS: Step[] = [
 export function OnboardingTour() {
   const pathname = usePathname()
   const { locale } = useT()
-  const { isAuthenticated, authResolved } = useAuthStore()
+  const { isAuthenticated, authResolved, user } = useAuthStore()
   const { isActive, currentStepIndex, isCompleted, startTour, stopTour, setStepIndex, completeTour } = useOnboardingStore()
   
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
@@ -138,12 +138,38 @@ export function OnboardingTour() {
     }
   }, [currentStep.sidebarId, isInteracting])
 
+  const markTourCompleted = useCallback(() => {
+    if (user) {
+      localStorage.setItem(`lawzy_onboarding_completed_${user.id}`, 'true')
+    }
+    completeTour()
+  }, [user, completeTour])
+
   useEffect(() => {
-    if (!authResolved) return
-    if (isAuthenticated && !isCompleted && !isActive) {
+    if (!authResolved || !isAuthenticated || !user) return
+    
+    const storageKey = `lawzy_onboarding_completed_${user.id}`
+    const hasCompletedLocal = localStorage.getItem(storageKey) === 'true'
+    
+    // Đã hoàn thành trong storage -> Đẩy cờ lên Zustand để báo cáo trạng thái tắt
+    if (hasCompletedLocal && !isCompleted) {
+      completeTour()
+      return
+    }
+
+    if (!hasCompletedLocal && !isCompleted && !isActive) {
+      if (user.createdAt) {
+        // Nếu tuổi thọ tài khoản lớn hơn 7 ngày, bỏ qua tour hoàn toàn
+        const accountAgeDays = (new Date().getTime() - new Date(user.createdAt).getTime()) / (1000 * 3600 * 24)
+        if (accountAgeDays > 7) {
+          localStorage.setItem(storageKey, 'true')
+          completeTour()
+          return
+        }
+      }
       startTour()
     }
-  }, [isAuthenticated, authResolved, isCompleted, isActive, startTour])
+  }, [isAuthenticated, authResolved, isCompleted, isActive, user, startTour, completeTour])
 
   // Poll for target visibility
   useEffect(() => {
@@ -165,9 +191,9 @@ export function OnboardingTour() {
     if (currentStepIndex < STEPS.length - 1) {
       setStepIndex(currentStepIndex + 1)
     } else {
-      completeTour()
+      markTourCompleted()
     }
-  }, [currentStepIndex, setStepIndex, completeTour])
+  }, [currentStepIndex, setStepIndex, markTourCompleted])
 
   // Special handling for dropdown interaction - Poll for state
   useEffect(() => {
@@ -202,7 +228,7 @@ export function OnboardingTour() {
 
   const handleSkip = () => {
     stopTour()
-    completeTour()
+    markTourCompleted()
   }
 
   if (!isActive) return null
