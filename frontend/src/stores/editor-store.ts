@@ -23,6 +23,8 @@ interface EditorState {
     tags: string[]
     riskLevel: 'low' | 'medium' | 'high'
     visibility: 'workspace' | 'private' | 'public'
+    status?: string
+    creator?: { name: string; email?: string; avatar?: string }
   }
   isSaving: boolean
   lastSaved: string | null
