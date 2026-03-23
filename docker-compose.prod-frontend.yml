@@ -1,0 +1,30 @@
+# Production Frontend only (Coolify: path tại root, context ./frontend)
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
+        BACKEND_URL: ${BACKEND_URL}
+    container_name: lawzy-frontend-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: ${BACKEND_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-prod.rule=Host(`lawzy.vn`) || Host(`www.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-prod.entrypoints=https"
+      - "traefik.http.routers.lawzy-prod.tls=true"
+      - "traefik.http.routers.lawzy-prod.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-prod.loadbalancer.server.port=3000"
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
