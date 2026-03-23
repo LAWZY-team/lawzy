@@ -4,6 +4,7 @@ import { PrismaModule } from '../../integrations/prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
 import { PlansModule } from '../plans/plans.module';
+import { EmailModule } from '../email/email.module';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspacesController } from './workspaces.controller';
 import { AdminWorkspacesController } from './admin-workspaces.controller';
@@ -14,6 +15,7 @@ import { AdminWorkspacesController } from './admin-workspaces.controller';
     PrismaModule,
     UsersModule,
     PlansModule,
+    EmailModule,
     forwardRef(() => AuthModule),
   ],
   controllers: [WorkspacesController, AdminWorkspacesController],

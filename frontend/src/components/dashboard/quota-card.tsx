@@ -54,9 +54,19 @@ export function QuotaCard({
             ) : (
               <>
                 <div className="text-2xl font-bold">
-                  {overview?.aiCreditsUsed ?? 0} / {overview?.aiCreditsLimit ?? 100}
+                  {overview?.aiCreditsLimit === -1 ? (
+                    t("dash_ai_credit_unlimited")
+                  ) : (
+                    `${overview?.aiCreditsUsed ?? 0} / ${overview?.aiCreditsLimit ?? 0}`
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">{t("dash_ai_credit_used")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {overview?.aiCreditsLimit === -1
+                    ? t("dash_ai_credit_used")
+                    : overview?.aiCreditsRemaining != null && overview.aiCreditsRemaining >= 0
+                      ? t("dash_ai_credit_remaining", { n: overview.aiCreditsRemaining })
+                      : t("dash_ai_credit_used")}
+                </p>
                 <Link
                   href="/payment"
                   className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"

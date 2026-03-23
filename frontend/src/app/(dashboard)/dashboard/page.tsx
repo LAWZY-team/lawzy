@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import {
   Select,
   SelectContent,
@@ -17,7 +17,6 @@ import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
-import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useDashboardDisplayStore } from "@/stores/dashboard-display-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,7 +26,6 @@ import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { useRouter } from "next/navigation"
 import { useDashboardInitial } from "@/hooks/dashboard/use-dashboard"
-import { useDashboardWorkspaceTransition } from "@/hooks/dashboard/use-dashboard-workspace-transition"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import {
@@ -48,16 +46,13 @@ export default function DashboardPage() {
     month: t("dash_this_month"),
     year: t("dash_this_year"),
   }
-  const { fetchWorkspaces } = useWorkspaceStore()
   const [period, setPeriod] = useState<DashboardPeriod>("year")
   const enabledCards = useDashboardDisplayStore((s) => s.enabledCards)
-  const isTransitioning = useDashboardWorkspaceTransition({
-    chartEnabled: enabledCards.includes("chart"),
-    period,
-  })
-  const { data: initialData, isLoading: initialLoading } = useDashboardInitial(10)
+  const { data: initialData, isLoading } = useDashboardInitial(10, period)
   const overview = initialData?.overview ?? null
   const recentDocs = initialData?.recentDocuments ?? null
+  const chartData = initialData?.chart ?? null
+  const workspaceBreakdownData = initialData?.workspaceBreakdown ?? null
 
   const statCardsEnabled =
     enabledCards.includes("total_docs") ||
@@ -72,10 +67,6 @@ export default function DashboardPage() {
     enabledCards.includes("chart") ||
     enabledCards.includes("workspace_breakdown") ||
     enabledCards.includes("recent_docs")
-
-  useEffect(() => {
-    fetchWorkspaces()
-  }, [fetchWorkspaces])
 
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
@@ -97,7 +88,7 @@ export default function DashboardPage() {
         </div>
 
         <ScrollArea id="tour-dashboard-stats" className="flex-1 min-h-0 -mx-6 px-6">
-          {isTransitioning ? (
+          {isLoading ? (
             <div className="pt-4 pb-8">
               <DashboardSkeleton />
             </div>
@@ -121,16 +112,16 @@ export default function DashboardPage() {
             </div>
 
             {statCardsEnabled && (
-              <StatsCards showCards={enabledCards} overview={overview} isLoading={initialLoading} />
+              <StatsCards showCards={enabledCards} overview={overview} isLoading={isLoading} />
             )}
 
             {quotaCardsEnabled && (
               <div className={DASHBOARD_GRID_QUOTA}>
                 {enabledCards.includes("ai_quota") && (
-                  <QuotaCard show="quota" overview={overview} isLoading={initialLoading} />
+                  <QuotaCard show="quota" overview={overview} isLoading={isLoading} />
                 )}
                 {enabledCards.includes("storage") && (
-                  <QuotaCard show="storage" overview={overview} isLoading={initialLoading} />
+                  <QuotaCard show="storage" overview={overview} isLoading={isLoading} />
                 )}
                 {enabledCards.includes("referral") && <ReferralCard />}
               </div>
@@ -146,14 +137,14 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent className="ps-2 pt-0 px-4 pb-2 flex-1">
                       <div className="text-foreground [&_text]:fill-current">
-                        <OverviewChart period={period} height={160} />
+                        <OverviewChart data={chartData} isLoading={isLoading} height={160} />
                       </div>
                     </CardContent>
                   </Card>
                 )}
                 {enabledCards.includes("workspace_breakdown") && (
                   <div className="h-full">
-                    <StatsByWorkspace />
+                    <StatsByWorkspace data={workspaceBreakdownData} isLoading={isLoading} />
                   </div>
                 )}
                 {enabledCards.includes("recent_docs") && (
@@ -165,7 +156,7 @@ export default function DashboardPage() {
                   </Button>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  {initialLoading ? (
+                  {isLoading ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map((i) => (
                         <div

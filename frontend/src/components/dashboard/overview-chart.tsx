@@ -2,15 +2,25 @@
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDashboardChart } from "@/hooks/dashboard/use-dashboard"
 
 const AXIS_TICK_FILL = "currentColor"
 
 export type DashboardPeriod = "week" | "month" | "year"
 
-export function OverviewChart({ period = "year", height = 200 }: { period?: DashboardPeriod; height?: number }) {
-  const { data, isLoading } = useDashboardChart(period)
+interface ChartDataPoint {
+  name: string
+  total: number
+}
 
+export function OverviewChart({
+  data,
+  isLoading,
+  height = 200,
+}: {
+  data?: ChartDataPoint[] | null
+  isLoading?: boolean
+  height?: number
+}) {
   if (isLoading) {
     return <Skeleton className="w-full" style={{ height }} />
   }

@@ -1,19 +1,24 @@
+import { randomBytes } from 'node:crypto';
 import {
   HttpException,
   HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { API_ERROR_WORKSPACE_LIMIT_REACHED } from '../../common/plan.constants';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class WorkspacesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plansService: PlansService,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   private async resolveWorkspaceLimit(userId: string): Promise<{
@@ -67,6 +72,19 @@ export class WorkspacesService {
     return { count, limit, canCreate };
   }
 
+  private async generateCompanyCode(): Promise<string> {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // bỏ I,O,0,1 để dễ đọc
+    for (let i = 0; i < 10; i++) {
+      const bytes = randomBytes(6);
+      const code = 'LWZ-' + Array.from(bytes, (b) => chars[b % chars.length]).join('');
+      const found = await this.prisma.workspace.findUnique({
+        where: { companyCode: code },
+      });
+      if (!found) return code;
+    }
+    return 'LWZ-' + randomBytes(4).toString('hex').toUpperCase();
+  }
+
   async create(userId: string, data: { name: string; plan?: string }) {
     const [limits, defaultPlan] = await Promise.all([
       this.resolveWorkspaceLimit(userId),
@@ -93,9 +111,11 @@ export class WorkspacesService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.prisma.workspace.create({
+    const companyCode = await this.generateCompanyCode();
+    const workspace = await this.prisma.workspace.create({
       data: {
         name: data.name,
+        companyCode,
         plan: planSlug,
         members: {
           create: {
@@ -114,6 +134,25 @@ export class WorkspacesService {
         },
       },
     });
+
+    const creator = workspace.members[0]?.user;
+    if (creator?.email) {
+      const frontendUrl = (
+        this.configService.get('FRONTEND_URL') ||
+        this.configService.get('NEXT_PUBLIC_APP_URL') ||
+        'https://lawzy.vn'
+      ).replace(/\/$/, '');
+      this.emailService
+        .sendWorkspaceCreatedEmail({
+          toEmail: creator.email,
+          toName: creator.name,
+          workspaceName: workspace.name,
+          dashboardUrl: `${frontendUrl}/dashboard`,
+        })
+        .catch(() => {});
+    }
+
+    return workspace;
   }
 
   async getWorkspaceLimits(userId: string) {
@@ -227,7 +266,12 @@ export class WorkspacesService {
     });
   }
 
-  async addMember(workspaceId: string, userId: string, role: string) {
+  async addMember(
+    workspaceId: string,
+    userId: string,
+    role: string,
+    inviterUserId?: string,
+  ) {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: {
@@ -264,7 +308,7 @@ export class WorkspacesService {
       );
     }
 
-    return this.prisma.workspaceMember.create({
+    const member = await this.prisma.workspaceMember.create({
       data: {
         workspaceId,
         userId,
@@ -274,11 +318,46 @@ export class WorkspacesService {
         user: {
           select: { id: true, name: true, email: true, avatar: true },
         },
+        workspace: { select: { name: true } },
+      },
+    });
+
+    if (member.user?.email && inviterUserId && inviterUserId !== userId) {
+      const inviter = await this.prisma.user.findUnique({
+        where: { id: inviterUserId },
+        select: { name: true },
+      });
+      const frontendUrl = (
+        this.configService.get('FRONTEND_URL') ||
+        this.configService.get('NEXT_PUBLIC_APP_URL') ||
+        'https://lawzy.vn'
+      ).replace(/\/$/, '');
+      this.emailService
+        .sendWorkspaceInviteEmail({
+          toEmail: member.user.email,
+          toName: member.user.name,
+          workspaceName: member.workspace.name,
+          inviterName: inviter?.name ?? 'Một thành viên',
+          dashboardUrl: `${frontendUrl}/dashboard`,
+        })
+        .catch(() => {});
+    }
+
+    return this.prisma.workspaceMember.findUniqueOrThrow({
+      where: { workspaceId_userId: { workspaceId, userId } },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, avatar: true },
+        },
       },
     });
   }
 
-  async removeMember(workspaceId: string, userId: string) {
+  async removeMember(
+    workspaceId: string,
+    userId: string,
+    removerUserId?: string,
+  ) {
     const membership = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: { workspaceId, userId },
@@ -289,11 +368,52 @@ export class WorkspacesService {
       throw new NotFoundException('Member not found in workspace');
     }
 
-    return this.prisma.workspaceMember.delete({
+    const [removedUser, workspace, remover] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      }),
+      this.prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { name: true },
+      }),
+      removerUserId
+        ? this.prisma.user.findUnique({
+            where: { id: removerUserId },
+            select: { name: true },
+          })
+        : null,
+    ]);
+
+    await this.prisma.workspaceMember.delete({
       where: {
         workspaceId_userId: { workspaceId, userId },
       },
     });
+
+    if (
+      removedUser?.email &&
+      workspace?.name &&
+      removerUserId &&
+      removerUserId !== userId
+    ) {
+      const frontendUrl = (
+        this.configService.get('FRONTEND_URL') ||
+        this.configService.get('NEXT_PUBLIC_APP_URL') ||
+        'https://lawzy.vn'
+      ).replace(/\/$/, '');
+      this.emailService
+        .sendMemberRemovedEmail({
+          toEmail: removedUser.email,
+          toName: removedUser.name,
+          workspaceName: workspace.name,
+          removerName: remover?.name ?? 'Một thành viên',
+          dashboardUrl: `${frontendUrl}/dashboard`,
+        })
+        .catch(() => {});
+    }
+
+    return { success: true };
   }
 
   async getStats(workspaceId: string) {

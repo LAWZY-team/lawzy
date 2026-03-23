@@ -88,30 +88,50 @@ export function useRecentDocuments(limit = 10) {
   });
 }
 
-interface DashboardInitialResponse {
-  overview: DashboardOverview;
-  recentDocuments: RecentDocument[];
-}
-
-export function useDashboardInitial(limit = 10) {
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
-  return useQuery<DashboardInitialResponse>({
-    queryKey: ['dashboard', 'initial', workspaceId ?? null, limit],
-    queryFn: async () => {
-      const qs = buildQueryString({
-        workspaceId: workspaceId ?? undefined,
-        limit,
-      });
-      return api.get<DashboardInitialResponse>(`/dashboard/initial${qs}`);
-    },
-    staleTime: 15_000,
-  });
-}
-
 interface WorkspaceBreakdownApi {
   workspaceId: string;
   workspaceName: string;
   documentCount: number;
+}
+
+interface DashboardInitialApiResponse {
+  overview: DashboardOverview;
+  recentDocuments: RecentDocument[];
+  chart?: ChartApiPoint[];
+  workspaceBreakdown?: WorkspaceBreakdownApi[];
+}
+
+export interface DashboardInitialResponse {
+  overview: DashboardOverview;
+  recentDocuments: RecentDocument[];
+  chart: ChartDataPoint[];
+  workspaceBreakdown: WorkspaceBreakdown[];
+}
+
+export function useDashboardInitial(limit = 10, period: 'week' | 'month' | 'year' = 'year') {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  return useQuery<DashboardInitialResponse>({
+    queryKey: ['dashboard', 'initial', workspaceId ?? null, limit, period],
+    queryFn: async () => {
+      const raw = await api.get<DashboardInitialApiResponse>(
+        `/dashboard/initial${buildQueryString({
+          workspaceId: workspaceId ?? undefined,
+          limit,
+          period,
+        })}`
+      );
+      return {
+        overview: raw.overview,
+        recentDocuments: raw.recentDocuments ?? [],
+        chart: (raw.chart ?? []).map((r) => ({ name: r.date, total: r.count })),
+        workspaceBreakdown: (raw.workspaceBreakdown ?? []).map((r) => ({
+          name: r.workspaceName,
+          value: r.documentCount,
+        })),
+      };
+    },
+    staleTime: 15_000,
+  });
 }
 
 export function useWorkspaceBreakdown() {

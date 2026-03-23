@@ -24,7 +24,14 @@ import { CreateWorkspaceModal } from "@/components/workspace/create-workspace-mo
 export function WorkspaceNav() {
   const { t } = useT()
   const { isMobile } = useSidebar()
-  const { workspaces, currentWorkspace, setCurrentWorkspace } = useWorkspaceStore()
+  const {
+    workspaces,
+    currentWorkspace,
+    setCurrentWorkspace,
+    loginScopedWorkspaceId,
+    setLoginScopedWorkspaceId,
+    fetchWorkspaces,
+  } = useWorkspaceStore()
   const [createOpen, setCreateOpen] = React.useState(false)
   const activeWorkspace = currentWorkspace ?? workspaces[0]
 
@@ -96,6 +103,23 @@ export function WorkspaceNav() {
                   </div>
                 </DropdownMenuItem>
               ))}
+              {loginScopedWorkspaceId && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 p-2 cursor-pointer"
+                    onClick={() => {
+                      setLoginScopedWorkspaceId(null)
+                      fetchWorkspaces()
+                    }}
+                  >
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-muted-foreground/30">
+                      <LayoutGrid className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    <div className="font-medium text-muted-foreground">{t("ws_view_all")}</div>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="gap-2 p-2 cursor-pointer"

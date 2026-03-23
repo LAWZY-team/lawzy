@@ -12,14 +12,19 @@ export class DashboardController {
     @Request() req: any,
     @Query('workspaceId') workspaceId?: string,
     @Query('limit') limitStr?: string,
+    @Query('period') period?: 'week' | 'month' | 'year',
   ) {
     const userId = req.user.userId;
     const limit = limitStr ? parseInt(limitStr, 10) : 10;
-    const [overview, recentDocuments] = await Promise.all([
-      this.dashboardService.getOverview(userId, workspaceId || null),
-      this.dashboardService.getRecentDocuments(userId, limit, workspaceId || null),
+    const p = period === 'month' || period === 'year' ? period : 'week';
+    const wsId = workspaceId || null;
+    const [overview, recentDocuments, chart, workspaceBreakdown] = await Promise.all([
+      this.dashboardService.getOverview(userId, wsId),
+      this.dashboardService.getRecentDocuments(userId, limit, wsId),
+      this.dashboardService.getChartData(userId, p, wsId),
+      this.dashboardService.getWorkspaceBreakdown(userId),
     ]);
-    return { overview, recentDocuments };
+    return { overview, recentDocuments, chart, workspaceBreakdown };
   }
 
   @Get('overview')

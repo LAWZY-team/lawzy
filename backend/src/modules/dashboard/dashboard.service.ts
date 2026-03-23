@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { PlansService } from '../plans/plans.service';
 
 const AI_CREDITS_RENEWAL_DAYS = 30;
 const AI_CREDITS_LIMIT_MVP = 100;
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly plansService: PlansService,
+  ) {}
 
   private async getWorkspaceIds(
     userId: string,
@@ -88,7 +92,7 @@ export class DashboardService {
         where: { workspaceId: { in: workspaceIds } },
         _sum: { size: true },
       }),
-      this.getUserCreditInfo(userId),
+      this.getUserCreditInfo(userId, workspaceIds[0] ?? null),
     ]);
 
     const storageUsed =
@@ -106,21 +110,45 @@ export class DashboardService {
       aiCreditsLimit: creditInfo.aiCreditsLimit,
       aiCreditsRemaining: creditInfo.aiCreditsRemaining,
       nextRenewalAt: creditInfo.nextRenewalAt,
-      aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
+      aiCreditsRenewalDays: creditInfo.aiCreditsRenewalDays,
     };
   }
 
-  private async getUserCreditInfo(userId: string): Promise<{
+  private async getEffectiveAiLimit(workspaceId: string | null): Promise<number | null> {
+    if (!workspaceId) return AI_CREDITS_LIMIT_MVP;
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { plan: true },
+    });
+    if (!workspace) return AI_CREDITS_LIMIT_MVP;
+    const plan = await this.plansService.findBySlug(workspace.plan).catch(() => null);
+    const ql = (plan?.quotaLimits ?? {}) as { dailyAiQuota?: number | 'unlimited' };
+    const quota = ql.dailyAiQuota;
+    if (quota === 'unlimited') return null;
+    if (typeof quota === 'number') return quota;
+    return AI_CREDITS_LIMIT_MVP;
+  }
+
+  private async getUserCreditInfo(
+    userId: string,
+    workspaceId: string | null,
+  ): Promise<{
     aiCreditsUsed: number;
     aiCreditsLimit: number;
     aiCreditsRemaining: number;
     nextRenewalAt: string | null;
+    aiCreditsRenewalDays: number;
   }> {
+    const limit = await this.getEffectiveAiLimit(workspaceId);
+    const useDailyQuota = !!workspaceId && limit !== null && limit < AI_CREDITS_LIMIT_MVP;
+
     let uc = await this.prisma.userCredit.findUnique({
       where: { userId },
     });
 
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     if (!uc) {
       uc = await this.prisma.userCredit.create({
         data: {
@@ -130,7 +158,7 @@ export class DashboardService {
           renewalStartedAt: now,
         },
       });
-    } else {
+    } else if (!useDailyQuota) {
       const nextRenewal = new Date(uc.renewalStartedAt);
       nextRenewal.setDate(nextRenewal.getDate() + AI_CREDITS_RENEWAL_DAYS);
       if (now >= nextRenewal) {
@@ -139,6 +167,42 @@ export class DashboardService {
           data: { aiCreditsUsed: 0, renewalStartedAt: now },
         });
       }
+    } else {
+      const usedDate = uc.aiCreditsUsedDate ? new Date(uc.aiCreditsUsedDate) : null;
+      const isNewDay = !usedDate || usedDate.getTime() !== today.getTime();
+      if (isNewDay) {
+        uc = await this.prisma.userCredit.update({
+          where: { userId },
+          data: {
+            aiCreditsUsedToday: 0,
+            aiCreditsUsedDate: today,
+          },
+        });
+      }
+    }
+
+    if (limit === null) {
+      return {
+        aiCreditsUsed: 0,
+        aiCreditsLimit: -1,
+        aiCreditsRemaining: -1,
+        nextRenewalAt: null,
+        aiCreditsRenewalDays: 0,
+      };
+    }
+
+    if (useDailyQuota) {
+      const used = uc.aiCreditsUsedToday;
+      const remaining = Math.max(0, limit - used);
+      const endOfDay = new Date(today);
+      endOfDay.setHours(23, 59, 59, 999);
+      return {
+        aiCreditsUsed: used,
+        aiCreditsLimit: limit,
+        aiCreditsRemaining: remaining,
+        nextRenewalAt: endOfDay.toISOString(),
+        aiCreditsRenewalDays: 1,
+      };
     }
 
     const nextRenewal = new Date(uc.renewalStartedAt);
@@ -150,6 +214,7 @@ export class DashboardService {
       aiCreditsLimit: uc.aiCreditsLimit,
       aiCreditsRemaining: remaining,
       nextRenewalAt: nextRenewal.toISOString(),
+      aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
     };
   }
 

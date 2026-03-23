@@ -92,6 +92,7 @@ export class WorkspacesController {
       workspaceId,
       user.id,
       body.role ?? 'viewer',
+      req.user.userId,
     );
   }
 
@@ -103,7 +104,11 @@ export class WorkspacesController {
   ) {
     await this.workspaceAccess.requireMembership(workspaceId, req.user.userId);
     await this.workspacesService.ensureMemberCanEdit(workspaceId, req.user.userId);
-    return this.workspacesService.removeMember(workspaceId, userId);
+    return this.workspacesService.removeMember(
+      workspaceId,
+      userId,
+      req.user.userId,
+    );
   }
 
   @Get(':id/stats')

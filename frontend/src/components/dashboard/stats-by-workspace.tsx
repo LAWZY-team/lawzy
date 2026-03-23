@@ -3,8 +3,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useWorkspaceBreakdown } from "@/hooks/dashboard/use-dashboard"
 import { useT } from "@/components/i18n-provider"
+
+interface WorkspaceBreakdownItem {
+  name: string
+  value: number
+}
 
 function SimpleBarList({
   items,
@@ -41,8 +45,13 @@ function SimpleBarList({
   )
 }
 
-export function StatsByWorkspace() {
-  const { data, isLoading } = useWorkspaceBreakdown()
+export function StatsByWorkspace({
+  data,
+  isLoading,
+}: {
+  data?: WorkspaceBreakdownItem[] | null
+  isLoading?: boolean
+}) {
   const { t } = useT()
 
   return (

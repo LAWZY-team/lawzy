@@ -71,6 +71,7 @@ export class AdminWorkspacesController {
 
   @Post(':id/members')
   async addMember(
+    @Request() req: { user?: { userId: string } },
     @Param('id') workspaceId: string,
     @Body() body: { email: string; role?: string },
   ) {
@@ -85,14 +86,20 @@ export class AdminWorkspacesController {
       workspaceId,
       user.id,
       body.role ?? 'viewer',
+      req.user?.userId,
     );
   }
 
   @Delete(':id/members/:userId')
   async removeMember(
+    @Request() req: { user?: { userId: string } },
     @Param('id') workspaceId: string,
     @Param('userId') userId: string,
   ) {
-    return this.workspacesService.removeMember(workspaceId, userId);
+    return this.workspacesService.removeMember(
+      workspaceId,
+      userId,
+      req.user?.userId,
+    );
   }
 }
