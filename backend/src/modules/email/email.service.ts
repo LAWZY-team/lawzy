@@ -1,12 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { buildLawzyEmailHtml } from './email-template';
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const smtpHost = this.configService.get<string>('SMTP_HOST');
     const smtpPort = this.configService.get<number>('SMTP_PORT', 587);
     const smtpUser = this.configService.get<string>('SMTP_USER');
@@ -93,52 +99,202 @@ export class EmailService {
     name: string,
     resetLink: string,
   ): Promise<void> {
-    const mailOptions = {
-      from: 'contact@lawzy.vn',
-      to: email,
-      subject: 'Đặt lại mật khẩu Lawzy',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #000000; background-color: #faf9f5; margin: 0; padding: 20px; }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
-            .header { background-color: #ffffff; padding: 25px 20px; text-align: center; border-bottom: 2px solid #faf9f5; }
-            .content { padding: 30px; }
-            .button { display: inline-block; padding: 12px 30px; background-color: #f54900; color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
-            .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h1 style="font-size: 20px; color: #333; text-align: center;">Đặt lại mật khẩu</h1>
-              <p>Xin chào <strong>${name}</strong>,</p>
-              <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
-              <p>Vui lòng click vào nút bên dưới để đặt lại mật khẩu:</p>
-              <div style="text-align: center;">
-                <a href="${resetLink}" class="button">Đặt lại mật khẩu</a>
-              </div>
-              <p>Hiệu lực trong <strong>1 giờ</strong>.</p>
-              <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Mật khẩu của bạn sẽ không thay đổi.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Lawzy. Nền tảng quản lý hợp đồng pháp lý.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+    const html = buildLawzyEmailHtml({
+      title: 'Đặt lại mật khẩu',
+      greeting: `Xin chào <strong>${name}</strong>`,
+      body: `
+        <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
+        <p>Vui lòng click vào nút bên dưới để đặt lại mật khẩu. Hiệu lực trong <strong>1 giờ</strong>.</p>
       `,
-    };
+      button: { text: 'Đặt lại mật khẩu', url: resetLink },
+      footerNote:
+        'Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Mật khẩu của bạn sẽ không thay đổi.',
+    });
 
     try {
       this.ensureTransporter();
-      await this.transporter!.sendMail(mailOptions);
+      await this.transporter!.sendMail({
+        from: 'contact@lawzy.vn',
+        to: email,
+        subject: 'Đặt lại mật khẩu Lawzy',
+        html,
+      });
     } catch (error) {
       throw new Error(
         `Failed to send password reset email: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Gửi email từ template lưu trong DB.
+   * Nếu không có template hoặc template inactive, không gửi (trả về).
+   */
+  async sendFromTemplate(
+    code: string,
+    toEmail: string,
+    variables: Record<string, string>,
+  ): Promise<boolean> {
+    const template = await this.prisma.emailTemplate.findUnique({
+      where: { code },
+    });
+    if (!template || !template.isActive) {
+      this.logger.debug(`Email template "${code}" not found or inactive, skip send`);
+      return false;
+    }
+
+    const replaceVars = (str: string): string => {
+      let result = str;
+      for (const [key, val] of Object.entries(variables)) {
+        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val ?? '');
+      }
+      return result;
+    };
+
+    const subject = replaceVars(template.subject);
+    const html = replaceVars(template.bodyHtml);
+
+    await this.sendIfConfigured({ to: toEmail, subject, html });
+    return true;
+  }
+
+  async sendWorkspaceInviteEmail(data: {
+    toEmail: string
+    toName: string
+    workspaceName: string
+    inviterName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const sent = await this.sendFromTemplate('workspace_invite', data.toEmail, {
+      toName: data.toName,
+      workspaceName: data.workspaceName,
+      inviterName: data.inviterName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (!sent) {
+      this.logger.warn('workspace_invite template not found in DB, email not sent. Run prisma seed.');
+    }
+  }
+
+  async sendMemberRemovedEmail(data: {
+    toEmail: string
+    toName: string
+    workspaceName: string
+    removerName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const sent = await this.sendFromTemplate('member_removed', data.toEmail, {
+      toName: data.toName,
+      workspaceName: data.workspaceName,
+      removerName: data.removerName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (!sent) {
+      this.logger.warn('member_removed template not found in DB, email not sent. Run prisma seed.');
+    }
+  }
+
+  async sendWorkspaceCreatedEmail(data: {
+    toEmail: string
+    toName: string
+    workspaceName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const sent = await this.sendFromTemplate('workspace_created', data.toEmail, {
+      toName: data.toName,
+      workspaceName: data.workspaceName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (!sent) {
+      this.logger.warn('workspace_created template not found in DB, email not sent. Run prisma seed.');
+    }
+  }
+
+  async sendWelcomeBackEmail(data: {
+    toEmail: string
+    toName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const used = await this.sendFromTemplate('welcome_back', data.toEmail, {
+      toName: data.toName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (used) return;
+
+    const html = buildLawzyEmailHtml({
+      title: 'Chào mừng trở lại Lawzy',
+      greeting: `Xin chào <strong>${data.toName}</strong>`,
+      body: `
+        <p>Chúng tôi nhận thấy bạn vừa đăng nhập vào Lawzy.</p>
+        <p>Nếu không phải bạn thực hiện đăng nhập này, vui lòng đổi mật khẩu ngay qua trang cài đặt tài khoản.</p>
+      `,
+      button: { text: 'Mở Dashboard', url: data.dashboardUrl },
+    });
+
+    await this.sendIfConfigured({
+      to: data.toEmail,
+      subject: '[Lawzy] Chào mừng trở lại',
+      html,
+    });
+  }
+
+  async sendPaymentSuccessEmail(data: {
+    toEmail: string
+    toName: string
+    planName: string
+    amount: number
+    workspaceName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const sent = await this.sendFromTemplate('payment_success', data.toEmail, {
+      toName: data.toName,
+      planName: data.planName,
+      amount: data.amount.toLocaleString('vi-VN'),
+      workspaceName: data.workspaceName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (!sent) {
+      this.logger.warn('payment_success template not found in DB, email not sent. Run prisma seed.');
+    }
+  }
+
+  async sendPlanUpgradeEmail(data: {
+    toEmail: string
+    toName: string
+    workspaceName: string
+    newPlanName: string
+    dashboardUrl: string
+  }): Promise<void> {
+    const sent = await this.sendFromTemplate('plan_upgrade', data.toEmail, {
+      toName: data.toName,
+      workspaceName: data.workspaceName,
+      newPlanName: data.newPlanName,
+      dashboardUrl: data.dashboardUrl,
+    });
+    if (!sent) {
+      this.logger.warn('plan_upgrade template not found in DB, email not sent. Run prisma seed.');
+    }
+  }
+
+  private async sendIfConfigured(opts: {
+    to: string
+    subject: string
+    html: string
+  }): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Email not sent (SMTP not configured): ${opts.subject}`);
+      return;
+    }
+    try {
+      await this.transporter.sendMail({
+        from: 'contact@lawzy.vn',
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
