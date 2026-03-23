@@ -6,10 +6,12 @@ export interface DocumentItem {
   title: string;
   type: string;
   status: string;
+  visibility?: 'private' | 'workspace';
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   creator?: { name: string; avatar?: string };
+  workspace?: { id: string; name: string };
 }
 
 interface PaginatedDocs {
@@ -33,6 +35,18 @@ export function useDocuments(workspaceId?: string, opts?: { status?: string; typ
   });
 }
 
+export function useSharedDocuments(workspaceId?: string, opts?: { page?: number; limit?: number }) {
+  const params = new URLSearchParams();
+  if (workspaceId) params.set('workspaceId', workspaceId);
+  if (opts?.page) params.set('page', String(opts.page));
+  if (opts?.limit) params.set('limit', String(opts.limit));
+
+  return useQuery<PaginatedDocs>({
+    queryKey: ['documents', 'shared', workspaceId ?? 'all', opts],
+    queryFn: () => api.get(`/documents/shared?${params.toString()}`),
+  });
+}
+
 export function useDocument(id: string) {
   return useQuery({
     queryKey: ['documents', id],
@@ -44,7 +58,7 @@ export function useDocument(id: string) {
 export function useCreateDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; type?: string; workspaceId?: string; templateId?: string; contentJSON?: unknown }) =>
+    mutationFn: (data: { title: string; type?: string; workspaceId?: string; templateId?: string; contentJSON?: unknown; visibility?: 'private' | 'workspace' }) =>
       api.post('/documents', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   });

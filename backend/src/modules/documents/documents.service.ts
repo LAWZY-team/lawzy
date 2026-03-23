@@ -40,15 +40,21 @@ export class DocumentsService {
     metadata?: any;
     mergeFieldValues?: any;
     status?: string;
+    visibility?: 'private' | 'workspace';
   }) {
     await this.workspaceAccess.requireMembership(
       data.workspaceId,
       data.createdBy,
     );
+    const visibility = data.visibility ?? 'workspace';
+    if (!['private', 'workspace'].includes(visibility)) {
+      throw new BadRequestException('Invalid visibility');
+    }
     return this.prisma.document.create({
       data: {
         title: data.title,
         type: data.type ?? 'contract',
+        visibility,
         workspaceId: data.workspaceId,
         createdBy: data.createdBy,
         templateId: data.templateId,
@@ -106,6 +112,16 @@ export class DocumentsService {
     return { data, total, page, limit };
   }
 
+  private async getUserWorkspaceIds(userId: string, scopeWorkspaceId?: string | null): Promise<string[]> {
+    const memberOf = await this.prisma.workspaceMember.findMany({
+      where: { userId },
+      select: { workspaceId: true },
+    });
+    const ids = memberOf.map((m) => m.workspaceId);
+    if (scopeWorkspaceId && ids.includes(scopeWorkspaceId)) return [scopeWorkspaceId];
+    return ids;
+  }
+
   async findByUser(
     userId: string,
     opts?: {
@@ -116,17 +132,28 @@ export class DocumentsService {
       limit?: number;
     },
   ) {
-    const workspaceId = opts?.workspaceId;
-    const isMember = !workspaceId || (await this.workspaceAccess.hasMembership(workspaceId, userId));
+    const scopeWorkspaceId = opts?.workspaceId || undefined;
+    const workspaceIds = await this.getUserWorkspaceIds(userId, scopeWorkspaceId);
     const empty = { data: [], total: 0, page: 1, limit: opts?.limit ?? 50 };
-    if (!isMember) return empty;
+    if (workspaceIds.length === 0) return empty;
 
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 50;
     const skip = (page - 1) * limit;
 
-    const where: any = { createdBy: userId };
-    if (workspaceId) where.workspaceId = workspaceId;
+    // private: only creator; workspace: all members see
+    const where: {
+      workspaceId: { in: string[] };
+      OR: Array<{ visibility: string; createdBy?: string }>;
+      status?: string;
+      type?: string;
+    } = {
+      workspaceId: { in: workspaceIds },
+      OR: [
+        { visibility: 'workspace' },
+        { visibility: 'private', createdBy: userId },
+      ],
+    };
     if (opts?.status) where.status = opts.status;
     if (opts?.type) where.type = opts.type;
 
@@ -141,8 +168,57 @@ export class DocumentsService {
           title: true,
           type: true,
           status: true,
+          visibility: true,
           createdAt: true,
           updatedAt: true,
+          workspace: { select: { id: true, name: true } },
+          creator: {
+            select: { name: true, avatar: true },
+          },
+        },
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
+  }
+
+  /**
+   * Documents shared with user: visibility=workspace, user is member, NOT creator
+   */
+  async findSharedByUser(
+    userId: string,
+    opts?: { workspaceId?: string; page?: number; limit?: number },
+  ) {
+    const scopeWorkspaceId = opts?.workspaceId || undefined;
+    const workspaceIds = await this.getUserWorkspaceIds(userId, scopeWorkspaceId);
+    const empty = { data: [], total: 0, page: 1, limit: opts?.limit ?? 50 };
+    if (workspaceIds.length === 0) return empty;
+
+    const page = opts?.page ?? 1;
+    const limit = opts?.limit ?? 50;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      workspaceId: { in: workspaceIds },
+      visibility: 'workspace',
+      createdBy: { not: userId },
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          workspace: { select: { id: true, name: true } },
           creator: {
             select: { name: true, avatar: true },
           },
@@ -196,16 +272,25 @@ export class DocumentsService {
       contentJSON?: any;
       metadata?: any;
       mergeFieldValues?: any;
+      visibility?: 'private' | 'workspace';
     },
     userId: string,
   ) {
     await this.workspaceAccess.requireDocumentAccess(id, userId);
+
+    if (
+      data.visibility !== undefined &&
+      !['private', 'workspace'].includes(data.visibility)
+    ) {
+      throw new BadRequestException('Invalid visibility');
+    }
 
     return this.prisma.document.update({
       where: { id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.visibility !== undefined && { visibility: data.visibility }),
         ...(data.contentJSON !== undefined && {
           contentJSON: this.parseJsonIfString(data.contentJSON) as any,
         }),
@@ -356,7 +441,13 @@ export class DocumentsService {
     const workspaceIds = memberships.map((m) => m.workspaceId);
 
     return this.prisma.document.findMany({
-      where: { workspaceId: { in: workspaceIds } },
+      where: {
+        workspaceId: { in: workspaceIds },
+        OR: [
+          { visibility: 'workspace' },
+          { visibility: 'private', createdBy: userId },
+        ],
+      },
       orderBy: { updatedAt: 'desc' },
       take: limit,
       include: {

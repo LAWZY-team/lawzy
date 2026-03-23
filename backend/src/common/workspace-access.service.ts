@@ -29,9 +29,12 @@ export class WorkspaceAccessService {
   ): Promise<{ workspaceId: string }> {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: { workspaceId: true },
+      select: { workspaceId: true, createdBy: true, visibility: true },
     });
     if (!doc) throw new NotFoundException(NOT_FOUND);
+    if (doc.visibility === 'private' && doc.createdBy !== userId) {
+      throw new NotFoundException(NOT_FOUND);
+    }
     await this.requireMembership(doc.workspaceId, userId);
     return { workspaceId: doc.workspaceId };
   }

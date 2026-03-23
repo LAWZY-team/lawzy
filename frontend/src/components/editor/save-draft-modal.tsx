@@ -17,7 +17,7 @@ import { useT } from "@/components/i18n-provider"
 interface SaveDraftModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (status: 'draft' | 'completed') => void
+  onSave: (opts: { status: 'draft' | 'completed'; visibility?: 'private' | 'workspace' }) => void
   onDiscard: () => void
 }
 
@@ -29,6 +29,7 @@ export function SaveDraftModal({
 }: SaveDraftModalProps) {
   const { t } = useT()
   const [status, setStatus] = useState<'draft' | 'completed'>('draft')
+  const [visibility, setVisibility] = useState<'private' | 'workspace'>('workspace')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,6 +63,27 @@ export function SaveDraftModal({
               </Label>
             </div>
           </RadioGroup>
+          <Label className="text-sm font-medium mb-3 block mt-4">
+            {t("visibility_label") || "Quyền truy cập"}
+          </Label>
+          <RadioGroup
+            value={visibility}
+            onValueChange={(v) => setVisibility(v as 'private' | 'workspace')}
+            className="flex flex-col gap-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="workspace" id="vis-workspace" />
+              <Label htmlFor="vis-workspace" className="font-normal cursor-pointer">
+                {t("visibility_workspace") || "Chia sẻ trong workspace"}
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="private" id="vis-private" />
+              <Label htmlFor="vis-private" className="font-normal cursor-pointer">
+                {t("visibility_private") || "Chỉ mình tôi"}
+              </Label>
+            </div>
+          </RadioGroup>
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -77,7 +99,7 @@ export function SaveDraftModal({
           </Button>
           <Button
             onClick={() => {
-              onSave(status)
+              onSave({ status, visibility })
               onOpenChange(false)
             }}
             className="sm:order-2"

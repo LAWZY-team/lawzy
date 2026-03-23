@@ -424,7 +424,9 @@ export default function EditorPage({
     },
   })
 
-  const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
+  const handleSaveDraftToDb = useCallback(async (opts: { status: 'draft' | 'completed'; visibility?: 'private' | 'workspace' } | 'draft' | 'completed') => {
+    const status = typeof opts === 'string' ? opts : opts.status
+    const visibility = typeof opts === 'object' && opts.visibility ? opts.visibility : 'workspace'
     if (!isAuthenticated) {
       handleAuthRequired()
       toast.error(t('toast_login_required'))
@@ -444,6 +446,7 @@ export default function EditorPage({
           metadata: sourceMetadata,
           mergeFieldValues: persistedMergeValues,
           status,
+          visibility,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create document')
@@ -473,6 +476,7 @@ export default function EditorPage({
       await api.patch(`/documents/${resolvedParams.id}`, {
         title: documentTitle,
         status,
+        visibility,
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         metadata: useEditorStore.getState().metadata,
@@ -931,8 +935,8 @@ export default function EditorPage({
       <SaveDraftModal
         open={showSaveDraftModal}
         onOpenChange={setShowSaveDraftModal}
-        onSave={(status) => {
-          void handleSaveDraftToDb(status)
+        onSave={(opts) => {
+          void handleSaveDraftToDb(opts)
           setShowSaveDraftModal(false)
         }}
         onDiscard={() => {

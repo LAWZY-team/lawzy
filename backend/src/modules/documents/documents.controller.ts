@@ -51,6 +51,7 @@ export class DocumentsController {
       metadata?: any;
       mergeFieldValues?: any;
       status?: string;
+      visibility?: 'private' | 'workspace';
     },
   ) {
     const userId = req.user.userId;
@@ -77,6 +78,22 @@ export class DocumentsController {
       ...body,
       workspaceId,
       createdBy: userId,
+      visibility: body.visibility,
+    });
+  }
+
+  @Get('shared')
+  async listShared(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const userId = req.user.userId;
+    return this.documentsService.findSharedByUser(userId, {
+      workspaceId,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 
@@ -122,6 +139,7 @@ export class DocumentsController {
       contentJSON?: any;
       metadata?: any;
       mergeFieldValues?: any;
+      visibility?: 'private' | 'workspace';
     },
   ) {
     return this.documentsService.update(id, body, req.user.userId);

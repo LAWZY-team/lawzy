@@ -14,6 +14,8 @@ import {
   Settings,
   ClipboardList,
   FolderInput,
+  Mail,
+  Share2,
 } from "lucide-react"
 import type { TranslationKey } from "@/lib/i18n"
 
@@ -48,7 +50,14 @@ const baseNavGroups: NavGroup[] = [
     labelKey: "sidebar_workspaces",
     items: [
       { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
+      {
+        titleKey: "sidebar_documents",
+        icon: FileText,
+        items: [
+          { titleKey: "sidebar_documents_mine", href: "/documents", icon: FileText },
+          { titleKey: "sidebar_documents_shared", href: "/documents/shared", icon: Share2 },
+        ],
+      },
       { titleKey: "sidebar_profile", href: "/fields", icon: ClipboardList },
       { titleKey: "sidebar_templates", href: "/templates", icon: Library },
       { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },
@@ -83,6 +92,7 @@ export const adminNavGroup: NavGroup = {
       icon: FileEdit,
       items: [
         { titleKey: "sidebar_admin_articles", href: "/admin/articles", icon: FileEdit },
+        { titleKey: "sidebar_admin_email", href: "/admin/email-templates", icon: Mail },
       ],
     },
     {
