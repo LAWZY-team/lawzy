@@ -20,6 +20,7 @@ import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
 import { useAuthStore } from '@/stores/auth-store'
+import { useWorkspaceFields } from '@/hooks/workspaces/use-workspace-fields'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
 import { AuthModal } from '@/components/editor/auth-modal'
@@ -40,6 +41,8 @@ import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-con
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
 import { SaveDraftModal } from '@/components/editor/save-draft-modal'
+import { flushMergeFieldDrafts } from '@/lib/editor/flush-merge-field-drafts'
+import { useT } from '@/components/i18n-provider'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
@@ -78,16 +81,18 @@ export default function EditorPage({
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
   const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
 
-  const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues } = useEditorStore()
+  const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues, metadata } = useEditorStore()
   const { customFields } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
   const { saveSession, getSession, clearSession } = useGuestEditorSessionStore()
 
-  /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> Số hợp đồng / Contract number) */
-  const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  /** Humanize merge field key for label (e.g. CONTRACT_NUMBER -> SỐ HỢP ĐỒNG / CONTRACT NUMBER) */
+  const mergeKeyToLabel = (key: string) => key.replace(/_/g, ' ').toUpperCase()
   const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore()
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
+  const { locale, t } = useT()
+  const { data: workspaceFields = [] } = useWorkspaceFields(workspaceId ?? null)
 
   // Ensure we always have a default workspace selected (first workspace)
   useEffect(() => {
@@ -113,7 +118,7 @@ export default function EditorPage({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
-  const [documentTitle, setDocumentTitle] = useState('Hợp đồng dịch vụ')
+  const documentTitle = metadata.title || 'Hợp đồng mới'
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const thinkingProgress = useThinkingProgress(isGenerating)[0]
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
@@ -165,7 +170,7 @@ export default function EditorPage({
       if (!guestRestoredRef.current && session.editorContent) {
         guestRestoredRef.current = true
         setEditorContent(session.editorContent)
-        setDocumentTitle(session.documentTitle)
+        updateMetadata({ title: session.documentTitle })
         setMergeFieldValues(session.mergeFieldValues)
         if (session.templateMergeFields) setTemplateMergeFields(session.templateMergeFields)
         if (session.chatMessages.length > 0) setChatMessages(session.chatMessages)
@@ -187,10 +192,18 @@ export default function EditorPage({
     updateMetadata,
   ])
 
+  const wasAuthRef = useRef(isAuthenticated)
+  useEffect(() => {
+    wasAuthRef.current = isAuthenticated
+  }, [isAuthenticated])
+
   // Save local session periodically on /editor/new
   useEffect(() => {
     if (resolvedParams.id === 'new' && isCanvasMode) {
       const interval = setInterval(() => {
+        const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+        if (isLoggingOut) return
+
         saveSession({
           editorContent,
           documentTitle,
@@ -203,6 +216,9 @@ export default function EditorPage({
 
       return () => {
         try {
+          const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+          if (isLoggingOut) return
+
           // Save once on unmount/navigation to avoid losing recent changes
           saveSession({
             editorContent,
@@ -250,7 +266,7 @@ export default function EditorPage({
               : rawContent
           const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
           if (content) setEditorContent(content)
-          setDocumentTitle((doc.title as string) || 'Hợp đồng')
+          // Use updateMetadata below to set both title and other metadata
           const meta = (doc.metadata as Record<string, unknown>) ?? {}
           updateMetadata({
             title: (doc.title as string) || '',
@@ -258,6 +274,8 @@ export default function EditorPage({
             tags: (meta.tags as string[]) ?? [],
             riskLevel: (meta.riskLevel as 'low' | 'medium' | 'high') ?? 'low',
             visibility: (meta.visibility as 'workspace' | 'private' | 'public') ?? 'workspace',
+            status: (doc.status as string) || 'draft',
+            creator: (doc.creator as { name: string; email?: string; avatar?: string }) || undefined,
           })
           setIsCanvasMode(true)
 
@@ -280,7 +298,6 @@ export default function EditorPage({
           if (template?.contentJSON) {
             const tipTapContent = templateContentToEditorContent(template.contentJSON as DocContent)
             setEditorContent(tipTapContent)
-            setDocumentTitle(template.title)
             updateMetadata({
               title: template.title,
               type: template.category ?? 'contract',
@@ -305,7 +322,7 @@ export default function EditorPage({
       setTemplateMergeFields(null)
       setMergeFieldValues({})
       setEditorContent(DEFAULT_CONTENT)
-      setDocumentTitle('Hợp đồng dịch vụ')
+      updateMetadata({ title: 'Hợp đồng dịch vụ' })
       // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
       setIsCanvasMode(false)
       setChatMessages([])
@@ -325,6 +342,20 @@ export default function EditorPage({
     if (Object.keys(additions).length === 0) return
     setMergeFieldValues({ ...mergeFieldValues, ...additions })
   }, [customFields, mergeFieldValues, setMergeFieldValues])
+
+  // Merge workspace custom fields defaults (ưu tiên cho AI khi soạn hợp đồng)
+  useEffect(() => {
+    if (!workspaceFields || workspaceFields.length === 0) return
+    const additions: Record<string, string> = {}
+    for (const f of workspaceFields) {
+      if (f.isHidden) continue
+      if (!Object.prototype.hasOwnProperty.call(mergeFieldValues, f.key)) {
+        additions[f.key] = f.defaultValue ?? ''
+      }
+    }
+    if (Object.keys(additions).length === 0) return
+    setMergeFieldValues({ ...mergeFieldValues, ...additions })
+  }, [workspaceFields, mergeFieldValues, setMergeFieldValues])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -395,11 +426,13 @@ export default function EditorPage({
   const handleSaveDraftToDb = useCallback(async (status: 'draft' | 'completed' = 'draft') => {
     if (!isAuthenticated) {
       handleAuthRequired()
-      toast.error('Vui lòng đăng nhập để lưu.')
+      toast.error(t('toast_login_required'))
       return
     }
 
     try {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -408,14 +441,25 @@ export default function EditorPage({
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
           status,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create document')
 
+        if (chatMessages && chatMessages.length > 0) {
+          for (const m of chatMessages) {
+            await api.post(`/documents/${newId}/chat-messages`, {
+              role: m.role,
+              content: m.content,
+              metadata: { migratedFromGuest: true },
+            }).catch(e => console.error(e))
+          }
+        }
+        clearSession()
+
         setIsDirty(false)
-        toast.success('Đã lưu')
+        toast.success(t('toast_saved'))
 
         if (pendingUrl) {
           router.push(pendingUrl)
@@ -429,20 +473,20 @@ export default function EditorPage({
         title: documentTitle,
         status,
         contentJSON: editorContent,
-        mergeFieldValues,
+        mergeFieldValues: persistedMergeValues,
         metadata: useEditorStore.getState().metadata,
       })
 
       setIsDirty(false)
-      toast.success('Đã lưu')
+      toast.success(t('toast_saved'))
       if (pendingUrl) {
         router.push(pendingUrl)
       }
     } catch (e) {
       console.error(e)
-      toast.error('Lưu thất bại')
+      toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, mergeFieldValues, pendingUrl, router])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router])
   // Note: workspaceId kept in deps as it's still used (passed when available)
 
   const { isActive: isTourActive } = useOnboardingStore()
@@ -450,6 +494,24 @@ export default function EditorPage({
   useNavigationGuard(isDirty && !isTourActive, () => {
     setShowSaveDraftModal(true)
   })
+
+  const autoSaveTriggeredRef = useRef(false)
+
+  // Migrates the guest draft silently to a real database document once authenticated and tour finishes
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      resolvedParams.id === 'new' &&
+      guestRestoredRef.current &&
+      !isTourActive &&
+      !autoSaveTriggeredRef.current
+    ) {
+      if (editorContent && editorContent.content && editorContent.content.length > 0) {
+        autoSaveTriggeredRef.current = true
+        handleSaveDraftToDb('draft')
+      }
+    }
+  }, [isAuthenticated, resolvedParams.id, isTourActive, editorContent, handleSaveDraftToDb])
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
@@ -508,11 +570,13 @@ export default function EditorPage({
     if (initialLoadRef.current) return
 
     const t = setTimeout(() => {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       api
         .patch(`/documents/${resolvedParams.id}`, {
           title: documentTitle,
           contentJSON: editorContent,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
           metadata: useEditorStore.getState().metadata,
         })
         .then(() => {
@@ -528,12 +592,14 @@ export default function EditorPage({
 
   const handleSave = async () => {
     if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để lưu.')
+      toast.error(t('toast_login_required'))
       return
     }
 
     setSaving(true)
     try {
+      flushMergeFieldDrafts()
+      const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -542,7 +608,7 @@ export default function EditorPage({
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
           metadata: sourceMetadata,
-          mergeFieldValues,
+          mergeFieldValues: persistedMergeValues,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create draft')
@@ -559,7 +625,7 @@ export default function EditorPage({
         }
 
         clearSession()
-        toast.success('Đã lưu bản thảo')
+        toast.success(t('toast_draft_saved'))
         router.replace(`/editor/${newId}`)
         return
       }
@@ -567,17 +633,17 @@ export default function EditorPage({
       const now = new Date()
       await api.post(`/documents/${resolvedParams.id}/versions`, {
         contentJSON: editorContent,
-        mergeFieldValues,
+        mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
         label: `Lưu bản nháp (${now.toLocaleString('vi-VN')})`,
       })
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
       setIsDirty(false)
-      toast.success('Đã lưu phiên bản')
+      toast.success(t('toast_version_saved'))
     } catch (e) {
       console.error(e)
-      toast.error('Lưu phiên bản thất bại')
+      toast.error(t('toast_version_save_failed'))
     } finally {
       setSaving(false)
     }
@@ -619,7 +685,7 @@ export default function EditorPage({
         }
       } catch (e) {
         console.error('Extract text failed', e)
-        toast.error('Không đọc được nội dung file đính kèm.')
+        toast.error(t('toast_extract_failed'))
       }
       setAttachedFile(null)
     }
@@ -640,6 +706,7 @@ export default function EditorPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: message,
+          locale,
           metadata: {
             contractType: 'general',
           },
@@ -663,7 +730,7 @@ export default function EditorPage({
 
       if (result.type === 'contract_generation') {
         const genResult = result as ContractGenerationResult
-        aiContent = buildContractSummaryMessage(genResult)
+        aiContent = buildContractSummaryMessage(genResult, locale)
 
         const { content: newContent, allMergeKeys } = contractResultToTipTapContent(genResult, {
           mergeKeyToLabel,
@@ -685,7 +752,7 @@ export default function EditorPage({
         }
 
         setEditorContent(newContent)
-        setDocumentTitle(genResult.content.title || documentTitle)
+        updateMetadata({ title: genResult.content.title || documentTitle })
         setIsCanvasMode(true)
       } else if (result.type === 'error') {
         aiContent = result.message || 'Hệ thống chỉ hỗ trợ các nghiệp vụ liên quan đến soạn thảo và phân tích hợp đồng, pháp lý.'
@@ -703,7 +770,7 @@ export default function EditorPage({
         isError: result.type === 'error',
         hasContract: result.type === 'contract_generation',
         ...(result.type === 'contract_generation' && {
-          thinking: getSimulatedThinking(result as ContractGenerationResult),
+          thinking: getSimulatedThinking(result as ContractGenerationResult, locale),
         }),
       }
       
@@ -720,12 +787,12 @@ export default function EditorPage({
 
     } catch (error) {
       console.error('Error generating contract:', error)
-      toast.error('Có lỗi xảy ra khi tạo hợp đồng')
+      toast.error(t('toast_generate_error'))
       setThinkingProgress([])
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Xin lỗi, tôi gặp sự cố khi xử lý yêu cầu của bạn. Vui lòng thử lại.',
+        content: t('toast_ai_error'),
         timestamp: new Date(),
         isError: true,
       }
@@ -796,6 +863,10 @@ export default function EditorPage({
                 <CanvasEditor
                   editor={editor}
                   title={documentTitle}
+                  onChangeTitle={(val) => {
+                    updateMetadata({ title: val })
+                    setIsDirty(true)
+                  }}
                   // onClose={() => setIsCanvasMode(false)}
                   onRun={() => toast.info("Đang kiểm tra...")}
                   isCode={false}
@@ -810,6 +881,7 @@ export default function EditorPage({
                   <RightPanel
                     editor={editor}
                     onAuthRequired={handleAuthRequired}
+                    workspaceId={workspaceId ?? undefined}
                   />
                 </div>
               )}

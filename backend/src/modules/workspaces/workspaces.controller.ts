@@ -3,11 +3,13 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
   UseGuards,
   Request,
+  BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -88,5 +90,34 @@ export class WorkspacesController {
   @Get(':id/stats')
   async getStats(@Param('id') id: string) {
     return this.workspacesService.getStats(id);
+  }
+
+  @Get(':id/custom-fields')
+  async getCustomFields(@Request() req: any, @Param('id') workspaceId: string) {
+    return this.workspacesService.getCustomFields(workspaceId);
+  }
+
+  @Put(':id/custom-fields')
+  async replaceCustomFields(
+    @Request() req: any,
+    @Param('id') workspaceId: string,
+    @Body()
+    body: {
+      fields: Array<{
+        key: string;
+        label: string;
+        defaultValue?: string | null;
+        isHidden?: boolean;
+      }>;
+    },
+  ) {
+    if (!body || !Array.isArray(body.fields)) {
+      throw new BadRequestException('fields must be an array');
+    }
+    await this.workspacesService.ensureMemberCanEdit(
+      workspaceId,
+      req.user.userId,
+    );
+    return this.workspacesService.replaceCustomFields(workspaceId, body.fields);
   }
 }

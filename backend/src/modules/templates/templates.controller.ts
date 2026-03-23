@@ -8,7 +8,11 @@ import {
   Body,
   Query,
   Header,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { TemplatesService } from './templates.service';
 
 @Controller('templates')
@@ -30,6 +34,8 @@ export class TemplatesController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async create(
     @Body()
     body: {
@@ -46,6 +52,8 @@ export class TemplatesController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async update(
     @Param('id') id: string,
     @Body()
@@ -68,6 +76,8 @@ export class TemplatesController {
   }
 
   @Post('import-from-s3')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async importFromS3(
     @Body()
     body?: {

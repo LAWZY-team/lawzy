@@ -3,24 +3,16 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "./language-provider";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Menu, X, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useGuestFlowStore } from "@/stores/guest-flow-store";
 
-type HeaderProps = {
-  onCreateContract?: () => void;
-};
-
-export default function LandingHeader({ onCreateContract }: HeaderProps) {
+export default function LandingHeader() {
   const { t } = useI18n();
-  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 100);
@@ -28,108 +20,99 @@ export default function LandingHeader({ onCreateContract }: HeaderProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
-    handler(mq);
-    mq.addEventListener("change", handler as EventListener);
-    return () => mq.removeEventListener("change", handler as EventListener);
-  }, []);
-
   const navLinks = [
-    { href: "#newspaper", label: t("nav_newspaper") },
     { href: "#features", label: t("nav_features") },
     { href: "#target", label: t("nav_target") },
     { href: "#achievement", label: t("nav_achievement") },
-    // { href: "#team", label: t("nav_team") },
-    { href: "#contact", label: t("nav_contact") },
+    { href: "/contact", label: t("nav_contact") },
   ];
-
-  const handleCreateContract = () => {
-    // trackEvent("CLICK_CREATE_CONTRACT_LP");
-    useGuestFlowStore.getState().startFromLanding();
-    if (onCreateContract) return onCreateContract();
-    router.push("/editor/new");
-  };
 
   return (
     <>
-      <div
+      <header
         className={`fixed z-50 transition-all duration-300
-          left-4 right-4 top-4 rounded-3xl bg-white/90 backdrop-blur-md border border-gray-100 shadow-sm
-          md:left-0 md:right-0 md:top-0 md:w-full md:rounded-none md:border-t-0 md:border-x-0
-          ${isScrolled ? "md:bg-white/90 md:backdrop-blur-md md:border-b md:border-gray-100 md:shadow-sm" : "md:bg-transparent md:border-transparent md:shadow-none"}`}
+          left-3 right-3 top-3 max-w-[100vw] rounded-2xl bg-white/95 backdrop-blur-md border border-gray-100/80 shadow-sm
+          sm:left-4 sm:right-4 sm:top-4 sm:rounded-3xl
+          md:left-0 md:right-0 md:top-0 md:max-w-none md:w-full md:rounded-none md:border-x-0 md:border-t-0
+          ${isScrolled ? "md:bg-white/95 md:backdrop-blur-md md:border-b md:border-gray-100 md:shadow-sm" : "md:bg-transparent md:border-transparent md:shadow-none"}`}
       >
-        <div className="container mx-auto px-4 py-1 flex justify-between items-center min-h-[60px] md:min-h-[72px] relative">
-          <a href="#" className="shrink-0 z-50 relative">
-            <Image src="/lawzy-logo.png" alt="Lawzy Logo" width={100} height={100} className="scale-130" priority />
-          </a>
+        <div className="container mx-auto px-3 sm:px-4 md:px-4 lg:px-6">
+          <div className="flex w-full items-center min-h-[48px] sm:min-h-[52px] md:min-h-[60px] py-1 md:py-0.5 gap-2">
+            <a href="/" className="shrink-0 flex items-center min-w-0" aria-label="Lawzy home">
+              <Image src="/lawzy-logo.png" alt="" width={88} height={88} className="h-11 w-auto sm:h-12 md:h-14 object-contain object-left" priority />
+            </a>
 
-          <div className="hidden md:flex absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 space-x-8 items-center">
-            {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="text-gray-600 hover:text-foreground hover:font-semibold transition-all font-medium text-sm lg:text-base">
-                {link.label}
-              </a>
-            ))}
-          </div>
+            <nav className="hidden md:flex flex-1 justify-center items-center gap-4 lg:gap-8 min-w-0" aria-label="Main">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-gray-600 hover:text-foreground hover:font-semibold transition-all font-medium text-sm lg:text-base whitespace-nowrap"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
-          <div className="flex items-center gap-2">
-            {!isMobile && (
-              <AnimatePresence>
-                {isScrolled && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: "auto", opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="overflow-hidden">
-                    <div className="pr-2">
-                      <Button type="button" className="bg-black hover:bg-gray-800 text-white h-9 rounded-full shadow-md whitespace-nowrap" onClick={handleCreateContract}>
-                        {t("try_free")}
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
+            <div className="flex items-center justify-end gap-2 shrink-0 ml-auto md:ml-0">
+              <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
+                <Link href="/login">
+                  <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
+                  <span>{t("login")}</span>
+                </Link>
+              </Button>
 
-            <Button variant="outline" size="sm" className="hidden md:inline-flex border-gray-300 hover:bg-gray-100 h-9" asChild>
-              <Link href="/login">
-                <LogIn className="w-4 h-4 mr-1.5" />
-                {t("login")}
-              </Link>
-            </Button>
+              <div className="hidden sm:block">
+                <LocaleSwitcher />
+              </div>
 
-            <div className="hidden md:block">
-              <LocaleSwitcher />
-            </div>
-
-            <div className="flex items-center gap-4 md:hidden z-50">
-              <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 shrink-0" aria-expanded={isMobileMenuOpen} aria-controls="landing-mobile-nav" onClick={() => setIsMobileMenuOpen((o) => !o)}>
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed inset-0 top-[80px] z-40 bg-white border-t border-gray-100 md:hidden flex flex-col p-6 space-y-6 shadow-xl">
-            {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="text-2xl font-semibold text-foreground hover:text-orange-600 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
-                {link.label}
-              </a>
-            ))}
-            <div className="pt-6 border-t border-gray-100 w-full space-y-4">
-              <Link href="/login" className="block" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button variant="outline" className="w-full justify-start text-lg h-12">
-                  <LogIn className="w-4 h-4 mr-2" />
-                  {t("login")}
-                </Button>
-              </Link>
-              <div className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
-                <LocaleSwitcher className="w-full justify-start h-12 text-lg" />
+          <motion.div
+            className="fixed inset-0 z-40 md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/25 backdrop-blur-[1px]" onClick={() => setIsMobileMenuOpen(false)} />
+            <motion.div
+              id="landing-mobile-nav"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("nav_menu")}
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2 }}
+              className="relative mx-3 sm:mx-4 mt-[calc(3rem+1rem)] sm:mt-[calc(3.25rem+1rem)] rounded-2xl border border-gray-100 bg-white shadow-lg max-h-[min(70vh,calc(100dvh-6rem))] overflow-y-auto"
+            >
+              <div className="flex flex-col p-4 sm:p-5 gap-1">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="pt-3 mt-2 border-t border-gray-100 sm:hidden">
+                  <div onClick={() => setIsMobileMenuOpen(false)} className="px-2">
+                    <LocaleSwitcher className="w-full justify-start h-11 text-base" />
+                  </div>
+                </div>
               </div>
-              <Button className="w-full bg-black hover:bg-gray-800 text-white text-lg h-12 rounded-xl" onClick={() => { setIsMobileMenuOpen(false); handleCreateContract(); }}>
-                {t("try_free")}
-              </Button>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

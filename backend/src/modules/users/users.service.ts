@@ -10,7 +10,10 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findByProviderId(provider: string, providerId: string): Promise<User | null> {
+  async findByProviderId(
+    provider: string,
+    providerId: string,
+  ): Promise<User | null> {
     return this.prisma.user.findFirst({
       where: { provider, providerId },
     });
@@ -137,12 +140,24 @@ export class UsersService {
   }
 
   async findByResetToken(token: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        resetToken: token,
-        resetExpires: { gt: new Date() },
-      },
+    const user = await this.prisma.user.findFirst({
+      where: { resetToken: token },
     });
+
+    if (!user) return null;
+
+    if (user.resetExpires && user.resetExpires < new Date()) {
+      // Tiêu hủy token vì đã quá hạn
+      this.prisma.user
+        .update({
+          where: { id: user.id },
+          data: { resetToken: null, resetExpires: null },
+        })
+        .catch(() => {});
+      return null;
+    }
+
+    return user;
   }
 
   async updatePassword(id: string, password: string): Promise<User> {
@@ -160,20 +175,163 @@ export class UsersService {
   }
 
   async findByEmailAndOTP(email: string, otp: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        email,
-        otpCode: otp,
-        otpExpires: { gt: new Date() },
-      },
+    const user = await this.prisma.user.findFirst({
+      where: { email, otpCode: otp },
     });
+
+    if (!user) return null;
+
+    if (user.otpExpires && user.otpExpires < new Date()) {
+      // Tiêu hủy mã OTP vì đã quá hạn
+      this.prisma.user
+        .update({
+          where: { id: user.id },
+          data: { otpCode: null, otpExpires: null },
+        })
+        .catch(() => {});
+      return null;
+    }
+
+    return user;
   }
 
   sanitize(user: User) {
-    const { password, resetToken, resetExpires, otpCode, otpExpires, ...safe } = user;
+    const { password, resetToken, resetExpires, otpCode, otpExpires, ...safe } =
+      user;
     return {
       ...safe,
-      roles: typeof safe.roles === 'string' ? JSON.parse(safe.roles as string) : safe.roles,
+      roles:
+        typeof safe.roles === 'string' ? JSON.parse(safe.roles) : safe.roles,
+    };
+  }
+
+  async findManyForAdmin(opts?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+    role?: string;
+    scope?: 'all' | 'workspace';
+    workspaceId?: string;
+  }) {
+    const page = opts?.page ?? 1;
+    const limit = Math.min(opts?.limit ?? 20, 100);
+    const skip = (page - 1) * limit;
+    const scope = opts?.scope ?? 'all';
+
+    const baseWhere: Record<string, unknown> = {};
+    if (opts?.q?.trim()) {
+      const q = opts.q.trim();
+      baseWhere.OR = [{ email: { contains: q } }, { name: { contains: q } }];
+    }
+    if (opts?.role?.trim()) {
+      const r = opts.role.trim().toLowerCase();
+      baseWhere.roles = { string_contains: `"${r}"` };
+    }
+
+    if (scope === 'workspace' && opts?.workspaceId?.trim()) {
+      const workspaceId = opts.workspaceId.trim();
+      const where = {
+        ...baseWhere,
+        workspaceMemberships: {
+          some: { workspaceId },
+        },
+      };
+      const [users, total] = await Promise.all([
+        this.prisma.user.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatar: true,
+            roles: true,
+            position: true,
+            isVerified: true,
+            provider: true,
+            createdAt: true,
+            updatedAt: true,
+            workspaceMemberships: {
+              where: { workspaceId },
+              select: {
+                role: true,
+                workspace: { select: { id: true, name: true } },
+              },
+            },
+          },
+        }),
+        this.prisma.user.count({ where }),
+      ]);
+      const sanitized = users.map((u) => {
+        const s = this.sanitize(u as unknown as User);
+        return {
+          ...s,
+          workspaces:
+            (u as any).workspaceMemberships?.map((m: any) => ({
+              id: m.workspace?.id,
+              name: m.workspace?.name,
+              role: m.role,
+            })) ?? [],
+        };
+      });
+      return {
+        data: sanitized,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
+
+    const where = baseWhere;
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          avatar: true,
+          roles: true,
+          position: true,
+          isVerified: true,
+          provider: true,
+          createdAt: true,
+          updatedAt: true,
+          workspaceMemberships: {
+            select: {
+              role: true,
+              workspace: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    const sanitized = users.map((u) => {
+      const s = this.sanitize(u as unknown as User);
+      return {
+        ...s,
+        workspaces:
+          (u as any).workspaceMemberships?.map((m: any) => ({
+            id: m.workspace?.id,
+            name: m.workspace?.name,
+            role: m.role,
+          })) ?? [],
+      };
+    });
+    return {
+      data: sanitized,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 }

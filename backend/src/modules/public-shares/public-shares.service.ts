@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PutObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { randomBytes } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { getR2Env } from '../../config/env';
@@ -34,7 +38,10 @@ export class PublicSharesService {
 
   constructor(@Inject(R2_S3_CLIENT) private readonly s3: S3Client) {}
 
-  async createSnapshot(params: { title?: string; html: string }): Promise<{ token: string }> {
+  async createSnapshot(params: {
+    title?: string;
+    html: string;
+  }): Promise<{ token: string }> {
     const html = (params.html ?? '').trim();
     if (!html) {
       // Keep behavior simple; controller will map this to 400
@@ -80,4 +87,3 @@ export class PublicSharesService {
     }
   }
 }
-

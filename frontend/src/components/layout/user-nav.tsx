@@ -22,7 +22,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
-import { useGuestFlowStore } from "@/stores/guest-flow-store"
 import useStore from "@/lib/zustand/use-store"
 
 export function UserNav() {
@@ -31,14 +30,11 @@ export function UserNav() {
   const { user, logout } = useAuthStore()
   const { t, locale, setLocale } = useT()
 
-  const guestEntry = useStore(useGuestFlowStore, (s) => s.entry)
   const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
   const authResolved = useStore(useAuthStore, (s) => s.authResolved)
+  const isGuest = authResolved && !isAuthenticated
 
-  // Treat as guest if we know they are not authenticated, or if unresolved but they came from landing.
-  const isGuest = authResolved ? !isAuthenticated : (guestEntry === "landing")
-
-  const displayName = isGuest ? "Khách" : (user?.name ?? "User")
+  const displayName = isGuest ? (locale === "en" ? "Guest" : "Khách") : (user?.name ?? "User")
   const displayEmail = isGuest ? "" : (user?.email ?? "")
   const initials = displayName.substring(0, 2).toUpperCase()
 
@@ -46,7 +42,7 @@ export function UserNav() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {
-      // proceed with client-side logout regardless
+      /* proceed with client-side logout regardless */
     }
     logout()
     router.push("/")
@@ -95,12 +91,17 @@ export function UserNav() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
+            <DropdownMenuItem onClick={toggleLocale}>
+              <Globe className="mr-2 h-4 w-4" />
+              {locale === "vi" ? "English" : "Tiếng Việt"}
+            </DropdownMenuItem>
+
             {isGuest ? (
               <>
                 <DropdownMenuItem asChild>
                   <Link href="/login">
                     <User className="mr-2 h-4 w-4" />
-                    Đăng nhập
+                    {t("auth_login")}
                   </Link>
                 </DropdownMenuItem>
               </>
@@ -112,11 +113,6 @@ export function UserNav() {
                     {t("settings_account")}
                   </Link>
                 </DropdownMenuItem> */}
-                
-            <DropdownMenuItem onClick={toggleLocale}>
-              <Globe className="mr-2 h-4 w-4" />
-              {locale === "vi" ? "English" : "Tiếng Việt"}
-            </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings" id="dropdown-settings-link">
                     <Settings className="mr-2 h-4 w-4" />

@@ -1,14 +1,29 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
 import { getR2Env } from '../../config/env';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { PlansService } from '../plans/plans.service';
+
+const DEFAULT_STORAGE_BYTES = 500 * 1024 * 1024; // 500 MB free plan
 
 @Injectable()
 export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly plansService: PlansService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client | null,
   ) {}
 
@@ -28,6 +43,15 @@ export class FilesService {
     userId: string;
     workspaceId: string;
   }) {
+    const { bytes: used, limitBytes } = await this.getStorageUsed(
+      data.workspaceId,
+    );
+    if (used + data.file.size > limitBytes) {
+      throw new BadRequestException(
+        `Storage limit exceeded. Used: ${used} bytes, limit: ${limitBytes} bytes.`,
+      );
+    }
+
     const client = this.ensureClient();
     const bucket = this.getBucket();
     const uuid = randomUUID();
@@ -133,10 +157,144 @@ export class FilesService {
   }
 
   async getStorageUsed(workspaceId: string) {
-    const result = await this.prisma.file.aggregate({
-      where: { workspaceId },
-      _sum: { size: true },
+    const [fileSum, sourceSum, workspace] = await Promise.all([
+      this.prisma.file.aggregate({
+        where: { workspaceId },
+        _sum: { size: true },
+      }),
+      this.prisma.source.aggregate({
+        where: { workspaceId },
+        _sum: { size: true },
+      }),
+      this.prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { plan: true },
+      }),
+    ]);
+    const bytes = (fileSum._sum.size ?? 0) + (sourceSum._sum.size ?? 0);
+    let limitBytes: number | undefined;
+    if (workspace?.plan) {
+      try {
+        const plan = await this.plansService.findBySlug(workspace.plan);
+        const ql = plan.quotaLimits as { storageBytes?: number } | null;
+        limitBytes =
+          typeof ql?.storageBytes === 'number' ? ql.storageBytes : undefined;
+      } catch {
+        limitBytes = DEFAULT_STORAGE_BYTES;
+      }
+    }
+    return { bytes, limitBytes: limitBytes ?? DEFAULT_STORAGE_BYTES };
+  }
+
+  /** Admin: tổng dung lượng toàn hệ thống và breakdown theo workspace */
+  async getAdminStorageOverview(options?: { fromR2?: boolean }) {
+    const workspaces = await this.prisma.workspace.findMany({
+      select: { id: true, name: true, plan: true },
+      orderBy: { name: 'asc' },
     });
-    return { bytes: result._sum.size ?? 0 };
+    const planBySlug = new Map<string, number>();
+    const slugs = [...new Set(workspaces.map((w) => w.plan).filter(Boolean))];
+    for (const slug of slugs) {
+      try {
+        const plan = await this.plansService.findBySlug(slug);
+        const ql = plan.quotaLimits as { storageBytes?: number } | null;
+        if (typeof ql?.storageBytes === 'number') {
+          planBySlug.set(slug, ql.storageBytes);
+        }
+      } catch {
+        planBySlug.set(slug, DEFAULT_STORAGE_BYTES);
+      }
+    }
+
+    let usedByWorkspace: Map<string, number>;
+    if (options?.fromR2) {
+      const r2Result = await this.getStorageFromR2();
+      usedByWorkspace = r2Result.byWorkspace ?? new Map();
+    } else {
+      const [fileSums, sourceSums] = await Promise.all([
+        this.prisma.file.groupBy({
+          by: ['workspaceId'],
+          _sum: { size: true },
+        }),
+        this.prisma.source.groupBy({
+          by: ['workspaceId'],
+          _sum: { size: true },
+        }),
+      ]);
+      usedByWorkspace = new Map<string, number>();
+      for (const f of fileSums) {
+        usedByWorkspace.set(
+          f.workspaceId,
+          (usedByWorkspace.get(f.workspaceId) ?? 0) + (f._sum.size ?? 0),
+        );
+      }
+      for (const s of sourceSums) {
+        usedByWorkspace.set(
+          s.workspaceId,
+          (usedByWorkspace.get(s.workspaceId) ?? 0) + (s._sum.size ?? 0),
+        );
+      }
+    }
+
+    let totalUsed = 0;
+    const breakdown = workspaces.map((w) => {
+      const used = usedByWorkspace.get(w.id) ?? 0;
+      totalUsed += used;
+      const limit = planBySlug.get(w.plan) ?? DEFAULT_STORAGE_BYTES;
+      return {
+        workspaceId: w.id,
+        workspaceName: w.name,
+        plan: w.plan,
+        storageUsed: used,
+        storageLimit: limit,
+        percent: limit > 0 ? Math.min(100, (used / limit) * 100) : 0,
+      };
+    });
+
+    return { totalUsed, breakdown };
+  }
+
+  /** Tính dung lượng từ R2 ListObjects (chính xác hơn, bao gồm object orphan) */
+  async getStorageFromR2(
+    workspaceId?: string,
+  ): Promise<{ bytes: number; byWorkspace?: Map<string, number> }> {
+    const client = this.ensureClient();
+    const bucket = this.getBucket();
+    const byWorkspace = new Map<string, number>();
+    let totalBytes = 0;
+
+    const prefixes = workspaceId
+      ? [`uploads/${workspaceId}/`, `sources/${workspaceId}/`]
+      : ['uploads/', 'sources/'];
+
+    for (const prefix of prefixes) {
+      let continuationToken: string | undefined;
+      do {
+        const cmd = new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        });
+        const resp = await client.send(cmd);
+        for (const obj of resp.Contents ?? []) {
+          const size = obj.Size ?? 0;
+          totalBytes += size;
+          if (!workspaceId && obj.Key) {
+            const m = obj.Key.match(/^(?:uploads|sources)\/([^/]+)\//);
+            if (m) {
+              const wsId = m[1];
+              byWorkspace.set(wsId, (byWorkspace.get(wsId) ?? 0) + size);
+            }
+          }
+        }
+        continuationToken = resp.IsTruncated
+          ? resp.NextContinuationToken
+          : undefined;
+      } while (continuationToken);
+    }
+
+    return workspaceId
+      ? { bytes: totalBytes }
+      : { bytes: totalBytes, byWorkspace };
   }
 }

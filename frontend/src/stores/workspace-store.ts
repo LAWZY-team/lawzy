@@ -5,9 +5,9 @@ import { api } from '@/lib/api/client'
 export interface WorkspaceMember {
   id: string
   userId: string
-  role: 'admin' | 'editor' | 'viewer'
+  role: 'admin' | 'editor' | 'viewer' | string
   joinedAt: string
-  user?: { name: string; email: string; avatar?: string }
+  user?: { id?: string; name: string; email: string; avatar?: string | null }
 }
 
 export interface Workspace {
@@ -15,7 +15,10 @@ export interface Workspace {
   name: string
   logo?: string
   plan: string
+  role?: string
+  joinedAt?: string
   members?: WorkspaceMember[]
+  memberCount?: number
   settings: Record<string, unknown>
   quotaLimits?: Record<string, unknown>
   aiConfig?: Record<string, unknown>
@@ -34,41 +37,34 @@ interface WorkspaceState {
   createWorkspace: (data: { name: string; plan?: string }) => Promise<Workspace>
 }
 
-export const useWorkspaceStore = create<WorkspaceState>()(
-  persist(
-    (set, get) => ({
-      currentWorkspace: null,
-      workspaces: [],
-      loading: false,
-      setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace }),
-      setWorkspaces: (workspaces) => set({ workspaces }),
-      fetchWorkspaces: async () => {
-        set({ loading: true });
-        try {
-          const workspaces = await api.get<Workspace[]>('/workspaces');
-          set({ workspaces });
-          const { currentWorkspace } = get();
-          if (!currentWorkspace && workspaces.length > 0) {
-            set({ currentWorkspace: workspaces[0] });
-          } else if (currentWorkspace) {
-            const updated = workspaces.find((w) => w.id === currentWorkspace.id);
-            if (updated) set({ currentWorkspace: updated });
-          }
-        } catch (err) {
-          console.error('Failed to fetch workspaces:', err);
-        } finally {
-          set({ loading: false });
-        }
-      },
-      createWorkspace: async (data) => {
-        const workspace = await api.post<Workspace>('/workspaces', data);
-        const { workspaces } = get();
-        set({ workspaces: [...workspaces, workspace], currentWorkspace: workspace });
-        return workspace;
-      },
-    }),
-    {
-      name: 'lawzy-workspace',
+export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
+  currentWorkspace: null,
+  workspaces: [],
+  loading: false,
+  setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace }),
+  setWorkspaces: (workspaces) => set({ workspaces }),
+  fetchWorkspaces: async () => {
+    set({ loading: true });
+    try {
+      const workspaces = await api.get<Workspace[]>('/workspaces');
+      set({ workspaces });
+      const { currentWorkspace } = get();
+      if (!currentWorkspace && workspaces.length > 0) {
+        set({ currentWorkspace: workspaces[0] });
+      } else if (currentWorkspace) {
+        const updated = workspaces.find((w) => w.id === currentWorkspace.id);
+        if (updated) set({ currentWorkspace: updated });
+      }
+    } catch (err) {
+      console.error('Failed to fetch workspaces:', err);
+    } finally {
+      set({ loading: false });
     }
-  )
-)
+  },
+  createWorkspace: async (data) => {
+    const workspace = await api.post<Workspace>('/workspaces', data);
+    const { workspaces } = get();
+    set({ workspaces: [...workspaces, workspace], currentWorkspace: workspace });
+    return workspace;
+  },
+}))

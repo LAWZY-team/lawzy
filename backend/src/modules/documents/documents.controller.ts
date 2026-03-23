@@ -56,9 +56,14 @@ export class DocumentsController {
     const userId = req.user.userId;
     if (
       body.status !== undefined &&
-      !['draft', 'completed', 'review', 'approved', 'signed', 'archived'].includes(
-        body.status,
-      )
+      ![
+        'draft',
+        'completed',
+        'review',
+        'approved',
+        'signed',
+        'archived',
+      ].includes(body.status)
     ) {
       throw new BadRequestException('Invalid status');
     }

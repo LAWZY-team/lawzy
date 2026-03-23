@@ -12,21 +12,13 @@ interface OnboardingState {
   completeTour: () => void
 }
 
-export const useOnboardingStore = create<OnboardingState>()(
-  persist(
-    (set) => ({
-      isActive: false,
-      currentStepIndex: 0,
-      isCompleted: false,
+export const useOnboardingStore = create<OnboardingState>()((set) => ({
+  isActive: false,
+  currentStepIndex: 0,
+  isCompleted: false,
 
-      startTour: () => set({ isActive: true, currentStepIndex: 0 }),
-      stopTour: () => set({ isActive: false }),
-      setStepIndex: (index) => set({ currentStepIndex: index }),
-      completeTour: () => set({ isCompleted: true, isActive: false }),
-    }),
-    {
-      name: "lawzy_onboarding_store",
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
-)
+  startTour: () => set({ isActive: true, currentStepIndex: 0 }),
+  stopTour: () => set({ isActive: false }),
+  setStepIndex: (index) => set({ currentStepIndex: index }),
+  completeTour: () => set({ isCompleted: true, isActive: false }),
+}))

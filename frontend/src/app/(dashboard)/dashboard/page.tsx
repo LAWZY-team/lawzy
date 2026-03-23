@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -12,27 +11,26 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { QuotaCard } from "@/components/dashboard/quota-card"
 import { ReferralCard } from "@/components/dashboard/referral-card"
-// import { QuickActions } from "@/components/dashboard/quick-actions"
-// import { RecentDocs } from "@/components/dashboard/recent-docs"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, FileText } from "lucide-react"
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
-import { useGuestFlowStore } from "@/stores/guest-flow-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { useRouter } from "next/navigation"
+import { useRecentDocuments } from "@/hooks/dashboard/use-dashboard"
+import { formatDistanceToNow } from "date-fns"
+import { vi } from "date-fns/locale"
 
 export default function DashboardPage() {
   useAuthStore()
   const router = useRouter()
-  const { clear: clearGuestFlow } = useGuestFlowStore()
   const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
 
@@ -44,20 +42,19 @@ export default function DashboardPage() {
   const { fetchWorkspaces } = useWorkspaceStore()
   const [period, setPeriod] = useState<DashboardPeriod>("year")
 
+  const { data: recentDocs, isLoading: recentLoading } = useRecentDocuments(10)
+
   useEffect(() => {
     fetchWorkspaces()
   }, [fetchWorkspaces])
 
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
-      <Tabs defaultValue="docs" className="flex-1 flex flex-col min-h-0 px-6">
+      <div className="flex flex-col min-h-0 px-6">
         <div className="flex items-center gap-4 px-0 pt-6 pb-2 shrink-0 flex-wrap">
-          <h2 className="text-3xl font-bold tracking-tight shrink-0">Dashboard</h2>
-          <TabsList className="shrink-0">
-            <TabsTrigger value="docs">{t("dash_documents")}</TabsTrigger>
-            <TabsTrigger value="storage">{t("dash_storage")}</TabsTrigger>
-            <TabsTrigger value="quota">{t("dash_quota")}</TabsTrigger>
-          </TabsList>
+          <h2 className="text-3xl font-bold tracking-tight shrink-0">
+            {t("sidebar_dashboard")}
+          </h2>
           <Select value={period} onValueChange={(v) => setPeriod(v as DashboardPeriod)}>
             <SelectTrigger className="w-[140px] shrink-0 ml-auto">
               <SelectValue placeholder={t("dash_period")} />
@@ -71,18 +68,15 @@ export default function DashboardPage() {
         </div>
 
         <ScrollArea id="tour-dashboard-stats" className="flex-1 min-h-0 -mx-6 px-6">
-          <TabsContent value="docs" className="space-y-4 pt-4 pb-8 mt-0">
-            {/* Banner: Bắt đầu tạo hợp đồng */}
+          <div className="space-y-4 pt-4 pb-8">
+            {/* Banner */}
             <div className="bg-black rounded-lg p-6 text-white">
-              <h3 className="text-xl font-semibold mb-2">Bắt đầu tạo hợp đồng</h3>
-              <p className="text-sm text-gray-300 mb-4">
-                Tạo hợp đồng mới trong vài giây và bắt đầu quản lý văn bản của bạn
-              </p>
+              <h3 className="text-xl font-semibold mb-2">{t("dash_cta_create_title")}</h3>
+              <p className="text-sm text-gray-300 mb-4">{t("dash_cta_create_desc")}</p>
               <div className="flex justify-left">
                 <Button
                   className="bg-white text-black hover:bg-gray-100"
                   onClick={() => {
-                    clearGuestFlow()
                     clearEditorSession()
                     router.push("/editor/new")
                   }}
@@ -92,12 +86,23 @@ export default function DashboardPage() {
                 </Button>
               </div>
             </div>
+
+            {/* Stats */}
             <StatsCards />
+
+            {/* Quota + Storage + Referral */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <QuotaCard show="quota" />
+              <QuotaCard show="storage" />
+              <ReferralCard />
+            </div>
+
+            {/* Chart + Workspace breakdown + Recent docs */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <Card className="lg:col-span-4 py-3 gap-1.5 h-full flex flex-col">
                 <CardHeader className="pb-0 pt-0 px-4">
                   <CardTitle className="text-sm">{t("dash_chart_title")}</CardTitle>
-                  <CardDescription className="text-xs">{PERIOD_LABELS[period]}</CardDescription>
+                  <p className="text-xs text-muted-foreground">{PERIOD_LABELS[period]}</p>
                 </CardHeader>
                 <CardContent className="ps-2 pt-0 px-4 pb-2 flex-1">
                   <div className="text-foreground [&_text]:fill-current">
@@ -110,37 +115,57 @@ export default function DashboardPage() {
               </div>
               <Card className="lg:col-span-4 h-full flex flex-col">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm">Tài liệu gần đây</CardTitle>
+                  <CardTitle className="text-sm">{t("recent_docs_title")}</CardTitle>
                   <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-xs">
-                    <Link href="/documents">Xem tất cả</Link>
+                    <Link href="/documents">{t("recent_docs_view_all")}</Link>
                   </Button>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    Chưa có tài liệu nào
-                  </div>
+                  {recentLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="h-10 rounded bg-muted animate-pulse"
+                        />
+                      ))}
+                    </div>
+                  ) : !recentDocs?.length ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {t("recent_docs_empty")}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {recentDocs.slice(0, 5).map((doc) => (
+                        <li key={doc.id}>
+                          <Link
+                            href={`/editor/${doc.id}`}
+                            className="flex items-center gap-2 py-1.5 rounded hover:bg-muted transition-colors group"
+                          >
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate group-hover:text-primary">
+                                {doc.title || t("status_draft")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {doc.workspace?.name} ·{" "}
+                                {formatDistanceToNow(new Date(doc.updatedAt), {
+                                  addSuffix: true,
+                                  locale: vi,
+                                })}
+                              </p>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="storage" className="space-y-4 pt-4 pb-8 mt-0">
-            <div className="grid gap-4 lg:grid-cols-3">
-              <QuotaCard show="storage" />
-              <div className="lg:col-span-2">
-                <StatsByWorkspace />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="quota" className="space-y-4 pt-4 pb-8 mt-0">
-            <div className="grid gap-4 lg:grid-cols-2 max-w-2xl">
-              <QuotaCard show="quota" />
-              <ReferralCard />
-            </div>
-          </TabsContent>
+          </div>
         </ScrollArea>
-      </Tabs>
+      </div>
     </div>
   )
 }

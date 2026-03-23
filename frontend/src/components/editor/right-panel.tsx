@@ -12,34 +12,46 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 
+import { LAWZY_FLUSH_MERGE_FIELD_DRAFTS } from '@/lib/editor/flush-merge-field-drafts'
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { useWorkspaceFields } from '@/hooks/workspaces/use-workspace-fields'
 import { api } from '@/lib/api/client'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { useT } from '@/components/i18n-provider'
 
 interface RightPanelProps {
   editor: Editor | null
   onAuthRequired?: () => boolean | void
+  workspaceId?: string
 }
 
 type MergeFieldItem = { key: string; label: string; value: string }
 
-export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
+export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelProps) {
+  const { t, locale } = useT()
   const [activeTab, setActiveTab] = useState('fields')
   const {
     currentDocumentId,
     metadata,
     templateMergeFields,
     mergeFieldValues,
+    pendingMergeFieldDrafts,
     updateMergeFieldValue,
     setMergeFieldValues,
+    setTemplateMergeFields,
+    setPendingMergeFieldDraft,
+    clearPendingMergeFieldKey,
+    clearPendingMergeFieldDrafts,
+    updateMetadata,
   } = useEditorStore()
   const { customFields, addCustomField, removeCustomField } = useUserFieldsStore()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user: currentUser } = useAuthStore()
+  const { data: workspaceFields = [] } = useWorkspaceFields(workspaceId ?? null)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
-  const [draftValues, setDraftValues] = useState<Record<string, string>>({})
   const [versions, setVersions] = useState<
     Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>
   >([])
@@ -69,30 +81,72 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     return () => window.removeEventListener('lawzy:refresh-versions', handler)
   }, [loadVersions])
 
+  useEffect(() => {
+    const clearDebounceTimers = () => {
+      for (const k of Object.keys(debounceTimers.current)) {
+        clearTimeout(debounceTimers.current[k])
+      }
+      debounceTimers.current = {}
+    }
+    window.addEventListener(LAWZY_FLUSH_MERGE_FIELD_DRAFTS, clearDebounceTimers)
+    return () => window.removeEventListener(LAWZY_FLUSH_MERGE_FIELD_DRAFTS, clearDebounceTimers)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      for (const k of Object.keys(debounceTimers.current)) {
+        clearTimeout(debounceTimers.current[k])
+      }
+      debounceTimers.current = {}
+    }
+  }, [])
+
+  const humanizeFieldKey = useCallback((key: string) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase()
+  }, [])
+
   const baseMergeFields: MergeFieldItem[] = (templateMergeFields ?? []).map((f) => ({
     key: f.fieldKey,
-    label: f.label,
+    label: (f.label || f.fieldKey).toUpperCase(),
     value: mergeFieldValues[f.fieldKey] ?? f.sampleValue ?? '',
   }))
 
   const mergeFields: MergeFieldItem[] = useMemo(() => {
     const list: MergeFieldItem[] = [...baseMergeFields]
     const existing = new Set(list.map((f) => f.key))
+    for (const wf of workspaceFields) {
+      if (existing.has(wf.key) || wf.isHidden) continue
+      list.push({
+        key: wf.key,
+        label: wf.label.toUpperCase(),
+        value: mergeFieldValues[wf.key] ?? wf.defaultValue ?? '',
+      })
+      existing.add(wf.key)
+    }
     for (const cf of customFields) {
       if (existing.has(cf.key)) continue
       list.push({
         key: cf.key,
-        label: cf.label,
+        label: cf.label.toUpperCase(),
         value: mergeFieldValues[cf.key] ?? cf.defaultValue ?? '',
       })
+      existing.add(cf.key)
+    }
+    for (const key of Object.keys(mergeFieldValues)) {
+      if (existing.has(key)) continue
+      list.push({
+        key,
+        label: humanizeFieldKey(key),
+        value: mergeFieldValues[key] ?? '',
+      })
+      existing.add(key)
     }
     return list
-  }, [baseMergeFields, customFields, mergeFieldValues])
-
-  // Khi đổi tài liệu, reset toàn bộ draftValues để tránh "dính" giá trị cũ sang tài liệu mới
-  useEffect(() => {
-    setDraftValues({})
-  }, [currentDocumentId])
+  }, [baseMergeFields, workspaceFields, customFields, mergeFieldValues, humanizeFieldKey])
 
   // Khi nhấn vào merge field trong canvas → smooth scroll + focus input tương ứng
   useEffect(() => {
@@ -143,9 +197,9 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       if (authRequired) return
     }
 
-    const label = newFieldLabel.trim()
+    const label = newFieldLabel.trim().toUpperCase()
     if (!label) {
-      toast.error('Vui lòng nhập tên nhãn.')
+      toast.error(t('toast_field_name_required'))
       return
     }
     const defaultValue = newFieldDefault
@@ -153,7 +207,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
     updateMergeFieldValue(key, defaultValue ?? '')
     setNewFieldLabel('')
     setNewFieldDefault('')
-    toast.success('Đã thêm trường dữ liệu')
+    toast.success(t('toast_field_added'))
   }
 
   const commitFieldValue = (fieldKey: string, value: string) => {
@@ -163,14 +217,12 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       if (authRequired) return
     }
     updateMergeFieldValue(fieldKey, value)
+    clearPendingMergeFieldKey(fieldKey)
   }
 
   // Cập nhật draft + debounce commit vào store để tránh canvas re-render từng phím
   const handleDraftChange = (fieldKey: string, value: string) => {
-    setDraftValues((prev) => ({
-      ...prev,
-      [fieldKey]: value,
-    }))
+    setPendingMergeFieldDraft(fieldKey, value)
 
     if (debounceTimers.current[fieldKey]) {
       clearTimeout(debounceTimers.current[fieldKey])
@@ -202,6 +254,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       setMergeFieldValues(
         Object.fromEntries(Object.entries(mfv).map(([k, v]) => [k, typeof v === 'string' ? v : String(v ?? '')]))
       )
+      clearPendingMergeFieldDrafts()
 
       if (version?.chatCursorAt) {
         const msgs = await api.get<Array<{ id: string; role: string; content: string; createdAt: string }>>(
@@ -210,10 +263,10 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
         window.dispatchEvent(new CustomEvent('lawzy:restore-chat', { detail: { messages: msgs } }))
       }
 
-      toast.success('Đã khôi phục phiên bản')
+      toast.success(t('toast_version_restored'))
     } catch (e) {
       console.error(e)
-      toast.error('Khôi phục phiên bản thất bại')
+      toast.error(t('toast_version_restore_failed'))
     } finally {
       setRestoring(null)
     }
@@ -240,15 +293,25 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
   }
 
   const handleDeleteField = (key: string) => {
-      removeCustomField(key)
-      toast.success('Đã xóa trường dữ liệu')
+    removeCustomField(key)
+    clearPendingMergeFieldKey(key)
+
+    const newValues = { ...mergeFieldValues }
+    delete newValues[key]
+    setMergeFieldValues(newValues)
+
+    if (templateMergeFields) {
+      setTemplateMergeFields(templateMergeFields.filter((f) => f.fieldKey !== key))
+    }
+
+    toast.success(t('toast_field_deleted'))
   }
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground border-l border-border">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-background">
-        <h3 className="font-semibold text-sm">Công Cụ</h3>
+        <h3 className="font-semibold text-sm">{t("panel_tools")}</h3>
       </div>
 
       {/* Tabs — min-h-0 để flex con không tràn */}
@@ -257,11 +320,11 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
           <TabsList className="w-full bg-background border border-border">
             <TabsTrigger value="fields" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-foreground">
               <FileText className="w-3.5 h-3.5 mr-1.5" />
-              Dữ liệu
+              {t("panel_fields_tab")}
             </TabsTrigger>
             <TabsTrigger value="metadata" className="flex-1 text-xs data-[state=active]:bg-accent data-[state=active]:text-foreground">
               <Info className="w-3.5 h-3.5 mr-1.5" />
-              Thông tin
+              {t("panel_metadata_tab")}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -271,8 +334,8 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
           <ScrollArea className="flex-1 min-h-0 px-3 py-2">
             <div className="space-y-2 min-w-0 pr-1">
               <div className="space-y-0.5">
-                <h4 className="text-sm font-medium text-black uppercase">Danh sách trường dữ liệu</h4>
-                <p className="text-sm text-gray-500">Nhấn tên trường hoặc + để chèn vào văn bản. Sửa giá trị bên dưới.</p>
+                <h4 className="text-sm font-medium text-black uppercase">{t("panel_fields_title")}</h4>
+                <p className="text-sm text-gray-500">{t("panel_fields_desc")}</p>
               </div>
 
               <div className="grid gap-1.5">
@@ -297,30 +360,28 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                         <span
                           className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
                           onClick={() => insertField(field)}
-                          title="Chèn vào vị trí con trỏ"
+                          title={t("panel_insert_tooltip")}
                         >
                           {field.label || field.key}
                         </span>
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {isCustom && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:text-white hover:bg-destructive"
-                              onClick={() => handleDeleteField(field.key)}
-                              title="Xóa trường dữ liệu"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-white hover:bg-destructive"
+                            onClick={() => handleDeleteField(field.key)}
+                            title={t("panel_delete_field")}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-accent"
                             onClick={() => insertField(field)}
-                            title="Chèn trường dữ liệu"
+                            title={t("panel_insert_field")}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -330,7 +391,11 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                         Key: {`{{${field.key}}}`}
                       </p>
                       <Input
-                        value={draftValues[field.key] ?? mergeFieldValues[field.key] ?? field.value}
+                        value={
+                          pendingMergeFieldDrafts[field.key] ??
+                          mergeFieldValues[field.key] ??
+                          field.value
+                        }
                         onChange={(e) => handleDraftChange(field.key, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, index)}
                         onClick={() => {
@@ -340,7 +405,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                           }
                         }}
                         className="field-value-input h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
-                        placeholder="Giá trị"
+                        placeholder={t("panel_field_value")}
                         readOnly={!isAuthenticated}
                       />
                     </Card>
@@ -351,16 +416,16 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
               <Separator className="bg-border my-2" />
 
               <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Thêm trường dữ liệu</h4>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("panel_add_field_title")}</h4>
                 <div className="space-y-2">
                   <Input
-                    placeholder="Tên nhãn (VD: Tên công ty)"
+                    placeholder={t("panel_add_field_label")}
                     value={newFieldLabel}
                     onChange={(e) => setNewFieldLabel(e.target.value)}
                     className="bg-background border-border text-sm h-9"
                   />
                   <Input
-                    placeholder="Giá trị mặc định"
+                    placeholder={t("panel_add_field_default")}
                     value={newFieldDefault}
                     onChange={(e) => setNewFieldDefault(e.target.value)}
                     className="bg-background border-border text-sm h-9"
@@ -371,7 +436,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                     onClick={handleAddCustomField}
                     className="w-full"
                   >
-                    Thêm trường
+                    {t("panel_add_field_btn")}
                   </Button>
                 </div>
               </div>
@@ -384,29 +449,64 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
           <ScrollArea className="flex-1 min-h-0 p-3">
             <div className="space-y-6">
               <div className="space-y-4">
-                <h4 className="text-sm font-medium text-black uppercase">Thông tin chung</h4>
+                <h4 className="text-sm font-medium text-black uppercase">{t("panel_metadata_title")}</h4>
                 
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Tên hợp đồng</Label>
-                  <Input defaultValue={metadata.title || "Hợp đồng dịch vụ CNTT"} className="bg-background border-border" />
+                  <Label className="text-xs text-muted-foreground">{t("panel_meta_name")}</Label>
+                  <Input 
+                    value={metadata.title || ""} 
+                    onChange={(e) => updateMetadata({ title: e.target.value })}
+                    placeholder={t("panel_meta_name_placeholder")}
+                    className="bg-background border-border" 
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Trạng thái</Label>
+                  <Label className="text-xs text-muted-foreground">{t("panel_meta_status")}</Label>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-500 text-xs border border-yellow-500/20 capitalize">
-                      draft
+                    <span
+                      className={cn(
+                        'px-2 py-1 rounded text-xs border capitalize',
+                        metadata.status === 'completed'
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                          : metadata.status === 'review'
+                          ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                          : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                      )}
+                    >
+                      {metadata.status === 'completed' 
+                        ? t("status_completed")
+                        : metadata.status === 'review' 
+                        ? t("status_review")
+                        : t("status_draft")}
                     </span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Người tạo</Label>
+                  <Label className="text-xs text-muted-foreground">{t("panel_meta_creator")}</Label>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white">
-                      L
+                    {metadata.creator?.avatar || currentUser?.avatar ? (
+                      <img 
+                        src={metadata.creator?.avatar || currentUser?.avatar || undefined} 
+                        alt="Avatar" 
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white uppercase">
+                        {(metadata.creator?.name || currentUser?.name || (locale === 'en' ? 'G' : 'K')).charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm text-foreground truncate">
+                        {metadata.creator?.name || currentUser?.name || (locale === 'en' ? 'Guest' : 'Khách')}
+                      </span>
+                      {(metadata.creator?.email || currentUser?.email) && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {metadata.creator?.email || currentUser?.email}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm text-foreground">Lawzy</span>
                   </div>
                 </div>
               </div>
@@ -414,18 +514,18 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
               <Separator className="bg-border" />
 
               <div className="space-y-4">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lịch sử phiên bản</h4>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("panel_history_title")}</h4>
                 {!isAuthenticated ? (
                   <div className="text-sm text-muted-foreground">
-                    Đăng nhập để xem và khôi phục phiên bản.
+                    {t("panel_history_login")}
                   </div>
                 ) : !currentDocumentId ? (
                   <div className="text-sm text-muted-foreground">
-                    Chưa có tài liệu để hiển thị phiên bản.
+                    {t("panel_history_empty")}
                   </div>
                 ) : versions.length === 0 ? (
                   <div className="text-sm text-muted-foreground">
-                    Chưa có phiên bản. Dùng menu “Lưu bản nháp” trong editor để tạo phiên bản.
+                    {t("panel_history_no_versions")}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -449,9 +549,9 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
                           className="shrink-0 h-8"
                           disabled={restoring === v.id}
                           onClick={() => handleRestoreVersion(v.id)}
-                          title="Khôi phục phiên bản"
+                          title={t("panel_restore_btn")}
                         >
-                          {restoring === v.id ? 'Đang khôi phục...' : 'Khôi phục'}
+                          {restoring === v.id ? t("panel_restoring") : t("panel_restore_btn")}
                         </Button>
                       </Card>
                     ))}

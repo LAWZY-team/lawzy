@@ -4,12 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PutObjectCommand, DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  PutObjectCommand,
+  DeleteObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { getR2Env } from '../../config/env';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class SourcesService {
@@ -17,6 +22,7 @@ export class SourcesService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client,
   ) {}
 
@@ -28,6 +34,17 @@ export class SourcesService {
     file?: Express.Multer.File;
     tags?: string[];
   }) {
+    const fileSize = data.file?.size ?? 0;
+    if (fileSize > 0) {
+      const { bytes: used, limitBytes } =
+        await this.filesService.getStorageUsed(data.workspaceId);
+      if (used + fileSize > limitBytes) {
+        throw new BadRequestException(
+          `Storage limit exceeded. Used: ${used} bytes, limit: ${limitBytes} bytes.`,
+        );
+      }
+    }
+
     const uuid = randomUUID();
     let s3Key: string | null = null;
 
@@ -55,6 +72,7 @@ export class SourcesService {
         type: data.type || 'pdf',
         status: 'completed',
         s3Key,
+        size: fileSize,
         userId: data.userId,
         workspaceId: data.workspaceId,
         tags: data.tags ? (data.tags as Prisma.InputJsonValue) : undefined,

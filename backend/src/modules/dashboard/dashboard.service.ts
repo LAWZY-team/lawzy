@@ -36,6 +36,7 @@ export class DashboardService {
       totalFiles,
       totalSources,
       fileSizes,
+      sourceSizes,
     ] = await Promise.all([
       this.prisma.document.count({
         where: { workspaceId: { in: workspaceIds } },
@@ -68,7 +69,14 @@ export class DashboardService {
         where: { workspaceId: { in: workspaceIds } },
         _sum: { size: true },
       }),
+      this.prisma.source.aggregate({
+        where: { workspaceId: { in: workspaceIds } },
+        _sum: { size: true },
+      }),
     ]);
+
+    const storageUsed =
+      (fileSizes._sum.size ?? 0) + (sourceSizes._sum.size ?? 0);
 
     return {
       totalDocuments,
@@ -77,7 +85,7 @@ export class DashboardService {
       completedDocuments,
       totalFiles,
       totalSources,
-      storageUsed: fileSizes._sum.size ?? 0,
+      storageUsed,
     };
   }
 
@@ -194,9 +202,7 @@ export class DashboardService {
       where: { id: { in: workspaceIds } },
       select: { id: true, name: true },
     });
-    const nameMap = Object.fromEntries(
-      workspaceMap.map((w) => [w.id, w.name]),
-    );
+    const nameMap = Object.fromEntries(workspaceMap.map((w) => [w.id, w.name]));
 
     return counts.map((c) => ({
       workspaceId: c.workspaceId,

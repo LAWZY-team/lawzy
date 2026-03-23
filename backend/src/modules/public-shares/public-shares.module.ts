@@ -9,4 +9,3 @@ import { PublicSharesService } from './public-shares.service';
   providers: [PublicSharesService],
 })
 export class PublicSharesModule {}
-

@@ -18,20 +18,16 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
-// Mock data - will be replaced with real data from store
-const workspaces = [
-  {
-    id: "org001",
-    name: "Công ty ABC",
-    logo: "/logos/abc-company.png",
-    plan: "pro",
-  },
-]
+import { useWorkspaceStore } from "@/stores/workspace-store"
 
 export function WorkspaceNav() {
   const { isMobile } = useSidebar()
-  const [activeWorkspace] = React.useState(workspaces[0])
+  const { workspaces, currentWorkspace, setCurrentWorkspace } = useWorkspaceStore()
+  const activeWorkspace = currentWorkspace ?? workspaces[0]
+
+  if (!activeWorkspace) {
+    return null
+  }
 
   return (
     <SidebarMenu>
@@ -43,14 +39,14 @@ export function WorkspaceNav() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={activeWorkspace.logo} alt={activeWorkspace.name} />
+                <AvatarImage src={activeWorkspace.logo ?? undefined} alt={activeWorkspace.name} />
                 <AvatarFallback className="rounded-lg">
                   {activeWorkspace.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{activeWorkspace.name}</span>
-                <span className="truncate text-xs capitalize">{activeWorkspace.plan}</span>
+                <span className="truncate text-xs capitalize">{activeWorkspace.plan ?? "free"}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -68,6 +64,7 @@ export function WorkspaceNav() {
               <DropdownMenuItem
                 key={workspace.id}
                 className="gap-2 p-2"
+                onClick={() => setCurrentWorkspace(workspace)}
               >
                 <Avatar className="h-6 w-6 rounded-md">
                   <AvatarImage src={workspace.logo} alt={workspace.name} />
@@ -78,7 +75,7 @@ export function WorkspaceNav() {
                 <div className="flex flex-col">
                   <span className="font-medium">{workspace.name}</span>
                   <span className="text-xs text-muted-foreground capitalize">
-                    {workspace.plan}
+                    {workspace.plan ?? "free"}
                   </span>
                 </div>
               </DropdownMenuItem>

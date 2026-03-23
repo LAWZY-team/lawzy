@@ -15,6 +15,9 @@ import { SourcesModule } from './modules/sources/sources.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { HelpCenterModule } from './modules/help-center/help-center.module';
+import { ArticlesModule } from './modules/articles/articles.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { HelpCenterModule } from './modules/help-center/help-center.module';
     DashboardModule,
     TemplatesModule,
     HelpCenterModule,
+    ArticlesModule,
+    PlansModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -32,7 +32,9 @@ export class EmailService {
 
   private ensureTransporter(): void {
     if (!this.transporter) {
-      throw new Error('Email service not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.');
+      throw new Error(
+        'Email service not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.',
+      );
     }
   }
 

@@ -28,7 +28,7 @@ import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 
-const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024
+const DEFAULT_STORAGE_LIMIT = 500 * 1024 * 1024 // 500 MB
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -53,7 +53,8 @@ export default function FilesPage() {
 
   const files = data?.data ?? []
   const storageUsed = storage?.bytes ?? 0
-  const storagePercent = STORAGE_LIMIT > 0 ? (storageUsed / STORAGE_LIMIT) * 100 : 0
+  const storageLimit = storage?.limitBytes ?? DEFAULT_STORAGE_LIMIT
+  const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
 
   const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -118,13 +119,13 @@ export default function FilesPage() {
             Dung lượng đã dùng
           </CardTitle>
           <span className="text-sm text-muted-foreground">
-            {formatBytes(storageUsed)} / {formatBytes(STORAGE_LIMIT)}
+            {formatBytes(storageUsed)} / {formatBytes(storageLimit)}
           </span>
         </CardHeader>
         <CardContent>
           <Progress value={storagePercent} className="h-2" />
           <p className="text-xs text-muted-foreground mt-2">
-            S3 Storage · 100 GB
+            S3/R2 Storage · {formatBytes(storageLimit)}
           </p>
         </CardContent>
       </Card>

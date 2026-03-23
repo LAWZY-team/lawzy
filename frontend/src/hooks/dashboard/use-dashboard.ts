@@ -38,10 +38,18 @@ export function useDashboardOverview() {
   });
 }
 
+interface ChartApiPoint {
+  date: string;
+  count: number;
+}
+
 export function useDashboardChart(period: 'week' | 'month' | 'year') {
   return useQuery<ChartDataPoint[]>({
     queryKey: ['dashboard', 'chart', period],
-    queryFn: () => api.get(`/dashboard/chart?period=${period}`),
+    queryFn: async () => {
+      const raw = await api.get<ChartApiPoint[]>(`/dashboard/chart?period=${period}`);
+      return (raw ?? []).map((r) => ({ name: r.date, total: r.count }));
+    },
   });
 }
 
@@ -52,9 +60,18 @@ export function useRecentDocuments(limit = 10) {
   });
 }
 
+interface WorkspaceBreakdownApi {
+  workspaceId: string;
+  workspaceName: string;
+  documentCount: number;
+}
+
 export function useWorkspaceBreakdown() {
   return useQuery<WorkspaceBreakdown[]>({
     queryKey: ['dashboard', 'workspace-breakdown'],
-    queryFn: () => api.get('/dashboard/workspace-breakdown'),
+    queryFn: async () => {
+      const raw = await api.get<WorkspaceBreakdownApi[]>('/dashboard/workspace-breakdown');
+      return (raw ?? []).map((r) => ({ name: r.workspaceName, value: r.documentCount }));
+    },
   });
 }

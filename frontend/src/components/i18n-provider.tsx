@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { viMessages, enMessages, type Locale, type TranslationKey } from "@/lib/i18n";
+import { viMessages, enMessages, type Locale } from "@/lib/i18n";
 
 const dictionaries: Record<Locale, Record<string, string>> = {
   vi: viMessages,
@@ -10,7 +10,8 @@ const dictionaries: Record<Locale, Record<string, string>> = {
 
 type I18nContextValue = {
   locale: Locale;
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  /** Accepts string for flexibility when passing to child components */
+  t: (key: string, params?: Record<string, string | number>) => string;
   setLocale: (locale: Locale) => void;
 };
 
@@ -27,7 +28,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   });
 
   const t = useCallback(
-    (key: TranslationKey, params?: Record<string, string | number>) => {
+    (key: string, params?: Record<string, string | number>) => {
       let text = dictionaries[locale][key] ?? key;
       if (params) {
         for (const [k, v] of Object.entries(params)) {

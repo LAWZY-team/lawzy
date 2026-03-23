@@ -2,7 +2,6 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { I18nProvider } from "@/components/i18n-provider"
 import { AuthBootstrap } from "@/components/auth/auth-bootstrap"
-import { HelpWidget } from "@/components/help/help-widget"
 
 export default function DashboardLayout({
   children,
@@ -18,7 +17,6 @@ export default function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
-      <HelpWidget />
     </SidebarProvider>
   )
 }

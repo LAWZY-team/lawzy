@@ -1,5 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import {
+  TERM_CONTENT_VI,
+  TERM_CONTENT_EN,
+  PRIVACY_CONTENT_VI,
+  PRIVACY_CONTENT_EN,
+} from './policy-content';
 
 const prisma = new PrismaClient();
 
@@ -96,7 +102,160 @@ const SYSTEM_TEMPLATES = [
   },
 ];
 
+/**
+ * Membership plans – Cá nhân (monthly/yearly), Team (per-seat), Enterprise (contact sales).
+ * AI: hạn mức ~$10/gói, top-up khi vượt. Chi tiết: docs/PLAN_MEMBERSHIP_PRICING_SEATS.md
+ */
+const DEFAULT_PLANS = [
+  {
+    slug: 'free',
+    name: 'Miễn phí',
+    nameEn: 'Free',
+    description: 'Dùng thử cá nhân',
+    descriptionEn: 'Personal trial',
+    price: 0,
+    billingCycle: 'monthly',
+    sortOrder: 0,
+    isHighlighted: false,
+    contactSales: false,
+    quotaLimits: {
+      dailyAiQuota: 5,
+      storageBytes: 500 * 1024 * 1024, // 500 MB
+      workspaceMembers: 1,
+      templates: 3,
+      aiAssistant: false,
+    },
+  },
+  {
+    slug: 'pro-monthly',
+    name: 'Pro (Tháng)',
+    nameEn: 'Pro (Monthly)',
+    description: 'Cá nhân & nhóm nhỏ – thanh toán hàng tháng',
+    descriptionEn: 'Individuals & small teams – monthly billing',
+    price: 199000,
+    billingCycle: 'monthly',
+    sortOrder: 1,
+    isHighlighted: true,
+    contactSales: false,
+    quotaLimits: {
+      dailyAiQuota: 30,
+      storageBytes: 5 * 1024 * 1024 * 1024, // 5 GB
+      workspaceMembers: 3,
+      templates: 'unlimited',
+      aiAssistant: true,
+      aiTopUpPricePerRequest: 1000,
+      aiTopUpMinCredits: 50,
+    },
+  },
+  {
+    slug: 'pro-yearly',
+    name: 'Pro (Năm)',
+    nameEn: 'Pro (Yearly)',
+    description: 'Cá nhân & nhóm nhỏ – tiết kiệm 2 tháng',
+    descriptionEn: 'Individuals & small teams – save 2 months',
+    price: 1990000,
+    billingCycle: 'yearly',
+    sortOrder: 2,
+    isHighlighted: false,
+    contactSales: false,
+    quotaLimits: {
+      dailyAiQuota: 30,
+      storageBytes: 5 * 1024 * 1024 * 1024, // 5 GB
+      workspaceMembers: 3,
+      templates: 'unlimited',
+      aiAssistant: true,
+      aiTopUpPricePerRequest: 1000,
+      aiTopUpMinCredits: 50,
+    },
+  },
+  {
+    slug: 'team',
+    name: 'Team',
+    nameEn: 'Team',
+    description: 'Theo chỗ ngồi – kéo thanh hoặc nhập số',
+    descriptionEn: 'Per seat – slider or number input',
+    price: 495000, // base = 5 * 99k
+    billingCycle: 'monthly',
+    sortOrder: 3,
+    isHighlighted: false,
+    contactSales: false,
+    quotaLimits: {
+      dailyAiQuota: 50,
+      storageBytes: 10 * 1024 * 1024 * 1024, // 10 GB base
+      workspaceMembers: 'unlimited',
+      templates: 'unlimited',
+      aiAssistant: true,
+      pricePerSeat: 99000,
+      minSeats: 5,
+      maxSeats: 100,
+      storagePerSeatBytes: 2 * 1024 * 1024 * 1024, // +2 GB/seat
+      aiTopUpPricePerRequest: 1000,
+      aiTopUpMinCredits: 50,
+    },
+  },
+  {
+    slug: 'enterprise',
+    name: 'Enterprise',
+    nameEn: 'Enterprise',
+    description: 'Liên hệ sales – admin kích hoạt workspace từ xa',
+    descriptionEn: 'Contact sales – admin activates workspace remotely',
+    price: 0,
+    billingCycle: 'monthly',
+    sortOrder: 4,
+    isHighlighted: false,
+    contactSales: true,
+    quotaLimits: {
+      dailyAiQuota: 'unlimited',
+      storageBytes: 100 * 1024 * 1024 * 1024, // 100 GB
+      workspaceMembers: 'unlimited',
+      templates: 'unlimited',
+      aiAssistant: true,
+    },
+  },
+];
+
 async function main() {
+  for (const p of DEFAULT_PLANS) {
+    await prisma.membershipPlan.upsert({
+      where: { slug: p.slug },
+      create: {
+        slug: p.slug,
+        name: p.name,
+        nameEn: p.nameEn,
+        description: p.description,
+        descriptionEn: p.descriptionEn,
+        price: p.price,
+        billingCycle: (p as { billingCycle?: string }).billingCycle ?? 'monthly',
+        sortOrder: p.sortOrder,
+        isHighlighted: p.isHighlighted,
+        contactSales: p.contactSales,
+        quotaLimits: p.quotaLimits as object,
+      },
+      update: {
+        name: p.name,
+        nameEn: p.nameEn,
+        description: p.description,
+        descriptionEn: p.descriptionEn,
+        price: p.price,
+        billingCycle: (p as { billingCycle?: string }).billingCycle ?? 'monthly',
+        sortOrder: p.sortOrder,
+        isHighlighted: p.isHighlighted,
+        contactSales: p.contactSales,
+        quotaLimits: p.quotaLimits as object,
+      },
+    });
+  }
+  console.log('Membership plans seeded');
+
+  // Migration: workspace plan "pro" -> "pro-monthly"
+  const updated = await prisma.workspace.updateMany({
+    where: { plan: 'pro' },
+    data: { plan: 'pro-monthly' },
+  });
+  if (updated.count > 0) {
+    console.log(`Migrated ${updated.count} workspace(s) from plan "pro" to "pro-monthly"`);
+  }
+
   const adminEmail = 'admin@lawzy.vn';
   let adminUser = await prisma.user.findUnique({
     where: { email: adminEmail },
@@ -115,18 +274,36 @@ async function main() {
     });
     console.log('Admin user created: admin@lawzy.vn');
   } else {
-    console.log('Admin user already exists');
+    // Ensure existing admin has admin role (e.g. after schema migration)
+    const roles: string[] =
+      typeof adminUser.roles === 'string'
+        ? (JSON.parse(adminUser.roles as string) as string[])
+        : Array.isArray(adminUser.roles)
+          ? (adminUser.roles as string[])
+          : [];
+    if (!roles.map((r) => r.toLowerCase()).includes('admin')) {
+      const updated = [...roles.filter((r) => r.toLowerCase() !== 'user'), 'admin'];
+      await prisma.user.update({
+        where: { id: adminUser.id },
+        data: { roles: JSON.stringify(updated.length ? updated : ['admin']) },
+      });
+      console.log('Admin role added to existing admin@lawzy.vn');
+    } else {
+      console.log('Admin user already exists');
+    }
   }
 
-  const existingWs = await prisma.workspace.findFirst({
-    where: { members: { some: { userId: adminUser.id } } },
+  // Công ty cổ phần Lawzy - main workspace
+  const lawzyCompanyName = 'Công ty cổ phần Lawzy';
+  let lawzyWorkspace = await prisma.workspace.findFirst({
+    where: { name: lawzyCompanyName },
   });
 
-  if (!existingWs) {
-    const workspace = await prisma.workspace.create({
+  if (!lawzyWorkspace) {
+    lawzyWorkspace = await prisma.workspace.create({
       data: {
-        name: 'Lawzy Workspace',
-        plan: 'pro',
+        name: lawzyCompanyName,
+        plan: 'pro-monthly',
         settings: JSON.stringify({
           allowPublicSharing: false,
           requireApproval: false,
@@ -139,16 +316,88 @@ async function main() {
         }),
       },
     });
+    console.log(`Workspace created: ${lawzyCompanyName}`);
+  }
+
+  const existingAdminMembership = await prisma.workspaceMember.findFirst({
+    where: { userId: adminUser.id, workspaceId: lawzyWorkspace.id },
+  });
+  if (!existingAdminMembership) {
     await prisma.workspaceMember.create({
       data: {
-        workspaceId: workspace.id,
+        workspaceId: lawzyWorkspace.id,
         userId: adminUser.id,
         role: 'admin',
       },
     });
-    console.log('Default workspace created: Lawzy Workspace');
-  } else {
-    console.log('Workspace already exists for admin');
+    console.log('Admin added to Lawzy workspace');
+  }
+
+  // Lawzy user (lawzy@lawzy.vn)
+  const lawzyEmail = 'lawzy@lawzy.vn';
+  let lawzyUser = await prisma.user.findUnique({
+    where: { email: lawzyEmail },
+  });
+  if (!lawzyUser) {
+    const lawzyHashed = await bcrypt.hash('Lawzy@2026', 12);
+    lawzyUser = await prisma.user.create({
+      data: {
+        email: lawzyEmail,
+        name: 'Lawzy',
+        password: lawzyHashed,
+        roles: JSON.stringify(['admin', 'user']),
+        isVerified: true,
+      },
+    });
+    await prisma.workspaceMember.create({
+      data: {
+        workspaceId: lawzyWorkspace.id,
+        userId: lawzyUser.id,
+        role: 'admin',
+      },
+    });
+    console.log('Lawzy user created: lawzy@lawzy.vn');
+  }
+
+  // Policy articles (term, privacy-policy)
+  const POLICY_ARTICLES = [
+    {
+      slug: 'term',
+      type: 'policy' as const,
+      titleVi: 'Điều khoản sử dụng',
+      titleEn: 'Terms of Use',
+      content: { vi: TERM_CONTENT_VI, en: TERM_CONTENT_EN },
+    },
+    {
+      slug: 'privacy-policy',
+      type: 'policy' as const,
+      titleVi: 'Chính sách bảo mật',
+      titleEn: 'Privacy Policy',
+      content: { vi: PRIVACY_CONTENT_VI, en: PRIVACY_CONTENT_EN },
+    },
+  ];
+  for (const pa of POLICY_ARTICLES) {
+    await prisma.article.upsert({
+      where: { slug: pa.slug },
+      create: {
+        type: pa.type,
+        title: pa.titleVi,
+        slug: pa.slug,
+        excerpt: pa.type === 'policy' ? (pa.slug === 'term' ? 'Điều khoản và chính sách sử dụng nền tảng Lawzy' : 'Chính sách bảo mật dữ liệu cá nhân') : '',
+        content: pa.content as unknown as object,
+        contentText: (pa.content as { vi: string }).vi?.substring(0, 500) ?? '',
+        status: 'published',
+        publishedAt: new Date(),
+        authorId: adminUser.id,
+        metadata: { titleEn: pa.titleEn },
+      },
+      update: {
+        content: pa.content as unknown as object,
+        contentText: (pa.content as { vi: string }).vi?.substring(0, 500) ?? '',
+        metadata: { titleEn: pa.titleEn },
+      },
+    });
+    console.log(`Policy article upserted: ${pa.slug}`);
   }
 
   const existingTemplateCount = await prisma.template.count({

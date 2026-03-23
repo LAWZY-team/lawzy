@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useForm } from "react-hook-form"
@@ -31,6 +32,9 @@ import {
 } from "@/components/ui/popover"
 import { toast } from "sonner"
 import { DatePicker } from "@/components/date-picker"
+import { useAuthStore } from "@/stores/auth-store"
+import { api } from "@/lib/api/client"
+import { useT } from "@/components/i18n-provider"
 
 const languages = [
   { label: "Tiếng Việt", value: "vi" },
@@ -51,35 +55,54 @@ const accountFormSchema = z.object({
     .min(2, {
       message: "Tên phải có ít nhất 2 ký tự.",
     })
-    .max(30, {
-      message: "Tên không được quá 30 ký tự.",
+    .max(100, {
+      message: "Tên không được quá 100 ký tự.",
     }),
-  dob: z.date({
-    error: "Vui lòng chọn ngày sinh.",
-  }),
-  language: z.string({
-    error: "Vui lòng chọn ngôn ngữ.",
-  }),
+  position: z.string().max(100).optional(),
+  dob: z.date().optional().nullable(),
+  language: z.string().optional(),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
 
-// This can come from your database or API.
-const defaultValues: Partial<AccountFormValues> = {
-  name: "Nguyễn Văn A",
-  dob: new Date("1990-01-01"),
-  language: "vi",
-}
-
 export function AccountForm() {
+  const { t } = useT()
+  const user = useAuthStore((s) => s.user)
+  const fetchUser = useAuthStore((s) => s.fetchUser)
+
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
-    defaultValues,
+    defaultValues: {
+      name: user?.name ?? "",
+      position: user?.position ?? "",
+      dob: undefined,
+      language: "vi",
+    },
   })
 
-  function onSubmit(data: AccountFormValues) {
-    toast.success("Đã cập nhật tài khoản thành công!")
-    console.log(JSON.stringify(data, null, 2))
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name ?? "",
+        position: user.position ?? "",
+        dob: undefined,
+        language: "vi",
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.name, user?.position])
+
+  async function onSubmit(data: AccountFormValues) {
+    try {
+      await api.patch("/users/profile", {
+        name: data.name?.trim() || user?.name,
+        position: data.position?.trim() || undefined,
+      })
+      await fetchUser?.()
+      toast.success(t("common_save") + "!")
+    } catch {
+      toast.error("Cập nhật tài khoản thất bại")
+    }
   }
 
   return (
@@ -90,12 +113,40 @@ export function AccountForm() {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Họ tên</FormLabel>
+              <FormLabel>{t("auth_name")}</FormLabel>
               <FormControl>
-                <Input placeholder="Tên của bạn" {...field} />
+                <Input placeholder={t("auth_name_placeholder")} {...field} />
               </FormControl>
               <FormDescription>
                 Tên này sẽ được hiển thị trên hồ sơ của bạn và trong email.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="space-y-2">
+          <FormLabel>{t("auth_email")}</FormLabel>
+          <Input
+            value={user?.email ?? ""}
+            disabled
+            className="bg-muted"
+            placeholder={t("auth_email_placeholder")}
+          />
+          <FormDescription>
+            Email đăng nhập. Liên hệ hỗ trợ nếu cần đổi email.
+          </FormDescription>
+        </div>
+        <FormField
+          control={form.control}
+          name="position"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("auth_register_position")}</FormLabel>
+              <FormControl>
+                <Input placeholder={t("auth_register_position_custom_placeholder")} {...field} />
+              </FormControl>
+              <FormDescription>
+                Chức vụ của bạn trong công ty hoặc tổ chức.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -108,12 +159,12 @@ export function AccountForm() {
             <FormItem className="flex flex-col">
               <FormLabel>Ngày sinh</FormLabel>
               <DatePicker
-                selected={field.value}
+                selected={field.value ?? undefined}
                 onSelect={field.onChange}
-                placeholder="Chọn ngày sinh"
+                placeholder="Chọn ngày sinh (tùy chọn)"
               />
               <FormDescription>
-                Ngày sinh của bạn được sử dụng để tính tuổi.
+                Ngày sinh của bạn được sử dụng để tính tuổi. Có thể để trống.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -182,7 +233,7 @@ export function AccountForm() {
             </FormItem>
           )}
         />
-        <Button type="submit">Cập nhật tài khoản</Button>
+        <Button type="submit">{t("common_save")}</Button>
       </form>
     </Form>
   )

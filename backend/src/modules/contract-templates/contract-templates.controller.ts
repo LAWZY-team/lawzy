@@ -12,12 +12,16 @@ import {
   Res,
   StreamableFile,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { extname } from 'node:path';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { ContractTemplatesService } from './contract-templates.service';
 import type { TemplateScope } from './contract-templates.types';
 
@@ -49,6 +53,7 @@ export class ContractTemplatesController {
   }
 
   @Post('community')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -135,6 +140,8 @@ export class ContractTemplatesController {
   }
 
   @Delete('community/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async deleteCommunity(@Param('id') id: string) {
     await this.service.deleteCommunity(id);
     return { success: true };

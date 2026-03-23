@@ -25,16 +25,42 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  refreshTokens    RefreshToken[]
-  workspaceMemberships WorkspaceMember[]
-  createdDocuments Document[]       @relation("DocumentCreator")
-  createdTemplates Template[]       @relation("TemplateCreator")
-  files            File[]
-  sources          Source[]
-  chatMessages     ChatMessage[]
-  customFields     UserCustomField[]
+  refreshTokens         RefreshToken[]
+  workspaceMemberships  WorkspaceMember[]
+  createdDocuments      Document[]       @relation("DocumentCreator")
+  createdTemplates      Template[]       @relation("TemplateCreator")
+  files                 File[]
+  sources               Source[]
+  chatMessages          ChatMessage[]
+  customFields          UserCustomField[]
+  articles              Article[]
+  payments              Payment[]
 
   @@map("users")
+}
+
+model Article {
+  id          String    @id @default(uuid())
+  type        String    // 'news' | 'policy' | 'document' | 'announcement'
+  title       String
+  slug        String    @unique
+  excerpt     String?   @db.Text
+  content     Json?
+  contentText String?   @db.LongText
+  coverImage  String?   @map("cover_image")
+  status      String    @default("draft")
+  publishedAt DateTime? @map("published_at")
+  authorId    String?   @map("author_id")
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([status])
+  @@index([publishedAt])
+  @@map("articles")
 }
 
 model RefreshToken {
@@ -61,12 +87,81 @@ model Workspace {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  members   WorkspaceMember[]
-  documents Document[]
-  files     File[]
-  sources   Source[]
+  members        WorkspaceMember[]
+  documents      Document[]
+  files          File[]
+  sources        Source[]
+  payments       Payment[]
+  customFields   WorkspaceCustomField[]
 
   @@map("workspaces")
+}
+
+model WorkspaceCustomField {
+  id           String   @id @default(uuid())
+  workspaceId  String   @map("workspace_id")
+  key          String   @db.VarChar(80)
+  label        String
+  defaultValue String?  @db.Text @map("default_value")
+  isHidden     Boolean  @default(false) @map("is_hidden")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@map("workspace_custom_fields")
+}
+
+model MembershipPlan {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  name          String
+  nameEn        String?  @map("name_en")
+  description   String?  @db.Text
+  descriptionEn String?  @db.Text @map("description_en")
+  price         Int      @default(0)
+  billingCycle  String   @default("monthly") @map("billing_cycle")
+  sortOrder     Int      @default(0) @map("sort_order")
+  isActive      Boolean  @default(true) @map("is_active")
+  isHighlighted Boolean  @default(false) @map("is_highlighted")
+  contactSales  Boolean  @default(false) @map("contact_sales")
+  quotaLimits   Json?    @map("quota_limits")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  payments   Payment[]
+
+  @@map("membership_plans")
+}
+
+model Payment {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  workspaceId String   @map("workspace_id")
+  planId      String   @map("plan_id")
+  amount      Int
+  currency    String   @default("VND")
+  orderCode   String?  @unique @map("order_code")
+  checkoutUrl String?  @db.Text @map("checkout_url")
+  provider    String   @default("payos")
+  status      String   @default("pending")
+  paidAt      DateTime? @map("paid_at")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      MembershipPlan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([status])
+  @@index([orderCode])
+  @@map("payments")
 }
 
 model WorkspaceMember {
@@ -171,6 +266,7 @@ model Source {
   type        String   @default("pdf")
   status      String   @default("pending")
   s3Key       String?  @map("s3_key")
+  size        Int      @default(0)
   content     String?  @db.LongText
   tags        Json?
   workspaceId String   @map("workspace_id")
@@ -201,6 +297,27 @@ model ChatMessage {
   @@index([documentId])
   @@index([userId])
   @@map("chat_messages")
+}
+
+model ContactSubmission {
+  id          String   @id @default(uuid())
+  type        String   // 'sales_inquiry' | 'feedback' | 'bug_report' | 'support_request'
+  name        String
+  email       String
+  phone       String?
+  company     String?
+  title       String?  // for help types
+  description String   @db.Text
+  status      String   @default("pending") // 'pending' | 'processed' | 'archived'
+  attachments Json?    // [{ filename, s3Key }]
+  userId      String?  @map("user_id") // null for public contact form
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("contact_submissions")
 }
 
 model UserCustomField {

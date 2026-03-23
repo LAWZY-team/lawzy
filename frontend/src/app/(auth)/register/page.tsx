@@ -1,18 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Modal } from "@/components/ui/modal";
+import { AuthLayout } from "@/components/auth/auth-layout";
+import { AccountTypeSelector, type AccountType } from "@/components/auth/account-type-selector";
+import { ProgressSteps, ProgressStepsVertical } from "@/components/auth/progress-steps";
+import { StepNav } from "@/components/auth/step-nav";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
+import { isBotProtectionEnabled } from "@/lib/bot-protection";
+import { useT } from "@/components/i18n-provider";
 import { useAuthStore } from "@/stores/auth-store";
-import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, UserCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { validatePassword } from "@/lib/utils/password-validator";
 import { PasswordRequirements } from "@/components/password-requirements";
@@ -23,22 +29,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TermsModal } from "@/components/auth/terms-modal";
+import { PrivacyModal } from "@/components/auth/privacy-modal";
 
-const positionOptions = [
-  "Chủ doanh nghiệp / Founder",
-  "Nhân sự / HR",
-  "Kế toán / Account",
-  "Pháp chế",
-  "Luật sư / Legal",
-  "Sales / Kinh doanh",
-  "Kinh doanh tự do / Freelancer",
-  "Khác"
+const POSITION_OPTIONS = [
+  { value: "founder", key: "auth_position_founder" as const },
+  { value: "hr", key: "auth_position_hr" as const },
+  { value: "accountant", key: "auth_position_accountant" as const },
+  { value: "legal", key: "auth_position_legal" as const },
+  { value: "lawyer", key: "auth_position_lawyer" as const },
+  { value: "sales", key: "auth_position_sales" as const },
+  { value: "freelancer", key: "auth_position_freelancer" as const },
+  { value: "other", key: "auth_position_other" as const },
 ];
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useT();
   const { setUser } = useAuthStore();
-  const [step, setStep] = useState<"register" | "verify">("register");
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [accountType, setAccountType] = useState<AccountType>("personal");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,72 +62,96 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [termsContent, setTermsContent] = useState("");
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [botProtectionToken, setBotProtectionToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
 
-  useEffect(() => {
-    // Load terms content when modal opens
-    if (showTermsModal && !termsContent) {
-      fetch("/term2.html")
-        .then((res) => res.text())
-        .then((text) => setTermsContent(text))
-        .catch(() => setTermsContent("Không thể tải nội dung điều khoản."));
-    }
-  }, [showTermsModal, termsContent]);
+  const isStep2SubmitBlocked = isBotProtectionEnabled && !botProtectionToken;
 
-  const handleRequestRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const registerSteps = useMemo(
+    () => [
+      { id: "1", label: t("auth_register_step1"), description: t("auth_register_step1_desc"), icon: Lock },
+      { id: "2", label: t("auth_register_step2"), description: t("auth_register_step2_desc"), icon: UserCircle },
+      { id: "3", label: t("auth_register_step3"), description: t("auth_register_step3_desc"), icon: Mail },
+      { id: "4", label: t("auth_register_step4"), description: t("auth_register_step4_desc"), icon: CheckCircle2 },
+    ],
+    [t]
+  );
+
+  const validateStep1 = (): boolean => {
     setError("");
-
     if (!agreedToTerms) {
-      setError("Vui lòng đồng ý với các điều khoản sử dụng");
-      return;
+      setError(t("auth_register_error_terms"));
+      return false;
     }
-
     if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
-      return;
+      setError(t("auth_register_error_password_mismatch"));
+      return false;
     }
-
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      setError(passwordValidation.message || "Mật khẩu không hợp lệ");
-      return;
+    const pv = validatePassword(password);
+    if (!pv.valid) {
+      setError(pv.message || t("auth_error_password_invalid"));
+      return false;
     }
+    return true;
+  };
 
+  const validateStep2 = (): boolean => {
+    setError("");
     if (!position) {
-      setError("Vui lòng chọn chức vụ của bạn");
-      return;
+      setError(t("auth_register_error_position"));
+      return false;
     }
-
-    if (position === "Khác" && !customPosition.trim()) {
-      setError("Vui lòng nhập chức vụ của bạn");
-      return;
+    if (position === "other" && !customPosition.trim()) {
+      setError(t("auth_register_error_position_other"));
+      return false;
     }
+    return true;
+  };
 
-    setIsLoading(true);
-
-    try {
-      const finalPosition = position === "Khác" ? customPosition : position;
-      const res = await fetch("/api/auth/register/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name, password, position: finalPosition }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Đăng ký thất bại");
-        setIsLoading(false);
+  const handleNext = async () => {
+    if (step === 1) {
+      if (!validateStep1()) return;
+      setStep(2);
+    } else if (step === 2) {
+      if (!validateStep2()) return;
+      if (isStep2SubmitBlocked) {
+        setError(t("auth_error_bot_protection"));
         return;
       }
+      setIsLoading(true);
+      try {
+        const opt = POSITION_OPTIONS.find((o) => o.value === position);
+        const finalPosition = position === "other" ? customPosition : (opt ? t(opt.key) : position);
+        const payload: Record<string, unknown> = {
+          email,
+          name,
+          password,
+          position: finalPosition,
+        };
+        if (botProtectionToken) payload.turnstileToken = botProtectionToken;
 
-      toast.success("Mã OTP đã được gửi đến email của bạn");
-      setStep("verify");
-      setIsLoading(false);
-    } catch {
-      setError("Không thể kết nối đến server");
-      setIsLoading(false);
+        const res = await fetch("/api/auth/register/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.message || t("auth_register_error_failed"));
+          setBotProtectionToken(null);
+          turnstileRef.current?.reset();
+          return;
+        }
+        toast.success(t("auth_register_toast_otp_sent"));
+        setStep(3);
+      } catch {
+        setError(t("auth_error_connection"));
+        setBotProtectionToken(null);
+        turnstileRef.current?.reset();
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -134,14 +168,14 @@ export default function RegisterPage() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.message || "Đăng ký Google thất bại");
+          setError(data.message || t("auth_register_error_google"));
           return;
         }
         setUser(data.user);
-        toast.success("Tạo tài khoản thành công!");
+        toast.success(t("auth_register_toast_google_success"));
         router.push("/dashboard");
       } catch {
-        setError("Không thể kết nối đến server");
+        setError(t("auth_error_connection"));
       } finally {
         setIsLoading(false);
       }
@@ -170,324 +204,308 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.message || "Xác thực OTP thất bại");
+        setError(data.message || t("auth_register_error_verify"));
         setIsLoading(false);
         return;
       }
 
-      toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
-      router.push("/login");
+      toast.success(t("auth_register_toast_success"));
+      setStep(4);
     } catch {
-      setError("Không thể kết nối đến server");
+      setError(t("auth_error_connection"));
       setIsLoading(false);
     }
   };
 
-  if (step === "verify") {
+  if (step === 4) {
     return (
-      <div className="w-full max-w-md px-4">
-        <Card className="border-0 shadow-xl">
-          <CardHeader className="space-y-4 items-center text-center pb-2">
-              <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-            <div>
-              <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
-              <CardDescription className="mt-1">
-                    Nhập mã OTP đã được gửi đến email của bạn. <br/><strong>Vui lòng kiểm tra hòm thư rác và spam</strong>
-              </CardDescription>
-            </div>
-          </CardHeader>
-
-          <form onSubmit={handleVerifyOTP}>
-            <CardContent className="space-y-4">
-              {error && (
-                <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email-display">Email</Label>
-                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{email}</span>
-                </div>
+      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={4} />}>
+        <div className="w-full">
+          <div className="mb-4 lg:hidden">
+            <ProgressSteps steps={registerSteps} currentStep={4} />
+          </div>
+          <Card className="border-0 shadow-none">
+            <CardHeader className="space-y-4 items-center text-center pb-2">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="otp">Mã OTP <span className="text-destructive">*</span></Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="Nhập 6 chữ số"
-                  value={otp}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
-                    setOtp(value);
-                  }}
-                  required
-                  maxLength={6}
-                  disabled={isLoading}
-                  className="text-center text-2xl tracking-widest"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mã OTP có hiệu lực trong 10 phút
-                </p>
+              <div>
+                <CardTitle className="text-2xl font-bold">{t("auth_register_success_title")}</CardTitle>
+                <CardDescription className="mt-1">
+                  {t("auth_register_success_desc")}
+                </CardDescription>
               </div>
-            </CardContent>
-
-            <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Đang xác thực...
-                  </>
-                ) : (
-                  "Xác thực OTP"
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setStep("register")}
-                disabled={isLoading}
-              >
-                Quay lại
+            </CardHeader>
+            <CardFooter>
+              <Button asChild className="w-full" size="lg">
+                <Link href="/login">Đăng nhập</Link>
               </Button>
             </CardFooter>
-          </form>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (step === 3) {
+    return (
+      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={3} />}>
+        <div className="w-full">
+          <div className="mb-4 lg:hidden">
+            <ProgressSteps steps={registerSteps} currentStep={3} />
+          </div>
+          <Card className="border-0 shadow-none">
+            <CardHeader className="space-y-4 items-center text-center pb-2">
+              <div>
+                <CardTitle className="text-2xl font-bold">{t("auth_register_otp_title")}</CardTitle>
+                <CardDescription className="mt-1">
+                  {t("auth_register_otp_desc")} <strong>{t("auth_register_otp_check_spam")}</strong>
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <form onSubmit={handleVerifyOTP}>
+              <CardContent className="space-y-4">
+                {error && (
+                  <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
+                )}
+                <div className="space-y-2">
+                  <Label>{t("auth_email")}</Label>
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{email}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="otp">{t("auth_register_otp_label")} <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    placeholder={t("auth_register_otp_placeholder")}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    required
+                    maxLength={6}
+                    disabled={isLoading}
+                    className="text-center text-2xl tracking-widest"
+                  />
+                  <p className="text-xs text-muted-foreground">{t("auth_register_otp_valid")}</p>
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-4">
+                <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("auth_register_verifying")}
+                    </>
+                  ) : (
+                    t("auth_register_verify_otp")
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setStep(2)}
+                  disabled={isLoading}
+                >
+                  {t("auth_register_back")}
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="w-full max-w-md px-4">
-      <Card className="border-0 shadow-xl">
-        <CardHeader className="space-y-4 items-center text-center pb-2">
-            <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
-          <div>
-            <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
-            <CardDescription className="mt-1">
-              Đăng ký để bắt đầu sử dụng Lawzy
-            </CardDescription>
-          </div>
-        </CardHeader>
+    <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={step} />}>
+      <div className="w-full">
+        <div className="mb-4 lg:hidden">
+          <ProgressSteps steps={registerSteps} currentStep={step} />
+        </div>
+        <Card className="border-0 shadow-none">
+          <CardHeader className="space-y-4 items-center text-center pb-2">
+            <div>
+              <CardTitle className="text-2xl font-bold">
+                {step === 1 ? t("auth_register_title_step1") : t("auth_register_title_step2")}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {step === 1
+                  ? t("auth_register_subtitle_step1")
+                  : t("auth_register_subtitle_step2")}
+              </CardDescription>
+            </div>
+          </CardHeader>
 
-        <CardContent className="space-y-4 pt-0">
-          {error && (
-            <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          <GoogleSignInButton
-            onSuccess={handleGoogleSuccess}
-            onError={(err) => setError(err.message || "Đăng ký Google thất bại")}
-            disabled={isLoading}
-            label="signup"
-            className="w-full"
-          />
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
-            </div>
-          </div>
-        </CardContent>
-
-        <form onSubmit={handleRequestRegistration}>
-          <CardContent className="space-y-4 pt-0">
-            <div className="space-y-2">
-              <Label htmlFor="name">Họ và tên <span className="text-destructive">*</span></Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Nguyễn Văn A"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="name"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="position">Chức vụ / Công việc <span className="text-destructive">*</span></Label>
-              <Select onValueChange={setPosition} value={position} disabled={isLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn chức vụ của bạn" />
-                </SelectTrigger>
-                <SelectContent>
-                  {positionOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {position === "Khác" && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                <Label htmlFor="customPosition">Nhập chức vụ khác <span className="text-destructive">*</span></Label>
-                <Input
-                  id="customPosition"
-                  placeholder="Nhập chức vụ của bạn"
-                  value={customPosition}
-                  onChange={(e) => setCustomPosition(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
+          <div className="space-y-4">
+            {error && (
+              <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive mx-6">{error}</div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu <span className="text-destructive">*</span></Label>
-              <PasswordRequirements
-                password={password}
-                open={showPasswordRequirements}
-                onOpenChange={setShowPasswordRequirements}
-              >
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Nhập mật khẩu"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (e.target.value.length > 0) {
-                        setShowPasswordRequirements(true);
-                      }
-                    }}
-                    onFocus={() => setShowPasswordRequirements(true)}
-                    onBlur={() => {
-                      // Delay closing to allow clicking on popover
-                      setTimeout(() => setShowPasswordRequirements(false), 200);
-                    }}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
+            {step === 1 && (
+              <>
+                <CardContent className="space-y-4 pt-0">
+                  <GoogleSignInButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={(err) => setError(err.message || t("auth_register_error_google"))}
                     disabled={isLoading}
-                    className="pr-10"
+                    label="signup"
+                    className="w-full"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">{t("auth_or")}</span>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardContent className="space-y-4 pt-0">
+                  <AccountTypeSelector value={accountType} onChange={setAccountType} />
+                  <div className="space-y-2">
+                    <Label htmlFor="email">{t("auth_email")} <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder={t("auth_email_placeholder")}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">{t("auth_password")} <span className="text-destructive">*</span></Label>
+                    <PasswordRequirements password={password} open={showPasswordRequirements} onOpenChange={setShowPasswordRequirements}>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder={t("auth_register_password_placeholder")}
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (e.target.value.length > 0) setShowPasswordRequirements(true);
+                          }}
+                          onFocus={() => setShowPasswordRequirements(true)}
+                          onBlur={() => setTimeout(() => setShowPasswordRequirements(false), 200)}
+                          required
+                          minLength={8}
+                          autoComplete="new-password"
+                          disabled={isLoading}
+                          className="pr-10"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
+                      </div>
+                    </PasswordRequirements>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">{t("auth_register_confirm_password")} <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="Nhập lại mật khẩu"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="flex items-start space-x-2 pt-2">
+                    <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={(c) => setAgreedToTerms(c === true)} disabled={isLoading} className="mt-0.5" />
+                    <Label htmlFor="terms" className="text-sm font-normal cursor-pointer leading-relaxed">
+                      {t("auth_register_agree_terms")}
+                      <button type="button" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer">
+                        {t("auth_register_terms_link")}
+                      </button>
+                      {t("auth_register_and")}
+                      <button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer">
+                        {t("auth_register_privacy_link")}
+                      </button>
+                      {t("auth_register_terms_suffix")}
+                    </Label>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {step === 2 && (
+              <CardContent className="space-y-4 pt-0">
+                <div className="space-y-2">
+                  <Label htmlFor="name">{t("auth_name")} <span className="text-destructive">*</span></Label>
+                    <Input id="name" type="text" placeholder={t("auth_name_placeholder")} value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" disabled={isLoading} />
                 </div>
-              </PasswordRequirements>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="position">{t("auth_register_position")} <span className="text-destructive">*</span></Label>
+                  <Select onValueChange={setPosition} value={position} disabled={isLoading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("auth_register_position_placeholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {POSITION_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{t(opt.key)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {position === "other" && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                    <Label htmlFor="customPosition">{t("auth_register_position_other")} <span className="text-destructive">*</span></Label>
+                    <Input id="customPosition" placeholder="Nhập chức vụ" value={customPosition} onChange={(e) => setCustomPosition(e.target.value)} disabled={isLoading} required />
+                  </div>
+                )}
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu <span className="text-destructive">*</span></Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Nhập lại mật khẩu"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                disabled={isLoading}
+                {step === 2 && (
+                  <TurnstileWidget
+                    ref={turnstileRef}
+                    onSuccess={setBotProtectionToken}
+                    onExpire={() => setBotProtectionToken(null)}
+                    onError={() => setBotProtectionToken(null)}
+                    className="flex justify-center"
+                  />
+                )}
+              </CardContent>
+            )}
+
+            <CardFooter className="flex flex-col gap-4">
+              <StepNav
+                currentStep={step}
+                totalSteps={4}
+                onPrevious={step > 1 ? () => setStep((s) => (s - 1) as 1 | 2 | 3 | 4) : undefined}
+                previousHref={step === 1 ? "/login" : undefined}
+                onNext={step < 3 ? handleNext : undefined}
+                nextLabel={step === 2 ? t("auth_register_send_otp") : t("auth_register_next")}
+                nextLoading={step === 2 && isLoading}
+                nextDisabled={step === 2 && isStep2SubmitBlocked}
               />
-            </div>
-
-            <div className="flex items-start space-x-2 pt-2">
-              <Checkbox
-                id="terms"
-                checked={agreedToTerms}
-                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                disabled={isLoading}
-                className="mt-0.5"
-              />
-              <Label
-                htmlFor="terms"
-                className="text-sm font-normal cursor-pointer leading-relaxed"
-              >
-                Tôi đồng ý với các điều khoản của Lawzy
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowTermsModal(true);
-                  }}
-                  className= "underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
-                >
-                  ĐIỀU KHOẢN
-                </button>{" "}
-              </Label>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading || !agreedToTerms}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang gửi OTP...
-                </>
-              ) : (
-                "Đăng ký"
-              )}
-            </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Đã có tài khoản?{" "}
-              <Link href="/login" className="text-primary font-medium hover:underline">
-                Đăng nhập
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
+            </CardFooter>
+          </div>
+        </Card>
 
       <p className="text-xs text-muted-foreground text-center mt-6">
-        &copy; {new Date().getFullYear()} Lawzy. Nền tảng quản lý hợp đồng pháp lý.
+        &copy; {new Date().getFullYear()} Lawzy. {t("auth_footer_copyright")}.
       </p>
+      </div>
 
-      <Modal
+      <TermsModal
         open={showTermsModal}
         onOpenChange={setShowTermsModal}
-        size="lg"
-        title="Điều Khoản Sử Dụng"
-      >
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Điều Khoản Sử Dụng</h2>
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            {termsContent ? (
-              <div
-                className="lawzy-terms prose prose-sm max-w-none text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_p]:mb-3 [&_p]:leading-relaxed [&_strong]:font-semibold"
-                dangerouslySetInnerHTML={{ __html: termsContent }}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Đang tải nội dung...</p>
-            )}
-          </div>
-        </div>
-      </Modal>
-    </div>
+        onAccept={() => setAgreedToTerms(true)}
+        requireScrollToBottom
+      />
+      <PrivacyModal
+        open={showPrivacyModal}
+        onOpenChange={setShowPrivacyModal}
+        onAccept={() => setAgreedToTerms(true)}
+        requireScrollToBottom
+      />
+    </AuthLayout>
   );
 }

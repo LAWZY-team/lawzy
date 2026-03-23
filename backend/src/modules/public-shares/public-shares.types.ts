@@ -3,4 +3,3 @@ export interface PublicShareSnapshot {
   html: string;
   createdAt: string; // ISO
 }
-
