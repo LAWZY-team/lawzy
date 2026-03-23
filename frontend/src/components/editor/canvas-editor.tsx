@@ -17,17 +17,13 @@ import {
   Play,
   MoreHorizontal,
   FileText,
-  Code,
   Bold,
   Italic,
   Underline as UnderlineIcon,
-  List,
-  ListOrdered,
   Undo,
   Redo,
   ChevronDown,
   Download,
-  Printer,
   PanelRightOpen,
   PanelRightClose,
   Save,
@@ -63,6 +59,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createPublicShareSnapshot } from "@/lib/api/public-shares";
+import { sanitizeEditorHtml, sanitizeHtml } from "@/lib/sanitize";
 
 const CONTRACT_BODY_CLASSES = [
   "min-h-full p-6 pb-24 text-foreground",
@@ -119,7 +116,7 @@ export function CanvasEditor({
     if (title && title !== docTitle) {
       setDocTitle(title);
     }
-  }, [title]);
+  }, [title, docTitle]);
   
   // Track ONLY the keys of merge fields to build the toggle list, preventing re-renders on every keystroke
   // `useShallow` prevents the infinite loop from returning a new Array reference on every check
@@ -228,11 +225,12 @@ export function CanvasEditor({
 
   /** Convert editor HTML to final HTML (replace merge fields; apply hide rules; strip merge-field styling) */
   const finalizeContractHtml = (rawHtml: string): string => {
+    const sanitized = sanitizeEditorHtml(rawHtml);
     const currentValues = useEditorStore.getState().mergeFieldValues;
-    if (Object.keys(currentValues).length === 0) return rawHtml;
-    
+    if (Object.keys(currentValues).length === 0) return sanitized;
+
     const div = document.createElement("div");
-    div.innerHTML = rawHtml;
+    div.innerHTML = sanitized;
     div.querySelectorAll("[data-field-key]").forEach((el) => {
       const key = el.getAttribute("data-field-key");
       if (!key) return;
@@ -316,6 +314,7 @@ export function CanvasEditor({
     };
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePrint = () => {
     const html = getFinalHtml();
     const printWindow = window.open("", "_blank");
@@ -332,11 +331,6 @@ export function CanvasEditor({
     printWindow.focus();
     printWindow.print();
     printWindow.close();
-  };
-
-  const handleExportPdf = () => {
-    // Browser-native PDF export: Print dialog (user chooses Save as PDF)
-    handlePrint();
   };
 
   const handleExportWord = async () => {
@@ -932,7 +926,7 @@ export function CanvasEditor({
           <ScrollArea className="max-h-[70vh] pr-4">
             <div
               className={cn(CONTRACT_BODY_CLASSES)}
-              dangerouslySetInnerHTML={{ __html: getFinalHtml() }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(getFinalHtml()) }}
             />
           </ScrollArea>
         </DialogContent>

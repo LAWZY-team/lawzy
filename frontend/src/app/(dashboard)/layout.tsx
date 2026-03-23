@@ -1,6 +1,5 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { I18nProvider } from "@/components/i18n-provider"
 import { AuthBootstrap } from "@/components/auth/auth-bootstrap"
 
 export default function DashboardLayout({

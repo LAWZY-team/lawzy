@@ -1,4 +1,5 @@
 import { getPublicShareSnapshot } from "@/lib/api/public-shares"
+import { sanitizeHtml } from "@/lib/sanitize"
 
 export default async function PublicSharePage({
   params,
@@ -34,7 +35,7 @@ export default async function PublicSharePage({
         <div className="border rounded-lg p-4 bg-card">
           <div
             className="prose prose-sm dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: snap.html }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(snap.html ?? "") }}
           />
         </div>
       </div>

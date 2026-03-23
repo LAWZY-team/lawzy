@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronsUpDown, LogOut, Settings, User, Globe, UserPlus } from "lucide-react"
+import { ChevronsUpDown, LogOut, Settings, User, Globe } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -19,7 +19,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
 import useStore from "@/lib/zustand/use-store"
@@ -36,7 +35,6 @@ export function UserNav() {
 
   const displayName = isGuest ? (locale === "en" ? "Guest" : "Khách") : (user?.name ?? "User")
   const displayEmail = isGuest ? "" : (user?.email ?? "")
-  const initials = displayName.substring(0, 2).toUpperCase()
 
   const handleLogout = async () => {
     try {
@@ -60,10 +58,9 @@ export function UserNav() {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
-              </Avatar>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-muted">
+                <User className="h-4 w-4 text-muted-foreground" />
+              </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{displayName}</span>
                 <span className="truncate text-xs">{displayEmail}</span>
@@ -79,10 +76,9 @@ export function UserNav() {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
-                </Avatar>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-muted">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{displayName}</span>
                   <span className="truncate text-xs">{displayEmail}</span>
@@ -107,12 +103,6 @@ export function UserNav() {
               </>
             ) : (
               <>
-                {/* <DropdownMenuItem asChild>
-                  <Link href="/settings/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    {t("settings_account")}
-                  </Link>
-                </DropdownMenuItem> */}
                 <DropdownMenuItem asChild>
                   <Link href="/settings" id="dropdown-settings-link">
                     <Settings className="mr-2 h-4 w-4" />
@@ -121,7 +111,6 @@ export function UserNav() {
                 </DropdownMenuItem>
               </>
             )}
-
 
             {!isGuest && (
               <>

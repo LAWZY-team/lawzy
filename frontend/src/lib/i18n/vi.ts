@@ -1,5 +1,4 @@
 const vi = {
-  // Sidebar
   sidebar_workspaces: "Không gian làm việc",
   sidebar_dashboard: "Dashboard",
   sidebar_documents: "Văn bản",
@@ -24,7 +23,6 @@ const vi = {
   sidebar_help_center: "Trung tâm trợ giúp",
   sidebar_inbox: "Liên hệ",
   sidebar_admin_plans: "Gói",
-  // Admin grouped (CRM/CMS style)
   sidebar_admin_relations: "Quan hệ",
   sidebar_admin_content: "Nội dung",
   sidebar_admin_system: "Hệ thống",
@@ -32,7 +30,6 @@ const vi = {
   sidebar_admin_articles: "Bài viết",
   sidebar_admin_workspaces: "Workspace",
 
-  // Dashboard
   dash_this_week: "Tuần này",
   dash_this_month: "Tháng nay",
   dash_this_year: "Năm nay",
@@ -68,13 +65,11 @@ const vi = {
   dash_cta_create_title: "Bắt đầu tạo hợp đồng",
   dash_cta_create_desc: "Tạo hợp đồng mới trong vài giây và bắt đầu quản lý văn bản của bạn",
 
-  // Referral
   referral_title: "Giới thiệu bạn bè",
   referral_credits: "Nhận 10 credits cho mỗi người bạn đăng ký thành công",
   referral_copied: "Đã sao chép link giới thiệu!",
   referral_copy_fail: "Không thể sao chép link",
 
-  // Recent docs
   recent_docs_title: "Tài liệu gần đây",
   recent_docs_view_all: "Xem tất cả",
   recent_docs_name: "Tên tài liệu",
@@ -85,7 +80,6 @@ const vi = {
   recent_docs_open: "Mở",
   recent_docs_share: "Chia sẻ",
 
-  // Status labels
   status_draft: "Nháp",
   status_review: "Đang xem xét",
   status_approved: "Đã duyệt",
@@ -93,7 +87,6 @@ const vi = {
   status_completed: "Hoàn thành",
   status_archived: "Lưu trữ",
 
-  // Documents page
   docs_my_documents: "Tài liệu của tôi",
   docs_manage_all: "Quản lý tất cả hợp đồng của bạn",
   docs_create_new: "Tạo hợp đồng mới",
@@ -104,7 +97,6 @@ const vi = {
   docs_archived: "Tài liệu đã lưu trữ",
   docs_archive: "Lưu trữ",
 
-  // Templates
   tmpl_title: "Mẫu hợp đồng",
   tmpl_library: "Thư viện {n} mẫu hợp đồng có sẵn",
   tmpl_system: "Hệ thống",
@@ -129,20 +121,17 @@ const vi = {
   tmpl_more_fields: "+ {n} trường khác",
   tmpl_no_preview: "Chưa có nội dung xem trước.",
 
-  // Files
   files_title: "Quản lý tập tin",
   files_subtitle: "Quản lý dung lượng và các tập tin đã tải lên",
   files_empty: "Chưa có tập tin nào được tải lên",
   files_not_found: "Không tìm thấy tập tin nào",
 
-  // Sources
   sources_subtitle: "Tài liệu tham chiếu pháp lý / nghiệp vụ để AI trích dẫn khi soạn hợp đồng",
   sources_empty: "Chưa có nguồn nào. Thêm file PDF, DOCX hoặc TXT để AI tham chiếu khi soạn hợp đồng.",
 
   // Payment
   payment_subtitle: "Quản lý gói dịch vụ và theo dõi hạn mức sử dụng",
 
-  // Workspace
   ws_manage: "Quản lý thành viên và cài đặt workspace",
   ws_create_first: "Tạo workspace đầu tiên",
   ws_create_new: "Tạo workspace mới",
@@ -155,8 +144,9 @@ const vi = {
   ws_create_creating: "Đang tạo...",
   ws_suggested_with_name: "Không gian của {name}",
   ws_suggested_default: "Workspace của tôi",
+  ws_limit_reached: "Bạn đã đạt giới hạn workspace. Gói Free cho phép 1 workspace.",
+  ws_upgrade_to_create_more: "Nâng cấp gói Pro để tạo thêm workspace.",
 
-  // Settings
   settings_title: "Cài đặt",
   settings_subtitle: "Cài đặt tài khoản và ứng dụng.",
   settings_account: "Tài khoản",
@@ -242,7 +232,6 @@ const vi = {
   settings_sidebar_reset: "Đã đặt lại mặc định.",
   settings_sidebar_min_one: "Bạn phải chọn ít nhất một mục.",
 
-  // Common
   common_search: "Tìm kiếm...",
   common_save: "Lưu",
   common_cancel: "Hủy",
@@ -254,7 +243,6 @@ const vi = {
   common_loading: "Đang tải...",
   common_no_results: "Không có kết quả",
 
-  // Auth
   auth_login: "Đăng nhập",
   auth_register: "Đăng ký",
   auth_logout: "Đăng xuất",
@@ -372,14 +360,12 @@ const vi = {
   auth_register_sending_otp: "Đang gửi OTP...",
   auth_login_subtitle_editor: "Đăng nhập để tiếp tục chỉnh sửa hợp đồng",
   
-  // Save Draft Modal
   save_draft_title: "Lưu bản thảo?",
   save_draft_description: "Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại dưới dạng bản thảo trước khi rời đi không?",
   save_draft_save: "Lưu bản thảo",
   save_draft_discard: "Hủy bỏ thay đổi",
   save_draft_status_label: "Trạng thái hợp đồng",
   
-  // Chat Input
   editor_placeholder: "Bắt đầu soạn thảo hoặc gõ / để xem lệnh...",
   editor_default_title: "HỢP ĐỒNG MỚI",
   editor_untitled: "Hợp đồng mới",
@@ -401,7 +387,6 @@ const vi = {
   chat_view_thinking_steps: "Xem suy luận ({count} bước)",
   chat_hide_thinking: "Ẩn suy luận",
 
-  // Toasts
   toast_login_required: "Vui lòng đăng nhập để lưu.",
   toast_saved: "Đã lưu",
   toast_save_failed: "Lưu thất bại",
@@ -418,7 +403,6 @@ const vi = {
   toast_version_restore_failed: "Khôi phục phiên bản thất bại",
   toast_field_deleted: "Đã xóa trường dữ liệu",
 
-  // Right Panel
   panel_tools: "Công Cụ",
   panel_fields_tab: "Dữ liệu",
   panel_metadata_tab: "Thông tin",
@@ -471,7 +455,6 @@ const vi = {
   admin_articles_created: "Đã tạo bài viết",
   admin_articles_preview_no_content: "Chưa có nội dung.",
 
-  // Admin Inbox
   admin_inbox_title: "Liên hệ & Hỗ trợ",
   admin_inbox_desc: "Quản lý liên hệ sales và yêu cầu hỗ trợ tập trung.",
   admin_inbox_empty: "Chưa có yêu cầu nào.",
@@ -493,7 +476,6 @@ const vi = {
   admin_inbox_status_archived: "Đã lưu trữ",
   admin_inbox_update_status: "Cập nhật trạng thái",
 
-  // Admin Users
   admin_users_title: "Người dùng",
   admin_users_desc: "Quản lý tài khoản người dùng trong hệ thống.",
   admin_users_empty: "Chưa có người dùng nào.",
@@ -527,12 +509,47 @@ const vi = {
   admin_plans_status: "Trạng thái",
   admin_plans_quota: "Quota AI/ngày",
   admin_plans_storage: "Dung lượng",
+  admin_plans_workspaces_col: "Workspaces",
   admin_plans_contact: "Liên hệ",
+  admin_plans_workspaces_modal_title: "Danh sách workspace đang dùng gói",
+  admin_plans_workspaces_empty: "Chưa có workspace nào dùng gói này.",
+  admin_plans_workspace_name: "Workspace",
+  admin_plans_workspace_members: "Thành viên",
   admin_plans_free: "Miễn phí",
   admin_plans_visible: "Hiển thị",
   admin_plans_hidden: "Ẩn",
+  admin_plans_create: "Tạo gói",
+  admin_plans_edit: "Chỉnh sửa",
+  admin_plans_delete: "Xóa",
+  admin_plans_delete_confirm_title: "Xóa gói?",
+  admin_plans_delete_confirm_desc: "Gói \"{name}\" sẽ bị xóa vĩnh viễn. Workspace đang dùng gói này có thể bị ảnh hưởng.",
+  admin_plans_form_section_basic: "Thông tin cơ bản",
+  admin_plans_form_section_price: "Giá & Tùy chọn",
+  admin_plans_form_slug: "Slug",
+  admin_plans_form_slug_placeholder: "pro-monthly",
+  admin_plans_form_name: "Tên (VN)",
+  admin_plans_form_name_placeholder: "Pro hàng tháng",
+  admin_plans_form_name_en: "Tên (EN)",
+  admin_plans_form_name_en_placeholder: "Pro Monthly",
+  admin_plans_form_price: "Giá (VND)",
+  admin_plans_form_billing_cycle: "Chu kỳ",
+  admin_plans_form_is_active: "Hiển thị công khai",
+  admin_plans_form_contact_sales: "Liên hệ bán hàng",
+  admin_plans_form_storage_gb: "Dung lượng (GB)",
+  admin_plans_form_ai_quota: "Quota AI/ngày",
+  admin_plans_form_ai_unlimited: "Không giới hạn",
+  admin_plans_form_workspaces_per_user: "Số workspace/user",
+  admin_plans_form_workspace_members: "Số thành viên/workspace",
+  admin_plans_form_templates: "Số template",
+  admin_plans_form_ai_assistant: "AI Assistant",
+  admin_plans_form_monthly_equivalent: "Slug gói monthly (cho yearly)",
+  admin_plans_created_msg: "Đã tạo gói thành công",
+  admin_plans_updated_msg: "Đã cập nhật gói",
+  admin_plans_deleted_msg: "Đã xóa gói",
+  admin_plans_create_failed: "Không thể tạo gói",
+  admin_plans_update_failed: "Không thể cập nhật gói",
+  admin_plans_delete_failed: "Không thể xóa gói",
 
-  // Admin Workspaces
   admin_workspaces_title: "Quản lý workspace",
   admin_workspaces_desc: "Quản lý workspace, đổi tên, thêm/xóa thành viên.",
   admin_workspaces_empty: "Chưa có workspace nào.",
@@ -541,6 +558,7 @@ const vi = {
   admin_workspaces_name_placeholder: "Tên workspace",
   admin_workspaces_name_required: "Vui lòng nhập tên workspace",
   admin_workspaces_plan: "Gói",
+  admin_workspaces_plan_select: "Chọn gói",
   admin_workspaces_members: "Thành viên",
   admin_workspaces_created: "Ngày tạo",
   admin_workspaces_view_members: "Xem thành viên",
@@ -569,7 +587,6 @@ const vi = {
   admin_workspaces_remove_member_desc: "Bạn có chắc muốn xóa \"{name}\" khỏi workspace?",
   admin_workspaces_remove_member: "Xóa khỏi workspace",
 
-  // User Workspace (management)
   workspace_title: "Workspace",
   workspace_desc: "Quản lý thành viên và cài đặt workspace hiện tại.",
   workspace_select_hint: "Chọn workspace từ menu bên trái để xem nội dung.",
@@ -577,7 +594,6 @@ const vi = {
   workspace_upgrade_cta: "Nâng cấp gói",
   workspace_rename: "Đổi tên workspace",
 
-  // Pricing & Payment
   plan_badge_popular: "Phổ biến nhất",
   plan_badge_current: "Đang sử dụng",
   plan_price_free: "Miễn phí",
@@ -673,12 +689,10 @@ const vi = {
   admin_storage_from_r2_on: "R2: Đang bật",
   admin_storage_r2_list: "Từ R2 ListObjects (thực tế bucket)",
 
-  // Pagination
   pagination_prev: "Trước",
   pagination_next: "Sau",
   pagination_page: "Trang",
 
-  // Public news
   news_title: "Tin tức",
   news_subtitle: "Cập nhật tin tức và thông báo từ Lawzy",
   news_empty: "Chưa có tin tức nào.",

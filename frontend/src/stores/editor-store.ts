@@ -81,7 +81,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       if (!Object.prototype.hasOwnProperty.call(state.pendingMergeFieldDrafts, fieldKey)) {
         return state
       }
-      const { [fieldKey]: _removed, ...rest } = state.pendingMergeFieldDrafts
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [fieldKey]: _omit, ...rest } = state.pendingMergeFieldDrafts
       return { pendingMergeFieldDrafts: rest }
     }),
   clearPendingMergeFieldDrafts: () => set({ pendingMergeFieldDrafts: {} }),

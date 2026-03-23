@@ -4,6 +4,8 @@ export interface QuotaLimits {
   dailyAiQuota?: number | 'unlimited';
   storageBytes?: number;
   workspaceMembers?: number | 'unlimited';
+  /** Max workspaces a user can create when all their workspaces use this plan. Free: 1, Pro: unlimited. */
+  workspacesPerUser?: number | 'unlimited';
   templates?: number | 'unlimited';
   aiAssistant?: boolean;
   /** Per-seat pricing (VND). Used for Team plan. */
@@ -15,6 +17,8 @@ export interface QuotaLimits {
   /** AI top-up: VND per extra request */
   aiTopUpPricePerRequest?: number;
   aiTopUpMinCredits?: number;
+  /** For yearly plans: slug of equivalent monthly plan (for savings calculation) */
+  monthlyEquivalentSlug?: string;
 }
 
 /** Compute price for Team plan given seat count */
@@ -46,6 +50,7 @@ export interface Plan {
   quotaLimits?: QuotaLimits | null;
   createdAt: string;
   updatedAt: string;
+  workspaceCount?: number;
 }
 
 type TranslateFn = (key: TranslationKey, params?: Record<string, string | number>) => string;

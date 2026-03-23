@@ -1,26 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePlans } from "@/hooks/plans/use-plans";
+import { usePlans, filterPlansForDisplay } from "@/hooks/plans/use-plans";
 import { PricingCard } from "./pricing-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useT } from "@/components/i18n-provider";
 import type { Plan } from "@/types/plan";
 
-const MONTHLY_SLUGS = ["free", "pro-monthly", "team"] as const;
-const YEARLY_SLUGS = ["free", "pro-yearly", "enterprise"] as const;
-
-function filterPlans(plans: Plan[], yearly: boolean): Plan[] {
-  const slugList: readonly string[] = yearly ? YEARLY_SLUGS : MONTHLY_SLUGS;
-  return plans
-    .filter((p) => slugList.includes(p.slug))
-    .sort((a, b) => slugList.indexOf(a.slug) - slugList.indexOf(b.slug));
-}
-
 interface PricingSectionProps {
   currentPlanSlug?: string | null;
-  onSelectPlan?: (planId: string, slug: string) => void;
+  onSelectPlan?: (planId: string, slug: string, plan: Plan) => void;
   loadingPlanId?: string | null;
   variant?: "default" | "compact";
   title?: string;
@@ -43,7 +33,7 @@ export function PricingSection({
   const sectionSubtitle = subtitle ?? t("pricing_section_subtitle");
   const { data: plans, isLoading } = usePlans();
   const displayedPlans = useMemo(
-    () => (plans ? filterPlans(plans, billingYearly) : []),
+    () => (plans ? filterPlansForDisplay(plans, billingYearly) : []),
     [plans, billingYearly]
   );
 
@@ -93,7 +83,15 @@ export function PricingSection({
             </div>
           )}
         </div>
-        <div className="grid gap-6 md:grid-cols-3">
+        <div
+          className={`grid gap-6 ${
+            displayedPlans.length <= 2
+              ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+              : displayedPlans.length === 3
+                ? "md:grid-cols-3"
+                : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          }`}
+        >
           {displayedPlans.map((plan) => (
             <PricingCard
               key={plan.id}

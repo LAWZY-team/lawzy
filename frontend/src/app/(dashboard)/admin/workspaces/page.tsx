@@ -56,8 +56,9 @@ export default function AdminWorkspacesPage() {
   const [editWorkspace, setEditWorkspace] = useState<AdminWorkspace | null>(null)
   const [deleteWorkspace, setDeleteWorkspace] = useState<AdminWorkspace | null>(null)
   const [createName, setCreateName] = useState("")
-  const [createPlan, setCreatePlan] = useState("free")
+  const [createPlan, setCreatePlan] = useState("")
   const [editName, setEditName] = useState("")
+  const [editPlan, setEditPlan] = useState("")
 
   const { data: workspaces, isLoading } = useAdminWorkspaces()
   const { data: plans } = usePlansAdmin()
@@ -74,7 +75,7 @@ export default function AdminWorkspacesPage() {
       toast.success(t("admin_workspaces_created_msg"))
       setCreateOpen(false)
       setCreateName("")
-      setCreatePlan("free")
+      setCreatePlan("")
     } catch (e) {
       toast.error((e as Error).message || t("admin_workspaces_create_failed"))
     }
@@ -93,6 +94,14 @@ export default function AdminWorkspacesPage() {
 
   const planOptions = plans ?? []
 
+  const handleOpenCreate = () => {
+    setCreateOpen(true)
+    if (plans?.length) {
+      const defaultPlan = plans.find((p) => p.price === 0) ?? plans[0]
+      if (defaultPlan) setCreatePlan(defaultPlan.slug)
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -100,7 +109,7 @@ export default function AdminWorkspacesPage() {
           <h2 className="text-3xl font-bold tracking-tight">{t("admin_workspaces_title")}</h2>
           <p className="text-muted-foreground">{t("admin_workspaces_desc")}</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={handleOpenCreate}>
           <Plus className="mr-2 h-4 w-4" />
           {t("admin_workspaces_create")}
         </Button>
@@ -177,6 +186,7 @@ export default function AdminWorkspacesPage() {
                           onClick={() => {
                             setEditWorkspace(ws)
                             setEditName(ws.name)
+                            setEditPlan(ws.plan || "")
                           }}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
@@ -226,9 +236,6 @@ export default function AdminWorkspacesPage() {
                       {p.name}
                     </SelectItem>
                   ))}
-                  {(!planOptions || planOptions.length === 0) && (
-                    <SelectItem value="free">Free</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -249,14 +256,18 @@ export default function AdminWorkspacesPage() {
         <EditWorkspaceDialog
           workspace={editWorkspace}
           name={editName}
+          plan={editPlan}
           onNameChange={setEditName}
+          onPlanChange={setEditPlan}
           onClose={() => {
             setEditWorkspace(null)
             setEditName("")
+            setEditPlan("")
           }}
           onSaved={() => {
             setEditWorkspace(null)
             setEditName("")
+            setEditPlan("")
           }}
         />
       )}
@@ -281,17 +292,22 @@ export default function AdminWorkspacesPage() {
 function EditWorkspaceDialog({
   workspace,
   name,
+  plan,
   onNameChange,
+  onPlanChange,
   onClose,
   onSaved,
 }: {
   workspace: AdminWorkspace
   name: string
+  plan: string
   onNameChange: (v: string) => void
+  onPlanChange: (v: string) => void
   onClose: () => void
   onSaved: () => void
 }) {
   const { t } = useT()
+  const { data: plans } = usePlansAdmin()
   const updateMutation = useUpdateAdminWorkspace(workspace.id)
 
   const handleSave = async () => {
@@ -300,7 +316,7 @@ function EditWorkspaceDialog({
       return
     }
     try {
-      await updateMutation.mutateAsync({ name: name.trim() })
+      await updateMutation.mutateAsync({ name: name.trim(), plan: plan || undefined })
       toast.success(t("admin_workspaces_renamed"))
       onSaved()
     } catch {
@@ -322,6 +338,21 @@ function EditWorkspaceDialog({
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("admin_workspaces_plan")}</Label>
+            <Select value={plan} onValueChange={onPlanChange}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("admin_workspaces_plan_select")} />
+              </SelectTrigger>
+              <SelectContent>
+                {(plans ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.slug}>
+                    {p.name} ({p.slug})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>

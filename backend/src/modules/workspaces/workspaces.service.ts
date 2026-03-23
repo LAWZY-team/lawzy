@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { API_ERROR_WORKSPACE_LIMIT_REACHED } from '../../common/plan.constants';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
 
@@ -15,11 +16,87 @@ export class WorkspacesService {
     private readonly plansService: PlansService,
   ) {}
 
+  private async resolveWorkspaceLimit(userId: string): Promise<{
+    count: number;
+    limit: number | 'unlimited';
+    canCreate: boolean;
+  }> {
+    const [memberships, defaultPlan, allPlans] = await Promise.all([
+      this.prisma.workspaceMember.findMany({
+        where: { userId },
+        include: { workspace: { select: { plan: true } } },
+      }),
+      this.plansService.findDefaultPlan(),
+      this.plansService.findAllAdmin(),
+    ]);
+
+    const planBySlug = new Map(
+      (allPlans ?? []).map((p) => [p.slug, p]),
+    );
+    const getPlan = (slug: string | null) =>
+      slug ? planBySlug.get(slug) : null;
+
+    const count = memberships.length;
+    const hasPaidWorkspace = memberships.some((m) => {
+      const plan = getPlan(m.workspace?.plan);
+      return plan && plan.price > 0;
+    });
+
+    let limit: number | 'unlimited' = 1;
+    if (hasPaidWorkspace) {
+      const paidMembership = memberships.find((m) => {
+        const plan = getPlan(m.workspace?.plan);
+        return plan && plan.price > 0;
+      });
+      const paidPlan = paidMembership
+        ? getPlan(paidMembership.workspace?.plan)
+        : null;
+      const q = (paidPlan?.quotaLimits ?? {}) as {
+        workspacesPerUser?: number | 'unlimited';
+      };
+      limit = q.workspacesPerUser ?? 'unlimited';
+    } else {
+      const q = (defaultPlan?.quotaLimits ?? {}) as {
+        workspacesPerUser?: number | 'unlimited';
+      };
+      limit = q.workspacesPerUser ?? 1;
+    }
+
+    const canCreate =
+      limit === 'unlimited' || (typeof limit === 'number' && count < limit);
+    return { count, limit, canCreate };
+  }
+
   async create(userId: string, data: { name: string; plan?: string }) {
+    const [limits, defaultPlan] = await Promise.all([
+      this.resolveWorkspaceLimit(userId),
+      this.plansService.findDefaultPlan(),
+    ]);
+    const { count, limit, canCreate } = limits;
+
+    if (!canCreate) {
+      throw new HttpException(
+        {
+          message: API_ERROR_WORKSPACE_LIMIT_REACHED,
+          code: 'UPGRADE_REQUIRED',
+          limit,
+          current: count,
+        },
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+
+    const planSlug = data.plan ?? defaultPlan?.slug
+    if (!planSlug) {
+      throw new HttpException(
+        { message: 'No default plan configured. Please create plans in admin.' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     return this.prisma.workspace.create({
       data: {
         name: data.name,
-        plan: data.plan ?? 'free',
+        plan: planSlug,
         members: {
           create: {
             userId,
@@ -39,6 +116,10 @@ export class WorkspacesService {
     });
   }
 
+  async getWorkspaceLimits(userId: string) {
+    return this.resolveWorkspaceLimit(userId);
+  }
+
   async findByUser(userId: string) {
     let memberships = await this.prisma.workspaceMember.findMany({
       where: { userId },
@@ -53,7 +134,6 @@ export class WorkspacesService {
       },
     });
 
-    // User chưa có workspace → trả về [] để frontend hiển thị onboarding tạo workspace cá nhân
     return memberships.map((m) => ({
       ...m.workspace,
       memberCount: m.workspace._count.members,
@@ -87,6 +167,7 @@ export class WorkspacesService {
     id: string,
     data: {
       name?: string;
+      plan?: string;
       logo?: string;
       settings?: unknown;
       aiConfig?: unknown;
@@ -100,18 +181,26 @@ export class WorkspacesService {
       throw new NotFoundException('Workspace not found');
     }
 
+    const updateData: Prisma.WorkspaceUpdateInput = {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.logo !== undefined && { logo: data.logo }),
+      ...(data.settings !== undefined && {
+        settings: data.settings as Prisma.InputJsonValue,
+      }),
+      ...(data.aiConfig !== undefined && {
+        aiConfig: data.aiConfig as Prisma.InputJsonValue,
+      }),
+    };
+
+    if (data.plan !== undefined) {
+      const plan = await this.plansService.findBySlug(data.plan, true);
+      updateData.plan = data.plan;
+      updateData.quotaLimits = (plan.quotaLimits as object) ?? undefined;
+    }
+
     return this.prisma.workspace.update({
       where: { id },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.logo !== undefined && { logo: data.logo }),
-        ...(data.settings !== undefined && {
-          settings: data.settings as Prisma.InputJsonValue,
-        }),
-        ...(data.aiConfig !== undefined && {
-          aiConfig: data.aiConfig as Prisma.InputJsonValue,
-        }),
-      },
+      data: updateData,
       include: {
         members: {
           include: {

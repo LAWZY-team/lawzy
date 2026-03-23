@@ -18,7 +18,8 @@ import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
-const DEFAULT_STORAGE_BYTES = 500 * 1024 * 1024; // 500 MB free plan
+const DEFAULT_STORAGE_BYTES =
+  parseInt(process.env.DEFAULT_STORAGE_BYTES || '524288000', 10) || 500 * 1024 * 1024;
 
 @Injectable()
 export class FilesService {
@@ -190,10 +191,18 @@ export class FilesService {
     let limitBytes: number | undefined;
     if (workspace?.plan) {
       try {
-        const plan = await this.plansService.findBySlug(workspace.plan);
+        const plan = await this.plansService.findBySlug(workspace.plan, true);
         const ql = plan.quotaLimits as { storageBytes?: number } | null;
         limitBytes =
           typeof ql?.storageBytes === 'number' ? ql.storageBytes : undefined;
+        if (limitBytes == null) {
+          const defaultPlan = await this.plansService.findDefaultPlan();
+          const dq = defaultPlan?.quotaLimits as { storageBytes?: number } | null;
+          limitBytes =
+            typeof dq?.storageBytes === 'number'
+              ? dq.storageBytes
+              : DEFAULT_STORAGE_BYTES;
+        }
       } catch {
         limitBytes = DEFAULT_STORAGE_BYTES;
       }
@@ -211,11 +220,16 @@ export class FilesService {
     const slugs = [...new Set(workspaces.map((w) => w.plan).filter(Boolean))];
     for (const slug of slugs) {
       try {
-        const plan = await this.plansService.findBySlug(slug);
+        const plan = await this.plansService.findBySlug(slug, true);
         const ql = plan.quotaLimits as { storageBytes?: number } | null;
-        if (typeof ql?.storageBytes === 'number') {
-          planBySlug.set(slug, ql.storageBytes);
+        let storage = typeof ql?.storageBytes === 'number' ? ql.storageBytes : null;
+        if (storage == null) {
+          const def = await this.plansService.findDefaultPlan();
+          const dq = def?.quotaLimits as { storageBytes?: number } | null;
+          storage =
+            typeof dq?.storageBytes === 'number' ? dq.storageBytes : DEFAULT_STORAGE_BYTES;
         }
+        planBySlug.set(slug, storage);
       } catch {
         planBySlug.set(slug, DEFAULT_STORAGE_BYTES);
       }

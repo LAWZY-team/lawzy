@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, FileText, MoreVertical, Plus, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, FileText, MoreVertical, Plus, Pencil, Trash2, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,12 +30,11 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getArticleUrl } from "@/lib/articles"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { ArticleRichEditor } from "@/components/admin/article-rich-editor"
-import { slugify } from "@/lib/slugify"
-import { useAdminArticles, useCreateArticle, useUpdateArticle, useDeleteArticle } from "@/hooks/articles/use-articles"
+import { Modal } from "@/components/ui/modal"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { sanitizeHtml } from "@/lib/sanitize"
+import { useAdminArticles, useDeleteArticle } from "@/hooks/articles/use-articles"
 import { useT } from "@/components/i18n-provider"
 import { ConfirmDialog } from "@/components/admin/confirm-dialog"
 import { formatDistanceToNow } from "date-fns"
@@ -320,59 +319,125 @@ function ArticlePreviewModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[min(95vw,1024px)] max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <DialogTitle className="pr-8">{article.title}</DialogTitle>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {TYPE_OPTIONS.find((o) => o.value === article.type)?.labelKey
-                  ? t(TYPE_OPTIONS.find((o) => o.value === article.type)!.labelKey)
-                  : article.type}
-              </Badge>
-              <Badge variant={article.status === "published" ? "default" : "outline"}>
-                {article.status}
-              </Badge>
-              {article.slug && (
-                <span className="text-xs text-muted-foreground self-center">/{article.slug}</span>
-              )}
-            </div>
-            {article.excerpt && (
-              <p className="text-muted-foreground text-sm">{article.excerpt}</p>
-            )}
-            <div
-              className="article-preview-prose prose prose-slate dark:prose-invert prose-lg max-w-none
-                prose-headings:font-bold prose-headings:tracking-tight
-                prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4 prose-h1:pb-2 prose-h1:border-b
-                prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3
-                prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2
-                prose-p:leading-relaxed prose-p:my-3
-                prose-ul:my-3 prose-ol:my-3 prose-li:my-1
-                [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg"
-              dangerouslySetInnerHTML={{
-                __html: getContentHtml() || `<p class="text-muted-foreground">${t("admin_articles_preview_no_content")}</p>`,
-              }}
-            />
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="full"
+      showCloseButton={false}
+      title={article.title}
+    >
+      <div className="flex flex-col h-full min-h-[400px] rounded-lg border-0 bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 shrink-0">
+          <h3 className="font-semibold truncate pr-4">{article.title}</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Pencil className="h-4 w-4 mr-1.5" />
+              {t("admin_articles_edit")}
+            </Button>
+            <Button variant="secondary" size="sm" asChild>
+              <Link href={getArticleUrl(article.slug, article.type)} target="_blank">
+                {t("news_read_more")}
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common_close")}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <div className="shrink-0 flex justify-end gap-2 p-4 border-t bg-muted/30">
-          <Button variant="outline" onClick={onClose}>
-            {t("common_cancel")}
-          </Button>
-          <Button onClick={onEdit}>
-            <Pencil className="mr-2 h-4 w-4" />
-            {t("admin_articles_edit")}
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href={getArticleUrl(article.slug, article.type)} target="_blank">
-              {t("news_read_more")}
-            </Link>
-          </Button>
+
+        <div className="flex flex-1 min-h-0 w-full">
+          <div className="flex-1 min-w-[max(360px,55%)] border-r flex flex-col overflow-hidden">
+            <div className="px-3 py-2 border-b text-sm font-medium shrink-0">
+              Nội dung
+            </div>
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-6">
+                <div
+                  className="article-preview-prose prose prose-slate dark:prose-invert prose-lg max-w-none
+                    prose-headings:font-bold prose-headings:tracking-tight
+                    prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4 prose-h1:pb-2 prose-h1:border-b
+                    prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3
+                    prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2
+                    prose-p:leading-relaxed prose-p:my-3
+                    prose-ul:my-3 prose-ol:my-3 prose-li:my-1
+                    [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(
+                      getContentHtml() || `<p class="text-muted-foreground">${t("admin_articles_preview_no_content")}</p>`,
+                    ),
+                  }}
+                />
+              </div>
+            </ScrollArea>
+          </div>
+
+          <div className="flex shrink-0 w-[280px] flex-col bg-muted/20 overflow-hidden">
+            <div className="px-3 py-2 border-b text-sm font-medium shrink-0">
+              Thông tin bài viết
+            </div>
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-4 space-y-4">
+                <div className="flex flex-col gap-2 text-sm">
+                  <span className="text-muted-foreground">Loại</span>
+                  <Badge variant="secondary">
+                    {TYPE_OPTIONS.find((o) => o.value === article.type)?.labelKey
+                      ? t(TYPE_OPTIONS.find((o) => o.value === article.type)!.labelKey)
+                      : article.type}
+                  </Badge>
+                </div>
+                <Separator />
+                <div className="flex flex-col gap-2 text-sm">
+                  <span className="text-muted-foreground">Trạng thái</span>
+                  <Badge variant={article.status === "published" ? "default" : "outline"}>
+                    {article.status}
+                  </Badge>
+                </div>
+                {article.slug && (
+                  <>
+                    <Separator />
+                    <div className="flex flex-col gap-1 text-sm">
+                      <span className="text-muted-foreground">Slug</span>
+                      <code className="text-xs break-all">/{article.slug}</code>
+                    </div>
+                  </>
+                )}
+                {article.excerpt && (
+                  <>
+                    <Separator />
+                    <div className="flex flex-col gap-1 text-sm">
+                      <span className="text-muted-foreground">Tóm tắt</span>
+                      <p className="text-xs line-clamp-4">{article.excerpt}</p>
+                    </div>
+                  </>
+                )}
+                {(article.publishedAt || article.updatedAt) && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2 text-sm">
+                      {article.publishedAt && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-muted-foreground">Xuất bản</span>
+                          <span className="font-medium">
+                            {new Date(article.publishedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {article.updatedAt && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-muted-foreground">Cập nhật</span>
+                          <span className="font-medium">
+                            {new Date(article.updatedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Modal>
   )
 }

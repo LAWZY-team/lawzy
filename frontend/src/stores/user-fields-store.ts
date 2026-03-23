@@ -52,7 +52,8 @@ function getStorageKey(): string {
 
 /** Custom storage that uses guest-only key in sessionStorage */
 const userFieldsStorage: StateStorage = {
-  getItem: (_name: string): string | null => {
+  getItem: (name: string): string | null => {
+    void name
     const user = useAuthStore.getState().user
     if (user?.id) return null
     try {
@@ -61,7 +62,8 @@ const userFieldsStorage: StateStorage = {
       return null
     }
   },
-  setItem: (_name: string, value: string): void => {
+  setItem: (name: string, value: string): void => {
+    void name
     const user = useAuthStore.getState().user
     if (user?.id) return
     try {
@@ -70,7 +72,8 @@ const userFieldsStorage: StateStorage = {
       // Ignore storage errors
     }
   },
-  removeItem: (_name: string): void => {
+  removeItem: (name: string): void => {
+    void name
     try {
       sessionStorage.removeItem(getStorageKey())
       localStorage.removeItem(getStorageKey()) // cleanup legacy

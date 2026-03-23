@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ContactModalProvider } from "@/components/landing/contact-modal";
 import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
+import { BlogCardsSection } from "@/components/landing/blog-cards-section";
 import { Newspaper } from "@/components/landing/newspaper";
 import FeaturesSection from "@/components/landing/features-section";
 import CostSection from "@/components/landing/cost-section";
@@ -37,6 +38,7 @@ function LandingPageContent() {
       <TargetSection />
       <Achievement />
       <Incubation />
+      <BlogCardsSection />
       <Newspaper />
 
       <div id="survey" className="sr-only" aria-hidden />

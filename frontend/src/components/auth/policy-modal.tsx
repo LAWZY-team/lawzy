@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useArticleBySlug } from "@/hooks/articles/use-articles";
 import { useT } from "@/components/i18n-provider";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 function getContentByLocale(content: unknown, locale: "vi" | "en"): string {
   if (!content || typeof content !== "object") return "";
@@ -93,7 +94,7 @@ export function PolicyModal({
           ) : (
             <div
               className="lawzy-terms prose prose-sm max-w-none text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_p]:mb-3 [&_p]:leading-relaxed [&_strong]:font-semibold"
-              dangerouslySetInnerHTML={{ __html: content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
             />
           )}
         </div>

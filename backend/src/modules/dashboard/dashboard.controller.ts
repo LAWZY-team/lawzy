@@ -7,6 +7,21 @@ import { DashboardService } from './dashboard.service';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  @Get('initial')
+  async getInitial(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const userId = req.user.userId;
+    const limit = limitStr ? parseInt(limitStr, 10) : 10;
+    const [overview, recentDocuments] = await Promise.all([
+      this.dashboardService.getOverview(userId, workspaceId || null),
+      this.dashboardService.getRecentDocuments(userId, limit, workspaceId || null),
+    ]);
+    return { overview, recentDocuments };
+  }
+
   @Get('overview')
   async getOverview(
     @Request() req: any,

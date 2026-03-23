@@ -10,6 +10,11 @@ export class PlansController {
     return this.plansService.findAllPublic();
   }
 
+  @Get('default')
+  getDefault() {
+    return this.plansService.findDefaultPlan();
+  }
+
   @Get('by-slug/:slug')
   getBySlug(@Param('slug') slug: string) {
     return this.plansService.findBySlug(slug);

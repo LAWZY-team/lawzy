@@ -77,7 +77,8 @@ async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }
     if (!isValid) {
       return NextResponse.json({ message: "Xác thực bảo mật thất bại" }, { status: 400 });
     }
-    const { turnstileToken: _unused, ...rest } = parsed;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { turnstileToken, ...rest } = parsed;
     bodyText = JSON.stringify(rest);
   }
 

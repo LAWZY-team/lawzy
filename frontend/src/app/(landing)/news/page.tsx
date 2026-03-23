@@ -33,7 +33,7 @@ export default function NewsPage() {
   return (
     <div className="min-h-screen bg-background">
       <LandingHeader />
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
+      <main className="container mx-auto px-4 pt-20 pb-10 max-w-4xl md:pt-24 md:pb-12">
         <h1 className="text-3xl font-bold tracking-tight mb-2">{t("news_title")}</h1>
         <p className="text-muted-foreground mb-8">{t("news_subtitle")}</p>
 
@@ -44,7 +44,7 @@ export default function NewsPage() {
             ))}
           </div>
         ) : articles.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">{t("news_empty")}</p>
+          <p className="text-center text-muted-foreground py-10">{t("news_empty")}</p>
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {articles.map((art) => (

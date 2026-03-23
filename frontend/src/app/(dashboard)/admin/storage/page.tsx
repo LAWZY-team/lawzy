@@ -1,9 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { HardDrive, Database, Cloud } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useMemo } from "react"
+import { Cloud, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -29,13 +36,35 @@ const formatBytes = (bytes: number, decimals = 2) => {
 export default function AdminStoragePage() {
   const { t } = useT()
   const [fromR2, setFromR2] = useState(false)
+  const [search, setSearch] = useState("")
+  const [planFilter, setPlanFilter] = useState<string>("all")
   const { data, isLoading } = useAdminStorageOverview({ fromR2 })
 
-  const totalUsed = data?.totalUsed ?? 0
-  const breakdown = data?.breakdown ?? []
+  const breakdown = useMemo(() => data?.breakdown ?? [], [data?.breakdown])
+
+  const filteredBreakdown = useMemo(() => {
+    let result = breakdown
+    if (search.trim()) {
+      const q = search.toLowerCase().trim()
+      result = result.filter(
+        (r) =>
+          r.workspaceName.toLowerCase().includes(q) ||
+          (r.workspaceId ?? "").toLowerCase().includes(q)
+      )
+    }
+    if (planFilter && planFilter !== "all") {
+      result = result.filter((r) => (r.plan ?? "").toLowerCase() === planFilter.toLowerCase())
+    }
+    return result
+  }, [breakdown, search, planFilter])
+
+  const planOptions = useMemo(() => {
+    const plans = breakdown.map((r) => r.plan ?? "").filter(Boolean)
+    return Array.from(new Set(plans)).sort()
+  }, [breakdown])
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
@@ -54,120 +83,102 @@ export default function AdminStoragePage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <HardDrive className="h-4 w-4" />
-              {t("admin_storage_total_used")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-12 w-32" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {formatBytes(totalUsed)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {fromR2 ? t("admin_storage_r2_list") : t("admin_storage_s3_source")}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              {t("admin_storage_workspaces")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-12 w-32" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">{breakdown.length}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t("admin_storage_by_workspace")}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t("common_search")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={planFilter} onValueChange={setPlanFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder={t("admin_storage_plan")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("admin_users_all")}</SelectItem>
+            {planOptions.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("admin_storage_breakdown")}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {t("admin_storage_breakdown_desc")}
-          </p>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : breakdown.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              {t("admin_storage_empty")}
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("admin_storage_workspace")}</TableHead>
-                  <TableHead>{t("admin_storage_plan")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("admin_storage_used")}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("admin_storage_limit")}
-                  </TableHead>
-                  <TableHead className="w-[180px]">
-                    {t("admin_storage_usage")}
-                  </TableHead>
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("admin_storage_workspace")}</TableHead>
+              <TableHead>{t("admin_storage_plan")}</TableHead>
+              <TableHead className="text-right">
+                {t("admin_storage_used")}
+              </TableHead>
+              <TableHead className="text-right">
+                {t("admin_storage_limit")}
+              </TableHead>
+              <TableHead className="w-[180px]">
+                {t("admin_storage_usage")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {breakdown.map((row) => (
-                  <TableRow key={row.workspaceId}>
-                    <TableCell className="font-medium">
-                      {row.workspaceName}
-                    </TableCell>
-                    <TableCell>
-                      <span className="capitalize">{row.plan}</span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatBytes(row.storageUsed)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatBytes(row.storageLimit)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress
-                          value={Math.min(row.percent, 100)}
-                          className="h-2 flex-1"
-                        />
-                        <span className="text-xs text-muted-foreground w-12">
-                          {row.percent.toFixed(1)}%
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))
+            ) : filteredBreakdown.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-12 text-muted-foreground"
+                >
+                  {search || planFilter !== "all"
+                    ? t("common_no_results")
+                    : t("admin_storage_empty")}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredBreakdown.map((row) => (
+                <TableRow key={row.workspaceId}>
+                  <TableCell className="font-medium">
+                    {row.workspaceName}
+                  </TableCell>
+                  <TableCell>
+                    <span className="capitalize">{row.plan ?? "—"}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatBytes(row.storageUsed)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatBytes(row.storageLimit)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={Math.min(row.percent, 100)}
+                        className="h-2 flex-1"
+                      />
+                      <span className="text-xs text-muted-foreground w-12">
+                        {row.percent.toFixed(1)}%
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }

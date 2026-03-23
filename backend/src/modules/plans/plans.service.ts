@@ -5,8 +5,13 @@ export interface QuotaLimits {
   dailyAiQuota?: number | 'unlimited';
   storageBytes?: number;
   workspaceMembers?: number | 'unlimited';
+  workspacesPerUser?: number | 'unlimited';
   templates?: number | 'unlimited';
   aiAssistant?: boolean;
+  monthlyEquivalentSlug?: string;
+  pricePerSeat?: number;
+  minSeats?: number;
+  maxSeats?: number;
 }
 
 export interface PlanCreateInput {
@@ -38,10 +43,22 @@ export class PlansService {
   }
 
   async findAllAdmin() {
-    return this.prisma.membershipPlan.findMany({
+    const plans = await this.prisma.membershipPlan.findMany({
       orderBy: { sortOrder: 'asc' },
       include: { _count: { select: { payments: true } } },
     });
+    const grouped = await this.prisma.workspace.groupBy({
+      by: ['plan'],
+      where: { plan: { not: '' } },
+      _count: { id: true },
+    });
+    const countBySlug = new Map(
+      grouped.map((g) => [g.plan, g._count.id]),
+    );
+    return plans.map((p) => ({
+      ...p,
+      workspaceCount: countBySlug.get(p.slug) ?? 0,
+    }));
   }
 
   async findById(id: string) {
@@ -53,12 +70,23 @@ export class PlansService {
     return plan;
   }
 
-  async findBySlug(slug: string) {
-    const plan = await this.prisma.membershipPlan.findUnique({
-      where: { slug, isActive: true },
+  async findBySlug(slug: string, includeInactive = false) {
+    const plan = await this.prisma.membershipPlan.findFirst({
+      where: includeInactive ? { slug } : { slug, isActive: true },
     });
     if (!plan) throw new NotFoundException('Plan not found');
     return plan;
+  }
+
+  async findDefaultPlan() {
+    const plan = await this.prisma.membershipPlan.findFirst({
+      where: { price: 0 },
+      orderBy: { sortOrder: 'asc' },
+    });
+    if (plan) return plan;
+    return this.prisma.membershipPlan.findFirst({
+      orderBy: { sortOrder: 'asc' },
+    });
   }
 
   async create(data: PlanCreateInput) {
@@ -110,5 +138,22 @@ export class PlansService {
   async delete(id: string) {
     await this.findById(id);
     return this.prisma.membershipPlan.delete({ where: { id } });
+  }
+
+  async findPlanWorkspaces(planId: string) {
+    const plan = await this.findById(planId);
+    const workspaces = await this.prisma.workspace.findMany({
+      where: { plan: plan.slug },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { members: true } },
+      },
+    });
+    return workspaces.map((w) => ({
+      id: w.id,
+      name: w.name,
+      membersCount: w._count.members,
+    }));
   }
 }

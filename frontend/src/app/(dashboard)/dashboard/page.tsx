@@ -26,7 +26,7 @@ import { Plus, FileText } from "lucide-react"
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { useRouter } from "next/navigation"
-import { useRecentDocuments } from "@/hooks/dashboard/use-dashboard"
+import { useDashboardInitial } from "@/hooks/dashboard/use-dashboard"
 import { useDashboardWorkspaceTransition } from "@/hooks/dashboard/use-dashboard-workspace-transition"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -51,8 +51,13 @@ export default function DashboardPage() {
   const { fetchWorkspaces } = useWorkspaceStore()
   const [period, setPeriod] = useState<DashboardPeriod>("year")
   const enabledCards = useDashboardDisplayStore((s) => s.enabledCards)
-  const isTransitioning = useDashboardWorkspaceTransition()
-  const { data: recentDocs, isLoading: recentLoading } = useRecentDocuments(10)
+  const isTransitioning = useDashboardWorkspaceTransition({
+    chartEnabled: enabledCards.includes("chart"),
+    period,
+  })
+  const { data: initialData, isLoading: initialLoading } = useDashboardInitial(10)
+  const overview = initialData?.overview ?? null
+  const recentDocs = initialData?.recentDocuments ?? null
 
   const statCardsEnabled =
     enabledCards.includes("total_docs") ||
@@ -115,15 +120,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {statCardsEnabled && <StatsCards showCards={enabledCards} />}
+            {statCardsEnabled && (
+              <StatsCards showCards={enabledCards} overview={overview} isLoading={initialLoading} />
+            )}
 
             {quotaCardsEnabled && (
               <div className={DASHBOARD_GRID_QUOTA}>
                 {enabledCards.includes("ai_quota") && (
-                  <QuotaCard show="quota" />
+                  <QuotaCard show="quota" overview={overview} isLoading={initialLoading} />
                 )}
                 {enabledCards.includes("storage") && (
-                  <QuotaCard show="storage" />
+                  <QuotaCard show="storage" overview={overview} isLoading={initialLoading} />
                 )}
                 {enabledCards.includes("referral") && <ReferralCard />}
               </div>
@@ -158,7 +165,7 @@ export default function DashboardPage() {
                   </Button>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  {recentLoading ? (
+                  {initialLoading ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map((i) => (
                         <div

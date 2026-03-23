@@ -4,7 +4,6 @@ import React from 'react'
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 
-// Hiển thị nhãn tiếng Việt, in hoa — thống nhất với danh sách trường trộn
 export const MergeFieldComponent = ({ node, selected }: NodeViewProps) => {
   const fieldKey = (node.attrs as { fieldKey?: string }).fieldKey || ''
   const label = (node.attrs as { label?: string }).label || fieldKey

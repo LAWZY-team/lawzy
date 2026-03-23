@@ -25,6 +25,11 @@ export class AdminPlansController {
     return this.plansService.findAllAdmin();
   }
 
+  @Get(':id/workspaces')
+  getPlanWorkspaces(@Param('id') id: string) {
+    return this.plansService.findPlanWorkspaces(id);
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.plansService.findById(id);

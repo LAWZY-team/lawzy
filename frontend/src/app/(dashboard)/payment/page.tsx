@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePlans } from "@/hooks/plans/use-plans";
+import { usePlans, filterPlansForDisplay } from "@/hooks/plans/use-plans";
 import { usePayments, useCreatePayment } from "@/hooks/payments/use-payments";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useT } from "@/components/i18n-provider";
@@ -13,17 +13,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PricingCard } from "@/components/pricing/pricing-card";
 import type { Plan } from "@/types/plan";
-
-/** Slugs for 3-card layout: Monthly vs Yearly */
-const MONTHLY_SLUGS = ["free", "pro-monthly", "team"] as const;
-const YEARLY_SLUGS = ["free", "pro-yearly", "enterprise"] as const;
-function filterPlans(plans: Plan[], yearly: boolean): Plan[] {
-  const slugs: readonly string[] = yearly ? YEARLY_SLUGS : MONTHLY_SLUGS;
-  const filtered = plans.filter((p) => slugs.includes(p.slug));
-  return filtered.sort(
-    (a, b) => slugs.indexOf(a.slug) - slugs.indexOf(b.slug)
-  );
-}
 
 export default function PaymentPage() {
   const { t } = useT();
@@ -33,16 +22,18 @@ export default function PaymentPage() {
   const [billingYearly, setBillingYearly] = useState(false);
   const { data: plans } = usePlans();
   const displayedPlans = useMemo(
-    () => (plans ? filterPlans(plans, billingYearly) : []),
+    () => (plans ? filterPlansForDisplay(plans, billingYearly) : []),
     [plans, billingYearly]
   );
   const { data: paymentsData } = usePayments(1, 10);
   const createPayment = useCreatePayment();
 
-  const currentPlanSlug = currentWorkspace?.plan ?? "free";
+  const defaultPlan = plans?.find((p) => p.price === 0);
+  const currentPlanSlug =
+    currentWorkspace?.plan ?? defaultPlan?.slug ?? plans?.[0]?.slug ?? "";
 
-  const handleSelectPlan = async (planId: string, slug: string) => {
-    if (slug === "enterprise") {
+  const handleSelectPlan = async (planId: string, _slug: string, plan: Plan) => {
+    if (plan.contactSales) {
       toast.info(t("payment_toast_enterprise"));
       return;
     }
@@ -100,6 +91,7 @@ export default function PaymentPage() {
                   currentPlanSlug={currentPlanSlug}
                   loading={loadingPlanId === plan.id}
                   onSelect={handleSelectPlan}
+                  allPlans={plans ?? []}
                 />
               ))}
             </div>

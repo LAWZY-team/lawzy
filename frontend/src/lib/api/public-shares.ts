@@ -12,8 +12,14 @@ export async function createPublicShareSnapshot(params: {
   title?: string
   html: string
 }): Promise<{ token: string }> {
-  const res = await fetch(`${getBackendBaseUrl()}/public-shares`, {
+  // Use proxy so auth cookies are forwarded (same-origin). Only called from client.
+  const url =
+    typeof window !== 'undefined'
+      ? '/api/proxy/public-shares'
+      : `${getBackendBaseUrl()}/public-shares`
+  const res = await fetch(url, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   })

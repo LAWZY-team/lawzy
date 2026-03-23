@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
+import { ChevronsUpDown, Plus, LayoutGrid } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -17,16 +17,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
 import { CreateWorkspaceModal } from "@/components/workspace/create-workspace-modal"
 
 export function WorkspaceNav() {
   const { t } = useT()
   const { isMobile } = useSidebar()
-  const user = useAuthStore((s) => s.user)
   const { workspaces, currentWorkspace, setCurrentWorkspace } = useWorkspaceStore()
   const [createOpen, setCreateOpen] = React.useState(false)
   const activeWorkspace = currentWorkspace ?? workspaces[0]
@@ -63,15 +60,12 @@ export function WorkspaceNav() {
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={activeWorkspace?.logo ?? undefined} alt={activeWorkspace?.name} />
-                  <AvatarFallback className="rounded-lg">
-                    {activeWorkspace?.name?.substring(0, 2).toUpperCase() ?? "??"}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-muted">
+                  <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+                </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{activeWorkspace?.name}</span>
-                  <span className="truncate text-xs capitalize">{activeWorkspace?.plan ?? "free"}</span>
+                  <span className="truncate text-xs capitalize">{activeWorkspace?.plan ?? "—"}</span>
                 </div>
                 <ChevronsUpDown className="ml-auto" />
               </SidebarMenuButton>
@@ -91,16 +85,13 @@ export function WorkspaceNav() {
                   className="gap-2 p-2"
                   onClick={() => setCurrentWorkspace(workspace)}
                 >
-                  <Avatar className="h-6 w-6 rounded-md">
-                    <AvatarImage src={workspace.logo} alt={workspace.name} />
-                    <AvatarFallback className="rounded-md">
-                      {workspace.name.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-muted">
+                    <LayoutGrid className="h-3 w-3 text-muted-foreground" />
+                  </div>
                   <div className="flex flex-col">
                     <span className="font-medium">{workspace.name}</span>
                     <span className="text-xs text-muted-foreground capitalize">
-                      {workspace.plan ?? "free"}
+                      {workspace.plan ?? "—"}
                     </span>
                   </div>
                 </DropdownMenuItem>

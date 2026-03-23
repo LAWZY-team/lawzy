@@ -70,6 +70,7 @@ export function ArticleForm({
   actionsInHeader = false,
   formId = "article-form",
 }: ArticleFormProps) {
+  void formId
   const { t } = useT()
   const [form, setForm] = useState<ArticleFormData>({
     type: article?.type ?? "news",
@@ -92,7 +93,7 @@ export function ArticleForm({
         status: article?.status ?? "draft",
       })
     })
-  }, [article?.id, article?.type, article?.title, article?.slug, article?.excerpt, article?.content, article?.contentText, article?.status])
+  }, [article])
 
   const handleTitleChange = (title: string) => {
     setForm((f) => ({

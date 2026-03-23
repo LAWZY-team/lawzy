@@ -49,7 +49,7 @@ export class AdminWorkspacesController {
     }
     return this.workspacesService.create(userId, {
       name: body.name.trim(),
-      plan: body.plan ?? 'free',
+      plan: body.plan,
     });
   }
 
@@ -60,6 +60,7 @@ export class AdminWorkspacesController {
   ) {
     return this.workspacesService.update(id, {
       ...(body.name !== undefined && { name: body.name }),
+      ...(body.plan !== undefined && { plan: body.plan }),
     });
   }
 

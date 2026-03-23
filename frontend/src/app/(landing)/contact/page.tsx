@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Mail, Phone, MapPin, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/landing/language-provider";
 import { ContactForm } from "@/components/landing/contact-form";

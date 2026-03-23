@@ -11,12 +11,9 @@ export function LandingFooter() {
   const year = new Date().getFullYear();
 
   const productLinks = [
-    { href: "#features", label: t("footer_link_features") },
-    { href: "#pricing", label: t("footer_link_pricing") },
-    { href: "#cost", label: t("footer_link_cost") },
-    { href: "#target", label: t("footer_link_audience") },
-    { href: "#newspaper", label: t("footer_link_press") },
-    { href: "#achievement", label: t("footer_link_achievements") },
+    { href: "/pricing", label: t("footer_link_pricing") },
+    { href: "/news", label: t("footer_link_news") },
+    { href: "/contact", label: t("nav_contact") },
   ] as const;
 
   const legalLinks = [
@@ -27,7 +24,7 @@ export function LandingFooter() {
   return (
     <footer id="contact" className="border-t border-zinc-800 bg-zinc-950 text-zinc-100">
       <div className={sectionContainer}>
-        <div className="grid gap-10 py-12 sm:gap-12 sm:py-14 lg:grid-cols-12 lg:gap-10 lg:py-20">
+        <div className="grid gap-8 py-10 sm:gap-10 sm:py-12 lg:grid-cols-12 lg:gap-8 lg:py-14">
           <div className="lg:col-span-4">
             <Link href="/" className="inline-block">
               <Image src="/lawzy-logo-white.png" alt="Lawzy" width={132} height={132} className="h-10 w-auto object-contain sm:h-11 md:h-12" loading="lazy" />
@@ -70,9 +67,9 @@ export function LandingFooter() {
             <ul className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
               {productLinks.map((item) => (
                 <li key={item.href}>
-                  <a href={item.href} className="text-sm text-zinc-300 transition-colors hover:text-white">
+                  <Link href={item.href} className="text-sm text-zinc-300 transition-colors hover:text-white">
                     {item.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
               <li>
@@ -127,7 +124,7 @@ export function LandingFooter() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-zinc-800 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-6">
+        <div className="flex flex-col gap-3 border-t border-zinc-800 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-5">
           <p className="text-center text-xs text-zinc-500 sm:text-left">
             © {year} Lawzy. {t("footer_rights")}
           </p>

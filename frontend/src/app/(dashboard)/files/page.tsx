@@ -1,11 +1,9 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { FileIcon, MoreVertical, Trash2, Download, Search, UploadCloud, HardDrive } from "lucide-react"
+import { useState } from "react"
+import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -21,14 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useFiles, useUploadFile, useDeleteFile, useStorageUsed } from "@/hooks/files/use-files"
+import { useFiles, useDeleteFile } from "@/hooks/files/use-files"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
-
-const DEFAULT_STORAGE_LIMIT = 500 * 1024 * 1024 // 500 MB
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -42,36 +38,18 @@ const formatBytes = (bytes: number, decimals = 2) => {
 export default function FilesPage() {
   const { t } = useT()
   const [searchQuery, setSearchQuery] = useState("")
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id ?? ""
 
   const { data, isLoading } = useFiles(workspaceId, { limit: 100 })
-  const { data: storage } = useStorageUsed(workspaceId)
-  const uploadMutation = useUploadFile()
   const deleteMutation = useDeleteFile()
 
   const files = data?.data ?? []
-  const storageUsed = storage?.bytes ?? 0
-  const storageLimit = storage?.limitBytes ?? DEFAULT_STORAGE_LIMIT
-  const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
   const hasWorkspace = !!workspaceId
 
   const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !workspaceId) return
-    try {
-      await uploadMutation.mutateAsync({ file, workspaceId })
-      toast.success("Đã tải lên thành công")
-    } catch {
-      toast.error("Tải lên thất bại")
-    }
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -101,47 +79,12 @@ export default function FilesPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">{t("files_title")}</h2>
-          <p className="text-muted-foreground">
-            {t("files_subtitle")}
-          </p>
-        </div>
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleUpload}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-          />
-          <Button onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
-            <UploadCloud className="mr-2 h-4 w-4" />
-            {uploadMutation.isPending ? t("common_loading") : t("common_upload")}
-          </Button>
-        </div>
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">{t("files_title")}</h2>
+        <p className="text-muted-foreground">{t("files_subtitle")}</p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <HardDrive className="h-4 w-4" />
-            Dung lượng đã dùng
-          </CardTitle>
-          <span className="text-sm text-muted-foreground">
-            {formatBytes(storageUsed)} / {formatBytes(storageLimit)}
-          </span>
-        </CardHeader>
-        <CardContent>
-          <Progress value={storagePercent} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-2">
-            S3/R2 Storage · {formatBytes(storageLimit)}
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center py-4">
+      <div className="flex items-center py-2">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input

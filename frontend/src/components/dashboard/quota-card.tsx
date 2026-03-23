@@ -6,29 +6,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
+import type { DashboardOverview } from "@/hooks/dashboard/use-dashboard"
 import { usePlans } from "@/hooks/plans/use-plans"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
 import { formatStorageDisplay } from "@/types/plan"
 
-const DEFAULT_STORAGE_LIMIT = 1 * 1024 * 1024 * 1024 // 1 GB (MVP free plan)
-
 type QuotaCardVariant = "all" | "quota" | "storage"
 
-export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
-  const { data, isLoading } = useDashboardOverview()
+export function QuotaCard({
+  show = "all",
+  overview,
+  isLoading,
+}: {
+  show?: QuotaCardVariant
+  overview: DashboardOverview | null
+  isLoading: boolean
+}) {
   const { data: plans } = usePlans()
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace)
   const { t } = useT()
-  const storageUsed = data?.storageUsed ?? 0
-  const planSlug = currentWorkspace?.plan ?? "free"
+  const storageUsed = overview?.storageUsed ?? 0
+  const defaultPlan = plans?.find((p) => p.price === 0)
+  const planSlug =
+    currentWorkspace?.plan ?? defaultPlan?.slug ?? plans?.[0]?.slug
   const plan = plans?.find((p) => p.slug === planSlug)
+  const defaultStorage = (defaultPlan?.quotaLimits as { storageBytes?: number } | null)?.storageBytes ?? 1024 ** 3
   const storageLimit =
     (plan?.quotaLimits as { storageBytes?: number } | null)?.storageBytes ??
-    DEFAULT_STORAGE_LIMIT
+    defaultStorage
   const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
-  const totalDocs = data?.totalDocuments ?? 0
 
   const cardHoverClass =
     "transition-all duration-200 ease-out hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5"
@@ -43,39 +50,21 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold">
-                    {data?.aiCreditsUsed ?? 0} / {data?.aiCreditsLimit ?? 100} {t("dash_ai_credit_used")}
-                  </span>
+              <>
+                <div className="text-2xl font-bold">
+                  {overview?.aiCreditsUsed ?? 0} / {overview?.aiCreditsLimit ?? 100}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("dash_ai_credit_remaining", { n: data?.aiCreditsRemaining ?? 100 })}
-                </p>
-                {data?.nextRenewalAt && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("dash_credit_renew_every", { n: data?.aiCreditsRenewalDays ?? 30 })}
-                    <br />
-                    {t("dash_next_renewal")}: {new Date(data.nextRenewalAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                  </p>
-                )}
-                <div className="pt-2 border-t flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">{totalDocs}</span> {t("dash_total_docs_created")} &bull;{" "}
-                    <span className="font-semibold text-foreground">{data?.totalFiles ?? 0}</span> {t("dash_files")} &bull;{" "}
-                    <span className="font-semibold text-foreground">{data?.totalSources ?? 0}</span> {t("dash_sources")}
-                  </p>
-                  <Link
-                    href="/payment"
-                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    <ArrowUpCircle className="h-3.5 w-3.5" />
-                    {t("sidebar_payment")}
-                  </Link>
-                </div>
-              </div>
+                <p className="text-xs text-muted-foreground">{t("dash_ai_credit_used")}</p>
+                <Link
+                  href="/payment"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                  {t("sidebar_payment")}
+                </Link>
+              </>
             )}
           </CardContent>
         </Card>
