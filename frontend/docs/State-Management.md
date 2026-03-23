@@ -126,3 +126,12 @@ This is acknowledged as **not truly secure** (anyone can type the URL). The UX w
 
 3. **Hydration / flicker**
    - Refresh a dashboard route: settings group should not “flash” briefly for guest.
+
+---
+
+## Tham chiếu: Kế hoạch nâng cấp Auth UI (auth-pages-upgrade-plan)
+
+- **AuthLayout**: Header (logo + locale) + grid `[360px_1fr]`; panel trái ProgressStepsVertical hoặc TestimonialsPanel.
+- **Login**: AccountTypeSelector (cá nhân vs doanh nghiệp); steps thay đổi theo flow.
+- **Register**: 4 bước (tạo tài khoản → thông tin → OTP → onboarding); StepNav; ProgressStepsVertical cố định.
+- **BenefitsPanel**: Khi login 1 step hiển thị lợi ích Lawzy.
