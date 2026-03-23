@@ -5,18 +5,21 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
+import { EmailService } from '../email/email.service';
 import { PayOSService } from './payos.service';
 
-const FRONTEND_URL =
+const FRONTEND_URL = (
   process.env.FRONTEND_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'http://localhost:3000';
+  'http://localhost:3000'
+).replace(/\/$/, ''); // Loại bỏ slash cuối để tránh // khi nối path
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plansService: PlansService,
+    private readonly emailService: EmailService,
   ) {}
 
   async create(userId: string, workspaceId: string, planId: string) {
@@ -153,6 +156,28 @@ export class PaymentsService {
           ]
         : []),
     ]);
+
+    // Gửi email thanh toán thành công khi status = paid
+    if (status === 'paid') {
+      const paymentWithUser = await this.prisma.payment.findUnique({
+        where: { id: payment.id },
+        include: { user: true, workspace: true, plan: true },
+      });
+      if (paymentWithUser?.user && paymentWithUser?.workspace) {
+        this.emailService
+          .sendPaymentSuccessEmail({
+            toEmail: paymentWithUser.user.email,
+            toName: paymentWithUser.user.name,
+            planName: paymentWithUser.plan.name,
+            amount: paymentWithUser.amount,
+            workspaceName: paymentWithUser.workspace.name,
+            dashboardUrl: `${FRONTEND_URL}/dashboard`,
+          })
+          .catch((err) => {
+            console.error('Failed to send payment success email:', err);
+          });
+      }
+    }
 
     return this.getByOrderCode(orderCode);
   }

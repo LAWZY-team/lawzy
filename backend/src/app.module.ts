@@ -19,6 +19,7 @@ import { HelpCenterModule } from './modules/help-center/help-center.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { EmailModule } from './modules/email/email.module';
 import { AiModule } from './modules/ai/ai.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { AiModule } from './modules/ai/ai.module';
     R2Module,
     AuthModule,
     UsersModule,
+    EmailModule,
     WorkspacesModule,
     DocumentsModule,
     ContractTemplatesModule,

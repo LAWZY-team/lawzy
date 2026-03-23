@@ -6,6 +6,7 @@ import {
   PRIVACY_CONTENT_VI,
   PRIVACY_CONTENT_EN,
 } from './policy-content.js';
+import { DEFAULT_EMAIL_TEMPLATES } from './email-templates-seed';
 
 const prisma = new PrismaClient();
 
@@ -215,10 +216,28 @@ const DEFAULT_PLANS = [
 ];
 
 async function main() {
-  // Skip seed if DB already has plans (avoids re-running on every container restart)
+  // Email templates – luôn chạy, tạo nếu chưa có (upsert, không ghi đè)
+  for (const t of DEFAULT_EMAIL_TEMPLATES) {
+    await prisma.emailTemplate.upsert({
+      where: { code: t.code },
+      create: {
+        code: t.code,
+        name: t.name,
+        description: t.description,
+        subject: t.subject,
+        bodyHtml: t.bodyHtml,
+        variables: t.variables as unknown as object,
+        isActive: true,
+      },
+      update: {},
+    });
+  }
+  console.log(`Email templates seeded (${DEFAULT_EMAIL_TEMPLATES.length} templates)`);
+
+  // Skip rest if DB already has plans (avoids re-running on every container restart)
   const planCount = await prisma.membershipPlan.count();
   if (planCount >= 2) {
-    console.log(`Database already seeded (${planCount} plans), skipping.`);
+    console.log(`Database already seeded (${planCount} plans), skipping plans/users/templates.`);
     return;
   }
 
