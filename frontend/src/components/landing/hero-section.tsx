@@ -6,7 +6,10 @@ import FadeInOnScroll from "./fade-in-on-scroll";
 import { sectionContainer } from "./landing-section";
 import { SectionCta } from "./section-cta";
 import Image from "next/image";
+import { Gift } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 function HeroRotatingText({ options, fallback }: { options: string[]; fallback: string }) {
   const [idx, setIdx] = useState(0);
@@ -35,6 +38,37 @@ export default function HeroSection() {
       <FadeInOnScroll>
         <div className={cn(sectionContainer, "relative")}>
           <div className="flex flex-col items-center text-center">
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="mb-4"
+            >
+              <motion.div
+                animate={{
+                  boxShadow: [
+                    "0 0 16px rgba(234,88,12,0.1)",
+                    "0 0 28px rgba(234,88,12,0.2)",
+                    "0 0 16px rgba(234,88,12,0.1)",
+                  ],
+                }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                className="w-fit rounded-full"
+              >
+                <Badge
+                  variant="outline"
+                  className="inline-flex items-center gap-2 rounded-full border border-orange-300 px-4 py-1.5 text-xs font-medium text-orange-600"
+                >
+                  <motion.span
+                    animate={{ scale: [1, 1.2, 1], rotate: [0, 8, -8, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
+                  >
+                    <Gift className="h-3.5 w-3.5 shrink-0" />
+                  </motion.span>
+                  {t("hero_badge")}
+                </Badge>
+              </motion.div>
+            </motion.div>
             <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:leading-[1.15] xl:text-5xl">
               <span className="block">{t("hero_title_1").trim()}</span>
               <span className="block">
