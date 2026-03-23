@@ -215,6 +215,13 @@ const DEFAULT_PLANS = [
 ];
 
 async function main() {
+  // Skip seed if DB already has plans (avoids re-running on every container restart)
+  const planCount = await prisma.membershipPlan.count();
+  if (planCount >= 2) {
+    console.log(`Database already seeded (${planCount} plans), skipping.`);
+    return;
+  }
+
   for (const p of DEFAULT_PLANS) {
     await prisma.membershipPlan.upsert({
       where: { slug: p.slug },
