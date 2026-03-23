@@ -7,6 +7,8 @@ RUN npm ci
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+# Compile policy-content.ts for prisma seed (ESM resolution needs .js)
+RUN npx tsc prisma/policy-content.ts --outDir prisma --module NodeNext --moduleResolution NodeNext --target ES2022 --esModuleInterop --skipLibCheck
 RUN rm -rf node_modules
 RUN npm ci --omit=dev
 RUN npx prisma generate

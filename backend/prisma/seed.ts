@@ -5,7 +5,7 @@ import {
   TERM_CONTENT_EN,
   PRIVACY_CONTENT_VI,
   PRIVACY_CONTENT_EN,
-} from './policy-content';
+} from './policy-content.js';
 
 const prisma = new PrismaClient();
 
