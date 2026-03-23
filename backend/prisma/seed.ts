@@ -120,7 +120,7 @@ const DEFAULT_PLANS = [
     contactSales: false,
     quotaLimits: {
       dailyAiQuota: 5,
-      storageBytes: 500 * 1024 * 1024, // 500 MB
+      storageBytes: 1 * 1024 * 1024 * 1024, // 1 GB (MVP)
       workspaceMembers: 1,
       templates: 3,
       aiAssistant: false,
@@ -273,24 +273,35 @@ async function main() {
       },
     });
     console.log('Admin user created: admin@lawzy.vn');
+  }
+
+  // Ensure UserCredit exists for admin
+  await prisma.userCredit.upsert({
+    where: { userId: adminUser.id },
+    create: {
+      userId: adminUser.id,
+      aiCreditsUsed: 0,
+      aiCreditsLimit: 100,
+      renewalStartedAt: new Date(),
+    },
+    update: {},
+  });
+
+  const roles: string[] =
+    typeof adminUser.roles === 'string'
+      ? (JSON.parse(adminUser.roles as string) as string[])
+      : Array.isArray(adminUser.roles)
+        ? (adminUser.roles as string[])
+        : [];
+  if (!roles.map((r) => r.toLowerCase()).includes('admin')) {
+    const updated = [...roles.filter((r) => r.toLowerCase() !== 'user'), 'admin'];
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { roles: JSON.stringify(updated.length ? updated : ['admin']) },
+    });
+    console.log('Admin role added to existing admin@lawzy.vn');
   } else {
-    // Ensure existing admin has admin role (e.g. after schema migration)
-    const roles: string[] =
-      typeof adminUser.roles === 'string'
-        ? (JSON.parse(adminUser.roles as string) as string[])
-        : Array.isArray(adminUser.roles)
-          ? (adminUser.roles as string[])
-          : [];
-    if (!roles.map((r) => r.toLowerCase()).includes('admin')) {
-      const updated = [...roles.filter((r) => r.toLowerCase() !== 'user'), 'admin'];
-      await prisma.user.update({
-        where: { id: adminUser.id },
-        data: { roles: JSON.stringify(updated.length ? updated : ['admin']) },
-      });
-      console.log('Admin role added to existing admin@lawzy.vn');
-    } else {
-      console.log('Admin user already exists');
-    }
+    console.log('Admin user already exists');
   }
 
   // Công ty cổ phần Lawzy - main workspace
@@ -357,6 +368,19 @@ async function main() {
       },
     });
     console.log('Lawzy user created: lawzy@lawzy.vn');
+  }
+
+  if (lawzyUser) {
+    await prisma.userCredit.upsert({
+      where: { userId: lawzyUser.id },
+      create: {
+        userId: lawzyUser.id,
+        aiCreditsUsed: 0,
+        aiCreditsLimit: 100,
+        renewalStartedAt: new Date(),
+      },
+      update: {},
+    });
   }
 
   // Policy articles (term, privacy-policy)

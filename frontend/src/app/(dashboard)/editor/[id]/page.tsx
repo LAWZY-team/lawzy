@@ -40,6 +40,7 @@ import {
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
+import { useQueryClient } from '@tanstack/react-query'
 import { SaveDraftModal } from '@/components/editor/save-draft-modal'
 import { flushMergeFieldDrafts } from '@/lib/editor/flush-merge-field-drafts'
 import { useT } from '@/components/i18n-provider'
@@ -92,6 +93,7 @@ export default function EditorPage({
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
   const { locale, t } = useT()
+  const queryClient = useQueryClient()
   const { data: workspaceFields = [] } = useWorkspaceFields(workspaceId ?? null)
 
   // Ensure we always have a default workspace selected (first workspace)
@@ -694,6 +696,17 @@ export default function EditorPage({
     await new Promise((r) => setTimeout(r, 300))
     await new Promise((r) => setTimeout(r, 200))
 
+    if (isAuthenticated) {
+      try {
+        await api.post('/ai/deduct-credit', {})
+      } catch (e) {
+        toast.error(t('toast_ai_no_credit'))
+        setIsGenerating(false)
+        setThinkingProgress([])
+        return
+      }
+    }
+
     try {
       const existingContentText = editorContentToPlainText(editorContent)
       // Send previous chat turns (exclude the current message just added) for conversational context
@@ -784,6 +797,8 @@ export default function EditorPage({
           metadata: aiMessage.thinking ? { thinking: aiMessage.thinking, hasContract: aiMessage.hasContract } : { hasContract: aiMessage.hasContract },
         }).catch((e) => console.error(e))
       }
+
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'overview'] })
 
     } catch (error) {
       console.error('Error generating contract:', error)

@@ -9,6 +9,11 @@ interface DashboardOverview {
   totalFiles: number;
   totalSources: number;
   storageUsed: number;
+  aiCreditsUsed?: number;
+  aiCreditsLimit?: number;
+  aiCreditsRemaining?: number;
+  nextRenewalAt?: string | null;
+  aiCreditsRenewalDays?: number;
 }
 
 interface ChartDataPoint {

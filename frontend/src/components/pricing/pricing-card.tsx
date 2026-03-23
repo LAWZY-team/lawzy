@@ -8,12 +8,31 @@ import type { Plan, QuotaLimits } from "@/types/plan";
 import { formatStorageDisplay } from "@/types/plan";
 import { useT } from "@/components/i18n-provider";
 
+/** Compute yearly savings vs monthly. Returns { months, percent, originalPrice } or null. */
+export function computeYearlySavings(plan: Plan, allPlans: Plan[]): { months: number; percent: number; originalPrice: number } | null {
+  if (plan.billingCycle !== "yearly" || plan.contactSales || plan.price === 0) return null;
+  const monthlyEquivalent: Record<string, string> = {
+    "pro-yearly": "pro-monthly",
+  };
+  const monthlySlug = monthlyEquivalent[plan.slug];
+  if (!monthlySlug) return null;
+  const monthly = allPlans.find((p) => p.slug === monthlySlug);
+  if (!monthly || monthly.price === 0) return null;
+  const yearlyFull = monthly.price * 12;
+  const savings = yearlyFull - plan.price;
+  if (savings <= 0) return null;
+  const months = Math.round(savings / monthly.price);
+  const percent = Math.round((savings / yearlyFull) * 100);
+  return { months, percent, originalPrice: yearlyFull };
+}
+
 interface PricingCardProps {
   plan: Plan;
   currentPlanSlug?: string | null;
   loading?: boolean;
   onSelect: (planId: string, slug: string) => void;
   variant?: "default" | "compact";
+  allPlans?: Plan[];
 }
 
 function getQuotaLimits(plan: Plan) {
@@ -34,11 +53,13 @@ export function PricingCard({
   loading,
   onSelect,
   variant = "default",
+  allPlans = [],
 }: PricingCardProps) {
   const { t } = useT();
   const limits = getQuotaLimits(plan);
   const isCurrent = currentPlanSlug === plan.slug;
   const isFree = plan.slug === "free";
+  const savings = allPlans.length ? computeYearlySavings(plan, allPlans) : null;
 
   const handleClick = () => {
     if (isCurrent || isFree) return;
@@ -54,7 +75,12 @@ export function PricingCard({
       }
     >
       <CardHeader>
-        {plan.isHighlighted && (
+        {savings && (
+          <Badge variant="secondary" className="w-fit mb-2 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+            {t("plan_save_months", { n: savings.months })}
+          </Badge>
+        )}
+        {plan.isHighlighted && !savings && (
           <Badge className="w-fit mb-2">
             <Sparkles className="h-3 w-3 mr-1" />
             {t("plan_badge_popular")}
@@ -90,6 +116,11 @@ export function PricingCard({
             }
             return (
               <>
+                {savings && (
+                  <p className="text-sm text-muted-foreground line-through">
+                    {t("plan_original_price", { n: savings.originalPrice.toLocaleString("vi-VN") })}
+                  </p>
+                )}
                 <p className="text-3xl font-bold">
                   {plan.price.toLocaleString("vi-VN")} ₫
                 </p>

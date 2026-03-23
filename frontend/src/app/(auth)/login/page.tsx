@@ -15,6 +15,7 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { isBotProtectionEnabled } from "@/lib/bot-protection";
+import { parseReturnUrl } from "@/lib/auth";
 import { useT } from "@/components/i18n-provider";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +31,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") || "/dashboard";
+  const returnUrl = parseReturnUrl(searchParams);
   const { t } = useT();
   const { setUser } = useAuthStore();
   const [accountType, setAccountType] = useState<AccountType>("personal");

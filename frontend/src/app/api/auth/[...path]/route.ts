@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTH_COOKIE } from "@/lib/auth";
 import { shouldVerifyBotProtection } from "@/lib/bot-protection";
 
 const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -100,7 +101,10 @@ async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }
   const responseBody = await backendRes.text();
 
   if (backendRes.status === 401) {
-    resHeaders.append("Set-Cookie", "auth_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    resHeaders.append(
+      "Set-Cookie",
+      `${AUTH_COOKIE}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+    );
   }
 
   return new NextResponse(responseBody, {
