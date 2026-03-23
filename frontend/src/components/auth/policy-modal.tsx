@@ -55,8 +55,10 @@ export function PolicyModal({
   }, []);
 
   useEffect(() => {
-    if (!open || !requireScrollToBottom) setHasScrolledToBottom(true);
-    else setHasScrolledToBottom(false);
+    requestAnimationFrame(() => {
+      if (!open || !requireScrollToBottom) setHasScrolledToBottom(true);
+      else setHasScrolledToBottom(false);
+    });
   }, [open, requireScrollToBottom]);
 
   const canConfirm = !requireScrollToBottom || hasScrolledToBottom;

@@ -12,6 +12,7 @@ export function LandingFooter() {
 
   const productLinks = [
     { href: "#features", label: t("footer_link_features") },
+    { href: "#pricing", label: t("footer_link_pricing") },
     { href: "#cost", label: t("footer_link_cost") },
     { href: "#target", label: t("footer_link_audience") },
     { href: "#newspaper", label: t("footer_link_press") },

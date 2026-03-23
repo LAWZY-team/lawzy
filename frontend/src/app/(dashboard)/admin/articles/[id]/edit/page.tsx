@@ -23,8 +23,8 @@ export default function AdminArticleEditPage({
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && !article && !error) setNotFound(true)
-    if (error) setNotFound(true)
+    if (!isLoading && !article && !error) requestAnimationFrame(() => setNotFound(true))
+    if (error) requestAnimationFrame(() => setNotFound(true))
   }, [isLoading, article, error])
 
   const handleSubmit = async (form: ArticleFormData) => {

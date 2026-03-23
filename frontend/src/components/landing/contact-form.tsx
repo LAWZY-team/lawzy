@@ -21,7 +21,9 @@ const PHONE_RE = /^[+]?[\d\s-]{9,}$/;
 export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "modal" }: ContactFormProps) {
   const { t } = useI18n();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  useEffect(() => setErrors({}), [status]);
+  useEffect(() => {
+    requestAnimationFrame(() => setErrors({}));
+  }, [status]);
 
   const validate = (form: HTMLFormElement): boolean => {
     const data = new FormData(form);
@@ -103,7 +105,7 @@ export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "mod
           type="email"
           required
           className={cn("mt-1", errors.email && "border-destructive")}
-          placeholder="email@company.com"
+          placeholder={t("contact_modal_email_placeholder")}
           aria-invalid={!!errors.email}
         />
         {errors.email && (
@@ -117,7 +119,7 @@ export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "mod
           name="phone"
           type="tel"
           className={cn("mt-1", errors.phone && "border-destructive")}
-          placeholder="+84"
+          placeholder={t("contact_modal_phone_placeholder")}
           aria-invalid={!!errors.phone}
         />
         {errors.phone && (

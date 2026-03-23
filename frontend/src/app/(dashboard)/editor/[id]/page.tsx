@@ -61,13 +61,13 @@ function isTemplateFormat(doc: unknown): doc is DocContent {
   return false
 }
 
-const DEFAULT_CONTENT: JSONContent = {
+const getDefaultContent = (defaultTitle: string): JSONContent => ({
   type: 'doc',
   content: [
-    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'HỢP ĐỒNG MỚI' }] },
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: defaultTitle }] },
     { type: 'paragraph' },
   ],
-}
+})
 
 export default function EditorPage({
   params,
@@ -119,8 +119,10 @@ export default function EditorPage({
   }, [isCanvasMode, setSidebarOpen])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
-  const [editorContent, setEditorContent] = useState<JSONContent>(DEFAULT_CONTENT)
-  const documentTitle = metadata.title || 'Hợp đồng mới'
+  const [editorContent, setEditorContent] = useState<JSONContent>(() =>
+    getDefaultContent(t("editor_default_title")),
+  )
+  const documentTitle = metadata.title || t("editor_untitled")
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const thinkingProgress = useThinkingProgress(isGenerating)[0]
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
@@ -203,7 +205,7 @@ export default function EditorPage({
   useEffect(() => {
     if (resolvedParams.id === 'new' && isCanvasMode) {
       const interval = setInterval(() => {
-        const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+        const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as Window & { __isLoggingOut?: boolean }).__isLoggingOut;
         if (isLoggingOut) return
 
         saveSession({
@@ -218,7 +220,7 @@ export default function EditorPage({
 
       return () => {
         try {
-          const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as any).__isLoggingOut;
+          const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || (typeof window !== 'undefined' && (window as Window & { __isLoggingOut?: boolean }).__isLoggingOut);
           if (isLoggingOut) return
 
           // Save once on unmount/navigation to avoid losing recent changes
@@ -323,14 +325,14 @@ export default function EditorPage({
       }
       setTemplateMergeFields(null)
       setMergeFieldValues({})
-      setEditorContent(DEFAULT_CONTENT)
-      updateMetadata({ title: 'Hợp đồng dịch vụ' })
+      setEditorContent(getDefaultContent(t("editor_default_title")))
+      updateMetadata({ title: t("editor_untitled") })
       // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
       setIsCanvasMode(false)
       setChatMessages([])
       initialLoadRef.current = false
     }
-  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
+  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues, t])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {
@@ -376,7 +378,7 @@ export default function EditorPage({
       Table.configure({ resizable: true }),
       TableRow, TableCell, TableHeader,
       Placeholder.configure({
-        placeholder: 'Bắt đầu soạn thảo hoặc gõ / để xem lệnh...',
+        placeholder: t("editor_placeholder"),
       }),
       Underline,
       MergeFieldExtension,
@@ -438,7 +440,7 @@ export default function EditorPage({
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
-          title: documentTitle || (sourceMetadata?.title as string | undefined) || 'Hợp đồng',
+          title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
           type: (sourceMetadata?.type as string | undefined) ?? 'contract',
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
@@ -488,7 +490,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router, t])
   // Note: workspaceId kept in deps as it's still used (passed when available)
 
   const { isActive: isTourActive } = useOnboardingStore()
@@ -547,7 +549,7 @@ export default function EditorPage({
         const hasRealContent = editorContent.content.some((node: JSONContent) => {
           if (node.type === 'heading' && node.content && Array.isArray(node.content) && node.content.length > 0) {
             const text = node.content.find((c: JSONContent) => c.type === 'text' && 'text' in c && typeof c.text === 'string' && c.text.trim())
-            return text && typeof text.text === 'string' && text.text.trim() !== 'HỢP ĐỒNG MỚI'
+            return text && typeof text.text === 'string' && text.text.trim() !== t("editor_default_title")
           }
           return false
         })
@@ -605,7 +607,7 @@ export default function EditorPage({
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
-          title: documentTitle || sourceMetadata?.title || 'Hợp đồng',
+          title: documentTitle || sourceMetadata?.title || t("docs_default_title"),
           type: sourceMetadata?.type ?? 'contract',
           ...(workspaceId && { workspaceId }),
           contentJSON: editorContent,
@@ -637,7 +639,7 @@ export default function EditorPage({
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
-        label: `Lưu bản nháp (${now.toLocaleString('vi-VN')})`,
+        label: t("version_save_label", { date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') }),
       })
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
@@ -698,7 +700,7 @@ export default function EditorPage({
 
     if (isAuthenticated) {
       try {
-        await api.post('/ai/deduct-credit', {})
+        await api.post('/ai/deduct-credit', workspaceId ? { workspaceId } : {})
       } catch (e) {
         toast.error(t('toast_ai_no_credit'))
         setIsGenerating(false)
@@ -768,7 +770,10 @@ export default function EditorPage({
         updateMetadata({ title: genResult.content.title || documentTitle })
         setIsCanvasMode(true)
       } else if (result.type === 'error') {
-        aiContent = result.message || 'Hệ thống chỉ hỗ trợ các nghiệp vụ liên quan đến soạn thảo và phân tích hợp đồng, pháp lý.'
+        aiContent = result.message || t("ai_error_unsupported")
+        if (isAuthenticated) {
+          api.post('/ai/refund-credit', {}).catch(() => {})
+        }
       } else {
         // Handle other types or generic response
         aiContent = JSON.stringify(result, null, 2)
@@ -802,6 +807,9 @@ export default function EditorPage({
 
     } catch (error) {
       console.error('Error generating contract:', error)
+      if (isAuthenticated) {
+        api.post('/ai/refund-credit', workspaceId ? { workspaceId } : {}).catch(() => {})
+      }
       toast.error(t('toast_generate_error'))
       setThinkingProgress([])
       const errorMessage: ChatMessage = {
@@ -853,7 +861,7 @@ export default function EditorPage({
               onAttachFile={(file) => {
                 const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
                 if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
-                  toast.error('Chỉ chấp nhận file PDF, DOC hoặc DOCX.')
+                  toast.error(t("chat_file_type_error"))
                   return
                 }
                 setAttachedFile(file)
@@ -883,7 +891,7 @@ export default function EditorPage({
                     setIsDirty(true)
                   }}
                   // onClose={() => setIsCanvasMode(false)}
-                  onRun={() => toast.info("Đang kiểm tra...")}
+                  onRun={() => toast.info(t("editor_checking"))}
                   isCode={false}
                   toolsPanelOpen={toolsPanelOpen}
                   onToggleTools={() => setToolsPanelOpen((v) => !v)}

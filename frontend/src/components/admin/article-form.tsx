@@ -82,13 +82,15 @@ export function ArticleForm({
   const slugLocked = !!article?.slug
 
   useEffect(() => {
-    setForm({
-      type: article?.type ?? "news",
-      title: article?.title ?? "",
-      slug: article?.slug ?? "",
-      excerpt: article?.excerpt ?? "",
-      contentText: getContentForForm(article),
-      status: article?.status ?? "draft",
+    requestAnimationFrame(() => {
+      setForm({
+        type: article?.type ?? "news",
+        title: article?.title ?? "",
+        slug: article?.slug ?? "",
+        excerpt: article?.excerpt ?? "",
+        contentText: getContentForForm(article),
+        status: article?.status ?? "draft",
+      })
     })
   }, [article?.id, article?.type, article?.title, article?.slug, article?.excerpt, article?.content, article?.contentText, article?.status])
 

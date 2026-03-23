@@ -100,7 +100,6 @@ export default function PaymentPage() {
                   currentPlanSlug={currentPlanSlug}
                   loading={loadingPlanId === plan.id}
                   onSelect={handleSelectPlan}
-                  allPlans={plans ?? []}
                 />
               ))}
             </div>
