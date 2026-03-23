@@ -25,6 +25,7 @@ export class FilesController {
 
   @Get()
   async list(
+    @Request() req: any,
     @Query('workspaceId') workspaceId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -35,6 +36,7 @@ export class FilesController {
     const opts = {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
+      userId: req.user.userId,
     };
     return this.filesService.findByWorkspace(workspaceId, opts);
   }
@@ -66,19 +68,25 @@ export class FilesController {
   }
 
   @Get('storage/:workspaceId')
-  async getStorageUsed(@Param('workspaceId') workspaceId: string) {
-    return this.filesService.getStorageUsed(workspaceId);
+  async getStorageUsed(
+    @Request() req: any,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.filesService.getStorageUsed(
+      workspaceId,
+      req.user.userId,
+    );
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.filesService.findById(id);
+  async getOne(@Request() req: any, @Param('id') id: string) {
+    return this.filesService.findById(id, req.user.userId);
   }
 
   @Get(':id/download')
-  async download(@Param('id') id: string) {
+  async download(@Request() req: any, @Param('id') id: string) {
     const { body, contentType, name } =
-      await this.filesService.getDownloadStream(id);
+      await this.filesService.getDownloadStream(id, req.user.userId);
     if (!body) {
       return { message: 'File not found' };
     }
@@ -90,8 +98,8 @@ export class FilesController {
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return this.filesService.delete(id);
+  async delete(@Request() req: any, @Param('id') id: string) {
+    return this.filesService.delete(id, req.user.userId);
   }
 
   private async streamToBuffer(

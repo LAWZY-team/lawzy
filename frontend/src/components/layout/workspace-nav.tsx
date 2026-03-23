@@ -19,77 +19,107 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useAuthStore } from "@/stores/auth-store"
+import { useT } from "@/components/i18n-provider"
+import { CreateWorkspaceModal } from "@/components/workspace/create-workspace-modal"
 
 export function WorkspaceNav() {
+  const { t } = useT()
   const { isMobile } = useSidebar()
+  const user = useAuthStore((s) => s.user)
   const { workspaces, currentWorkspace, setCurrentWorkspace } = useWorkspaceStore()
+  const [createOpen, setCreateOpen] = React.useState(false)
   const activeWorkspace = currentWorkspace ?? workspaces[0]
 
-  if (!activeWorkspace) {
-    return null
+  if (workspaces.length === 0) {
+    return (
+      <>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
+              onClick={() => setCreateOpen(true)}
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border bg-muted">
+                <Plus className="h-4 w-4" />
+              </div>
+              <span className="truncate text-sm font-medium">{t("ws_create_first")}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <CreateWorkspaceModal open={createOpen} onOpenChange={setCreateOpen} />
+      </>
+    )
   }
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={activeWorkspace.logo ?? undefined} alt={activeWorkspace.name} />
-                <AvatarFallback className="rounded-lg">
-                  {activeWorkspace.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{activeWorkspace.name}</span>
-                <span className="truncate text-xs capitalize">{activeWorkspace.plan ?? "free"}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            align="start"
-            side={isMobile ? "bottom" : "right"}
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Workspaces
-            </DropdownMenuLabel>
-            {workspaces.map((workspace) => (
-              <DropdownMenuItem
-                key={workspace.id}
-                className="gap-2 p-2"
-                onClick={() => setCurrentWorkspace(workspace)}
+    <>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <Avatar className="h-6 w-6 rounded-md">
-                  <AvatarImage src={workspace.logo} alt={workspace.name} />
-                  <AvatarFallback className="rounded-md">
-                    {workspace.name.substring(0, 2).toUpperCase()}
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={activeWorkspace?.logo ?? undefined} alt={activeWorkspace?.name} />
+                  <AvatarFallback className="rounded-lg">
+                    {activeWorkspace?.name?.substring(0, 2).toUpperCase() ?? "??"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                  <span className="font-medium">{workspace.name}</span>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {workspace.plan ?? "free"}
-                  </span>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{activeWorkspace?.name}</span>
+                  <span className="truncate text-xs capitalize">{activeWorkspace?.plan ?? "free"}</span>
                 </div>
+                <ChevronsUpDown className="ml-auto" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              align="start"
+              side={isMobile ? "bottom" : "right"}
+              sideOffset={4}
+            >
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                {t("sidebar_workspaces")}
+              </DropdownMenuLabel>
+              {workspaces.map((workspace) => (
+                <DropdownMenuItem
+                  key={workspace.id}
+                  className="gap-2 p-2"
+                  onClick={() => setCurrentWorkspace(workspace)}
+                >
+                  <Avatar className="h-6 w-6 rounded-md">
+                    <AvatarImage src={workspace.logo} alt={workspace.name} />
+                    <AvatarFallback className="rounded-md">
+                      {workspace.name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{workspace.name}</span>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {workspace.plan ?? "free"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 p-2 cursor-pointer"
+                onClick={() => setCreateOpen(true)}
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-md border bg-background">
+                  <Plus className="h-4 w-4" />
+                </div>
+                <div className="font-medium text-muted-foreground">{t("ws_create_new")}</div>
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md border bg-background">
-                <Plus className="h-4 w-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">Tạo workspace mới</div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+      <CreateWorkspaceModal open={createOpen} onOpenChange={setCreateOpen} />
+    </>
   )
 }

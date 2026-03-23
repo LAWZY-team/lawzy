@@ -49,10 +49,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const workspaces = await api.get<Workspace[]>('/workspaces');
       set({ workspaces });
       const { currentWorkspace } = get();
+      const stillMember = currentWorkspace && workspaces.some((w) => w.id === currentWorkspace.id);
       if (!currentWorkspace && workspaces.length > 0) {
         set({ currentWorkspace: workspaces[0] });
-      } else if (currentWorkspace) {
-        const updated = workspaces.find((w) => w.id === currentWorkspace.id);
+      } else if (currentWorkspace && !stillMember) {
+        set({ currentWorkspace: workspaces[0] ?? null });
+      } else if (stillMember) {
+        const updated = workspaces.find((w) => w.id === currentWorkspace!.id);
         if (updated) set({ currentWorkspace: updated });
       }
     } catch (err) {

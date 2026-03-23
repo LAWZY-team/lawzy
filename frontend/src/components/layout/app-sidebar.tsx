@@ -44,6 +44,7 @@ import type { NavCollapsible, NavGroup, NavLink } from "./sidebar-data"
 import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import { useAuthStore } from "@/stores/auth-store"
+import { useSidebarDisplayStore } from "@/stores/sidebar-display-store"
 
 function isNavLink(item: NavLink | NavCollapsible): item is NavLink {
   return "href" in item && !("items" in item)
@@ -206,16 +207,32 @@ function NavGroup({ group, pathname, t, state }: {
   )
 }
 
+function filterBaseGroupByVisibleHrefs(
+  group: NavGroup,
+  isVisible: (href: string) => boolean
+): NavGroup {
+  const filtered = group.items.filter((item) => {
+    if (isNavLink(item)) return isVisible(item.href)
+    return true
+  })
+  return { ...group, items: filtered }
+}
+
 export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
   const { t } = useT()
   const user = useAuthStore((s) => s.user)
+  const isVisible = useSidebarDisplayStore((s) => s.isVisible)
   const isAdmin = user?.roles?.some((r) => r.toLowerCase() === "admin") ?? false
-  const navGroups = React.useMemo(
-    () => (isAdmin ? [...baseNavGroups, adminNavGroup] : baseNavGroups),
-    [isAdmin]
-  )
+  const navGroups = React.useMemo(() => {
+    const baseFiltered = baseNavGroups.map((g) =>
+      filterBaseGroupByVisibleHrefs(g, (href) => isVisible(href))
+    )
+    const baseCleaned = baseFiltered.filter((g) => g.items.length > 0)
+    const withAdmin = isAdmin ? [...baseCleaned, adminNavGroup] : baseCleaned
+    return withAdmin
+  }, [isAdmin, isVisible])
 
   return (
     <Sidebar collapsible="icon">

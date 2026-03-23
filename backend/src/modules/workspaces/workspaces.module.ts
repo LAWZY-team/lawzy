@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { CommonModule } from '../../common/common.module';
 import { PrismaModule } from '../../integrations/prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
@@ -9,6 +10,7 @@ import { AdminWorkspacesController } from './admin-workspaces.controller';
 
 @Module({
   imports: [
+    CommonModule,
     PrismaModule,
     UsersModule,
     PlansModule,

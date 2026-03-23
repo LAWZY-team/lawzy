@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workspaceAccess: WorkspaceAccessService,
+  ) {}
 
   /**
    * MySQL JSON columns may store a serialised *string* instead of an object
@@ -37,13 +41,10 @@ export class DocumentsService {
     mergeFieldValues?: any;
     status?: string;
   }) {
-    const ws = await this.prisma.workspace.findUnique({
-      where: { id: data.workspaceId },
-      select: { id: true },
-    });
-    if (!ws) {
-      throw new BadRequestException('Workspace not found');
-    }
+    await this.workspaceAccess.requireMembership(
+      data.workspaceId,
+      data.createdBy,
+    );
     return this.prisma.document.create({
       data: {
         title: data.title,
@@ -115,12 +116,17 @@ export class DocumentsService {
       limit?: number;
     },
   ) {
+    const workspaceId = opts?.workspaceId;
+    const isMember = !workspaceId || (await this.workspaceAccess.hasMembership(workspaceId, userId));
+    const empty = { data: [], total: 0, page: 1, limit: opts?.limit ?? 50 };
+    if (!isMember) return empty;
+
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 50;
     const skip = (page - 1) * limit;
 
     const where: any = { createdBy: userId };
-    if (opts?.workspaceId) where.workspaceId = opts.workspaceId;
+    if (workspaceId) where.workspaceId = workspaceId;
     if (opts?.status) where.status = opts.status;
     if (opts?.type) where.type = opts.type;
 
@@ -148,12 +154,11 @@ export class DocumentsService {
     return { data, total, page, limit };
   }
 
-  async getDefaultWorkspaceId(): Promise<string | null> {
-    const ws = await this.prisma.workspace.findFirst();
-    return ws?.id ?? null;
+  getDefaultWorkspaceId(userId: string): Promise<string | null> {
+    return this.workspaceAccess.getUserFirstWorkspaceId(userId);
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
       include: {
@@ -169,6 +174,10 @@ export class DocumentsService {
 
     if (!document) {
       throw new NotFoundException('Document not found');
+    }
+
+    if (userId) {
+      await this.workspaceAccess.requireDocumentAccess(id, userId);
     }
 
     return {
@@ -188,14 +197,9 @@ export class DocumentsService {
       metadata?: any;
       mergeFieldValues?: any;
     },
+    userId: string,
   ) {
-    const document = await this.prisma.document.findUnique({
-      where: { id },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    await this.workspaceAccess.requireDocumentAccess(id, userId);
 
     return this.prisma.document.update({
       where: { id },
@@ -222,14 +226,8 @@ export class DocumentsService {
     });
   }
 
-  async delete(id: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+  async delete(id: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(id, userId);
 
     return this.prisma.document.delete({
       where: { id },
@@ -246,13 +244,7 @@ export class DocumentsService {
       createdBy: string;
     },
   ) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    await this.workspaceAccess.requireDocumentAccess(documentId, data.createdBy);
 
     let chatCursorAt: Date | undefined;
     if (
@@ -285,14 +277,8 @@ export class DocumentsService {
     });
   }
 
-  async getVersions(documentId: string) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+  async getVersions(documentId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
 
     return this.prisma.documentVersion.findMany({
       where: { documentId },
@@ -300,7 +286,9 @@ export class DocumentsService {
     });
   }
 
-  async getVersion(documentId: string, versionId: string) {
+  async getVersion(documentId: string, versionId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+
     const version = await this.prisma.documentVersion.findFirst({
       where: { id: versionId, documentId },
     });
@@ -325,13 +313,7 @@ export class DocumentsService {
       metadata?: any;
     },
   ) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    await this.workspaceAccess.requireDocumentAccess(documentId, data.userId);
 
     return this.prisma.chatMessage.create({
       data: {
@@ -348,13 +330,7 @@ export class DocumentsService {
     documentId: string,
     opts: { userId: string; to?: string },
   ) {
-    const document = await this.prisma.document.findUnique({
-      where: { id: documentId },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
+    await this.workspaceAccess.requireDocumentAccess(documentId, opts.userId);
 
     const toDate =
       opts.to && typeof opts.to === 'string' && opts.to.trim().length > 0
@@ -394,15 +370,8 @@ export class DocumentsService {
     });
   }
 
-  async getStatsByWorkspace(workspaceId: string) {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: workspaceId },
-    });
-
-    if (!workspace) {
-      throw new NotFoundException('Workspace not found');
-    }
-
+  async getStatsByWorkspace(userId: string, workspaceId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
     const [byStatus, byType] = await Promise.all([
       this.prisma.document.groupBy({
         by: ['status'],

@@ -34,7 +34,11 @@ export class SourcesController {
     }
     const page = pageStr ? parseInt(pageStr, 10) : undefined;
     const limit = limitStr ? parseInt(limitStr, 10) : undefined;
-    return this.sourcesService.findByWorkspace(workspaceId, { page, limit });
+    return this.sourcesService.findByWorkspace(workspaceId, {
+      page,
+      limit,
+      userId: req.user.userId,
+    });
   }
 
   @Post()
@@ -82,11 +86,11 @@ export class SourcesController {
 
   @Get(':id')
   async getOne(@Request() req: any, @Param('id') id: string) {
-    return this.sourcesService.findById(id);
+    return this.sourcesService.findById(id, req.user.userId);
   }
 
   @Delete(':id')
   async delete(@Request() req: any, @Param('id') id: string) {
-    return this.sourcesService.delete(id);
+    return this.sourcesService.delete(id, req.user.userId);
   }
 }

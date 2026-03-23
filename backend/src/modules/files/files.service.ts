@@ -16,6 +16,7 @@ import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
 import { getR2Env } from '../../config/env';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
+import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
 const DEFAULT_STORAGE_BYTES = 500 * 1024 * 1024; // 500 MB free plan
 
@@ -24,6 +25,7 @@ export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plansService: PlansService,
+    private readonly workspaceAccess: WorkspaceAccessService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client | null,
   ) {}
 
@@ -43,6 +45,10 @@ export class FilesService {
     userId: string;
     workspaceId: string;
   }) {
+    await this.workspaceAccess.requireMembership(
+      data.workspaceId,
+      data.userId,
+    );
     const { bytes: used, limitBytes } = await this.getStorageUsed(
       data.workspaceId,
     );
@@ -83,8 +89,11 @@ export class FilesService {
 
   async findByWorkspace(
     workspaceId: string,
-    opts?: { page?: number; limit?: number },
+    opts?: { page?: number; limit?: number; userId?: string },
   ) {
+    if (opts?.userId) {
+      await this.workspaceAccess.requireMembership(workspaceId, opts.userId);
+    }
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -105,7 +114,7 @@ export class FilesService {
     return { data, total, page, limit };
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const file = await this.prisma.file.findUnique({
       where: { id },
       include: {
@@ -115,11 +124,14 @@ export class FilesService {
     if (!file) {
       throw new NotFoundException('File not found');
     }
+    if (userId) {
+      await this.workspaceAccess.requireMembership(file.workspaceId, userId);
+    }
     return file;
   }
 
-  async getDownloadStream(id: string) {
-    const file = await this.findById(id);
+  async getDownloadStream(id: string, userId?: string) {
+    const file = await this.findById(id, userId);
     const client = this.ensureClient();
     const bucket = this.getBucket();
 
@@ -137,8 +149,8 @@ export class FilesService {
     };
   }
 
-  async delete(id: string) {
-    const file = await this.findById(id);
+  async delete(id: string, userId?: string) {
+    const file = await this.findById(id, userId);
     const client = this.ensureClient();
     const bucket = this.getBucket();
 
@@ -156,7 +168,10 @@ export class FilesService {
     return { success: true };
   }
 
-  async getStorageUsed(workspaceId: string) {
+  async getStorageUsed(workspaceId: string, userId?: string) {
+    if (userId) {
+      await this.workspaceAccess.requireMembership(workspaceId, userId);
+    }
     const [fileSum, sourceSum, workspace] = await Promise.all([
       this.prisma.file.aggregate({
         where: { workspaceId },

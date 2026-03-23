@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FileText, MoreVertical, Plus } from "lucide-react"
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -30,6 +30,7 @@ import { useT } from "@/components/i18n-provider"
 
 export default function DocumentsPage() {
   const router = useRouter()
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace)
   const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
   const statusLabels: Record<string, string> = {
@@ -40,7 +41,7 @@ export default function DocumentsPage() {
     completed: t("status_completed"),
     archived: t("status_archived"),
   }
-  const { data, isLoading } = useDocuments(undefined, { limit: 50 })
+  const { data, isLoading } = useDocuments(currentWorkspace?.id, { limit: 50 })
   const deleteMutation = useDeleteDocument()
   const documents = data?.data ?? []
 

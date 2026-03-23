@@ -15,6 +15,7 @@ import { getR2Env } from '../../config/env';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
 import { FilesService } from '../files/files.service';
+import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
 @Injectable()
 export class SourcesService {
@@ -23,6 +24,7 @@ export class SourcesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly filesService: FilesService,
+    private readonly workspaceAccess: WorkspaceAccessService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client,
   ) {}
 
@@ -34,6 +36,10 @@ export class SourcesService {
     file?: Express.Multer.File;
     tags?: string[];
   }) {
+    await this.workspaceAccess.requireMembership(
+      data.workspaceId,
+      data.userId,
+    );
     const fileSize = data.file?.size ?? 0;
     if (fileSize > 0) {
       const { bytes: used, limitBytes } =
@@ -87,8 +93,11 @@ export class SourcesService {
 
   async findByWorkspace(
     workspaceId: string,
-    opts?: { page?: number; limit?: number },
+    opts?: { page?: number; limit?: number; userId?: string },
   ) {
+    if (opts?.userId) {
+      await this.workspaceAccess.requireMembership(workspaceId, opts.userId);
+    }
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 50;
     const skip = (page - 1) * limit;
@@ -111,7 +120,7 @@ export class SourcesService {
     return { data, total, page, limit };
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const source = await this.prisma.source.findUnique({
       where: { id },
       include: {
@@ -128,10 +137,13 @@ export class SourcesService {
       throw new NotFoundException('Source not found');
     }
 
+    if (userId) {
+      await this.workspaceAccess.requireMembership(source.workspaceId, userId);
+    }
     return source;
   }
 
-  async delete(id: string) {
+  async delete(id: string, userId?: string) {
     const source = await this.prisma.source.findUnique({
       where: { id },
     });
@@ -140,6 +152,9 @@ export class SourcesService {
       throw new NotFoundException('Source not found');
     }
 
+    if (userId) {
+      await this.workspaceAccess.requireMembership(source.workspaceId, userId);
+    }
     if (source.s3Key && this.s3) {
       await this.s3.send(
         new DeleteObjectCommand({
