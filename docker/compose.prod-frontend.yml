@@ -1,10 +1,10 @@
-# Frontend only - chạy trên VPS Frontend (ví dụ: VPS riêng)
-# Coolify: tạo Application riêng, base_directory: /, compose: docker-compose.prod-frontend.yml
+# Production Frontend only (Coolify: VPS Frontend riêng)
+# Coolify: base_directory: /, compose: docker/compose.prod-frontend.yml
 # Env: BACKEND_URL=https://api.lawzy.vn, NEXT_PUBLIC_APP_URL=https://lawzy.vn
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}

@@ -1,3 +1,5 @@
+# UAT full stack (MySQL + Backend + Frontend + NocoDB)
+# Chạy từ root: docker compose -f docker/compose.uat.yml up -d
 services:
   mysql:
     image: mysql:8.0
@@ -8,7 +10,7 @@ services:
       MYSQL_DATABASE: lawzy_uat
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - lawzy-network
     healthcheck:
@@ -19,7 +21,7 @@ services:
 
   backend-uat:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: lawzy-backend-uat
     restart: unless-stopped
@@ -42,7 +44,7 @@ services:
 
   frontend-uat:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}
