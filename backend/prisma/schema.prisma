@@ -81,6 +81,7 @@ model RefreshToken {
 model Workspace {
   id          String   @id @default(uuid())
   name        String
+  companyCode String?  @unique @map("company_code") @db.VarChar(20)
   logo        String?
   plan        String   @default("free")
   settings    Json     @default("{}")
@@ -186,6 +187,7 @@ model Document {
   title            String
   type             String   @default("contract")
   status           String   @default("draft")
+  visibility       String   @default("workspace") @db.VarChar(20) // 'private' | 'workspace'
   contentJSON      Json?    @map("content_json")
   metadata         Json?
   mergeFieldValues Json?    @map("merge_field_values")
@@ -204,6 +206,7 @@ model Document {
   @@index([workspaceId])
   @@index([createdBy])
   @@index([templateId])
+  @@index([visibility])
   @@map("documents")
 }
 
@@ -355,4 +358,20 @@ model UserCredit {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_credits")
+}
+
+model EmailTemplate {
+  id          String   @id @default(uuid())
+  code        String   @unique @db.VarChar(80)
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+  subject     String   @db.VarChar(300)
+  bodyHtml    String   @db.LongText
+  variables   Json?    // ["toName", "workspaceName", ...] - danh sách biến có thể dùng {{var}}
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@map("email_templates")
 }
