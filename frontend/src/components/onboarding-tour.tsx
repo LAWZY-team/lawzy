@@ -89,7 +89,7 @@ const STEPS: Step[] = [
     id: "settings_page",
     targetId: "tour-settings-content",
     sidebarId: "",
-    route: "/settings/profile",
+    route: "/fields",
     titleKey: "settings.final_title",
     descriptionKey: "settings.final_description",
   },

@@ -5,9 +5,9 @@ import { api } from '@/lib/api/client'
 export interface WorkspaceMember {
   id: string
   userId: string
-  role: 'admin' | 'editor' | 'viewer'
+  role: 'admin' | 'editor' | 'viewer' | string
   joinedAt: string
-  user?: { name: string; email: string; avatar?: string }
+  user?: { id?: string; name: string; email: string; avatar?: string | null }
 }
 
 export interface Workspace {
@@ -15,7 +15,10 @@ export interface Workspace {
   name: string
   logo?: string
   plan: string
+  role?: string
+  joinedAt?: string
   members?: WorkspaceMember[]
+  memberCount?: number
   settings: Record<string, unknown>
   quotaLimits?: Record<string, unknown>
   aiConfig?: Record<string, unknown>

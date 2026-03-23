@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 
 @Injectable()
@@ -205,7 +209,9 @@ export class DocumentsService {
           metadata: this.parseJsonIfString(data.metadata) as any,
         }),
         ...(data.mergeFieldValues !== undefined && {
-          mergeFieldValues: this.parseJsonIfString(data.mergeFieldValues) as any,
+          mergeFieldValues: this.parseJsonIfString(
+            data.mergeFieldValues,
+          ) as any,
         }),
       },
       include: {
@@ -268,7 +274,9 @@ export class DocumentsService {
             ? (this.parseJsonIfString(data.contentJSON) as any)
             : undefined,
         ...(data.mergeFieldValues !== undefined && {
-          mergeFieldValues: this.parseJsonIfString(data.mergeFieldValues) as any,
+          mergeFieldValues: this.parseJsonIfString(
+            data.mergeFieldValues,
+          ) as any,
         }),
         ...(chatCursorAt !== undefined && { chatCursorAt }),
         label: data.label,
@@ -310,7 +318,12 @@ export class DocumentsService {
 
   async createChatMessage(
     documentId: string,
-    data: { userId: string; role: 'user' | 'assistant'; content: string; metadata?: any },
+    data: {
+      userId: string;
+      role: 'user' | 'assistant';
+      content: string;
+      metadata?: any;
+    },
   ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },

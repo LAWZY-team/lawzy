@@ -1,30 +1,32 @@
 "use client"
 
-import { Zap, HardDrive } from "lucide-react"
+import Link from "next/link"
+import { Zap, HardDrive, ArrowUpCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
+import { usePlans } from "@/hooks/plans/use-plans"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
+import { formatStorageDisplay } from "@/types/plan"
 
-const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024 // 100 GB (S3 plan)
-
-const formatBytes = (bytes: number, decimals = 2) => {
-  if (!+bytes) return "0 Bytes"
-  const k = 1024
-  const dm = decimals < 0 ? 0 : decimals
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
-}
+const DEFAULT_STORAGE_LIMIT = 500 * 1024 * 1024 // 500 MB (free plan)
 
 type QuotaCardVariant = "all" | "quota" | "storage"
 
 export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
   const { data, isLoading } = useDashboardOverview()
+  const { data: plans } = usePlans()
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace)
   const { t } = useT()
   const storageUsed = data?.storageUsed ?? 0
-  const storagePercent = STORAGE_LIMIT > 0 ? (storageUsed / STORAGE_LIMIT) * 100 : 0
+  const planSlug = currentWorkspace?.plan ?? "free"
+  const plan = plans?.find((p) => p.slug === planSlug)
+  const storageLimit =
+    (plan?.quotaLimits as { storageBytes?: number } | null)?.storageBytes ??
+    DEFAULT_STORAGE_LIMIT
+  const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
   const totalDocs = data?.totalDocuments ?? 0
 
   return (
@@ -46,11 +48,18 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
                 <p className="text-xs text-muted-foreground">
                   {t("dash_total_docs_created")}
                 </p>
-                <div className="pt-2 border-t">
+                <div className="pt-2 border-t flex items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
                     <span className="font-semibold text-foreground">{data?.totalFiles ?? 0}</span> {t("dash_files")} &bull;{" "}
                     <span className="font-semibold text-foreground">{data?.totalSources ?? 0}</span> {t("dash_sources")}
                   </p>
+                  <Link
+                    href="/payment"
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    <ArrowUpCircle className="h-3.5 w-3.5" />
+                    {t("sidebar_payment")}
+                  </Link>
                 </div>
               </div>
             )}
@@ -69,8 +78,8 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
             ) : (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold">{formatBytes(storageUsed)}</span>
-                  <span className="text-muted-foreground">/ {formatBytes(STORAGE_LIMIT)}</span>
+                  <span className="font-bold">{formatStorageDisplay(storageUsed, t)}</span>
+                  <span className="text-muted-foreground">/ {formatStorageDisplay(storageLimit, t)}</span>
                 </div>
                 <Progress value={storagePercent} className="h-2" />
                 <p className="text-xs text-muted-foreground">{t("dash_file_upload_docs")}</p>

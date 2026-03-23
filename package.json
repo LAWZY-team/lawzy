@@ -7,6 +7,9 @@
     "dev:frontend": "cd frontend && yarn dev",
     "dev:backend": "cd backend && yarn start:dev",
     "build": "cd frontend && yarn build",
-    "build:backend": "cd backend && yarn build"
+    "build:backend": "cd backend && yarn build",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker-compose -f docker-compose.dev.yml down",
+    "postinstall": "cd backend && npx prisma generate 2>/dev/null || true"
   }
 }

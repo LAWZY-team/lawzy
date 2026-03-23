@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DashboardService } from './dashboard.service';
 
@@ -30,10 +24,7 @@ export class DashboardController {
   }
 
   @Get('recent')
-  async getRecent(
-    @Request() req: any,
-    @Query('limit') limitStr?: string,
-  ) {
+  async getRecent(@Request() req: any, @Query('limit') limitStr?: string) {
     const userId = req.user.userId;
     const limit = limitStr ? parseInt(limitStr, 10) : 10;
     return this.dashboardService.getRecentDocuments(userId, limit);

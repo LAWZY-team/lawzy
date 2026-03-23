@@ -1,7 +1,7 @@
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
-      {children}
-    </div>
-  );
+/**
+ * Auth layout - Children (login/register pages) use AuthLayout
+ * with page-specific leftPanel (steps or benefits).
+ */
+export default function AuthLayoutRoute({ children }: { children: React.ReactNode }) {
+  return <div className="min-h-screen bg-gray-50 dark:bg-gray-950">{children}</div>;
 }

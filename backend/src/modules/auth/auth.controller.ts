@@ -2,7 +2,9 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
+  Param,
   Res,
   Req,
   UseGuards,
@@ -68,7 +70,11 @@ export class AuthController {
   ) {
     const user = await this.authService.login(dto.email, dto.password);
     const tokens = await this.authService.generateTokens(user.id, user.email);
-    this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    this.authService.setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+    );
     return { user };
   }
 
@@ -80,7 +86,11 @@ export class AuthController {
   ) {
     const user = await this.authService.loginWithGoogle(dto.idToken);
     const tokens = await this.authService.generateTokens(user.id, user.email);
-    this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    this.authService.setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+    );
     return { user };
   }
 
@@ -96,7 +106,11 @@ export class AuthController {
       return { error: 'No refresh token' };
     }
     const tokens = await this.authService.refreshTokens(token);
-    this.authService.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    this.authService.setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+    );
     return { success: true };
   }
 
@@ -110,10 +124,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.refresh_token;
     if (refreshToken) {
       try {
@@ -150,5 +161,35 @@ export class AuthController {
       dto.currentPassword,
       dto.newPassword,
     );
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async listSessions(@Req() req: Request) {
+    const userId = (req as any).user.userId;
+    const currentToken = req.cookies?.refresh_token;
+    let sessions = await this.authService.listSessions(userId, currentToken);
+    const hasCurrent = sessions.some((s) => s.isCurrent);
+    if (!hasCurrent && sessions.length === 1 && currentToken) {
+      // Only one session and we're authenticated → it's the current one (match may fail after refresh/encoding)
+      sessions = [{ ...sessions[0], isCurrent: true }];
+    }
+    return sessions;
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteSession(@Req() req: Request, @Param('id') id: string) {
+    const userId = (req as any).user.userId;
+    return this.authService.revokeSession(userId, id);
+  }
+
+  @Post('sessions/revoke-others')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async revokeOtherSessions(@Req() req: Request) {
+    const userId = (req as any).user.userId;
+    const keepToken = req.cookies?.refresh_token;
+    return this.authService.revokeOtherSessions(userId, keepToken);
   }
 }

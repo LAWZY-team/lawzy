@@ -95,7 +95,9 @@ export class FilesController {
   }
 
   private async streamToBuffer(
-    stream: AsyncIterable<Uint8Array> | { transformToWebStream?: () => unknown },
+    stream:
+      | AsyncIterable<Uint8Array>
+      | { transformToWebStream?: () => unknown },
   ): Promise<Buffer> {
     const chunks: Uint8Array[] = [];
     for await (const chunk of stream as AsyncIterable<Uint8Array>) {

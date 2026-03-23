@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, FileText, Monitor, Palette, UserCog, Wrench } from "lucide-react"
+import { KeyRound, LogIn, User } from "lucide-react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -16,34 +16,19 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
   const sidebarNavItems = [
     {
-      title: t("settings_profile"),
-      href: "/settings/profile",
-      icon: <UserCog className="w-4 h-4" />,
+      title: t("settings_account"),
+      href: "/settings/account",
+      icon: <User className="w-4 h-4" />,
     },
-    // {
-    //   title: t("settings_account"),
-    //   href: "/settings/account",
-    //   icon: <Wrench className="w-4 h-4" />,
-    // },
-    // {
-    //   title: t("settings_appearance"),
-    //   href: "/settings/appearance",
-    //   icon: <Palette className="w-4 h-4" />,
-    // },
-    // {
-    //   title: t("settings_notifications"),
-    //   href: "/settings/notifications",
-    //   icon: <Bell className="w-4 h-4" />,
-    // },
-    // {
-    //   title: t("settings_display"),
-    //   href: "/settings/display",
-    //   icon: <Monitor className="w-4 h-4" />,
-    // },
     {
-      title: t("settings_fields"),
-      href: "/settings/fields",
-      icon: <FileText className="w-4 h-4" />,
+      title: t("settings_password"),
+      href: "/settings/password",
+      icon: <KeyRound className="w-4 h-4" />,
+    },
+    {
+      title: t("settings_sessions"),
+      href: "/settings/sessions",
+      icon: <LogIn className="w-4 h-4" />,
     },
   ]
 

@@ -31,7 +31,12 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  async register(email: string, name: string, password: string, position: string) {
+  async register(
+    email: string,
+    name: string,
+    password: string,
+    position: string,
+  ) {
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
       throw new ConflictException('Email đã được sử dụng');
@@ -46,7 +51,12 @@ export class AuthService {
     return this.usersService.sanitize(user);
   }
 
-  async requestRegistration(email: string, name: string, password: string, position: string) {
+  async requestRegistration(
+    email: string,
+    name: string,
+    password: string,
+    position: string,
+  ) {
     const existing = await this.usersService.findByEmail(email);
     if (existing && existing.isVerified) {
       throw new ConflictException('Email này đã được đăng ký');
@@ -252,6 +262,40 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }
 
+  async listSessions(userId: string, currentToken?: string) {
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, token: true, createdAt: true, expiresAt: true },
+    });
+    return tokens.map((t) => ({
+      id: t.id,
+      createdAt: t.createdAt,
+      expiresAt: t.expiresAt,
+      isCurrent: !!currentToken && t.token === currentToken,
+    }));
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const session = await this.prisma.refreshToken.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+    await this.prisma.refreshToken.delete({ where: { id: sessionId } });
+    return { message: 'Session revoked' };
+  }
+
+  async revokeOtherSessions(userId: string, keepToken?: string) {
+    const where: { userId: string; NOT?: { token: string } } = { userId };
+    if (keepToken) {
+      where.NOT = { token: keepToken };
+    }
+    const result = await this.prisma.refreshToken.deleteMany({ where });
+    return { message: 'Other sessions revoked', count: result.count };
+  }
+
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
@@ -263,7 +307,10 @@ export class AuthService {
     const expires = new Date(Date.now() + 10 * 60 * 1000);
     await this.usersService.setResetToken(email, token, expires);
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
     await this.emailService.sendPasswordResetEmail(email, user.name, resetLink);
@@ -291,7 +338,11 @@ export class AuthService {
     return { message: 'Đặt lại mật khẩu thành công' };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('Người dùng không tồn tại');
@@ -304,7 +355,9 @@ export class AuthService {
 
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
-      throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu hiện tại');
+      throw new BadRequestException(
+        'Mật khẩu mới không được trùng với mật khẩu hiện tại',
+      );
     }
 
     const passwordValidation = validatePassword(newPassword);

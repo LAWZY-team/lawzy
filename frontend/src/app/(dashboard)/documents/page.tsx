@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
-import { useGuestFlowStore } from "@/stores/guest-flow-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -31,7 +30,6 @@ import { useT } from "@/components/i18n-provider"
 
 export default function DocumentsPage() {
   const router = useRouter()
-  const { clear: clearGuestFlow } = useGuestFlowStore()
   const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
   const statusLabels: Record<string, string> = {
@@ -67,7 +65,6 @@ export default function DocumentsPage() {
         <Button
           id="tour-documents-create"
           onClick={() => {
-            clearGuestFlow()
             clearEditorSession()
             router.push("/editor/new")
           }}

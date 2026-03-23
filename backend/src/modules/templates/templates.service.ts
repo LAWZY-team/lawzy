@@ -44,7 +44,7 @@ async function streamToString(body: unknown): Promise<string> {
   if (Buffer.isBuffer(body)) return body.toString('utf8');
   if (body instanceof Readable) {
     const chunks: Buffer[] = [];
-    // eslint-disable-next-line no-restricted-syntax
+
     for await (const chunk of body) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
@@ -113,9 +113,15 @@ export class TemplatesService {
         description: data.description,
         category: data.category ?? 'general',
         scope: data.scope ?? 'system',
-        contentJSON: data.contentJSON ? JSON.parse(JSON.stringify(data.contentJSON)) : undefined,
-        mergeFields: data.mergeFields ? JSON.parse(JSON.stringify(data.mergeFields)) : undefined,
-        metadata: data.metadata ? JSON.parse(JSON.stringify(data.metadata)) : undefined,
+        contentJSON: data.contentJSON
+          ? JSON.parse(JSON.stringify(data.contentJSON))
+          : undefined,
+        mergeFields: data.mergeFields
+          ? JSON.parse(JSON.stringify(data.mergeFields))
+          : undefined,
+        metadata: data.metadata
+          ? JSON.parse(JSON.stringify(data.metadata))
+          : undefined,
         createdBy: data.createdBy,
       },
     });
@@ -134,7 +140,8 @@ export class TemplatesService {
   ) {
     const updateData: Record<string, unknown> = {};
     if (data.title !== undefined) updateData.title = data.title;
-    if (data.description !== undefined) updateData.description = data.description;
+    if (data.description !== undefined)
+      updateData.description = data.description;
     if (data.category !== undefined) updateData.category = data.category;
     if (data.contentJSON !== undefined)
       updateData.contentJSON = JSON.parse(JSON.stringify(data.contentJSON));
@@ -181,7 +188,11 @@ export class TemplatesService {
     if (Array.isArray(parsed)) {
       // Root is an array of templates
       list = parsed;
-    } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.templates)) {
+    } else if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray(parsed.templates)
+    ) {
       // Root is { templates: [...] }
       list = parsed.templates;
     }

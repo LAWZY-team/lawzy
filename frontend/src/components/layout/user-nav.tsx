@@ -22,7 +22,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
-import { useGuestFlowStore } from "@/stores/guest-flow-store"
 import useStore from "@/lib/zustand/use-store"
 
 export function UserNav() {
@@ -31,14 +30,11 @@ export function UserNav() {
   const { user, logout } = useAuthStore()
   const { t, locale, setLocale } = useT()
 
-  const guestEntry = useStore(useGuestFlowStore, (s) => s.entry)
   const isAuthenticated = useStore(useAuthStore, (s) => s.isAuthenticated)
   const authResolved = useStore(useAuthStore, (s) => s.authResolved)
+  const isGuest = authResolved && !isAuthenticated
 
-  // Treat as guest if we know they are not authenticated, or if unresolved but they came from landing.
-  const isGuest = authResolved ? !isAuthenticated : (guestEntry === "landing")
-
-  const displayName = isGuest ? (locale === 'en' ? 'Guest' : 'Khách') : (user?.name ?? "User")
+  const displayName = isGuest ? (locale === "en" ? "Guest" : "Khách") : (user?.name ?? "User")
   const displayEmail = isGuest ? "" : (user?.email ?? "")
   const initials = displayName.substring(0, 2).toUpperCase()
 
@@ -46,7 +42,7 @@ export function UserNav() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {
-      // proceed with client-side logout regardless
+      /* proceed with client-side logout regardless */
     }
     logout()
     router.push("/")

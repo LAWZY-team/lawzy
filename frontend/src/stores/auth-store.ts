@@ -39,7 +39,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     document.cookie = "auth_session=; path=/; max-age=0";
     set({ user: null, isAuthenticated: false, authResolved: true });
     
-    // Set flag to forcefully block any 'save on unmount' operations in editor 
     if (typeof window !== 'undefined') {
       ;(window as any).__isLoggingOut = true;
       setTimeout(() => {
@@ -52,7 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       sessionStorage.removeItem('lawzy-guest-editor-session');
     } catch {
-      // ignore
+      /* ignore */
     }
   },
   fetchUser: async () => {

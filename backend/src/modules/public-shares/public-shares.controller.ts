@@ -1,4 +1,13 @@
-import { BadRequestException, Controller, Get, Header, NotFoundException, Param, Post, Body } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Header,
+  NotFoundException,
+  Param,
+  Post,
+  Body,
+} from '@nestjs/common';
 import { PublicSharesService } from './public-shares.service';
 
 function assertToken(token: string): string {
@@ -20,9 +29,14 @@ export class PublicSharesController {
     const title = body.title != null ? String(body.title).trim() : undefined;
     const html = body.html != null ? String(body.html) : '';
     try {
-      return await this.service.createSnapshot({ title: title || undefined, html });
+      return await this.service.createSnapshot({
+        title: title || undefined,
+        html,
+      });
     } catch (e: unknown) {
-      throw new BadRequestException(e instanceof Error ? e.message : 'Invalid request');
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'Invalid request',
+      );
     }
   }
 
@@ -35,4 +49,3 @@ export class PublicSharesController {
     return snap;
   }
 }
-

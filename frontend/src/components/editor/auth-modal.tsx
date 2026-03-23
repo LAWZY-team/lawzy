@@ -22,16 +22,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { TermsModal } from "@/components/auth/terms-modal"
+import { PrivacyModal } from "@/components/auth/privacy-modal"
+import { useT } from "@/components/i18n-provider"
 
-const positionOptions = [
-  "Chủ doanh nghiệp / Founder",
-  "Nhân sự / HR",
-  "Kế toán / Account",
-  "Pháp chế",
-  "Luật sư / Legal",
-  "Sales / Kinh doanh",
-  "Kinh doanh tự do / Freelancer",
-  "Khác"
+const POSITION_OPTIONS = [
+  { value: "founder", key: "auth_position_founder" as const },
+  { value: "hr", key: "auth_position_hr" as const },
+  { value: "accountant", key: "auth_position_accountant" as const },
+  { value: "legal", key: "auth_position_legal" as const },
+  { value: "lawyer", key: "auth_position_lawyer" as const },
+  { value: "sales", key: "auth_position_sales" as const },
+  { value: "freelancer", key: "auth_position_freelancer" as const },
+  { value: "other", key: "auth_position_other" as const },
 ]
 
 interface AuthModalProps {
@@ -57,9 +60,10 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const { t } = useT()
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
-  const [termsContent, setTermsContent] = useState("")
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("")
@@ -72,49 +76,41 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
 
   const prevOpenRef = useRef(open)
 
-  useEffect(() => {
-    if (showTermsModal && !termsContent) {
-      fetch("/term2.html")
-        .then((res) => res.text())
-        .then((text) => setTermsContent(text))
-        .catch(() => setTermsContent("Không thể tải nội dung điều khoản."))
-    }
-  }, [showTermsModal, termsContent])
-
   const handleRequestRegistration = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
     if (!agreedToTerms) {
-      setError("Vui lòng đồng ý với các điều khoản sử dụng")
+      setError(t("auth_register_error_terms"))
       return
     }
 
     if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp")
+      setError(t("auth_register_error_password_mismatch"))
       return
     }
 
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.valid) {
-      setError(passwordValidation.message || "Mật khẩu không hợp lệ")
+      setError(passwordValidation.message || t("auth_error_password_invalid"))
       return
     }
 
     if (!position) {
-      setError("Vui lòng chọn chức vụ của bạn")
+      setError(t("auth_register_error_position"))
       return
     }
 
-    if (position === "Khác" && !customPosition.trim()) {
-      setError("Vui lòng nhập chức vụ của bạn")
+    if (position === "other" && !customPosition.trim()) {
+      setError(t("auth_register_error_position_other"))
       return
     }
 
     setIsLoading(true)
 
     try {
-      const finalPosition = position === "Khác" ? customPosition : position
+      const opt = POSITION_OPTIONS.find((o) => o.value === position)
+      const finalPosition = position === "other" ? customPosition : (opt ? t(opt.key) : position)
       const res = await fetch("/api/auth/register/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,16 +120,16 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.message || "Đăng ký thất bại")
+        setError(data.message || t("auth_register_error_failed"))
         setIsLoading(false)
         return
       }
 
-      toast.success("Mã OTP đã được gửi đến email của bạn")
+      toast.success(t("auth_register_toast_otp_sent"))
       setMode("verify")
       setIsLoading(false)
     } catch {
-      setError("Không thể kết nối đến server")
+      setError(t("auth_error_connection"))
       setIsLoading(false)
     }
   }
@@ -143,7 +139,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
     setError("")
 
     if (otp.length !== 6) {
-      setError("Mã OTP phải có 6 chữ số")
+      setError(t("auth_register_error_otp"))
       return
     }
 
@@ -159,7 +155,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.message || "Xác thực OTP thất bại")
+        setError(data.message || t("auth_register_error_verify"))
         setIsLoading(false)
         return
       }
@@ -167,7 +163,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       // Đăng nhập tự động sau khi đăng ký thành công
       await handleLoginAfterRegister()
     } catch {
-      setError("Không thể kết nối đến server")
+      setError(t("auth_error_connection"))
       setIsLoading(false)
     }
   }
@@ -184,7 +180,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.message || "Đăng nhập thất bại")
+        setError(data.message || t("auth_error_login_failed"))
         setIsLoading(false)
         return
       }
@@ -192,11 +188,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       setUser(data.user)
       await fetchUser()
       clearSession()
-      toast.success("Đăng ký và đăng nhập thành công!")
+      toast.success(t("auth_toast_register_success"))
       onOpenChange(false)
       onSuccess?.()
     } catch {
-      setError("Không thể đăng nhập")
+      setError(t("auth_error_login_failed"))
       setIsLoading(false)
     }
   }
@@ -217,7 +213,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.message || "Email hoặc mật khẩu không đúng")
+        setError(data.message || t("auth_error_credentials"))
         setIsLoading(false)
         return
       }
@@ -229,7 +225,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       onOpenChange(false)
       onSuccess?.()
     } catch {
-      setError("Không thể kết nối đến server")
+      setError(t("auth_error_connection"))
       setIsLoading(false)
     }
   }
@@ -246,7 +242,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.message || "Xác thực Google thất bại")
+        setError(data.message || t("auth_error_google"))
         return
       }
       setUser(data.user)
@@ -256,7 +252,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       onOpenChange(false)
       onSuccess?.()
     } catch {
-      setError("Không thể kết nối đến server")
+      setError(t("auth_error_connection"))
     } finally {
       setIsLoading(false)
     }
@@ -276,7 +272,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.message || "Đã xảy ra lỗi")
+        setError(data.message || t("auth_error_generic"))
         setIsLoading(false)
         return
       }
@@ -284,7 +280,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       setIsForgotPasswordSent(true)
       setIsLoading(false)
     } catch {
-      setError("Không thể kết nối đến server")
+      setError(t("auth_error_connection"))
       setIsLoading(false)
     }
   }
@@ -332,9 +328,9 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
               <CardHeader className="space-y-4 items-center text-center pb-2">
                 <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
                 <div>
-                  <CardTitle className="text-2xl font-bold">Xác thực OTP</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{t("auth_register_otp_title")}</CardTitle>
                   <CardDescription className="mt-1">
-                    Nhập mã OTP đã được gửi đến email của bạn. <br/>Vui lòng kiểm tra hòm thư rác và spam
+                    {t("auth_register_otp_desc")} <br/>{t("auth_forgot_check_spam")}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -348,7 +344,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="email-display">Email</Label>
+                    <Label htmlFor="email-display">{t("auth_email")}</Label>
                     <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{email}</span>
@@ -372,7 +368,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       className="text-center text-2xl tracking-widest"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mã OTP có hiệu lực trong 10 phút
+                      {t("auth_register_otp_valid")}
                     </p>
                   </div>
                 </CardContent>
@@ -382,10 +378,10 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang xác thực...
+                        {t("auth_register_verifying")}
                       </>
                     ) : (
-                      "Xác thực OTP"
+                      t("auth_register_verify_otp")
                     )}
                   </Button>
                   <Button
@@ -395,7 +391,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                     onClick={() => setMode("register")}
                     disabled={isLoading}
                   >
-                    Quay lại
+                    {t("auth_register_back")}
                   </Button>
                 </CardFooter>
               </form>
@@ -405,9 +401,9 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
               <CardHeader className="space-y-4 items-center text-center pb-2">
                 <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
                 <div>
-                  <CardTitle className="text-2xl font-bold">Tạo tài khoản</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{t("auth_register_step1")}</CardTitle>
                   <CardDescription className="mt-1">
-                    Đăng ký để tiếp tục sử dụng
+                    {t("auth_modal_register_subtitle")}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -422,7 +418,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
 
                   <GoogleSignInButton
                     onSuccess={handleGoogleSuccess}
-                    onError={(err) => setError(err.message || "Đăng ký Google thất bại")}
+                    onError={(err) => setError(err.message || t("auth_register_error_google"))}
                     disabled={isLoading}
                     label="signup"
                     className="w-full"
@@ -433,16 +429,16 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+                      <span className="bg-card px-2 text-muted-foreground">{t("auth_or")}</span>
                     </div>
                   </div>
 
                   <div className="space-y-2 mt-4">
-                    <Label htmlFor="name">Họ và tên</Label>
+                    <Label htmlFor="name">{t("auth_name")}</Label>
                     <Input
                       id="name"
                       type="text"
-                      placeholder="Nguyễn Văn A"
+                      placeholder={t("auth_name_placeholder")}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
@@ -452,11 +448,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t("auth_email")}</Label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder={t("auth_email_placeholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -466,27 +462,27 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="position">Chức vụ / Công việc <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="position">{t("auth_register_position")} <span className="text-destructive">*</span></Label>
                     <Select onValueChange={setPosition} value={position} disabled={isLoading}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Chọn chức vụ của bạn" />
+                        <SelectValue placeholder={t("auth_register_position_placeholder")} />
                       </SelectTrigger>
                       <SelectContent>
-                        {positionOptions.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
+                        {POSITION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {t(opt.key)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {position === "Khác" && (
+                  {position === "other" && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                      <Label htmlFor="customPosition">Nhập chức vụ khác <span className="text-destructive">*</span></Label>
+                      <Label htmlFor="customPosition">{t("auth_register_position_other")} <span className="text-destructive">*</span></Label>
                       <Input
                         id="customPosition"
-                        placeholder="Nhập chức vụ của bạn"
+                        placeholder={t("auth_register_position_custom_placeholder")}
                         value={customPosition}
                         onChange={(e) => setCustomPosition(e.target.value)}
                         disabled={isLoading}
@@ -496,7 +492,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="password">Mật khẩu</Label>
+                    <Label htmlFor="password">{t("auth_password")}</Label>
                     <PasswordRequirements
                       password={password}
                       open={showPasswordRequirements}
@@ -506,7 +502,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                         <Input
                           id="password"
                           type={showPassword ? "text" : "password"}
-                          placeholder="Nhập mật khẩu"
+                          placeholder={t("auth_register_password_placeholder")}
                           value={password}
                           onChange={(e) => {
                             setPassword(e.target.value)
@@ -543,11 +539,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+                    <Label htmlFor="confirmPassword">{t("auth_register_confirm_password")}</Label>
                     <Input
                       id="confirmPassword"
                       type="password"
-                      placeholder="Nhập lại mật khẩu"
+                      placeholder={t("auth_register_confirm_password_placeholder")}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
@@ -568,17 +564,23 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                 htmlFor="terms"
                 className="text-sm font-normal cursor-pointer leading-relaxed"
               >
-                Tôi đồng ý với các điều khoản của Lawzy
+                {t("auth_register_agree_terms")}
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowTermsModal(true);
-                  }}
-                  className= "underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
+                  onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                  className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
                 >
-                  ĐIỀU KHOẢN
-                </button>{" "}
+                  {t("auth_register_terms_link")}
+                </button>
+                {t("auth_register_and")}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }}
+                  className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer"
+                >
+                  {t("auth_register_privacy_link")}
+                </button>
+                {t("auth_register_terms_suffix")}
               </Label>
             </div>
                 </CardContent>
@@ -593,20 +595,20 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang gửi OTP...
+                        {t("auth_register_sending_otp")}
                       </>
                     ) : (
-                      "Đăng ký"
+                      t("auth_register")
                     )}
                   </Button>
                   <p className="text-sm text-muted-foreground text-center">
-                    Đã có tài khoản?{" "}
+                    {t("auth_register_has_account")}{" "}
                     <button
                       type="button"
                       onClick={() => setMode("login")}
                       className="text-primary font-medium hover:underline"
                     >
-                      Đăng nhập
+                      {t("auth_login")}
                     </button>
                   </p>
                 </CardFooter>
@@ -621,9 +623,9 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       <Mail className="w-8 h-8 text-primary" />
                     </div>
                     <div>
-                      <CardTitle className="text-2xl font-bold">Kiểm tra email</CardTitle>
+                      <CardTitle className="text-2xl font-bold">{t("auth_forgot_success_title")}</CardTitle>
                       <CardDescription className="mt-2">
-                        Nếu tài khoản với email <strong>{forgotPasswordEmail}</strong> tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.
+                        {t("auth_forgot_success_desc", { email: forgotPasswordEmail })}
                       </CardDescription>
                     </div>
                   </CardHeader>
@@ -638,7 +640,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       }}
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
-                      Quay lại đăng nhập
+                      {t("auth_forgot_back")}
                     </Button>
                   </CardFooter>
                 </>
@@ -647,9 +649,9 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   <CardHeader className="space-y-4 items-center text-center pb-2">
                     <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
                     <div>
-                      <CardTitle className="text-2xl font-bold">Quên mật khẩu</CardTitle>
+                      <CardTitle className="text-2xl font-bold">{t("auth_forgot_title")}</CardTitle>
                       <CardDescription className="mt-1">
-                        Nhập email để nhận link đặt lại mật khẩu
+                        {t("auth_forgot_subtitle")}
                       </CardDescription>
                     </div>
                   </CardHeader>
@@ -663,11 +665,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       )}
 
                       <div className="space-y-2">
-                        <Label htmlFor="forgot-password-email">Email</Label>
+                        <Label htmlFor="forgot-password-email">{t("auth_email")}</Label>
                         <Input
                           id="forgot-password-email"
                           type="email"
-                          placeholder="you@example.com"
+                          placeholder={t("auth_email_placeholder")}
                           value={forgotPasswordEmail}
                           onChange={(e) => setForgotPasswordEmail(e.target.value)}
                           required
@@ -682,10 +684,10 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                         {isLoading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Đang gửi...
+                            {t("auth_forgot_btn_loading")}
                           </>
                         ) : (
-                          "Gửi link đặt lại"
+                          t("auth_forgot_btn_send")
                         )}
                       </Button>
                       <Button
@@ -700,7 +702,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                         disabled={isLoading}
                       >
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Quay lại đăng nhập
+                        {t("auth_forgot_back")}
                       </Button>
                     </CardFooter>
                   </form>
@@ -712,9 +714,9 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
               <CardHeader className="space-y-4 items-center text-center pb-2">
                 <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
                 <div>
-                  <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
+                  <CardTitle className="text-2xl font-bold">{t("auth_login_title")}</CardTitle>
                   <CardDescription className="mt-1">
-                    Đăng nhập để tiếp tục chỉnh sửa hợp đồng
+                    {t("auth_login_subtitle_editor")}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -728,11 +730,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label htmlFor="login-email">{t("auth_email")}</Label>
                     <Input
                       id="login-email"
                       type="email"
-                      placeholder="admin@lawzy.vn"
+                      placeholder={t("auth_email_placeholder")}
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
@@ -743,20 +745,20 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="login-password">Mật khẩu</Label>
+                      <Label htmlFor="login-password">{t("auth_password")}</Label>
                       <button
                         type="button"
                         onClick={() => setMode("forgot-password")}
                         className="text-xs text-muted-foreground hover:text-primary transition-colors"
                       >
-                        Quên mật khẩu?
+                        {t("auth_forgot_password")}
                       </button>
                     </div>
                     <div className="relative">
                       <Input
                         id="login-password"
                         type={showLoginPassword ? "text" : "password"}
-                        placeholder="••••••••"
+                        placeholder={t("auth_password_placeholder")}
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         required
@@ -787,10 +789,10 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang đăng nhập...
+                        {t("auth_login_loading")}
                       </>
                     ) : (
-                      "Đăng nhập"
+                      t("auth_login_btn")
                     )}
                   </Button>
 
@@ -799,27 +801,27 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Hoặc</span>
+                      <span className="bg-card px-2 text-muted-foreground">{t("auth_or")}</span>
                     </div>
                   </div>
 
                   <GoogleSignInButton
                     onSuccess={handleGoogleSuccess}
                     onError={(err) => {
-                      setError(err.message || "Đăng nhập Google thất bại");
+                      setError(err.message || t("auth_error_google"));
                     }}
                     disabled={isLoading}
                     className="w-full flex justify-center"
                   />
 
                   <p className="text-sm text-muted-foreground text-center">
-                    Chưa có tài khoản?{" "}
+                    {t("auth_no_account")}{" "}
                     <button
                       type="button"
                       onClick={() => setMode("register")}
                       className="text-primary font-medium hover:underline"
                     >
-                      Đăng ký ngay
+                      {t("auth_register_now")}
                     </button>
                   </p>
                 </CardFooter>
@@ -829,27 +831,18 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
         </div>
       </Modal>
 
-      {/* Terms Modal */}
-      <Modal
+      <TermsModal
         open={showTermsModal}
         onOpenChange={setShowTermsModal}
-        size="lg"
-        title="Điều Khoản Sử Dụng"
-      >
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Điều Khoản Sử Dụng</h2>
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            {termsContent ? (
-              <div
-                className="lawzy-terms prose prose-sm max-w-none text-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_p]:mb-3 [&_p]:leading-relaxed [&_strong]:font-semibold"
-                dangerouslySetInnerHTML={{ __html: termsContent }}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Đang tải nội dung...</p>
-            )}
-          </div>
-        </div>
-      </Modal>
+        onAccept={() => setAgreedToTerms(true)}
+        requireScrollToBottom
+      />
+      <PrivacyModal
+        open={showPrivacyModal}
+        onOpenChange={setShowPrivacyModal}
+        onAccept={() => setAgreedToTerms(true)}
+        requireScrollToBottom
+      />
     </>
   )
 }

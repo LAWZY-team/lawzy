@@ -20,6 +20,7 @@ import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
 import { useAuthStore } from '@/stores/auth-store'
+import { useWorkspaceFields } from '@/hooks/workspaces/use-workspace-fields'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
 import { AuthModal } from '@/components/editor/auth-modal'
@@ -91,6 +92,7 @@ export default function EditorPage({
   const { setOpen: setSidebarOpen } = useSidebar()
   const workspaceId = currentWorkspace?.id
   const { locale, t } = useT()
+  const { data: workspaceFields = [] } = useWorkspaceFields(workspaceId ?? null)
 
   // Ensure we always have a default workspace selected (first workspace)
   useEffect(() => {
@@ -340,6 +342,20 @@ export default function EditorPage({
     if (Object.keys(additions).length === 0) return
     setMergeFieldValues({ ...mergeFieldValues, ...additions })
   }, [customFields, mergeFieldValues, setMergeFieldValues])
+
+  // Merge workspace custom fields defaults (ưu tiên cho AI khi soạn hợp đồng)
+  useEffect(() => {
+    if (!workspaceFields || workspaceFields.length === 0) return
+    const additions: Record<string, string> = {}
+    for (const f of workspaceFields) {
+      if (f.isHidden) continue
+      if (!Object.prototype.hasOwnProperty.call(mergeFieldValues, f.key)) {
+        additions[f.key] = f.defaultValue ?? ''
+      }
+    }
+    if (Object.keys(additions).length === 0) return
+    setMergeFieldValues({ ...mergeFieldValues, ...additions })
+  }, [workspaceFields, mergeFieldValues, setMergeFieldValues])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -865,6 +881,7 @@ export default function EditorPage({
                   <RightPanel
                     editor={editor}
                     onAuthRequired={handleAuthRequired}
+                    workspaceId={workspaceId ?? undefined}
                   />
                 </div>
               )}

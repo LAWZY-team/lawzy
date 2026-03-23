@@ -10,6 +10,19 @@ export interface UserCustomField {
   defaultValue: string
 }
 
+/** Trường mẫu tiêu chuẩn trong hợp đồng — người dùng có thể chỉnh sửa sau */
+export const DEFAULT_SAMPLE_FIELDS: UserCustomField[] = [
+  { key: "company_name", label: "Tên doanh nghiệp", defaultValue: "" },
+  { key: "address", label: "Địa chỉ", defaultValue: "" },
+  { key: "tax_id", label: "Mã số thuế", defaultValue: "" },
+  { key: "representative", label: "Người đại diện", defaultValue: "" },
+  { key: "position", label: "Chức vụ", defaultValue: "" },
+  { key: "phone", label: "Điện thoại", defaultValue: "" },
+  { key: "contract_number", label: "Số hợp đồng", defaultValue: "" },
+  { key: "signing_date", label: "Ngày ký", defaultValue: "" },
+  { key: "signing_location", label: "Địa điểm ký", defaultValue: "" },
+]
+
 interface UserFieldsState {
   customFields: UserCustomField[]
   /** Keys that should be hidden/masked in UI + export/print */
@@ -114,7 +127,7 @@ function scheduleServerSync() {
 export const useUserFieldsStore = create<UserFieldsState>()(
   persist(
     (set, get) => ({
-      customFields: [],
+      customFields: DEFAULT_SAMPLE_FIELDS,
       hiddenFieldKeys: [],
 
       addCustomField: (field) => {
@@ -198,12 +211,15 @@ function parsePersistedState(raw: string | null): { customFields: UserCustomFiel
 async function fetchServerFields(): Promise<{ customFields: UserCustomField[]; hiddenFieldKeys: string[] }> {
   const rows = await api.get<Array<ServerCustomField & { id?: string }>>('/users/me/custom-fields')
   const safe = Array.isArray(rows) ? rows : []
+  const customFields = safe.length
+    ? safe.map((r) => ({
+        key: String(r.key),
+        label: String(r.label ?? r.key),
+        defaultValue: typeof r.defaultValue === 'string' ? r.defaultValue : '',
+      }))
+    : [...DEFAULT_SAMPLE_FIELDS]
   return {
-    customFields: safe.map((r) => ({
-      key: String(r.key),
-      label: String(r.label ?? r.key),
-      defaultValue: typeof r.defaultValue === 'string' ? r.defaultValue : '',
-    })),
+    customFields,
     hiddenFieldKeys: safe.filter((r) => !!r.isHidden).map((r) => String(r.key)),
   }
 }
@@ -224,11 +240,12 @@ if (typeof window !== 'undefined') {
       })
 
       if (!currentUserId) {
-        // Guest: load from local persisted key
+        // Guest: load from local persisted key; nếu chưa có gì thì dùng trường mẫu
         const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
         const guest = parsePersistedState(guestRaw)
+        const guestFields = guest?.customFields ?? []
         useUserFieldsStore.setState({
-          customFields: guest?.customFields ?? [],
+          customFields: guestFields.length ? guestFields : DEFAULT_SAMPLE_FIELDS,
           hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
         })
         return

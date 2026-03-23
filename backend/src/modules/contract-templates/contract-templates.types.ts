@@ -11,4 +11,3 @@ export interface ContractTemplateFile {
   size: number;
   lastModified: string | null;
 }
-

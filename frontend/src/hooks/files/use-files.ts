@@ -52,7 +52,7 @@ export function useDeleteFile() {
 }
 
 export function useStorageUsed(workspaceId: string) {
-  return useQuery<{ bytes: number }>({
+  return useQuery<{ bytes: number; limitBytes?: number }>({
     queryKey: ['files', 'storage', workspaceId],
     queryFn: () => api.get(`/files/storage/${workspaceId}`),
     enabled: !!workspaceId,

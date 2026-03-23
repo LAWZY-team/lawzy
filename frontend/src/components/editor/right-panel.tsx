@@ -16,6 +16,7 @@ import { LAWZY_FLUSH_MERGE_FIELD_DRAFTS } from '@/lib/editor/flush-merge-field-d
 import { useEditorStore } from '@/stores/editor-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { useWorkspaceFields } from '@/hooks/workspaces/use-workspace-fields'
 import { api } from '@/lib/api/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -24,11 +25,12 @@ import { useT } from '@/components/i18n-provider'
 interface RightPanelProps {
   editor: Editor | null
   onAuthRequired?: () => boolean | void
+  workspaceId?: string
 }
 
 type MergeFieldItem = { key: string; label: string; value: string }
 
-export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
+export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelProps) {
   const { t, locale } = useT()
   const [activeTab, setActiveTab] = useState('fields')
   const {
@@ -47,6 +49,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
   } = useEditorStore()
   const { customFields, addCustomField, removeCustomField } = useUserFieldsStore()
   const { isAuthenticated, user: currentUser } = useAuthStore()
+  const { data: workspaceFields = [] } = useWorkspaceFields(workspaceId ?? null)
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldDefault, setNewFieldDefault] = useState('')
   const [versions, setVersions] = useState<
@@ -115,6 +118,15 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
   const mergeFields: MergeFieldItem[] = useMemo(() => {
     const list: MergeFieldItem[] = [...baseMergeFields]
     const existing = new Set(list.map((f) => f.key))
+    for (const wf of workspaceFields) {
+      if (existing.has(wf.key) || wf.isHidden) continue
+      list.push({
+        key: wf.key,
+        label: wf.label.toUpperCase(),
+        value: mergeFieldValues[wf.key] ?? wf.defaultValue ?? '',
+      })
+      existing.add(wf.key)
+    }
     for (const cf of customFields) {
       if (existing.has(cf.key)) continue
       list.push({
@@ -134,7 +146,7 @@ export function RightPanel({ editor, onAuthRequired }: RightPanelProps) {
       existing.add(key)
     }
     return list
-  }, [baseMergeFields, customFields, mergeFieldValues, humanizeFieldKey])
+  }, [baseMergeFields, workspaceFields, customFields, mergeFieldValues, humanizeFieldKey])
 
   // Khi nhấn vào merge field trong canvas → smooth scroll + focus input tương ứng
   useEffect(() => {
