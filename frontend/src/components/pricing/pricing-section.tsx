@@ -1,9 +1,22 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { usePlans } from "@/hooks/plans/use-plans";
 import { PricingCard } from "./pricing-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useT } from "@/components/i18n-provider";
+import type { Plan } from "@/types/plan";
+
+const MONTHLY_SLUGS = ["free", "pro-monthly", "team"] as const;
+const YEARLY_SLUGS = ["free", "pro-yearly", "enterprise"] as const;
+
+function filterPlans(plans: Plan[], yearly: boolean): Plan[] {
+  const slugList: readonly string[] = yearly ? YEARLY_SLUGS : MONTHLY_SLUGS;
+  return plans
+    .filter((p) => slugList.includes(p.slug))
+    .sort((a, b) => slugList.indexOf(a.slug) - slugList.indexOf(b.slug));
+}
 
 interface PricingSectionProps {
   currentPlanSlug?: string | null;
@@ -12,6 +25,7 @@ interface PricingSectionProps {
   variant?: "default" | "compact";
   title?: string;
   subtitle?: string;
+  showBillingSwitch?: boolean;
 }
 
 export function PricingSection({
@@ -21,11 +35,17 @@ export function PricingSection({
   variant = "default",
   title,
   subtitle,
+  showBillingSwitch = true,
 }: PricingSectionProps) {
   const { t } = useT();
+  const [billingYearly, setBillingYearly] = useState(false);
   const sectionTitle = title ?? t("pricing_section_title");
   const sectionSubtitle = subtitle ?? t("pricing_section_subtitle");
   const { data: plans, isLoading } = usePlans();
+  const displayedPlans = useMemo(
+    () => (plans ? filterPlans(plans, billingYearly) : []),
+    [plans, billingYearly]
+  );
 
   if (isLoading) {
     return (
@@ -57,9 +77,24 @@ export function PricingSection({
             {sectionTitle}
           </h2>
           <p className="mt-1 text-muted-foreground">{sectionSubtitle}</p>
+          {showBillingSwitch && (
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <span
+                className={`text-sm font-medium ${!billingYearly ? "text-foreground" : "text-muted-foreground"}`}
+              >
+                {t("payment_billing_monthly")}
+              </span>
+              <Switch checked={billingYearly} onCheckedChange={setBillingYearly} />
+              <span
+                className={`text-sm font-medium ${billingYearly ? "text-foreground" : "text-muted-foreground"}`}
+              >
+                {t("payment_billing_yearly")}
+              </span>
+            </div>
+          )}
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          {plans.map((plan) => (
+          {displayedPlans.map((plan) => (
             <PricingCard
               key={plan.id}
               plan={plan}
@@ -67,6 +102,7 @@ export function PricingSection({
               loading={loadingPlanId === plan.id}
               onSelect={onSelectPlan ?? (() => {})}
               variant={variant}
+              allPlans={plans}
             />
           ))}
         </div>

@@ -18,6 +18,7 @@ import { HelpCenterModule } from './modules/help-center/help-center.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ArticlesModule,
     PlansModule,
     PaymentsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

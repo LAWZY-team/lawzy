@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 
+const AI_CREDITS_RENEWAL_DAYS = 30;
+const AI_CREDITS_LIMIT_MVP = 100;
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,16 +19,22 @@ export class DashboardService {
 
   async getOverview(userId: string) {
     const workspaceIds = await this.getWorkspaceIds(userId);
+    const baseEmpty = {
+      totalDocuments: 0,
+      draftDocuments: 0,
+      reviewDocuments: 0,
+      completedDocuments: 0,
+      totalFiles: 0,
+      totalSources: 0,
+      storageUsed: 0,
+      aiCreditsUsed: 0,
+      aiCreditsLimit: AI_CREDITS_LIMIT_MVP,
+      aiCreditsRemaining: AI_CREDITS_LIMIT_MVP,
+      nextRenewalAt: null as string | null,
+      aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
+    };
     if (workspaceIds.length === 0) {
-      return {
-        totalDocuments: 0,
-        draftDocuments: 0,
-        reviewDocuments: 0,
-        completedDocuments: 0,
-        totalFiles: 0,
-        totalSources: 0,
-        storageUsed: 0,
-      };
+      return baseEmpty;
     }
 
     const [
@@ -37,6 +46,7 @@ export class DashboardService {
       totalSources,
       fileSizes,
       sourceSizes,
+      creditInfo,
     ] = await Promise.all([
       this.prisma.document.count({
         where: { workspaceId: { in: workspaceIds } },
@@ -73,6 +83,7 @@ export class DashboardService {
         where: { workspaceId: { in: workspaceIds } },
         _sum: { size: true },
       }),
+      this.getUserCreditInfo(userId),
     ]);
 
     const storageUsed =
@@ -86,6 +97,55 @@ export class DashboardService {
       totalFiles,
       totalSources,
       storageUsed,
+      aiCreditsUsed: creditInfo.aiCreditsUsed,
+      aiCreditsLimit: creditInfo.aiCreditsLimit,
+      aiCreditsRemaining: creditInfo.aiCreditsRemaining,
+      nextRenewalAt: creditInfo.nextRenewalAt,
+      aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
+    };
+  }
+
+  /** Get user credit info with lazy reset when renewal cycle elapsed */
+  private async getUserCreditInfo(userId: string): Promise<{
+    aiCreditsUsed: number;
+    aiCreditsLimit: number;
+    aiCreditsRemaining: number;
+    nextRenewalAt: string | null;
+  }> {
+    let uc = await this.prisma.userCredit.findUnique({
+      where: { userId },
+    });
+
+    const now = new Date();
+    if (!uc) {
+      uc = await this.prisma.userCredit.create({
+        data: {
+          userId,
+          aiCreditsUsed: 0,
+          aiCreditsLimit: AI_CREDITS_LIMIT_MVP,
+          renewalStartedAt: now,
+        },
+      });
+    } else {
+      const nextRenewal = new Date(uc.renewalStartedAt);
+      nextRenewal.setDate(nextRenewal.getDate() + AI_CREDITS_RENEWAL_DAYS);
+      if (now >= nextRenewal) {
+        uc = await this.prisma.userCredit.update({
+          where: { userId },
+          data: { aiCreditsUsed: 0, renewalStartedAt: now },
+        });
+      }
+    }
+
+    const nextRenewal = new Date(uc.renewalStartedAt);
+    nextRenewal.setDate(nextRenewal.getDate() + AI_CREDITS_RENEWAL_DAYS);
+    const remaining = Math.max(0, uc.aiCreditsLimit - uc.aiCreditsUsed);
+
+    return {
+      aiCreditsUsed: uc.aiCreditsUsed,
+      aiCreditsLimit: uc.aiCreditsLimit,
+      aiCreditsRemaining: remaining,
+      nextRenewalAt: nextRenewal.toISOString(),
     };
   }
 

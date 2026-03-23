@@ -1,5 +1,6 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from "zustand";
+import { useGuestEditorSessionStore } from "./guest-editor-session-store";
+import { clearAuthCookie } from "@/lib/auth";
 
 export interface User {
   id: string
@@ -27,8 +28,6 @@ interface AuthState {
   fetchUser: () => Promise<void>
 }
 
-import { useGuestEditorSessionStore } from './guest-editor-session-store'
-
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -36,27 +35,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setAuthResolved: (resolved) => set({ authResolved: resolved }),
   logout: () => {
-    document.cookie = "auth_session=; path=/; max-age=0";
+    clearAuthCookie();
     set({ user: null, isAuthenticated: false, authResolved: true });
-    
-    if (typeof window !== 'undefined') {
-      ;(window as any).__isLoggingOut = true;
-      setTimeout(() => {
-        ;(window as any).__isLoggingOut = false;
-      }, 2000);
+
+    if (typeof window !== "undefined") {
+      (window as { __isLoggingOut?: boolean }).__isLoggingOut = true;
+      setTimeout(
+        () => ((window as { __isLoggingOut?: boolean }).__isLoggingOut = false),
+        2000
+      );
     }
 
-    // Dọn dẹp session guest draft tránh mồ côi
     useGuestEditorSessionStore.getState().clearSession();
     try {
-      sessionStorage.removeItem('lawzy-guest-editor-session');
+      sessionStorage.removeItem("lawzy-guest-editor-session");
     } catch {
-      /* ignore */
+      /**/
     }
   },
   fetchUser: async () => {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const res = await fetch("/api/auth/me", { credentials: "include" });
       if (res.ok) {
         const user = await res.json();
         if (user && !user.error) {
@@ -64,6 +63,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           return;
         }
       }
+      if (res.status === 401) clearAuthCookie();
       set({ user: null, isAuthenticated: false, authResolved: true });
     } catch {
       set({ user: null, isAuthenticated: false, authResolved: true });

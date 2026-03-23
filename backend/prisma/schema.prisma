@@ -35,6 +35,7 @@ model User {
   customFields          UserCustomField[]
   articles              Article[]
   payments              Payment[]
+  userCredit            UserCredit?
 
   @@map("users")
 }
@@ -335,4 +336,18 @@ model UserCustomField {
   @@unique([userId, key])
   @@index([userId])
   @@map("user_custom_fields")
+}
+
+model UserCredit {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  aiCreditsUsed     Int      @default(0) @map("ai_credits_used")
+  aiCreditsLimit    Int      @default(100) @map("ai_credits_limit")
+  renewalStartedAt DateTime @map("renewal_started_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credits")
 }

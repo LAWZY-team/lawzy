@@ -11,7 +11,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
 import { formatStorageDisplay } from "@/types/plan"
 
-const DEFAULT_STORAGE_LIMIT = 500 * 1024 * 1024 // 500 MB (free plan)
+const DEFAULT_STORAGE_LIMIT = 1 * 1024 * 1024 * 1024 // 1 GB (MVP free plan)
 
 type QuotaCardVariant = "all" | "quota" | "storage"
 
@@ -34,7 +34,7 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
       {(show === "all" || show === "quota") && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("dash_usage_stats")}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("dash_ai_credit")}</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -42,14 +42,24 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
               <Skeleton className="h-20 w-full" />
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">{totalDocs}</span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold">
+                    {data?.aiCreditsUsed ?? 0} / {data?.aiCreditsLimit ?? 100} {t("dash_ai_credit_used")}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {t("dash_total_docs_created")}
+                  {t("dash_ai_credit_remaining", { n: data?.aiCreditsRemaining ?? 100 })}
                 </p>
+                {data?.nextRenewalAt && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("dash_credit_renew_every", { n: data?.aiCreditsRenewalDays ?? 30 })}
+                    <br />
+                    {t("dash_next_renewal")}: {new Date(data.nextRenewalAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+                )}
                 <div className="pt-2 border-t flex items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{totalDocs}</span> {t("dash_total_docs_created")} &bull;{" "}
                     <span className="font-semibold text-foreground">{data?.totalFiles ?? 0}</span> {t("dash_files")} &bull;{" "}
                     <span className="font-semibold text-foreground">{data?.totalSources ?? 0}</span> {t("dash_sources")}
                   </p>

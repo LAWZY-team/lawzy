@@ -1,45 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-const PROTECTED_PATHS = [
-  "/dashboard",
-  "/documents",
-  "/editor",
-  "/fields",
-  "/settings",
-  "/templates",
-  "/workspace",
-  "/files",
-  "/payment",
-  "/sources",
-  "/admin",
-];
-
-const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
-}
-
-function isAuthPath(pathname: string): boolean {
-  return AUTH_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
-}
+import {
+  isProtectedPath,
+  isAuthPage,
+  hasAuthCookie,
+  loginPathWithReturn,
+} from "@/lib/auth";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasAuthSession = request.cookies.has("auth_session");
+  const authenticated = hasAuthCookie(request);
 
-  if (isProtectedPath(pathname) && !hasAuthSession) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("returnUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isProtectedPath(pathname) && !authenticated) {
+    return NextResponse.redirect(
+      new URL(loginPathWithReturn(pathname), request.url)
+    );
   }
 
-  if (isAuthPath(pathname) && hasAuthSession) {
+  if (isAuthPage(pathname) && authenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

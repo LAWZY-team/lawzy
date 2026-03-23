@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { loginPathWithReturn } from "@/lib/auth";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { PricingSection } from "@/components/pricing/pricing-section";
@@ -16,7 +17,7 @@ function PricingPageContent() {
       openContact();
       return;
     }
-    router.push("/login?callbackUrl=/payment");
+    router.push(loginPathWithReturn("/payment"));
   };
 
   return (
