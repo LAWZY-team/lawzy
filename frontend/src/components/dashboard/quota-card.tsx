@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Zap, HardDrive, ArrowUpCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
@@ -29,10 +30,13 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
   const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
   const totalDocs = data?.totalDocuments ?? 0
 
+  const cardHoverClass =
+    "transition-all duration-200 ease-out hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5"
+
   return (
     <>
       {(show === "all" || show === "quota") && (
-        <Card>
+        <Card className={cardHoverClass}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t("dash_ai_credit")}</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
@@ -77,7 +81,7 @@ export function QuotaCard({ show = "all" }: { show?: QuotaCardVariant }) {
         </Card>
       )}
       {(show === "all" || show === "storage") && (
-        <Card>
+        <Card className={DASHBOARD_CARD_HOVER}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t("dash_storage_label")}</CardTitle>
             <HardDrive className="h-4 w-4 text-muted-foreground" />

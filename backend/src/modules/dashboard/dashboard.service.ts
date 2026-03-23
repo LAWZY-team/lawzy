@@ -9,16 +9,21 @@ const AI_CREDITS_LIMIT_MVP = 100;
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getWorkspaceIds(userId: string): Promise<string[]> {
+  private async getWorkspaceIds(
+    userId: string,
+    scopeWorkspaceId?: string | null,
+  ): Promise<string[]> {
     const memberOf = await this.prisma.workspaceMember.findMany({
       where: { userId },
       select: { workspaceId: true },
     });
-    return memberOf.map((m) => m.workspaceId);
+    const ids = memberOf.map((m) => m.workspaceId);
+    if (scopeWorkspaceId && ids.includes(scopeWorkspaceId)) return [scopeWorkspaceId];
+    return ids;
   }
 
-  async getOverview(userId: string) {
-    const workspaceIds = await this.getWorkspaceIds(userId);
+  async getOverview(userId: string, workspaceId?: string | null) {
+    const workspaceIds = await this.getWorkspaceIds(userId, workspaceId);
     const baseEmpty = {
       totalDocuments: 0,
       draftDocuments: 0,
@@ -105,7 +110,6 @@ export class DashboardService {
     };
   }
 
-  /** Get user credit info with lazy reset when renewal cycle elapsed */
   private async getUserCreditInfo(userId: string): Promise<{
     aiCreditsUsed: number;
     aiCreditsLimit: number;
@@ -152,8 +156,9 @@ export class DashboardService {
   async getChartData(
     userId: string,
     period: 'week' | 'month' | 'year',
+    workspaceId?: string | null,
   ): Promise<{ date: string; count: number }[]> {
-    const workspaceIds = await this.getWorkspaceIds(userId);
+    const workspaceIds = await this.getWorkspaceIds(userId, workspaceId);
     if (workspaceIds.length === 0) {
       return [];
     }
@@ -219,8 +224,12 @@ export class DashboardService {
     return [];
   }
 
-  async getRecentDocuments(userId: string, limit: number) {
-    const workspaceIds = await this.getWorkspaceIds(userId);
+  async getRecentDocuments(
+    userId: string,
+    limit: number,
+    workspaceId?: string | null,
+  ) {
+    const workspaceIds = await this.getWorkspaceIds(userId, workspaceId);
     if (workspaceIds.length === 0) {
       return [];
     }

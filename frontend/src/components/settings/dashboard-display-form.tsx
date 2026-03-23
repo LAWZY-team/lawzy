@@ -18,25 +18,26 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import {
-  SIDEBAR_ITEM_HREFS,
-  type SidebarItemHref,
-  useSidebarDisplayStore,
-} from "@/stores/sidebar-display-store"
+  DASHBOARD_CARD_IDS,
+  type DashboardCardId,
+  useDashboardDisplayStore,
+} from "@/stores/dashboard-display-store"
 import { useT } from "@/components/i18n-provider"
 
-const HREF_TO_LABEL: Record<SidebarItemHref, string> = {
-  "/dashboard": "sidebar_dashboard",
-  "/documents": "sidebar_documents",
-  "/fields": "sidebar_profile",
-  "/templates": "sidebar_templates",
-  "/sources": "sidebar_sources",
-  "/files": "sidebar_storage",
-  "/payment": "sidebar_payment_short",
-  "/workspace": "sidebar_workspace",
-  "/settings": "sidebar_settings",
+const CARD_LABELS: Record<DashboardCardId, string> = {
+  total_docs: "dash_total_docs",
+  completed: "dash_completed",
+  drafting: "dash_drafting",
+  total_files: "dash_total_files",
+  ai_quota: "dash_ai_credit",
+  storage: "dash_storage_label",
+  referral: "referral_title",
+  chart: "dash_chart_title",
+  workspace_breakdown: "dash_stats_by_ws",
+  recent_docs: "recent_docs_title",
 }
 
-function makeDisplayFormSchema(t: (k: string) => string) {
+function makeDashboardDisplaySchema(t: (k: string) => string) {
   return z.object({
     items: z.array(z.string()).refine((value) => value.some((item) => item), {
       message: t("settings_sidebar_min_one"),
@@ -44,30 +45,30 @@ function makeDisplayFormSchema(t: (k: string) => string) {
   })
 }
 
-type DisplayFormValues = z.infer<ReturnType<typeof makeDisplayFormSchema>>
+type DisplayFormValues = z.infer<ReturnType<typeof makeDashboardDisplaySchema>>
 
-export function DisplayForm() {
+export function DashboardDisplayForm() {
   const { t } = useT()
-  const { visibleHrefs, setVisibleHrefs, resetToDefaults } = useSidebarDisplayStore()
-  const displayFormSchema = useMemo(() => makeDisplayFormSchema(t), [t])
+  const { enabledCards, setEnabledCards, resetToDefaults } = useDashboardDisplayStore()
+  const schema = useMemo(() => makeDashboardDisplaySchema(t), [t])
 
   const form = useForm<DisplayFormValues>({
-    resolver: zodResolver(displayFormSchema),
-    defaultValues: { items: visibleHrefs },
+    resolver: zodResolver(schema),
+    defaultValues: { items: enabledCards },
   })
 
   useEffect(() => {
-    form.reset({ items: visibleHrefs })
-  }, [visibleHrefs, form])
+    form.reset({ items: enabledCards })
+  }, [enabledCards, form])
 
-  const items = SIDEBAR_ITEM_HREFS.map((href) => ({
-    href,
-    labelKey: HREF_TO_LABEL[href],
+  const items = DASHBOARD_CARD_IDS.map((id) => ({
+    id,
+    label: t(CARD_LABELS[id] as keyof typeof CARD_LABELS),
   }))
 
   function onSubmit(data: DisplayFormValues) {
-    setVisibleHrefs(data.items as SidebarItemHref[])
-    toast.success(t("settings_sidebar_saved"))
+    setEnabledCards(data.items as DashboardCardId[])
+    toast.success(t("settings_dashboard_saved"))
   }
 
   return (
@@ -80,34 +81,34 @@ export function DisplayForm() {
             <FormItem>
               <div className="mb-4">
                 <FormLabel className="text-base">
-                  {t("settings_sidebar_title")}
+                  {t("settings_dashboard_cards_title")}
                 </FormLabel>
                 <FormDescription>
-                  {t("settings_sidebar_desc")}
+                  {t("settings_dashboard_cards_desc")}
                 </FormDescription>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {items.map((item) => (
                   <FormField
-                    key={item.href}
+                    key={item.id}
                     control={form.control}
                     name="items"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
                           <Checkbox
-                            checked={field.value?.includes(item.href)}
+                            checked={field.value?.includes(item.id)}
                             onCheckedChange={(checked) => {
                               return checked
-                                ? field.onChange([...(field.value || []), item.href])
+                                ? field.onChange([...(field.value || []), item.id])
                                 : field.onChange(
-                                    field.value?.filter((v) => v !== item.href)
+                                    field.value?.filter((v) => v !== item.id)
                                   )
                             }}
                           />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          {t(item.labelKey)}
+                          {item.label}
                         </FormLabel>
                       </FormItem>
                     )}
@@ -125,8 +126,8 @@ export function DisplayForm() {
             variant="outline"
             onClick={() => {
               resetToDefaults()
-              form.reset({ items: [...SIDEBAR_ITEM_HREFS] })
-              toast.success(t("settings_sidebar_reset"))
+              form.reset({ items: [...DASHBOARD_CARD_IDS] })
+              toast.success(t("settings_dashboard_reset"))
             }}
           >
             {t("settings_dashboard_reset_btn")}

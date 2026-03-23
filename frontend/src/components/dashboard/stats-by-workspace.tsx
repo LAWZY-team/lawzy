@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useWorkspaceBreakdown } from "@/hooks/dashboard/use-dashboard"
 import { useT } from "@/components/i18n-provider"
@@ -45,7 +46,7 @@ export function StatsByWorkspace() {
   const { t } = useT()
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className={`h-full flex flex-col ${DASHBOARD_CARD_HOVER}`}>
       <CardHeader>
         <CardTitle>{t("dash_stats_by_ws")}</CardTitle>
         <CardDescription>{t("dash_docs_per_ws")}</CardDescription>

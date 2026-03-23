@@ -1,5 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { useWorkspaceStore } from '@/stores/workspace-store';
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const q = Object.entries(params)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  return q ? `?${q}` : '';
+}
 
 interface DashboardOverview {
   totalDocuments: number;
@@ -37,9 +46,11 @@ interface WorkspaceBreakdown {
 }
 
 export function useDashboardOverview() {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   return useQuery<DashboardOverview>({
-    queryKey: ['dashboard', 'overview'],
-    queryFn: () => api.get('/dashboard/overview'),
+    queryKey: ['dashboard', 'overview', workspaceId ?? null],
+    queryFn: () =>
+      api.get(`/dashboard/overview${buildQueryString({ workspaceId: workspaceId ?? undefined })}`),
   });
 }
 
@@ -49,19 +60,23 @@ interface ChartApiPoint {
 }
 
 export function useDashboardChart(period: 'week' | 'month' | 'year') {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   return useQuery<ChartDataPoint[]>({
-    queryKey: ['dashboard', 'chart', period],
+    queryKey: ['dashboard', 'chart', period, workspaceId ?? null],
     queryFn: async () => {
-      const raw = await api.get<ChartApiPoint[]>(`/dashboard/chart?period=${period}`);
+      const qs = buildQueryString({ period, workspaceId: workspaceId ?? undefined });
+      const raw = await api.get<ChartApiPoint[]>(`/dashboard/chart${qs}`);
       return (raw ?? []).map((r) => ({ name: r.date, total: r.count }));
     },
   });
 }
 
 export function useRecentDocuments(limit = 10) {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
   return useQuery<RecentDocument[]>({
-    queryKey: ['dashboard', 'recent', limit],
-    queryFn: () => api.get(`/dashboard/recent?limit=${limit}`),
+    queryKey: ['dashboard', 'recent', limit, workspaceId ?? null],
+    queryFn: () =>
+      api.get(`/dashboard/recent${buildQueryString({ limit, workspaceId: workspaceId ?? undefined })}`),
   });
 }
 

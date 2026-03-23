@@ -8,26 +8,34 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('overview')
-  async getOverview(@Request() req: any) {
+  async getOverview(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
     const userId = req.user.userId;
-    return this.dashboardService.getOverview(userId);
+    return this.dashboardService.getOverview(userId, workspaceId || null);
   }
 
   @Get('chart')
   async getChart(
     @Request() req: any,
     @Query('period') period?: 'week' | 'month' | 'year',
+    @Query('workspaceId') workspaceId?: string,
   ) {
     const userId = req.user.userId;
     const p = period === 'month' || period === 'year' ? period : 'week';
-    return this.dashboardService.getChartData(userId, p);
+    return this.dashboardService.getChartData(userId, p, workspaceId || null);
   }
 
   @Get('recent')
-  async getRecent(@Request() req: any, @Query('limit') limitStr?: string) {
+  async getRecent(
+    @Request() req: any,
+    @Query('limit') limitStr?: string,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
     const userId = req.user.userId;
     const limit = limitStr ? parseInt(limitStr, 10) : 10;
-    return this.dashboardService.getRecentDocuments(userId, limit);
+    return this.dashboardService.getRecentDocuments(userId, limit, workspaceId || null);
   }
 
   @Get('workspace-breakdown')
