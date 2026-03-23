@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useGuestEditorSessionStore } from "./guest-editor-session-store";
+import { useWorkspaceStore } from "./workspace-store";
 import { clearAuthCookie } from "@/lib/auth";
 
 export interface User {
@@ -47,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     useGuestEditorSessionStore.getState().clearSession();
+    useWorkspaceStore.getState().setLoginScopedWorkspaceId(null);
     try {
       sessionStorage.removeItem("lawzy-guest-editor-session");
     } catch {

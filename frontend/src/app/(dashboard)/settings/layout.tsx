@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyRound, LogIn, User, LayoutDashboard, Palette } from "lucide-react"
+import { KeyRound, LogIn, User, LayoutDashboard } from "lucide-react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -29,11 +29,6 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
       title: t("settings_sessions"),
       href: "/settings/sessions",
       icon: <LogIn className="w-4 h-4" />,
-    },
-    {
-      title: t("settings_appearance"),
-      href: "/settings/appearance",
-      icon: <Palette className="w-4 h-4" />,
     },
     {
       title: t("settings_display"),

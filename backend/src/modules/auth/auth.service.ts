@@ -119,7 +119,11 @@ export class AuthService {
     return this.usersService.sanitize(user);
   }
 
-  async login(email: string, password: string) {
+  async login(
+    email: string,
+    password: string,
+    companyCode?: string,
+  ): Promise<{ user: ReturnType<UsersService['sanitize']>; activeWorkspaceId?: string }> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
@@ -128,7 +132,24 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
-    return this.usersService.sanitize(user);
+    const sanitized = this.usersService.sanitize(user);
+
+    if (companyCode?.trim()) {
+      const code = companyCode.trim().toUpperCase();
+      const workspace = await this.prisma.workspace.findFirst({
+        where: { companyCode: code },
+        include: {
+          members: { where: { userId: user.id }, select: { id: true } },
+        },
+      });
+      if (!workspace || workspace.members.length === 0) {
+        throw new UnauthorizedException(
+          'Mã công ty không hợp lệ hoặc bạn chưa được thêm vào workspace này',
+        );
+      }
+      return { user: sanitized, activeWorkspaceId: workspace.id };
+    }
+    return { user: sanitized };
   }
 
   async loginWithGoogle(idToken: string) {

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 
 const ARTICLE_TYPES = ['news', 'policy', 'document', 'announcement'] as const;
@@ -126,7 +131,15 @@ export class ArticlesService {
     authorId?: string;
     metadata?: unknown;
   }) {
-    const slug = data.slug?.trim() || slugify(data.title);
+    let slug = data.slug?.trim() || slugify(data.title);
+    slug = slug || 'article';
+
+    const existing = await this.prisma.article.findUnique({
+      where: { slug },
+    });
+    if (existing) {
+      slug = `${slug}-${Date.now().toString(36)}`;
+    }
 
     const status = ARTICLE_STATUSES.includes(
       (data.status as ArticleStatus) ?? 'draft',
@@ -138,7 +151,8 @@ export class ArticlesService {
       ? (data.type as ArticleType)
       : 'news';
 
-    return this.prisma.article.create({
+    try {
+      return await this.prisma.article.create({
       data: {
         type,
         title: data.title,
@@ -163,6 +177,16 @@ export class ArticlesService {
         },
       },
     });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          throw new ConflictException(
+            'Slug đã tồn tại. Vui lòng thử lại hoặc đổi tiêu đề.',
+          );
+        }
+      }
+      throw err;
+    }
   }
 
   async update(

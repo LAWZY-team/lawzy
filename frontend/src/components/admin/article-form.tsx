@@ -70,7 +70,6 @@ export function ArticleForm({
   actionsInHeader = false,
   formId = "article-form",
 }: ArticleFormProps) {
-  void formId
   const { t } = useT()
   const [form, setForm] = useState<ArticleFormData>({
     type: article?.type ?? "news",
@@ -114,7 +113,7 @@ export function ArticleForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       <div className="flex flex-wrap items-center gap-3 pb-3 border-b">
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground text-sm shrink-0">{t("admin_articles_type")}</Label>

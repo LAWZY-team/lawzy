@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/auth-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { AccountTypeSelector, type AccountType } from "@/components/auth/account-type-selector";
 import { BenefitsPanel } from "@/components/auth/benefits-panel";
@@ -34,6 +35,7 @@ function LoginForm() {
   const returnUrl = parseReturnUrl(searchParams);
   const { t } = useT();
   const { setUser } = useAuthStore();
+  const setLoginScopedWorkspaceId = useWorkspaceStore((s) => s.setLoginScopedWorkspaceId);
   const [accountType, setAccountType] = useState<AccountType>("personal");
   const [companyCode, setCompanyCode] = useState("");
   const [email, setEmail] = useState("");
@@ -83,6 +85,9 @@ function LoginForm() {
       }
 
       setUser(data.user);
+      if (data.activeWorkspaceId) {
+        setLoginScopedWorkspaceId(data.activeWorkspaceId);
+      }
       toast.success(t("auth_toast_success"));
       router.push(returnUrl);
     } catch {

@@ -68,14 +68,21 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.authService.login(dto.email, dto.password);
-    const tokens = await this.authService.generateTokens(user.id, user.email);
+    const result = await this.authService.login(
+      dto.email,
+      dto.password,
+      dto.companyCode,
+    );
+    const tokens = await this.authService.generateTokens(
+      result.user.id,
+      result.user.email,
+    );
     this.authService.setAuthCookies(
       res,
       tokens.accessToken,
       tokens.refreshToken,
     );
-    return { user };
+    return { user: result.user, activeWorkspaceId: result.activeWorkspaceId };
   }
 
   @Post('google')
