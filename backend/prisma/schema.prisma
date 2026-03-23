@@ -36,6 +36,7 @@ model User {
   articles              Article[]
   payments              Payment[]
   userCredit            UserCredit?
+  documentVersions      DocumentVersion[]
 
   @@map("users")
 }
@@ -217,8 +218,10 @@ model DocumentVersion {
   createdAt   DateTime @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  creator  User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
 
   @@index([documentId])
+  @@index([createdBy])
   @@map("document_versions")
 }
 
@@ -339,13 +342,15 @@ model UserCustomField {
 }
 
 model UserCredit {
-  id                String   @id @default(uuid())
-  userId            String   @unique @map("user_id")
-  aiCreditsUsed     Int      @default(0) @map("ai_credits_used")
-  aiCreditsLimit    Int      @default(100) @map("ai_credits_limit")
-  renewalStartedAt DateTime @map("renewal_started_at")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid())
+  userId              String   @unique @map("user_id")
+  aiCreditsUsed       Int      @default(0) @map("ai_credits_used")
+  aiCreditsLimit      Int      @default(100) @map("ai_credits_limit")
+  renewalStartedAt   DateTime @map("renewal_started_at")
+  aiCreditsUsedToday  Int      @default(0) @map("ai_credits_used_today")
+  aiCreditsUsedDate   DateTime? @map("ai_credits_used_date")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
