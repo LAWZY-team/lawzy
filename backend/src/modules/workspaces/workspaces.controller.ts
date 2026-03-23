@@ -32,6 +32,12 @@ export class WorkspacesController {
     return this.workspacesService.findByUser(userId);
   }
 
+  @Get('me/limits')
+  async limits(@Request() req: any) {
+    const userId = req.user.userId;
+    return this.workspacesService.getWorkspaceLimits(userId);
+  }
+
   @Post()
   async create(
     @Request() req: any,

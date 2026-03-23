@@ -12,10 +12,23 @@ export interface WorkspaceWithMembers extends Workspace {
   }>;
 }
 
+export interface WorkspaceLimits {
+  count: number;
+  limit: number | 'unlimited';
+  canCreate: boolean;
+}
+
 export function useWorkspaces() {
   return useQuery<Workspace[]>({
     queryKey: ['workspaces'],
     queryFn: () => api.get('/workspaces'),
+  });
+}
+
+export function useWorkspaceLimits() {
+  return useQuery<WorkspaceLimits>({
+    queryKey: ['workspaces', 'limits'],
+    queryFn: () => api.get<WorkspaceLimits>('/workspaces/me/limits'),
   });
 }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePlans } from "@/hooks/plans/use-plans";
+import { usePlans, filterPlansForDisplay } from "@/hooks/plans/use-plans";
 import { useContactModal } from "./contact-modal";
 import { PricingCard } from "@/components/pricing/pricing-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,16 +12,6 @@ import { Section, SectionHeader, sectionContainer } from "./landing-section";
 import type { Plan } from "@/types/plan";
 import { loginPathWithReturn } from "@/lib/auth";
 
-const MONTHLY_SLUGS = ["free", "pro-monthly", "team"] as const;
-const YEARLY_SLUGS = ["free", "pro-yearly", "enterprise"] as const;
-
-function filterPlans(plans: Plan[], yearly: boolean): Plan[] {
-  const slugList: readonly string[] = yearly ? YEARLY_SLUGS : MONTHLY_SLUGS;
-  return plans
-    .filter((p) => slugList.includes(p.slug))
-    .sort((a, b) => slugList.indexOf(a.slug) - slugList.indexOf(b.slug));
-}
-
 export default function LandingPricingSection() {
   const { t } = useI18n();
   const router = useRouter();
@@ -29,12 +19,12 @@ export default function LandingPricingSection() {
   const [billingYearly, setBillingYearly] = useState(false);
   const { data: plans, isLoading } = usePlans();
   const displayedPlans = useMemo(
-    () => (plans ? filterPlans(plans, billingYearly) : []),
+    () => (plans ? filterPlansForDisplay(plans, billingYearly) : []),
     [plans, billingYearly]
   );
 
-  const handleSelectPlan = (planId: string, slug: string) => {
-    if (slug === "enterprise") {
+  const handleSelectPlan = (_planId: string, _slug: string, plan: Plan) => {
+    if (plan.contactSales) {
       open();
       return;
     }
@@ -58,6 +48,36 @@ export default function LandingPricingSection() {
 
   if (!plans?.length) return null;
 
+  if (!displayedPlans.length) {
+    return (
+      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80">
+        <div className={sectionContainer}>
+          <SectionHeader
+            title={t("pricing_section_title")}
+            subtitle={t("pricing_section_subtitle")}
+            margin="tight"
+          />
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <span
+              className={`text-sm font-medium ${!billingYearly ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {t("payment_billing_monthly")}
+            </span>
+            <Switch checked={billingYearly} onCheckedChange={setBillingYearly} />
+            <span
+              className={`text-sm font-medium ${billingYearly ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {t("payment_billing_yearly")}
+            </span>
+          </div>
+          <p className="mt-8 text-center text-muted-foreground">
+            {billingYearly ? t("pricing_no_yearly_plans") : t("pricing_no_monthly_plans")}
+          </p>
+        </div>
+      </Section>
+    );
+  }
+
   return (
     <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80">
       <div className={sectionContainer}>
@@ -79,7 +99,15 @@ export default function LandingPricingSection() {
             {t("payment_billing_yearly")}
           </span>
         </div>
-        <div className="grid gap-6 md:grid-cols-3 mt-8">
+        <div
+          className={`grid gap-6 mt-8 ${
+            displayedPlans.length <= 2
+              ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+              : displayedPlans.length === 3
+                ? "md:grid-cols-3"
+                : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          }`}
+        >
           {displayedPlans.map((plan) => (
             <PricingCard
               key={plan.id}
