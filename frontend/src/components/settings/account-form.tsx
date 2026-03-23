@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useForm } from "react-hook-form"
@@ -36,39 +36,30 @@ import { useAuthStore } from "@/stores/auth-store"
 import { api } from "@/lib/api/client"
 import { useT } from "@/components/i18n-provider"
 
-const languages = [
-  { label: "Tiếng Việt", value: "vi" },
-  { label: "English", value: "en" },
-  { label: "French", value: "fr" },
-  { label: "German", value: "de" },
-  { label: "Spanish", value: "es" },
-  { label: "Portuguese", value: "pt" },
-  { label: "Russian", value: "ru" },
-  { label: "Japanese", value: "ja" },
-  { label: "Korean", value: "ko" },
-  { label: "Chinese", value: "zh" },
+const LANGUAGES = [
+  { labelKey: "lang_vi", value: "vi" as const },
+  { labelKey: "lang_en", value: "en" as const },
 ] as const
 
-const accountFormSchema = z.object({
-  name: z
-    .string()
-    .min(2, {
-      message: "Tên phải có ít nhất 2 ký tự.",
-    })
-    .max(100, {
-      message: "Tên không được quá 100 ký tự.",
-    }),
-  position: z.string().max(100).optional(),
-  dob: z.date().optional().nullable(),
-  language: z.string().optional(),
-})
+function makeAccountFormSchema(t: (k: string) => string) {
+  return z.object({
+    name: z
+      .string()
+      .min(2, { message: t("account_schema_name_min") })
+      .max(100, { message: t("account_schema_name_max") }),
+    position: z.string().max(100).optional(),
+    dob: z.date().optional().nullable(),
+    language: z.string().optional(),
+  })
+}
 
-type AccountFormValues = z.infer<typeof accountFormSchema>
+type AccountFormValues = z.infer<ReturnType<typeof makeAccountFormSchema>>
 
 export function AccountForm() {
-  const { t } = useT()
+  const { t, locale, setLocale } = useT()
   const user = useAuthStore((s) => s.user)
   const fetchUser = useAuthStore((s) => s.fetchUser)
+  const accountFormSchema = useMemo(() => makeAccountFormSchema(t), [t])
 
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
@@ -76,7 +67,7 @@ export function AccountForm() {
       name: user?.name ?? "",
       position: user?.position ?? "",
       dob: undefined,
-      language: "vi",
+      language: locale,
     },
   })
 
@@ -86,11 +77,11 @@ export function AccountForm() {
         name: user.name ?? "",
         position: user.position ?? "",
         dob: undefined,
-        language: "vi",
+        language: locale,
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.name, user?.position])
+  }, [user?.id, user?.name, user?.position, locale])
 
   async function onSubmit(data: AccountFormValues) {
     try {
@@ -101,7 +92,7 @@ export function AccountForm() {
       await fetchUser?.()
       toast.success(t("common_save") + "!")
     } catch {
-      toast.error("Cập nhật tài khoản thất bại")
+      toast.error(t("settings_account_update_failed"))
     }
   }
 
@@ -118,7 +109,7 @@ export function AccountForm() {
                 <Input placeholder={t("auth_name_placeholder")} {...field} />
               </FormControl>
               <FormDescription>
-                Tên này sẽ được hiển thị trên hồ sơ của bạn và trong email.
+                {t("settings_account_name_desc")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -133,7 +124,7 @@ export function AccountForm() {
             placeholder={t("auth_email_placeholder")}
           />
           <FormDescription>
-            Email đăng nhập. Liên hệ hỗ trợ nếu cần đổi email.
+            {t("settings_account_email_desc")}
           </FormDescription>
         </div>
         <FormField
@@ -146,7 +137,7 @@ export function AccountForm() {
                 <Input placeholder={t("auth_register_position_custom_placeholder")} {...field} />
               </FormControl>
               <FormDescription>
-                Chức vụ của bạn trong công ty hoặc tổ chức.
+                {t("settings_account_position_desc")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -157,14 +148,14 @@ export function AccountForm() {
           name="dob"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Ngày sinh</FormLabel>
+              <FormLabel>{t("settings_dob_label")}</FormLabel>
               <DatePicker
                 selected={field.value ?? undefined}
                 onSelect={field.onChange}
-                placeholder="Chọn ngày sinh (tùy chọn)"
+                placeholder={t("settings_dob_placeholder")}
               />
               <FormDescription>
-                Ngày sinh của bạn được sử dụng để tính tuổi. Có thể để trống.
+                {t("settings_dob_desc")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -175,7 +166,7 @@ export function AccountForm() {
           name="language"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Ngôn ngữ</FormLabel>
+              <FormLabel>{t("settings_language_label")}</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -188,46 +179,43 @@ export function AccountForm() {
                       )}
                     >
                       {field.value
-                        ? languages.find(
-                            (language) => language.value === field.value
-                          )?.label
-                        : "Chọn ngôn ngữ"}
+                        ? t(LANGUAGES.find((l) => l.value === field.value)?.labelKey ?? "lang_vi")
+                        : t("settings_language_select")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-[200px] p-0">
                   <Command>
-                    <CommandInput placeholder="Tìm kiếm ngôn ngữ..." />
-                    <CommandEmpty>Không tìm thấy ngôn ngữ.</CommandEmpty>
+                    <CommandInput placeholder={t("settings_language_search")} />
+                    <CommandEmpty>{t("settings_language_empty")}</CommandEmpty>
                     <CommandList>
-                        <CommandGroup>
-                        {languages.map((language) => (
-                            <CommandItem
-                            value={language.label}
-                            key={language.value}
+                      <CommandGroup>
+                        {LANGUAGES.map((lang) => (
+                          <CommandItem
+                            value={t(lang.labelKey)}
+                            key={lang.value}
                             onSelect={() => {
-                                form.setValue("language", language.value)
+                              form.setValue("language", lang.value)
+                              setLocale(lang.value)
                             }}
-                            >
+                          >
                             <Check
-                                className={cn(
+                              className={cn(
                                 "mr-2 h-4 w-4",
-                                language.value === field.value
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
+                                lang.value === field.value ? "opacity-100" : "opacity-0"
+                              )}
                             />
-                            {language.label}
-                            </CommandItem>
+                            {t(lang.labelKey)}
+                          </CommandItem>
                         ))}
-                        </CommandGroup>
+                      </CommandGroup>
                     </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
               <FormDescription>
-                Đây là ngôn ngữ sẽ được sử dụng trong bảng điều khiển.
+                {t("settings_language_desc")}
               </FormDescription>
               <FormMessage />
             </FormItem>

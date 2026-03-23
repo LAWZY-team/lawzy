@@ -15,6 +15,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorkspacesService } from './workspaces.service';
 import { UsersService } from '../users/users.service';
+import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspaces')
@@ -22,6 +23,7 @@ export class WorkspacesController {
   constructor(
     private readonly workspacesService: WorkspacesService,
     private readonly usersService: UsersService,
+    private readonly workspaceAccess: WorkspaceAccessService,
   ) {}
 
   @Get()
@@ -46,6 +48,7 @@ export class WorkspacesController {
 
   @Patch(':id')
   async update(
+    @Request() req: any,
     @Param('id') id: string,
     @Body()
     body: {
@@ -55,19 +58,26 @@ export class WorkspacesController {
       aiConfig?: unknown;
     },
   ) {
+    await this.workspaceAccess.requireMembership(id, req.user.userId);
+    await this.workspacesService.ensureMemberCanEdit(id, req.user.userId);
     return this.workspacesService.update(id, body);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
+  async delete(@Request() req: any, @Param('id') id: string) {
+    await this.workspaceAccess.requireMembership(id, req.user.userId);
+    await this.workspacesService.ensureMemberCanEdit(id, req.user.userId);
     return this.workspacesService.delete(id);
   }
 
   @Post(':id/members')
   async addMember(
+    @Request() req: any,
     @Param('id') workspaceId: string,
     @Body() body: { email: string; role: string },
   ) {
+    await this.workspaceAccess.requireMembership(workspaceId, req.user.userId);
+    await this.workspacesService.ensureMemberCanEdit(workspaceId, req.user.userId);
     const user = await this.usersService.findByEmail(body.email);
     if (!user) {
       throw new NotFoundException(`User with email ${body.email} not found`);
@@ -81,19 +91,24 @@ export class WorkspacesController {
 
   @Delete(':id/members/:userId')
   async removeMember(
+    @Request() req: any,
     @Param('id') workspaceId: string,
     @Param('userId') userId: string,
   ) {
+    await this.workspaceAccess.requireMembership(workspaceId, req.user.userId);
+    await this.workspacesService.ensureMemberCanEdit(workspaceId, req.user.userId);
     return this.workspacesService.removeMember(workspaceId, userId);
   }
 
   @Get(':id/stats')
-  async getStats(@Param('id') id: string) {
+  async getStats(@Request() req: any, @Param('id') id: string) {
+    await this.workspaceAccess.requireMembership(id, req.user.userId);
     return this.workspacesService.getStats(id);
   }
 
   @Get(':id/custom-fields')
   async getCustomFields(@Request() req: any, @Param('id') workspaceId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, req.user.userId);
     return this.workspacesService.getCustomFields(workspaceId);
   }
 

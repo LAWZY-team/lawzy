@@ -1,3 +1,5 @@
+# MySQL cho development local
+# Chạy từ root: docker compose -f docker/compose.dev.yml up -d
 version: "3.9"
 
 services:
@@ -9,7 +11,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: lawzy
     ports:
-      - "3307:3306"  # expose MySQL to your host on 3307
+      - "3307:3306"
     volumes:
       - mysql-data-dev:/var/lib/mysql
 

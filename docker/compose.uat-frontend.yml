@@ -1,10 +1,10 @@
-# UAT Frontend only
-# Coolify: base_directory: /, compose: docker-compose.uat-frontend.yml
+# UAT Frontend only (Coolify: compose riêng cho frontend)
+# Coolify: base_directory: /, compose: docker/compose.uat-frontend.yml
 # Env: BACKEND_URL=http://host.docker.internal:5001
 services:
   frontend-uat:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}

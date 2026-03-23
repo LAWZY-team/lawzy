@@ -2,6 +2,7 @@
 
 import type { JSONContent } from '@tiptap/core'
 import { useEditor, EditorContent } from '@tiptap/react'
+import { useT } from '@/components/i18n-provider'
 import StarterKit from '@tiptap/starter-kit'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -16,6 +17,7 @@ interface TipTapEditorProps {
 }
 
 export function TipTapEditor({ content, onChange, editable = true }: TipTapEditorProps) {
+  const { t } = useT()
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -39,7 +41,7 @@ export function TipTapEditor({ content, onChange, editable = true }: TipTapEdito
       TableCell,
       TableHeader,
       Placeholder.configure({
-        placeholder: 'Nhập nội dung hợp đồng hoặc sử dụng AI để tạo...',
+        placeholder: t("editor_placeholder"),
       }),
       MergeFieldExtension,
     ],
@@ -49,7 +51,7 @@ export function TipTapEditor({ content, onChange, editable = true }: TipTapEdito
         {
           type: 'heading',
           attrs: { level: 1 },
-          content: [{ type: 'text', text: 'HỢP ĐỒNG MỚI' }],
+          content: [{ type: 'text', text: t("editor_default_title") }],
         },
         {
           type: 'paragraph',

@@ -1,5 +1,5 @@
-# Backend + MySQL - chạy trên VPS Backend (ví dụ: 103.172.79.196)
-# Coolify: tạo Application riêng, base_directory: /, compose: docker-compose.prod-backend.yml
+# Production full stack
+# Chạy từ root: docker compose -f docker/compose.prod.yml up -d
 services:
   mysql:
     image: mysql:8.0
@@ -20,12 +20,11 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: lawzy-backend-prod
     restart: unless-stopped
     environment:
-      PORT: 5001
       DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/lawzy
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
@@ -35,19 +34,36 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_REGION: ${R2_REGION}
       NODE_ENV: production
-      FRONTEND_URL: ${FRONTEND_URL}
-    ports:
-      - "5001:5001"
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - lawzy-network
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: https://lawzy.vn
+        NEXT_PUBLIC_BACKEND_URL: https://lawzy.vn/api
+        BACKEND_URL: http://backend:5000
+    container_name: lawzy-frontend-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: http://backend:5000
+    depends_on:
+      - backend
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.lawzy-api.rule=Host(`api.lawzy.vn`)"
-      - "traefik.http.routers.lawzy-api.entrypoints=https"
-      - "traefik.http.routers.lawzy-api.tls=true"
-      - "traefik.http.routers.lawzy-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.lawzy-api.loadbalancer.server.port=5001"
+      - "traefik.http.routers.lawzy-prod.rule=Host(`lawzy.vn`) || Host(`www.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-prod.entrypoints=https"
+      - "traefik.http.routers.lawzy-prod.tls=true"
+      - "traefik.http.routers.lawzy-prod.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-prod.loadbalancer.server.port=3000"
     networks:
       - lawzy-network
       - coolify

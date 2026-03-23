@@ -55,6 +55,7 @@ export default function FilesPage() {
   const storageUsed = storage?.bytes ?? 0
   const storageLimit = storage?.limitBytes ?? DEFAULT_STORAGE_LIMIT
   const storagePercent = storageLimit > 0 ? (storageUsed / storageLimit) * 100 : 0
+  const hasWorkspace = !!workspaceId
 
   const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -86,6 +87,16 @@ export default function FilesPage() {
     link.href = `/api/proxy/files/${id}/download`
     link.download = name
     link.click()
+  }
+
+  if (!hasWorkspace) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <HardDrive className="h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">{t("files_title")}</h2>
+        <p className="text-muted-foreground text-center max-w-md">{t("workspace_select_hint")}</p>
+      </div>
+    )
   }
 
   return (

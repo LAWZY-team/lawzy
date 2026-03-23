@@ -53,32 +53,7 @@ export class WorkspacesService {
       },
     });
 
-    // Nếu user chưa thuộc workspace nào, tự động thêm vào workspace mặc định (workspace đầu tiên)
-    if (memberships.length === 0) {
-      const defaultWorkspace = await this.prisma.workspace.findFirst();
-
-      if (defaultWorkspace) {
-        const membership = await this.prisma.workspaceMember.create({
-          data: {
-            workspaceId: defaultWorkspace.id,
-            userId,
-            role: 'admin',
-          },
-          include: {
-            workspace: {
-              include: {
-                _count: {
-                  select: { members: true },
-                },
-              },
-            },
-          },
-        });
-
-        memberships = [membership];
-      }
-    }
-
+    // User chưa có workspace → trả về [] để frontend hiển thị onboarding tạo workspace cá nhân
     return memberships.map((m) => ({
       ...m.workspace,
       memberCount: m.workspace._count.members,

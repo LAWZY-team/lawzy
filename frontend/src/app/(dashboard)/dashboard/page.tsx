@@ -14,9 +14,11 @@ import { ReferralCard } from "@/components/dashboard/referral-card"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton"
 import { useAuthStore } from "@/stores/auth-store"
 import { useT } from "@/components/i18n-provider"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useDashboardDisplayStore } from "@/stores/dashboard-display-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -25,8 +27,15 @@ import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { useRouter } from "next/navigation"
 import { useRecentDocuments } from "@/hooks/dashboard/use-dashboard"
+import { useDashboardWorkspaceTransition } from "@/hooks/dashboard/use-dashboard-workspace-transition"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
+import {
+  DASHBOARD_CARD_HOVER,
+  DASHBOARD_GRID_QUOTA,
+  DASHBOARD_GRID_CHART,
+  DASHBOARD_CARD_ANIMATION,
+} from "@/components/dashboard/dashboard-card.styles"
 
 export default function DashboardPage() {
   useAuthStore()
@@ -34,15 +43,30 @@ export default function DashboardPage() {
   const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
   const { t } = useT()
 
-  const PERIOD_LABELS: Record<DashboardPeriod, string> = {
+  const periodLabels: Record<DashboardPeriod, string> = {
     week: t("dash_this_week"),
     month: t("dash_this_month"),
     year: t("dash_this_year"),
   }
   const { fetchWorkspaces } = useWorkspaceStore()
   const [period, setPeriod] = useState<DashboardPeriod>("year")
-
+  const enabledCards = useDashboardDisplayStore((s) => s.enabledCards)
+  const isTransitioning = useDashboardWorkspaceTransition()
   const { data: recentDocs, isLoading: recentLoading } = useRecentDocuments(10)
+
+  const statCardsEnabled =
+    enabledCards.includes("total_docs") ||
+    enabledCards.includes("completed") ||
+    enabledCards.includes("drafting") ||
+    enabledCards.includes("total_files")
+  const quotaCardsEnabled =
+    enabledCards.includes("ai_quota") ||
+    enabledCards.includes("storage") ||
+    enabledCards.includes("referral")
+  const chartCardsEnabled =
+    enabledCards.includes("chart") ||
+    enabledCards.includes("workspace_breakdown") ||
+    enabledCards.includes("recent_docs")
 
   useEffect(() => {
     fetchWorkspaces()
@@ -60,16 +84,20 @@ export default function DashboardPage() {
               <SelectValue placeholder={t("dash_period")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">{PERIOD_LABELS.week}</SelectItem>
-              <SelectItem value="month">{PERIOD_LABELS.month}</SelectItem>
-              <SelectItem value="year">{PERIOD_LABELS.year}</SelectItem>
+              <SelectItem value="week">{periodLabels.week}</SelectItem>
+              <SelectItem value="month">{periodLabels.month}</SelectItem>
+              <SelectItem value="year">{periodLabels.year}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <ScrollArea id="tour-dashboard-stats" className="flex-1 min-h-0 -mx-6 px-6">
-          <div className="space-y-4 pt-4 pb-8">
-            {/* Banner */}
+          {isTransitioning ? (
+            <div className="pt-4 pb-8">
+              <DashboardSkeleton />
+            </div>
+          ) : (
+          <div className={`space-y-4 pt-4 pb-8 ${DASHBOARD_CARD_ANIMATION}`}>
             <div className="bg-black rounded-lg p-6 text-white">
               <h3 className="text-xl font-semibold mb-2">{t("dash_cta_create_title")}</h3>
               <p className="text-sm text-gray-300 mb-4">{t("dash_cta_create_desc")}</p>
@@ -87,33 +115,42 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Stats */}
-            <StatsCards />
+            {statCardsEnabled && <StatsCards showCards={enabledCards} />}
 
-            {/* Quota + Storage + Referral */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <QuotaCard show="quota" />
-              <QuotaCard show="storage" />
-              <ReferralCard />
-            </div>
-
-            {/* Chart + Workspace breakdown + Recent docs */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-              <Card className="lg:col-span-4 py-3 gap-1.5 h-full flex flex-col">
-                <CardHeader className="pb-0 pt-0 px-4">
-                  <CardTitle className="text-sm">{t("dash_chart_title")}</CardTitle>
-                  <p className="text-xs text-muted-foreground">{PERIOD_LABELS[period]}</p>
-                </CardHeader>
-                <CardContent className="ps-2 pt-0 px-4 pb-2 flex-1">
-                  <div className="text-foreground [&_text]:fill-current">
-                    <OverviewChart period={period} height={160} />
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="lg:col-span-4 h-full">
-                <StatsByWorkspace />
+            {quotaCardsEnabled && (
+              <div className={DASHBOARD_GRID_QUOTA}>
+                {enabledCards.includes("ai_quota") && (
+                  <QuotaCard show="quota" />
+                )}
+                {enabledCards.includes("storage") && (
+                  <QuotaCard show="storage" />
+                )}
+                {enabledCards.includes("referral") && <ReferralCard />}
               </div>
-              <Card className="lg:col-span-4 h-full flex flex-col">
+            )}
+
+            {chartCardsEnabled && (
+              <div className={DASHBOARD_GRID_CHART}>
+                {enabledCards.includes("chart") && (
+                  <Card className={`py-3 gap-1.5 h-full flex flex-col ${DASHBOARD_CARD_HOVER}`}>
+                    <CardHeader className="pb-0 pt-0 px-4">
+                      <CardTitle className="text-sm">{t("dash_chart_title")}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{periodLabels[period]}</p>
+                    </CardHeader>
+                    <CardContent className="ps-2 pt-0 px-4 pb-2 flex-1">
+                      <div className="text-foreground [&_text]:fill-current">
+                        <OverviewChart period={period} height={160} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {enabledCards.includes("workspace_breakdown") && (
+                  <div className="h-full">
+                    <StatsByWorkspace />
+                  </div>
+                )}
+                {enabledCards.includes("recent_docs") && (
+                  <Card className={`h-full flex flex-col ${DASHBOARD_CARD_HOVER}`}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm">{t("recent_docs_title")}</CardTitle>
                   <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-xs">
@@ -162,8 +199,11 @@ export default function DashboardPage() {
                   )}
                 </CardContent>
               </Card>
-            </div>
+                )}
+              </div>
+            )}
           </div>
+          )}
         </ScrollArea>
       </div>
     </div>

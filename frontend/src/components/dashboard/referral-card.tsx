@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Gift, Copy, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth-store"
 import { toast } from "sonner"
@@ -27,7 +28,7 @@ export function ReferralCard() {
   }
 
   return (
-    <Card>
+    <Card className={DASHBOARD_CARD_HOVER}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{t("referral_title")}</CardTitle>
         <Gift className="h-4 w-4 text-muted-foreground" />

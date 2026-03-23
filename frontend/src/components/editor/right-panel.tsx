@@ -536,7 +536,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">
-                            {v.label || `Phiên bản ${versions.length - idx}`}
+                            {v.label || t("panel_version_n", { n: versions.length - idx })}
                           </div>
                           <div className="text-[11px] text-muted-foreground">
                             {new Date(v.createdAt).toLocaleString('vi-VN')}

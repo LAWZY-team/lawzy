@@ -44,6 +44,7 @@ export default function SourcesPage() {
   const { t } = useT()
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id ?? ""
+  const hasWorkspace = !!workspaceId
   const { data, isLoading } = useSources(workspaceId, { limit: 100 })
   const uploadMutation = useUploadSource()
   const [selectedSource, setSelectedSource] = useState<UploadSource | null>(null)
@@ -82,6 +83,16 @@ export default function SourcesPage() {
     if (successCount > 0) {
       toast.success(`Đã thêm ${successCount} nguồn`)
     }
+  }
+
+  if (!hasWorkspace) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <FolderInput className="h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Nguồn</h2>
+        <p className="text-muted-foreground text-center max-w-md">{t("workspace_select_hint")}</p>
+      </div>
+    )
   }
 
   return (

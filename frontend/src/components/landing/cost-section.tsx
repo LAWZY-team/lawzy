@@ -89,6 +89,9 @@ export default function CostSection() {
             <CostStat key={stat.valueKey} stat={stat} index={i} isVisible={isVisible} />
           ))}
         </div>
+        <p className="mt-4 text-center text-xs text-muted-foreground sm:mt-6">
+          {t("cost_stats_note")}
+        </p>
         <div className="mt-8 flex justify-center sm:mt-10">
           <SectionCta hint={t("hero_cta_hint")} />
         </div>

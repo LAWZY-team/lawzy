@@ -68,7 +68,8 @@ export class DocumentsController {
       throw new BadRequestException('Invalid status');
     }
     const workspaceId =
-      body.workspaceId ?? (await this.documentsService.getDefaultWorkspaceId());
+      body.workspaceId ??
+      (await this.documentsService.getDefaultWorkspaceId(userId));
     if (!workspaceId) {
       throw new BadRequestException('No workspace available');
     }
@@ -95,17 +96,24 @@ export class DocumentsController {
   }
 
   @Get('stats/:workspaceId')
-  async getStatsByWorkspace(@Param('workspaceId') workspaceId: string) {
-    return this.documentsService.getStatsByWorkspace(workspaceId);
+  async getStatsByWorkspace(
+    @Request() req: any,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.documentsService.getStatsByWorkspace(
+      req.user.userId,
+      workspaceId,
+    );
   }
 
   @Get(':id')
-  async getOne(@Param('id') id: string) {
-    return this.documentsService.findById(id);
+  async getOne(@Request() req: any, @Param('id') id: string) {
+    return this.documentsService.findById(id, req.user.userId);
   }
 
   @Patch(':id')
   async update(
+    @Request() req: any,
     @Param('id') id: string,
     @Body()
     body: {
@@ -116,12 +124,12 @@ export class DocumentsController {
       mergeFieldValues?: any;
     },
   ) {
-    return this.documentsService.update(id, body);
+    return this.documentsService.update(id, body, req.user.userId);
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
-    return this.documentsService.delete(id);
+  async delete(@Request() req: any, @Param('id') id: string) {
+    return this.documentsService.delete(id, req.user.userId);
   }
 
   @Post(':id/versions')
@@ -144,16 +152,24 @@ export class DocumentsController {
   }
 
   @Get(':id/versions')
-  async getVersions(@Param('id') documentId: string) {
-    return this.documentsService.getVersions(documentId);
+  async getVersions(
+    @Request() req: any,
+    @Param('id') documentId: string,
+  ) {
+    return this.documentsService.getVersions(documentId, req.user.userId);
   }
 
   @Get(':id/versions/:versionId')
   async getVersion(
+    @Request() req: any,
     @Param('id') documentId: string,
     @Param('versionId') versionId: string,
   ) {
-    return this.documentsService.getVersion(documentId, versionId);
+    return this.documentsService.getVersion(
+      documentId,
+      versionId,
+      req.user.userId,
+    );
   }
 
   @Post(':id/chat-messages')

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { z } from "zod"
 import { useFieldArray, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -18,24 +19,29 @@ import {
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth-store"
 import { api } from "@/lib/api/client"
+import { useT } from "@/components/i18n-provider"
 
-const profileFormSchema = z.object({
-  username: z
-    .string({ error: "Vui lòng nhập tên người dùng." })
-    .min(2, { message: "Tên người dùng phải có ít nhất 2 ký tự." })
-    .max(50, { message: "Tên người dùng không được quá 50 ký tự." }),
-  position: z.string({ error: "Vui lòng nhập chức vụ." }),
-  email: z.string({ error: "Vui lòng chọn email." }).email(),
-  bio: z.string().max(250, { message: "Tiểu sử không được quá 250 ký tự." }).optional(),
-  urls: z
-    .array(z.object({ value: z.string().url({ message: "Vui lòng nhập URL hợp lệ." }) }))
-    .optional(),
-})
+function makeProfileFormSchema(t: (k: string) => string) {
+  return z.object({
+    username: z
+      .string({ error: t("profile_schema_username_required") })
+      .min(2, { message: t("profile_schema_username_min") })
+      .max(50, { message: t("profile_schema_username_max") }),
+    position: z.string({ error: t("profile_schema_position_required") }),
+    email: z.string({ error: t("profile_schema_email_required") }).email(),
+    bio: z.string().max(250, { message: t("profile_schema_bio_max") }).optional(),
+    urls: z
+      .array(z.object({ value: z.string().url({ message: t("profile_schema_url_invalid") }) }))
+      .optional(),
+  })
+}
 
-type ProfileFormValues = z.infer<typeof profileFormSchema>
+type ProfileFormValues = z.infer<ReturnType<typeof makeProfileFormSchema>>
 
 export function ProfileForm() {
+  const { t } = useT()
   const { user, fetchUser } = useAuthStore()
+  const profileFormSchema = useMemo(() => makeProfileFormSchema(t), [t])
 
   const defaultValues: Partial<ProfileFormValues> = {
     username: user?.name ?? "",
@@ -64,9 +70,9 @@ export function ProfileForm() {
         position: data.position 
       })
       await fetchUser()
-      toast.success("Đã cập nhật hồ sơ thành công!")
+      toast.success(t("settings_profile_updated"))
     } catch {
-      toast.error("Cập nhật thất bại")
+      toast.error(t("settings_profile_update_failed"))
     }
   }
 
@@ -78,12 +84,12 @@ export function ProfileForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Họ và tên</FormLabel>
+              <FormLabel>{t("settings_profile_name_label")}</FormLabel>
               <FormControl>
-                <Input placeholder="Nguyễn Văn A" {...field} />
+                <Input placeholder={t("auth_name_placeholder")} {...field} />
               </FormControl>
               <FormDescription>
-                Tên hiển thị công khai của bạn trong hệ thống Lawzy.
+                {t("settings_profile_desc")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -94,9 +100,9 @@ export function ProfileForm() {
           name="position"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Chức vụ / Công việc</FormLabel>
+              <FormLabel>{t("auth_register_position")}</FormLabel>
               <FormControl>
-                <Input placeholder="Chức vụ của bạn" {...field} />
+                <Input placeholder={t("settings_profile_position_placeholder")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -107,7 +113,7 @@ export function ProfileForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{t("auth_email")}</FormLabel>
               <FormControl>
                 <Input {...field} disabled />
               </FormControl>
@@ -185,7 +191,7 @@ export function ProfileForm() {
           </Button> */}
         </div>
         <div className="flex justify-start gap-2">
-          <Button type="submit">Cập nhật hồ sơ</Button>
+          <Button type="submit">{t("settings_profile_btn_save")}</Button>
         </div>
       </form>
     </Form>

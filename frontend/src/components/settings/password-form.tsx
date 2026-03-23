@@ -27,20 +27,12 @@ export function PasswordForm() {
     setPasswordError("")
 
     if (newPassword !== confirmPassword) {
-      setPasswordError(
-        t("auth_register_confirm_password_placeholder")
-          ? "Mật khẩu xác nhận không khớp"
-          : "Passwords do not match"
-      )
+      setPasswordError(t("auth_password_mismatch"))
       return
     }
 
     if (currentPassword === newPassword) {
-      setPasswordError(
-        t("auth_register_confirm_password_placeholder")
-          ? "Mật khẩu mới không được trùng với mật khẩu hiện tại"
-          : "New password cannot be the same as current"
-      )
+      setPasswordError(t("auth_password_same_as_current"))
       return
     }
 
@@ -56,19 +48,13 @@ export function PasswordForm() {
         currentPassword,
         newPassword,
       })
-      toast.success(
-        t("auth_register_confirm_password_placeholder")
-          ? "Đổi mật khẩu thành công!"
-          : "Password changed successfully!"
-      )
+      toast.success(t("auth_password_change_success"))
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
     } catch (err) {
       const message = (err as Error).message
-      setPasswordError(
-        message || (t("auth_register_confirm_password_placeholder") ? "Đổi mật khẩu thất bại" : "Failed to change password")
-      )
+      setPasswordError(message || t("auth_password_change_failed"))
     } finally {
       setIsChanging(false)
     }
