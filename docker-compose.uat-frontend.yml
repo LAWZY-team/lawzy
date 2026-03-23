@@ -1,0 +1,36 @@
+# UAT Frontend (root-level for Coolify)
+# Coolify: base_directory: /, docker_compose_location: docker-compose.uat-frontend.yml
+# Env: BACKEND_URL=http://host.docker.internal:5001 (server-side proxy to UAT backend)
+services:
+  frontend-uat:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY}
+        NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
+        NEXT_PUBLIC_BACKEND_URL: https://uat.lawzy.vn/api
+        BACKEND_URL: ${BACKEND_URL}
+    container_name: lawzy-frontend-uat
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      BACKEND_URL: ${BACKEND_URL}
+      NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
+      NEXT_PUBLIC_BACKEND_URL: https://uat.lawzy.vn/api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lawzy-uat.rule=Host(`uat.lawzy.vn`)"
+      - "traefik.http.routers.lawzy-uat.entrypoints=https"
+      - "traefik.http.routers.lawzy-uat.tls=true"
+      - "traefik.http.routers.lawzy-uat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.lawzy-uat.loadbalancer.server.port=3000"
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true

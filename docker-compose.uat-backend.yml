@@ -1,5 +1,5 @@
-# UAT Backend + MySQL + NocoDB (Coolify: compose riêng cho backend)
-# Coolify: base_directory: /, compose: docker/compose.uat-backend.yml
+# UAT Backend (root-level for Coolify - context resolves correctly)
+# Coolify: base_directory: /, docker_compose_location: docker-compose.uat-backend.yml
 services:
   mysql:
     image: mysql:8.0
@@ -10,7 +10,7 @@ services:
       MYSQL_DATABASE: lawzy_uat
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - lawzy-network
     healthcheck:
@@ -22,7 +22,7 @@ services:
 
   backend-uat:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: lawzy-backend-uat
     restart: unless-stopped
