@@ -166,3 +166,11 @@ Khi user yêu cầu soạn hợp đồng (ví dụ “Trong điều khoản bả
 **Tham chiếu trong codebase:** Types: `src/types/upload-source.ts` (UploadSource, SourceChunk, SourceCitation). Mock: `src/mock/upload-sources.json`.
 
 *Tài liệu này là đặc tả tính năng để dev bắt tay triển khai và để AI sử dụng nguồn upload trong workflow soạn hợp đồng LAWZY.*
+
+---
+
+## Phụ lục: Chat AI & Citation (Analysis Noralib/Lawzy)
+
+- **ChatMessage** gắn Document; metadata có `thinking`, `toolCalls` cho AgentThinkingSteps.
+- **Citation output**: `content.sections[].citations[]` với sourceId, fileName, pageNumber, excerpt, usedInClause.
+- **Đề xuất mở rộng**: ChatConversation model (nhiều luồng chat/document); sidebar "Cuộc trò chuyện mới" + lịch sử; AgentThinkingSteps render toolCalls. Chi tiết schema/API xem SRS — mục 4 Chat AI & Conversation.

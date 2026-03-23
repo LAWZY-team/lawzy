@@ -12,3 +12,4 @@ nginx/ssl/
 coverage/
 backend/docs/LOCAL-DEV-UAT-DATABASE.md
 docs/BUILD-*.md
+nul
