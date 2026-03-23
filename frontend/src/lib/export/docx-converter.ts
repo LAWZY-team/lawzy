@@ -5,7 +5,11 @@ interface ExportMetadata {
   title?: string
 }
 
-export async function convertTipTapToDocx(content: JSONContent, metadata?: ExportMetadata) {
+export async function convertTipTapToDocx(
+  content: JSONContent,
+  metadata?: ExportMetadata,
+) {
+  void metadata
   const children: Paragraph[] = []
 
   // Convert TipTap JSON to docx

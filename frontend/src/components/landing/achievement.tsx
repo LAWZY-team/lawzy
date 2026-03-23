@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { useI18n } from "./language-provider";
 import FadeInOnScroll from "./fade-in-on-scroll";
@@ -17,13 +17,13 @@ export default function Achievement() {
     { id: 1, image: "/achievements/top10.jpg", title: "TOP 10 BEST TEAMS UNIVENTURE 2025" },
     { id: 2, image: "/achievements/1.jpg", title: t("achievement_item_title") },
   ];
-  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % achievements.length);
+  const nextSlide = useCallback(() => setCurrentIndex((prev) => (prev + 1) % achievements.length), [achievements.length]);
   const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + achievements.length) % achievements.length);
 
   useEffect(() => {
     const timer = setInterval(nextSlide, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [nextSlide]);
 
   return (
     <Section id="achievement" spacing="relaxed" className="relative overflow-hidden border-t border-gray-100 dark:border-gray-800">

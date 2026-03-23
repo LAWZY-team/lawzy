@@ -58,12 +58,10 @@ function MemberRow({
   m,
   canManage,
   onRemove,
-  t,
 }: {
   m: WorkspaceWithMembers["members"][0]
   canManage: boolean
   onRemove: () => void
-  t: (k: string) => string
 }) {
   return (
     <TableRow>
@@ -135,7 +133,7 @@ export default function WorkspacePage() {
     } else {
       setWorkspaceId(null)
     }
-  }, [currentWorkspace?.id, workspaceStore?.workspaces])
+  }, [currentWorkspace?.id, workspaceStore?.workspaces, workspaceStore])
 
   const { data: workspace, isLoading } = useWorkspace(workspaceId)
   const updateMutation = useUpdateWorkspace(workspaceId ?? "")
@@ -293,7 +291,6 @@ export default function WorkspacePage() {
                   m={m}
                   canManage={canManage}
                   onRemove={() => setRemoveMember(m)}
-                  t={t}
                 />
               ))}
             </TableBody>

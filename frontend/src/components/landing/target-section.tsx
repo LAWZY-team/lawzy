@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { useI18n } from "./language-provider";
 import { Building2, Scale, CheckCircle2 } from "lucide-react";

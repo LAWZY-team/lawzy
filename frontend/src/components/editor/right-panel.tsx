@@ -1,5 +1,6 @@
 "use client"
 
+import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
@@ -339,9 +340,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
               </div>
 
               <div className="grid gap-1.5">
-                {mergeFields.map((field, index) => {
-                  const isCustom = customFields.some((cf) => cf.key === field.key)
-                  return (
+                {mergeFields.map((field, index) => (
                     <Card
                       key={field.key}
                       id={`field-card-${field.key}`}
@@ -409,8 +408,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                         readOnly={!isAuthenticated}
                       />
                     </Card>
-                  )
-                })}
+                ))}
               </div>
 
               <Separator className="bg-border my-2" />
@@ -487,9 +485,11 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                   <Label className="text-xs text-muted-foreground">{t("panel_meta_creator")}</Label>
                   <div className="flex items-center gap-2">
                     {metadata.creator?.avatar || currentUser?.avatar ? (
-                      <img 
-                        src={metadata.creator?.avatar || currentUser?.avatar || undefined} 
-                        alt="Avatar" 
+                      <Image
+                        src={metadata.creator?.avatar || currentUser?.avatar || ""}
+                        alt="Avatar"
+                        width={24}
+                        height={24}
                         className="w-6 h-6 rounded-full object-cover"
                       />
                     ) : (

@@ -80,8 +80,6 @@ export default function EditorPage({
   const resolvedParams = use(params)
   const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
-  const draftId = typeof resolvedSearchParams.draft === 'string' ? resolvedSearchParams.draft : undefined
-
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues, metadata } = useEditorStore()
   const { customFields } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
@@ -126,12 +124,11 @@ export default function EditorPage({
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const thinkingProgress = useThinkingProgress(isGenerating)[0]
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
-  const draftInitRef = useRef(false)
   const guestRestoredRef = useRef(false)
   const initialLoadRef = useRef(true)
   const [isDirty, setIsDirty] = useState(false)
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
-  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const [pendingUrl] = useState<string | null>(null)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -490,8 +487,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, pendingUrl, router, t])
-  // Note: workspaceId kept in deps as it's still used (passed when available)
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t])
 
   const { isActive: isTourActive } = useOnboardingStore()
 
@@ -565,7 +561,7 @@ export default function EditorPage({
     return () => {
       editorElement.removeEventListener('click', handleEditorClick)
     }
-  }, [editor, isAuthenticated, isCanvasMode, editorContent, handleAuthRequired])
+  }, [editor, isAuthenticated, isCanvasMode, editorContent, handleAuthRequired, t])
 
   // Autosave authenticated documents (update live document, versions are manual)
   useEffect(() => {
@@ -573,7 +569,7 @@ export default function EditorPage({
     if (resolvedParams.id === 'new') return
     if (initialLoadRef.current) return
 
-    const t = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       api
@@ -586,12 +582,12 @@ export default function EditorPage({
         .then(() => {
           setIsDirty(false)
         })
-        .catch((e) => {
-          console.error(e)
-        })
+      .catch((err) => {
+        console.error(err)
+      })
     }, 800)
 
-    return () => clearTimeout(t)
+    return () => clearTimeout(timeoutId)
   }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
 
   const handleSave = async () => {
@@ -678,6 +674,13 @@ export default function EditorPage({
     let attachedSources: Array<{ fileName: string; text: string }> | undefined
     if (attachedFile) {
       try {
+        if (isAuthenticated && workspaceId) {
+          const uploadForm = new FormData()
+          uploadForm.append('file', attachedFile)
+          uploadForm.append('workspaceId', workspaceId)
+          await api.upload('/files/upload', uploadForm)
+          queryClient.invalidateQueries({ queryKey: ['files'] })
+        }
         const form = new FormData()
         form.append('file', attachedFile)
         const extractRes = await fetch('/api/extract-text', { method: 'POST', body: form })
@@ -701,7 +704,7 @@ export default function EditorPage({
     if (isAuthenticated) {
       try {
         await api.post('/ai/deduct-credit', workspaceId ? { workspaceId } : {})
-      } catch (e) {
+      } catch {
         toast.error(t('toast_ai_no_credit'))
         setIsGenerating(false)
         setThinkingProgress([])

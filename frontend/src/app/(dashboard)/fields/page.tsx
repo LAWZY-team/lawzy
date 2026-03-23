@@ -488,9 +488,11 @@ export default function FieldsPage() {
               className="bg-destructive text-destructive-foreground hover:text-destructive/90"
               onClick={(e) => {
                 e.preventDefault()
-                deleteConfirm?.type === "user"
-                  ? handleDeleteUserField()
-                  : handleDeleteWsField()
+                if (deleteConfirm?.type === "user") {
+                  handleDeleteUserField()
+                } else {
+                  handleDeleteWsField()
+                }
               }}
             >
               {t("common_delete")}

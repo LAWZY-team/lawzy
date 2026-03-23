@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { Image as ImageIcon, Loader2, X } from "lucide-react"
 import { useState } from "react"
 import {
@@ -178,10 +179,11 @@ export function HelpCenterPopover({ children }: HelpCenterPopoverProps) {
                   key={src}
                   className="relative aspect-square rounded-md overflow-hidden border bg-muted"
                 >
-                  <img
+                  <Image
                     src={src}
                     alt="preview"
-                    className="object-cover w-full h-full"
+                    fill
+                    className="object-cover"
                   />
                   <button
                     type="button"
