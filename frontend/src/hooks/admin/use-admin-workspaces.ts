@@ -54,9 +54,12 @@ export function useUpdateAdminWorkspace(id: string) {
   return useMutation({
     mutationFn: (body: { name?: string; plan?: string }) =>
       api.patch(`/admin/workspaces/${id}`, body),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey })
       qc.invalidateQueries({ queryKey: [...queryKey, id] })
+      if (variables.plan !== undefined) {
+        qc.invalidateQueries({ queryKey: ["plans"] })
+      }
     },
   })
 }

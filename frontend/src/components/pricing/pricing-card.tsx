@@ -8,13 +8,14 @@ import type { Plan, QuotaLimits } from "@/types/plan";
 import { formatStorageDisplay } from "@/types/plan";
 import { useT } from "@/components/i18n-provider";
 
-/** Compute yearly savings vs monthly. Returns { months, percent, originalPrice } or null. */
 export function computeYearlySavings(plan: Plan, allPlans: Plan[]): { months: number; percent: number; originalPrice: number } | null {
   if (plan.billingCycle !== "yearly" || plan.contactSales || plan.price === 0) return null;
-  const monthlyEquivalent: Record<string, string> = {
-    "pro-yearly": "pro-monthly",
-  };
-  const monthlySlug = monthlyEquivalent[plan.slug];
+  const monthlySlug =
+    (plan.quotaLimits as { monthlyEquivalentSlug?: string } | null)
+      ?.monthlyEquivalentSlug ??
+    (plan.slug.endsWith("-yearly")
+      ? plan.slug.replace(/-yearly$/, "-monthly")
+      : null);
   if (!monthlySlug) return null;
   const monthly = allPlans.find((p) => p.slug === monthlySlug);
   if (!monthly || monthly.price === 0) return null;
@@ -30,7 +31,7 @@ interface PricingCardProps {
   plan: Plan;
   currentPlanSlug?: string | null;
   loading?: boolean;
-  onSelect: (planId: string, slug: string) => void;
+  onSelect: (planId: string, slug: string, plan: Plan) => void;
   variant?: "default" | "compact";
   allPlans?: Plan[];
 }
@@ -58,12 +59,13 @@ export function PricingCard({
   const { t } = useT();
   const limits = getQuotaLimits(plan);
   const isCurrent = currentPlanSlug === plan.slug;
-  const isFree = plan.slug === "free";
+  const isFree = plan.price === 0;
   const savings = allPlans.length ? computeYearlySavings(plan, allPlans) : null;
 
   const handleClick = () => {
-    if (isCurrent || isFree) return;
-    onSelect(plan.id, plan.slug);
+    if (isCurrent) return;
+    if (isFree && !plan.contactSales) return;
+    onSelect(plan.id, plan.slug, plan);
   };
 
   return (

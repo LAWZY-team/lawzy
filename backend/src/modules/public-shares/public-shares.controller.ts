@@ -7,8 +7,10 @@ import {
   Param,
   Post,
   Body,
+  UseGuards,
 } from '@nestjs/common';
 import { PublicSharesService } from './public-shares.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 function assertToken(token: string): string {
   const t = (token ?? '').trim();
@@ -24,6 +26,7 @@ export class PublicSharesController {
   constructor(private readonly service: PublicSharesService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Header('Cache-Control', 'no-store')
   async create(@Body() body: { title?: string; html?: string }) {
     const title = body.title != null ? String(body.title).trim() : undefined;

@@ -2,19 +2,34 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useWorkspaceStore } from "@/stores/workspace-store"
-import { useDashboardOverview } from "./use-dashboard"
-import { useRecentDocuments } from "./use-dashboard"
+import { useDashboardInitial } from "./use-dashboard"
+import { useDashboardChart } from "./use-dashboard"
+import type { DashboardPeriod } from "@/components/dashboard/overview-chart"
 
-const MIN_SKELETON_MS = 350
+const MIN_SKELETON_MS = 200
 
-export function useDashboardWorkspaceTransition() {
+export interface UseDashboardWorkspaceTransitionOptions {
+  chartEnabled?: boolean
+  period?: DashboardPeriod
+}
+
+export function useDashboardWorkspaceTransition(
+  options: UseDashboardWorkspaceTransitionOptions = {}
+) {
+  const { chartEnabled = false, period = "year" } = options
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id)
   const prevWorkspaceId = useRef<string | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const transitionStart = useRef<number | null>(null)
 
-  const { isFetching: overviewFetching } = useDashboardOverview()
-  const { isFetching: recentFetching } = useRecentDocuments()
+  const { isFetching: initialFetching } = useDashboardInitial(10)
+  const { isFetching: chartFetching } = useDashboardChart(period, {
+    enabled: chartEnabled,
+  })
+
+  const criticalFetching = initialFetching
+  const chartFetchingRelevant = chartEnabled && chartFetching
+  const allSettled = !criticalFetching && !chartFetchingRelevant
 
   useEffect(() => {
     const changed = prevWorkspaceId.current !== workspaceId
@@ -33,17 +48,16 @@ export function useDashboardWorkspaceTransition() {
     if (!isTransitioning || transitionStart.current == null) return
 
     const elapsed = Date.now() - transitionStart.current
-    const settled = !overviewFetching && !recentFetching
     const minElapsed = elapsed >= MIN_SKELETON_MS
 
-    if (settled && minElapsed) {
+    if (allSettled && minElapsed) {
       const id = requestAnimationFrame(() => {
         setIsTransitioning(false)
         transitionStart.current = null
       })
       return () => cancelAnimationFrame(id)
     }
-  }, [isTransitioning, overviewFetching, recentFetching])
+  }, [isTransitioning, allSettled])
 
   return isTransitioning
 }

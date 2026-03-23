@@ -24,7 +24,7 @@ export const TurnstileWidget = forwardRef<TurnstileInstance | undefined, Turnsti
         <Turnstile
           ref={ref}
           siteKey={TURNSTILE_SITE_KEY}
-          options={{ size: "compact", theme: "light" }}
+          options={{ size: "normal", theme: "light" }}
           onSuccess={onSuccess}
           onError={onError}
           onExpire={onExpire}

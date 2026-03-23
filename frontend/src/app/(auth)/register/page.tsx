@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ export default function RegisterPage() {
   const [customPosition, setCustomPosition] = useState("");
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -180,7 +181,7 @@ export default function RegisterPage() {
         setIsLoading(false);
       }
     },
-    [router, setUser]
+    [router, setUser, t]
   );
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -219,7 +220,7 @@ export default function RegisterPage() {
 
   if (step === 4) {
     return (
-      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={4} />}>
+      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={4} />} contentMaxWidth="max-w-lg">
         <div className="w-full">
           <div className="mb-4 lg:hidden">
             <ProgressSteps steps={registerSteps} currentStep={4} />
@@ -249,7 +250,7 @@ export default function RegisterPage() {
 
   if (step === 3) {
     return (
-      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={3} />}>
+      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={3} />} contentMaxWidth="max-w-lg">
         <div className="w-full">
           <div className="mb-4 lg:hidden">
             <ProgressSteps steps={registerSteps} currentStep={3} />
@@ -320,7 +321,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={step} />}>
+    <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={step} />} contentMaxWidth="max-w-lg">
       <div className="w-full">
         <div className="mb-4 lg:hidden">
           <ProgressSteps steps={registerSteps} currentStep={step} />
@@ -407,29 +408,35 @@ export default function RegisterPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">{t("auth_register_confirm_password")} <span className="text-destructive">*</span></Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="Nhập lại mật khẩu"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      autoComplete="new-password"
-                      disabled={isLoading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder={t("auth_register_confirm_password_placeholder")}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                        disabled={isLoading}
+                        className="pr-10"
+                      />
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}>
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-start space-x-2 pt-2">
-                    <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={(c) => setAgreedToTerms(c === true)} disabled={isLoading} className="mt-0.5" />
-                    <Label htmlFor="terms" className="text-sm font-normal cursor-pointer leading-relaxed">
-                      {t("auth_register_agree_terms")}
-                      <button type="button" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer">
+                  <div className="flex items-center gap-2 pt-2 flex-nowrap">
+                    <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={(c) => setAgreedToTerms(c === true)} disabled={isLoading} className="shrink-0 mt-0" />
+                    <Label htmlFor="terms" className="text-sm font-normal cursor-pointer leading-relaxed flex items-center gap-1 flex-nowrap min-w-0">
+                      <span className="whitespace-nowrap">{t("auth_register_agree_terms")}</span>
+                      <button type="button" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer shrink-0">
                         {t("auth_register_terms_link")}
                       </button>
-                      {t("auth_register_and")}
-                      <button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer">
+                      <span className="whitespace-nowrap">{t("auth_register_and")}</span>
+                      <button type="button" onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }} className="underline hover:text-blue-500 bg-transparent border-0 cursor-pointer shrink-0">
                         {t("auth_register_privacy_link")}
                       </button>
-                      {t("auth_register_terms_suffix")}
+                      <span className="whitespace-nowrap">{t("auth_register_terms_suffix")}</span>
                     </Label>
                   </div>
                 </CardContent>

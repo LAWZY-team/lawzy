@@ -10,7 +10,7 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
   return q ? `?${q}` : '';
 }
 
-interface DashboardOverview {
+export interface DashboardOverview {
   totalDocuments: number;
   draftDocuments: number;
   reviewDocuments: number;
@@ -51,6 +51,7 @@ export function useDashboardOverview() {
     queryKey: ['dashboard', 'overview', workspaceId ?? null],
     queryFn: () =>
       api.get(`/dashboard/overview${buildQueryString({ workspaceId: workspaceId ?? undefined })}`),
+    staleTime: 15_000,
   });
 }
 
@@ -59,8 +60,12 @@ interface ChartApiPoint {
   count: number;
 }
 
-export function useDashboardChart(period: 'week' | 'month' | 'year') {
+export function useDashboardChart(
+  period: 'week' | 'month' | 'year',
+  options?: { enabled?: boolean }
+) {
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  const enabled = options?.enabled ?? true;
   return useQuery<ChartDataPoint[]>({
     queryKey: ['dashboard', 'chart', period, workspaceId ?? null],
     queryFn: async () => {
@@ -68,6 +73,8 @@ export function useDashboardChart(period: 'week' | 'month' | 'year') {
       const raw = await api.get<ChartApiPoint[]>(`/dashboard/chart${qs}`);
       return (raw ?? []).map((r) => ({ name: r.date, total: r.count }));
     },
+    enabled,
+    staleTime: 15_000,
   });
 }
 
@@ -77,6 +84,27 @@ export function useRecentDocuments(limit = 10) {
     queryKey: ['dashboard', 'recent', limit, workspaceId ?? null],
     queryFn: () =>
       api.get(`/dashboard/recent${buildQueryString({ limit, workspaceId: workspaceId ?? undefined })}`),
+    staleTime: 15_000,
+  });
+}
+
+interface DashboardInitialResponse {
+  overview: DashboardOverview;
+  recentDocuments: RecentDocument[];
+}
+
+export function useDashboardInitial(limit = 10) {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  return useQuery<DashboardInitialResponse>({
+    queryKey: ['dashboard', 'initial', workspaceId ?? null, limit],
+    queryFn: async () => {
+      const qs = buildQueryString({
+        workspaceId: workspaceId ?? undefined,
+        limit,
+      });
+      return api.get<DashboardInitialResponse>(`/dashboard/initial${qs}`);
+    },
+    staleTime: 15_000,
   });
 }
 

@@ -200,7 +200,7 @@ const DEFAULT_PLANS = [
     description: 'Liên hệ sales – admin kích hoạt workspace từ xa',
     descriptionEn: 'Contact sales – admin activates workspace remotely',
     price: 0,
-    billingCycle: 'monthly',
+    billingCycle: 'yearly',
     sortOrder: 4,
     isHighlighted: false,
     contactSales: true,

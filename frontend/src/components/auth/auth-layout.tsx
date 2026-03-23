@@ -19,9 +19,11 @@ export interface AuthLayoutProps {
   leftPanel?: React.ReactNode;
   rightPanel?: React.ReactNode;
   className?: string;
+  /** Override content max-width, e.g. "max-w-lg" for wider forms like register */
+  contentMaxWidth?: string;
 }
 
-export function AuthLayout({ children, leftPanel, rightPanel, className }: AuthLayoutProps) {
+export function AuthLayout({ children, leftPanel, rightPanel, className, contentMaxWidth = "max-w-md" }: AuthLayoutProps) {
   const { t, locale, setLocale } = useT();
 
   return (
@@ -61,7 +63,7 @@ export function AuthLayout({ children, leftPanel, rightPanel, className }: AuthL
           )}
 
           <div className="flex flex-col justify-start overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8">
-            <div className="w-full max-w-md mx-auto flex flex-col justify-center min-h-0 py-4 sm:py-6">
+            <div className={cn("w-full mx-auto flex flex-col justify-center min-h-0 py-4 sm:py-6", contentMaxWidth)}>
               {children}
             </div>
           </div>

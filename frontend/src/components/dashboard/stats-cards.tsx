@@ -3,9 +3,9 @@
 import { FileText, FileCheck, FileEdit, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDashboardOverview } from "@/hooks/dashboard/use-dashboard"
 import { useT } from "@/components/i18n-provider"
 import type { DashboardCardId } from "@/stores/dashboard-display-store"
+import type { DashboardOverview } from "@/hooks/dashboard/use-dashboard"
 import {
   DASHBOARD_CARD_HOVER,
   DASHBOARD_GRID_STATS,
@@ -52,11 +52,13 @@ const STAT_CARD_IDS = ["total_docs", "completed", "drafting", "total_files"] as 
 
 export function StatsCards({
   showCards,
+  overview,
+  isLoading,
 }: {
-  /** If provided, only these cards are rendered. Otherwise all. */
   showCards?: DashboardCardId[]
+  overview: DashboardOverview | null
+  isLoading: boolean
 }) {
-  const { data, isLoading } = useDashboardOverview()
   const { t } = useT()
 
   const visibleIds = showCards
@@ -65,7 +67,7 @@ export function StatsCards({
 
   const cards = visibleIds.map((id) => {
     const config = CARD_MAP[id]
-    const value = data?.[config.valueKey] ?? 0
+    const value = overview?.[config.valueKey] ?? 0
     return {
       id,
       title: t(config.titleKey),

@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { getR2Env } from '../../config/env';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
+import { sanitizeHtmlSafe } from '../../common/sanitize-html';
 import type { PublicShareSnapshot } from './public-shares.types';
 
 const SHARE_PREFIX = 'shares/public/';
@@ -42,11 +43,11 @@ export class PublicSharesService {
     title?: string;
     html: string;
   }): Promise<{ token: string }> {
-    const html = (params.html ?? '').trim();
-    if (!html) {
-      // Keep behavior simple; controller will map this to 400
+    const raw = (params.html ?? '').trim();
+    if (!raw) {
       throw new Error('html is required');
     }
+    const html = sanitizeHtmlSafe(raw);
 
     const token = makeToken();
     const key = `${SHARE_PREFIX}${token}.json`;

@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/landing/language-provider";
 import legalContent from "@/lib/i18n/legal.json";
 import { useArticleBySlug } from "@/hooks/articles/use-articles";
+import { sanitizeHtml } from "@/lib/sanitize";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
@@ -42,7 +43,7 @@ export default function TermPage() {
         ) : (
           <article
             className="lawzy-terms prose prose-lg max-w-none text-foreground [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-10 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:font-semibold"
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
           />
         )}
       </main>

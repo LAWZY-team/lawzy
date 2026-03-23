@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Users } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -307,7 +307,7 @@ export default function AdminUsersPage() {
                       <div className="min-w-0 flex-1">
                         <div className="font-medium truncate">{ws.name}</div>
                         <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                          <span className="capitalize">{ws.plan ?? "free"}</span>
+                          <span className="capitalize">{ws.plan ?? "—"}</span>
                           <span>•</span>
                           <span className="flex items-center gap-1">
                             <Users className="h-3 w-3" />

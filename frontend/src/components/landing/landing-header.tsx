@@ -3,16 +3,30 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useI18n } from "./language-provider";
 import { LocaleSwitcher } from "./locale-switcher";
-import { Menu, X, LogIn } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
+import { Menu, X, LogIn, LayoutDashboard, User, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LandingHeader() {
   const { t } = useI18n();
+  const router = useRouter();
+  const { user, isAuthenticated, authResolved, fetchUser, logout } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!authResolved) fetchUser();
+  }, [authResolved, fetchUser]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 100);
@@ -20,11 +34,19 @@ export default function LandingHeader() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      /**/
+    }
+    logout();
+    router.push("/");
+  };
+
   const navLinks = [
-    { href: "#features", label: t("nav_features") },
-    { href: "#pricing", label: t("nav_pricing") },
-    { href: "#target", label: t("nav_target") },
-    { href: "#achievement", label: t("nav_achievement") },
+    { href: "/pricing", label: t("nav_pricing") },
+    { href: "/news", label: t("footer_link_news") },
     { href: "/contact", label: t("nav_contact") },
   ];
 
@@ -56,24 +78,40 @@ export default function LandingHeader() {
             </nav>
 
             <div className="flex items-center justify-end gap-3 sm:gap-4 shrink-0 ml-auto md:ml-0">
-              <Link
-                href="/privacy-policy"
-                className="hidden sm:inline text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {t("footer_privacy")}
-              </Link>
-              <Link
-                href="/term"
-                className="hidden sm:inline text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {t("footer_terms")}
-              </Link>
-              <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
-                <Link href="/login">
-                  <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
-                  <span>{t("login")}</span>
-                </Link>
-              </Button>
+              {authResolved && isAuthenticated ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm gap-2">
+                      <span className="truncate max-w-[120px]">{user?.name ?? t("nav_user")}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        {t("nav_dashboard")}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings">
+                        <User className="mr-2 h-4 w-4" />
+                        {t("settings_title")}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      {t("auth_logout")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
+                  <Link href="/login">
+                    <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
+                    <span>{t("login")}</span>
+                  </Link>
+                </Button>
+              )}
 
               <div className="hidden sm:block">
                 <LocaleSwitcher />
@@ -119,14 +157,46 @@ export default function LandingHeader() {
                     {link.label}
                   </Link>
                 ))}
-                <div className="flex flex-wrap gap-4 pt-3 mt-2 border-t border-gray-100">
-                  <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setIsMobileMenuOpen(false)}>
-                    {t("footer_privacy")}
+                {authResolved && isAuthenticated ? (
+                  <div className="pt-3 mt-2 border-t border-gray-100 flex flex-col gap-1">
+                    <Link
+                      href="/dashboard"
+                      className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <LayoutDashboard className="h-5 w-5" />
+                      {t("nav_dashboard")}
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <User className="h-5 w-5" />
+                      {t("settings_title")}
+                    </Link>
+                    <button
+                      type="button"
+                      className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50 flex items-center gap-2 w-full text-left"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                    >
+                      <LogOut className="h-5 w-5" />
+                      {t("auth_logout")}
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="pt-3 mt-2 border-t border-gray-100 text-lg font-semibold text-orange-600 hover:text-orange-700 py-3 px-2 rounded-lg hover:bg-orange-50 flex items-center gap-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <LogIn className="h-5 w-5" />
+                    {t("login")}
                   </Link>
-                  <Link href="/term" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setIsMobileMenuOpen(false)}>
-                    {t("footer_terms")}
-                  </Link>
-                </div>
+                )}
                 <div className="pt-3 mt-2 border-t border-gray-100 sm:hidden">
                   <div onClick={() => setIsMobileMenuOpen(false)} className="px-2">
                     <LocaleSwitcher className="w-full justify-start h-11 text-base" />
