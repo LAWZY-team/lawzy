@@ -366,7 +366,7 @@ model EmailTemplate {
   name        String   @db.VarChar(200)
   description String?  @db.Text
   subject     String   @db.VarChar(300)
-  bodyHtml    String   @db.LongText
+  bodyHtml    String   @db.LongText @map("body_html")
   variables   Json?    // ["toName", "workspaceName", ...] - danh sách biến có thể dùng {{var}}
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
