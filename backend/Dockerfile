@@ -7,8 +7,8 @@ RUN npm ci
 COPY . .
 RUN npx prisma generate
 RUN npm run build
-# Compile policy-content.ts and seed.ts for prisma seed (production has no ts-node)
-RUN npx tsc prisma/policy-content.ts prisma/seed.ts --outDir prisma --module NodeNext --moduleResolution NodeNext --target ES2022 --esModuleInterop --skipLibCheck
+# Compile policy-content.ts, email-templates-seed.ts and seed.ts for prisma seed (production has no ts-node)
+RUN npx tsc prisma/policy-content.ts prisma/email-templates-seed.ts prisma/seed.ts --outDir prisma --module NodeNext --moduleResolution NodeNext --target ES2022 --esModuleInterop --skipLibCheck
 RUN rm -rf node_modules
 RUN npm ci --omit=dev
 RUN npx prisma generate
