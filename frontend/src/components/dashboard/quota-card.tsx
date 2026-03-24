@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DASHBOARD_CARD_HOVER } from "./dashboard-card.styles"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { DashboardOverview } from "@/hooks/dashboard/use-dashboard"
+import type { DashboardQuota } from "@/hooks/dashboard/use-dashboard"
 import { usePlans } from "@/hooks/plans/use-plans"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
@@ -20,7 +20,7 @@ export function QuotaCard({
   isLoading,
 }: {
   show?: QuotaCardVariant
-  overview: DashboardOverview | null
+  overview: DashboardQuota | null
   isLoading: boolean
 }) {
   const { data: plans } = usePlans()

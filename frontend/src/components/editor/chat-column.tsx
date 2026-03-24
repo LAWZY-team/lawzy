@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatMessageList } from './chat/chat-message-list'
 import { ChatInputArea } from './chat/chat-input-area'
-import { useDashboardOverview } from '@/hooks/dashboard/use-dashboard'
+import { useDashboardQuota } from '@/hooks/dashboard/use-dashboard'
 import type { ChatMessage } from './chat/types'
 export type { ChatMessage } from './chat/types'
 
@@ -41,7 +41,7 @@ export function ChatColumn({
   const [expandedThinking, setExpandedThinking] = useState<string | null>(() => lastWithThinking?.id ?? null)
   const [thinkingCollapsed, setThinkingCollapsed] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const { data: overview } = useDashboardOverview()
+  const { data: quota } = useDashboardQuota()
 
   useEffect(() => {
     if (isLoading && thinkingSteps.length > 0) {
@@ -119,9 +119,9 @@ export function ChatColumn({
         attachedFile={attachedFile}
         onAttachFile={onAttachFile}
         onRemoveAttachedFile={onRemoveAttachedFile}
-        aiCreditsUsed={overview?.aiCreditsUsed}
-        aiCreditsLimit={overview?.aiCreditsLimit}
-        aiCreditsRemaining={overview?.aiCreditsRemaining}
+        aiCreditsUsed={quota?.aiCreditsUsed}
+        aiCreditsLimit={quota?.aiCreditsLimit}
+        aiCreditsRemaining={quota?.aiCreditsRemaining}
       />
     </div>
   )

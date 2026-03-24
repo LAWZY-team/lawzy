@@ -9,8 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { QuotaCard } from "@/components/dashboard/quota-card"
-import { ReferralCard } from "@/components/dashboard/referral-card"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
@@ -30,7 +28,6 @@ import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import {
   DASHBOARD_CARD_HOVER,
-  DASHBOARD_GRID_QUOTA,
   DASHBOARD_GRID_CHART,
   DASHBOARD_CARD_ANIMATION,
 } from "@/components/dashboard/dashboard-card.styles"
@@ -59,10 +56,6 @@ export default function DashboardPage() {
     enabledCards.includes("completed") ||
     enabledCards.includes("drafting") ||
     enabledCards.includes("total_files")
-  const quotaCardsEnabled =
-    enabledCards.includes("ai_quota") ||
-    enabledCards.includes("storage") ||
-    enabledCards.includes("referral")
   const chartCardsEnabled =
     enabledCards.includes("chart") ||
     enabledCards.includes("workspace_breakdown") ||
@@ -113,18 +106,6 @@ export default function DashboardPage() {
 
             {statCardsEnabled && (
               <StatsCards showCards={enabledCards} overview={overview} isLoading={isLoading} />
-            )}
-
-            {quotaCardsEnabled && (
-              <div className={DASHBOARD_GRID_QUOTA}>
-                {enabledCards.includes("ai_quota") && (
-                  <QuotaCard show="quota" overview={overview} isLoading={isLoading} />
-                )}
-                {enabledCards.includes("storage") && (
-                  <QuotaCard show="storage" overview={overview} isLoading={isLoading} />
-                )}
-                {enabledCards.includes("referral") && <ReferralCard />}
-              </div>
             )}
 
             {chartCardsEnabled && (

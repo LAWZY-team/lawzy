@@ -34,13 +34,6 @@ export class DashboardService {
       reviewDocuments: 0,
       completedDocuments: 0,
       totalFiles: 0,
-      totalSources: 0,
-      storageUsed: 0,
-      aiCreditsUsed: 0,
-      aiCreditsLimit: AI_CREDITS_LIMIT_MVP,
-      aiCreditsRemaining: AI_CREDITS_LIMIT_MVP,
-      nextRenewalAt: null as string | null,
-      aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
     };
     if (workspaceIds.length === 0) {
       return baseEmpty;
@@ -52,10 +45,6 @@ export class DashboardService {
       reviewDocuments,
       completedDocuments,
       totalFiles,
-      totalSources,
-      fileSizes,
-      sourceSizes,
-      creditInfo,
     ] = await Promise.all([
       this.prisma.document.count({
         where: { workspaceId: { in: workspaceIds } },
@@ -81,6 +70,42 @@ export class DashboardService {
       this.prisma.file.count({
         where: { workspaceId: { in: workspaceIds } },
       }),
+    ]);
+
+    return {
+      totalDocuments,
+      draftDocuments,
+      reviewDocuments,
+      completedDocuments,
+      totalFiles,
+    };
+  }
+
+  async getQuotaOverview(userId: string, workspaceId?: string | null) {
+    const workspaceIds = await this.getWorkspaceIds(userId, workspaceId);
+    if (workspaceIds.length === 0) {
+      return {
+        totalFiles: 0,
+        totalSources: 0,
+        storageUsed: 0,
+        aiCreditsUsed: 0,
+        aiCreditsLimit: AI_CREDITS_LIMIT_MVP,
+        aiCreditsRemaining: AI_CREDITS_LIMIT_MVP,
+        nextRenewalAt: null as string | null,
+        aiCreditsRenewalDays: AI_CREDITS_RENEWAL_DAYS,
+      };
+    }
+
+    const [
+      totalFiles,
+      totalSources,
+      fileSizes,
+      sourceSizes,
+      creditInfo,
+    ] = await Promise.all([
+      this.prisma.file.count({
+        where: { workspaceId: { in: workspaceIds } },
+      }),
       this.prisma.source.count({
         where: { workspaceId: { in: workspaceIds } },
       }),
@@ -99,18 +124,10 @@ export class DashboardService {
       (fileSizes._sum.size ?? 0) + (sourceSizes._sum.size ?? 0);
 
     return {
-      totalDocuments,
-      draftDocuments,
-      reviewDocuments,
-      completedDocuments,
       totalFiles,
       totalSources,
       storageUsed,
-      aiCreditsUsed: creditInfo.aiCreditsUsed,
-      aiCreditsLimit: creditInfo.aiCreditsLimit,
-      aiCreditsRemaining: creditInfo.aiCreditsRemaining,
-      nextRenewalAt: creditInfo.nextRenewalAt,
-      aiCreditsRenewalDays: creditInfo.aiCreditsRenewalDays,
+      ...creditInfo,
     };
   }
 
