@@ -362,6 +362,28 @@ export class DocumentsService {
     });
   }
 
+  async updateVersion(
+    documentId: string,
+    versionId: string,
+    data: { label: string },
+    userId: string,
+  ) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: versionId, documentId },
+    });
+
+    if (!version) {
+      throw new NotFoundException('Version not found');
+    }
+
+    return this.prisma.documentVersion.update({
+      where: { id: versionId },
+      data: { label: data.label },
+    });
+  }
+
   async getVersions(documentId: string, userId: string) {
     await this.workspaceAccess.requireDocumentAccess(documentId, userId);
 

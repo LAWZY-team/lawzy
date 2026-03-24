@@ -190,6 +190,21 @@ export class DocumentsController {
     );
   }
 
+  @Patch(':id/versions/:versionId')
+  async updateVersion(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @Param('versionId') versionId: string,
+    @Body() body: { label: string },
+  ) {
+    return this.documentsService.updateVersion(
+      documentId,
+      versionId,
+      body,
+      req.user.userId,
+    );
+  }
+
   @Post(':id/chat-messages')
   async createChatMessage(
     @Request() req: any,
