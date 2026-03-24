@@ -491,6 +491,10 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                         width={24}
                         height={24}
                         className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.srcset = ""
+                          e.currentTarget.src = "/logo/lawzy-triangle.png"
+                        }}
                       />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white uppercase">

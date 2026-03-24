@@ -34,6 +34,11 @@ import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 import { fixMojibake } from "@/lib/fix-mojibake"
+import { QuotaCard } from "@/components/dashboard/quota-card"
+import { ReferralCard } from "@/components/dashboard/referral-card"
+import { useDashboardQuota } from "@/hooks/dashboard/use-dashboard"
+import { DASHBOARD_GRID_QUOTA } from "@/components/dashboard/dashboard-card.styles"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -61,6 +66,7 @@ export default function FilesPage() {
   })
   const { data: workspace } = useWorkspace(workspaceId)
   const deleteMutation = useDeleteFile()
+  const { data: quota, isLoading: isQuotaLoading } = useDashboardQuota()
 
   const files = data?.data ?? []
   const total = data?.total ?? 0
@@ -107,10 +113,17 @@ export default function FilesPage() {
   }
 
   return (
+    <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">{t("files_title")}</h2>
         <p className="text-muted-foreground">{t("files_subtitle")}</p>
+      </div>
+
+      <div className={DASHBOARD_GRID_QUOTA}>
+        <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
+        <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
+        <ReferralCard />
       </div>
 
       <div className="flex flex-wrap items-center gap-4 py-2">
@@ -243,12 +256,13 @@ export default function FilesPage() {
               size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-            >
+            > 
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
     </div>
+    </ScrollArea>
   )
 }

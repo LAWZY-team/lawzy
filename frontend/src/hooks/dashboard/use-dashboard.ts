@@ -16,6 +16,10 @@ export interface DashboardOverview {
   reviewDocuments: number;
   completedDocuments: number;
   totalFiles: number;
+}
+
+export interface DashboardQuota {
+  totalFiles: number;
   totalSources: number;
   storageUsed: number;
   aiCreditsUsed?: number;
@@ -51,6 +55,16 @@ export function useDashboardOverview() {
     queryKey: ['dashboard', 'overview', workspaceId ?? null],
     queryFn: () =>
       api.get(`/dashboard/overview${buildQueryString({ workspaceId: workspaceId ?? undefined })}`),
+    staleTime: 15_000,
+  });
+}
+
+export function useDashboardQuota() {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  return useQuery<DashboardQuota>({
+    queryKey: ['dashboard', 'quota', workspaceId ?? null],
+    queryFn: () =>
+      api.get(`/dashboard/quota${buildQueryString({ workspaceId: workspaceId ?? undefined })}`),
     staleTime: 15_000,
   });
 }

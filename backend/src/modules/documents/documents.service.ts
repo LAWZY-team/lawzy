@@ -241,7 +241,7 @@ export class DocumentsService {
         versions: {
           orderBy: { createdAt: 'desc' },
         },
-        chatMessages: true,
+        chatMessages: { orderBy: { createdAt: 'asc' } },
         creator: {
           select: { id: true, name: true, avatar: true },
         },
