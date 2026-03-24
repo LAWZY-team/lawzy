@@ -62,8 +62,18 @@ export class FilesService {
     const client = this.ensureClient();
     const bucket = this.getBucket();
     const uuid = randomUUID();
-    const originalName = data.file.originalname || 'file';
-    const key = `uploads/${data.workspaceId}/${uuid}-${originalName}`;
+    let originalName = data.file.originalname || 'file';
+    const mojibakeChars = /[\u00C2-\u00C6]/;
+    if (mojibakeChars.test(originalName)) {
+      try {
+        const fixed = Buffer.from(originalName, 'latin1').toString('utf8');
+        if (!fixed.includes('\uFFFD')) originalName = fixed;
+      } catch {
+        /* keep original */
+      }
+    }
+    const safeName = originalName.replace(/[^a-zA-Z0-9._\u00C0-\u024F\s-]/g, '_');
+    const key = `uploads/${data.workspaceId}/${data.userId}/${uuid}-${safeName}`;
 
     await client.send(
       new PutObjectCommand({
@@ -90,7 +100,7 @@ export class FilesService {
 
   async findByWorkspace(
     workspaceId: string,
-    opts?: { page?: number; limit?: number; userId?: string },
+    opts?: { page?: number; limit?: number; userId?: string; filterByUserId?: string },
   ) {
     if (opts?.userId) {
       await this.workspaceAccess.requireMembership(workspaceId, opts.userId);
@@ -98,18 +108,20 @@ export class FilesService {
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 20;
     const skip = (page - 1) * limit;
+    const where: { workspaceId: string; userId?: string } = { workspaceId };
+    if (opts?.filterByUserId) where.userId = opts.filterByUserId;
 
     const [data, total] = await Promise.all([
       this.prisma.file.findMany({
-        where: { workspaceId },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { name: true, avatar: true } },
+          user: { select: { id: true, name: true, avatar: true } },
         },
       }),
-      this.prisma.file.count({ where: { workspaceId } }),
+      this.prisma.file.count({ where }),
     ]);
 
     return { data, total, page, limit };

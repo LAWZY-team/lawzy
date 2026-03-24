@@ -5,6 +5,7 @@ const ALLOWED_TYPES = [
   'application/pdf',
   'application/msword', // .doc
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'text/plain', // .txt
 ]
 
 export async function POST(req: NextRequest) {
@@ -31,17 +32,33 @@ export async function POST(req: NextRequest) {
     const fileName = file.name
     const lower = fileName.toLowerCase()
     const isPdf = file.type === 'application/pdf' || lower.endsWith('.pdf')
-    const isWord = lower.endsWith('.doc') || lower.endsWith('.docx') ||
+    const isWord =
+      lower.endsWith('.doc') ||
+      lower.endsWith('.docx') ||
       file.type === 'application/msword' ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    const isTxt = file.type === 'text/plain' || lower.endsWith('.txt')
 
     let text: string
     if (isPdf) {
-      const { PDFParse } = await import('pdf-parse')
-      const parser = new PDFParse({ data: buffer })
-      const result = await parser.getText()
-      await parser.destroy()
-      text = result?.text ?? ''
+      const PDFParser = (await import('pdf2json')).default
+      text = await new Promise<string>((resolve, reject) => {
+        const parser = new PDFParser(null, true) // needRawText = true
+        parser.on('pdfParser_dataError', (err: { parserError?: Error } | Error) => {
+          reject((err as { parserError?: Error }).parserError ?? err)
+        })
+        parser.on('pdfParser_dataReady', () => {
+          try {
+            const raw = parser.getRawTextContent()
+            parser.destroy()
+            resolve(raw ?? '')
+          } catch (e) {
+            parser.destroy()
+            reject(e)
+          }
+        })
+        parser.parseBuffer(buffer, 0) // verbosity 0 = silent
+      })
     } else if (isWord) {
       try {
         const mammoth = await import('mammoth')
@@ -60,6 +77,8 @@ export async function POST(req: NextRequest) {
         }
         throw wordError
       }
+    } else if (isTxt) {
+      text = buffer.toString('utf-8')
     } else {
       text = ''
     }

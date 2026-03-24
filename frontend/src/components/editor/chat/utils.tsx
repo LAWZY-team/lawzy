@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 export const ACCEPT_ATTACH =
-  '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  '.pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain'
 
 /** Render text with **...** as bold (dùng cho nội dung phản hồi assistant có markdown đơn giản) */
 export function renderSimpleMarkdown(text: string): ReactNode {
@@ -20,5 +20,5 @@ export function renderSimpleMarkdown(text: string): ReactNode {
 
 export function acceptFile(file: File): boolean {
   const n = file.name.toLowerCase()
-  return (n.endsWith('.pdf') || n.endsWith('.doc') || n.endsWith('.docx')) && /\.(pdf|doc|docx)$/i.test(file.name)
+  return /\.(pdf|doc|docx|txt)$/i.test(file.name)
 }

@@ -3,6 +3,17 @@
 import { PanelRightOpen, Paperclip } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+
+function formatMessageTime(ts: Date | string): string {
+  const date = ts instanceof Date ? ts : new Date(ts)
+  const now = new Date()
+  const isToday = date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
+  return isToday
+    ? date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : `${date.getDate()}/${date.getMonth() + 1} ${date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+}
 import { Button } from '@/components/ui/button'
 import { ExpandableMessage } from './expandable-message'
 import { ChatThinkingBlock } from './chat-thinking-block'
@@ -61,7 +72,8 @@ export function ChatMessageBubble({
             'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm',
             message.role === 'user'
               ? 'bg-muted text-foreground rounded-tr-sm'
-              : 'bg-transparent text-foreground'
+              : 'bg-transparent text-foreground',
+            message.isError && 'border border-destructive/50 bg-destructive/5'
           )}
         >
           {message.thinking && (
@@ -77,6 +89,7 @@ export function ChatMessageBubble({
             content={message.content}
             isStreaming={message.isStreaming}
             role={message.role}
+            isError={message.isError}
           />
 
           {message.role === 'user' && message.attachedFileName && (
@@ -100,6 +113,12 @@ export function ChatMessageBubble({
             </div>
           )}
         </div>
+        <span className={cn(
+          'text-[10px] text-muted-foreground mt-1',
+          message.role === 'user' ? 'text-right' : 'text-left'
+        )}>
+          {formatMessageTime(message.timestamp)}
+        </span>
       </div>
     </motion.div>
   )

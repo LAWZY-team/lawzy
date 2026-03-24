@@ -60,7 +60,7 @@ export default function FieldsPage() {
   const { t } = useT()
   const workspaceStore = useStore(useWorkspaceStore, (s) => s)
   const currentWorkspace = workspaceStore?.currentWorkspace ?? null
-  const { customFields, addCustomField, updateCustomField, removeCustomField } =
+  const { customFields, addCustomField, addSampleFields, updateCustomField, removeCustomField } =
     useUserFieldsStore()
 
   const [userFields, setUserFields] = useState<FieldItem[]>([])
@@ -272,8 +272,26 @@ export default function FieldsPage() {
               ))
             ) : isEmpty ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  Chưa có trường nào. Thêm trường để AI dùng khi soạn hợp đồng.
+                <TableCell colSpan={5} className="py-8">
+                  <div className="flex flex-col items-center justify-center gap-4 text-center">
+                    <p className="text-muted-foreground max-w-sm">
+                      {t("settings_fields_empty_hint")}
+                    </p>
+                    <Button
+                      onClick={() => {
+                        addSampleFields()
+                        toast.success(t("settings_fields_sample_added"))
+                      }}
+                      variant="default"
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t("settings_fields_add_sample")}
+                    </Button>
+                    <p className="text-xs text-muted-foreground/80 max-w-xs">
+                      {t("settings_fields_sample_hint")}
+                    </p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (

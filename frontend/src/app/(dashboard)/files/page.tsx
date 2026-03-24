@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive } from "lucide-react"
+import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,6 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -21,10 +28,12 @@ import {
 } from "@/components/ui/table"
 import { useFiles, useDeleteFile } from "@/hooks/files/use-files"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useWorkspace } from "@/hooks/workspaces/use-workspaces"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
+import { fixMojibake } from "@/lib/fix-mojibake"
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -35,17 +44,28 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
 }
 
+const PAGE_SIZE = 20
+
 export default function FilesPage() {
   const { t } = useT()
   const [searchQuery, setSearchQuery] = useState("")
+  const [page, setPage] = useState(1)
+  const [filterByUserId, setFilterByUserId] = useState<string>("")
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id ?? ""
 
-  const { data, isLoading } = useFiles(workspaceId, { limit: 100 })
+  const { data, isLoading } = useFiles(workspaceId, {
+    page,
+    limit: PAGE_SIZE,
+    filterByUserId: filterByUserId || undefined,
+  })
+  const { data: workspace } = useWorkspace(workspaceId)
   const deleteMutation = useDeleteFile()
 
   const files = data?.data ?? []
+  const total = data?.total ?? 0
   const hasWorkspace = !!workspaceId
+  const members = workspace?.members ?? []
 
   const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -63,8 +83,17 @@ export default function FilesPage() {
   const handleDownload = (id: string, name: string) => {
     const link = document.createElement("a")
     link.href = `/api/proxy/files/${id}/download`
-    link.download = name
+    link.download = fixMojibake(name)
     link.click()
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const start = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const end = Math.min(page * PAGE_SIZE, total)
+
+  const handleFilterChange = (value: string) => {
+    setFilterByUserId(value === "all" ? "" : value)
+    setPage(1)
   }
 
   if (!hasWorkspace) {
@@ -84,7 +113,7 @@ export default function FilesPage() {
         <p className="text-muted-foreground">{t("files_subtitle")}</p>
       </div>
 
-      <div className="flex items-center py-2">
+      <div className="flex flex-wrap items-center gap-4 py-2">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -94,16 +123,30 @@ export default function FilesPage() {
             className="pl-8"
           />
         </div>
+        <Select value={filterByUserId || "all"} onValueChange={handleFilterChange}>
+          <SelectTrigger className="w-[200px]" size="sm">
+            <SelectValue placeholder={t("files_filter_uploader")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("files_filter_all")}</SelectItem>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {m.user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tên tập tin</TableHead>
-              <TableHead>Kích thước</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Ngày tải lên</TableHead>
+              <TableHead>{t("files_table_name")}</TableHead>
+              <TableHead>{t("files_table_size")}</TableHead>
+              <TableHead>{t("files_table_type")}</TableHead>
+              <TableHead>{t("files_uploader")}</TableHead>
+              <TableHead>{t("files_table_uploaded_at")}</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -115,12 +158,13 @@ export default function FilesPage() {
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell />
                 </TableRow>
               ))
             ) : filteredFiles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground h-32">
+                <TableCell colSpan={6} className="text-center text-muted-foreground h-32">
                   {searchQuery ? t("files_not_found") : t("files_empty")}
                 </TableCell>
               </TableRow>
@@ -132,12 +176,15 @@ export default function FilesPage() {
                       <div className="p-2 bg-muted rounded-md">
                         <FileIcon className="h-4 w-4 text-blue-500" />
                       </div>
-                      <span>{file.name}</span>
+                      <span title={fixMojibake(file.name)}>{fixMojibake(file.name)}</span>
                     </div>
                   </TableCell>
                   <TableCell>{formatBytes(file.size)}</TableCell>
                   <TableCell className="max-w-[200px] truncate" title={file.mimeType}>
                     {file.mimeType.split('/')[1]?.toUpperCase() || 'FILE'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {file.user?.name ?? '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {formatDistanceToNow(new Date(file.createdAt), {
@@ -173,6 +220,35 @@ export default function FilesPage() {
           </TableBody>
         </Table>
       </div>
+
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            {t("files_pagination", { start, end, total })}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

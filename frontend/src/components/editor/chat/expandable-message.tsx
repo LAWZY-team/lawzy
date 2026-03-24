@@ -1,22 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { renderSimpleMarkdown } from './utils'
 
 interface ExpandableMessageProps {
   content: string
   isStreaming?: boolean
   role: 'user' | 'assistant'
+  isError?: boolean
 }
 
-export function ExpandableMessage({ content, isStreaming, role }: ExpandableMessageProps) {
+export function ExpandableMessage({ content, isStreaming, role, isError }: ExpandableMessageProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const maxLength = role === 'user' ? 300 : 2000
   const useMarkdown = role === 'assistant'
 
   if (content.length <= maxLength || isStreaming) {
     return (
-      <div className="whitespace-pre-wrap markdown-content">
+      <div className={cn('whitespace-pre-wrap markdown-content', isError && 'text-destructive')}>
         {useMarkdown ? renderSimpleMarkdown(content) : content}
         {isStreaming && (
           <span className="inline-block w-2 h-4 ml-2 align-middle bg-blue-400 animate-pulse" />
@@ -28,7 +30,7 @@ export function ExpandableMessage({ content, isStreaming, role }: ExpandableMess
   const displayContent = isExpanded ? content : `${content.slice(0, maxLength)}...`
   return (
     <div className="flex flex-col items-start">
-      <div className="whitespace-pre-wrap markdown-content">
+      <div className={cn('whitespace-pre-wrap markdown-content', isError && 'text-destructive')}>
         {useMarkdown ? renderSimpleMarkdown(displayContent) : displayContent}
       </div>
       <button

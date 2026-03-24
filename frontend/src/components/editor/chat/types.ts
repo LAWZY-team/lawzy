@@ -1,3 +1,9 @@
+export interface ToolCallItem {
+  name: string
+  args: Record<string, unknown>
+  result: unknown
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -8,4 +14,5 @@ export interface ChatMessage {
   isError?: boolean
   hasContract?: boolean
   attachedFileName?: string
+  toolCalls?: ToolCallItem[]
 }

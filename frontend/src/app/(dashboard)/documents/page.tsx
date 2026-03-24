@@ -1,6 +1,7 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FileText, MoreVertical, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -19,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
+import { useDocuments, useSharedDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store"
 import { formatDistanceToNow } from "date-fns"
@@ -28,22 +30,46 @@ import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 
-export default function DocumentsPage() {
+const STATUS_KEYS = [
+  "draft",
+  "review",
+  "approved",
+  "signed",
+  "completed",
+  "archived",
+] as const
+
+function formatDate(date: string) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: vi })
+}
+
+function DocumentsContent() {
   const router = useRouter()
-  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace)
-  const { clearSession: clearEditorSession } = useGuestEditorSessionStore()
+  const searchParams = useSearchParams()
+  const activeTab = searchParams.get("tab") === "shared" ? "shared" : "mine"
   const { t } = useT()
-  const statusLabels: Record<string, string> = {
-    draft: t("status_draft"),
-    review: t("status_review"),
-    approved: t("status_approved"),
-    signed: t("status_signed"),
-    completed: t("status_completed"),
-    archived: t("status_archived"),
-  }
-  const { data, isLoading } = useDocuments(currentWorkspace?.id, { limit: 50 })
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace)
+  const { clearSession } = useGuestEditorSessionStore()
   const deleteMutation = useDeleteDocument()
-  const documents = data?.data ?? []
+
+  const { data: mineData, isLoading: mineLoading } = useDocuments(
+    currentWorkspace?.id,
+    { limit: 50 }
+  )
+  const { data: sharedData, isLoading: sharedLoading } = useSharedDocuments(
+    currentWorkspace?.id,
+    { limit: 50 }
+  )
+
+  const mineDocs = mineData?.data ?? []
+  const sharedDocs = sharedData?.data ?? []
+  const statusLabels = Object.fromEntries(
+    STATUS_KEYS.map((k) => [k, t(`status_${k}`)])
+  )
+
+  const setTab = (tab: "mine" | "shared") => {
+    router.replace(tab === "mine" ? "/documents" : "/documents?tab=shared")
+  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -58,15 +84,15 @@ export default function DocumentsPage() {
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">{t("docs_my_documents")}</h2>
-          <p className="text-muted-foreground">
-            {t("docs_manage_all")}
-          </p>
+          <h2 className="text-3xl font-bold tracking-tight">
+            {t("sidebar_documents")}
+          </h2>
+          <p className="text-muted-foreground">{t("docs_manage_all")}</p>
         </div>
         <Button
           id="tour-documents-create"
           onClick={() => {
-            clearEditorSession()
+            clearSession()
             router.push("/editor/new")
           }}
         >
@@ -75,91 +101,166 @@ export default function DocumentsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("recent_docs_name")}</TableHead>
-              {/* <TableHead>{t("recent_docs_type")}</TableHead> */}
-              <TableHead>{t("recent_docs_status")}</TableHead>
-              <TableHead>{t("recent_docs_updated")}</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell />
+      <Tabs value={activeTab} onValueChange={(v) => setTab(v as "mine" | "shared")} className="flex flex-col gap-4">
+        <TabsList>
+          <TabsTrigger value="mine">{t("sidebar_documents_mine")}</TabsTrigger>
+          <TabsTrigger value="shared">{t("sidebar_documents_shared")}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mine" className="mt-0">
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("recent_docs_name")}</TableHead>
+                  <TableHead>{t("recent_docs_status")}</TableHead>
+                  <TableHead>{t("recent_docs_updated")}</TableHead>
+                  <TableHead className="w-[50px]" />
                 </TableRow>
-              ))
-            ) : documents.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground h-32">
-                  {t("docs_empty")}
-                </TableCell>
-              </TableRow>
-            ) : (
-              documents.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <Link 
-                        href={`/editor/${doc.id}`} 
-                        className="hover:underline flex items-center gap-2"
-                      >
-                        {doc.title}
-                        {/* {doc.isLocal && (
-                          <Badge variant="outline" className="text-[10px] py-0 h-4 bg-orange-100/50 text-orange-700 border-orange-200">
-                            Local
-                          </Badge>
-                        )} */}
-                      </Link>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="capitalize">
-                      {statusLabels[doc.status] ?? doc.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {formatDistanceToNow(new Date(doc.updatedAt), {
-                      addSuffix: true,
-                      locale: vi,
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/editor/${doc.id}`}>{t("recent_docs_open")}</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDelete(doc.id)}
-                        >
-                          {t("common_delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+              </TableHeader>
+              <TableBody>
+                {mineLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell />
+                    </TableRow>
+                  ))
+                ) : mineDocs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                      {t("docs_empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  mineDocs.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/editor/${doc.id}`} className="flex items-center gap-2 hover:underline">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {doc.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {statusLabels[doc.status] ?? doc.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatDate(doc.updatedAt)}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/editor/${doc.id}`}>{t("recent_docs_open")}</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
+                              {t("common_delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="shared" className="mt-0">
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("recent_docs_name")}</TableHead>
+                  <TableHead>{t("docs_shared_creator")}</TableHead>
+                  <TableHead>{t("docs_shared_workspace")}</TableHead>
+                  <TableHead>{t("recent_docs_status")}</TableHead>
+                  <TableHead>{t("recent_docs_updated")}</TableHead>
+                  <TableHead className="w-[50px]" />
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {sharedLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell />
+                    </TableRow>
+                  ))
+                ) : sharedDocs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                      {t("docs_shared_empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sharedDocs.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/editor/${doc.id}`} className="flex items-center gap-2 hover:underline">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {doc.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {doc.creator?.name ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {doc.workspace?.name ?? "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {statusLabels[doc.status] ?? doc.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatDate(doc.updatedAt)}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/editor/${doc.id}`}>{t("recent_docs_open")}</Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
+  )
+}
+
+export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<div className="flex flex-1 items-center justify-center p-6"><Skeleton className="h-8 w-48" /></div>}>
+      <DocumentsContent />
+    </Suspense>
   )
 }

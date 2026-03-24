@@ -15,6 +15,7 @@ import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
 import { useSidebar } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
@@ -34,10 +35,11 @@ import { cn } from '@/lib/utils'
 import {
   type ContractGenerationResult,
   buildContractSummaryMessage,
-  getSimulatedThinking,
-  THINKING_STEP_AFTER_EXTRACT,
+  buildThinkingFromToolCalls,
+  TOOL_NAME_LABELS_IN_PROGRESS,
 } from '@/lib/editor/contract-result'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
+import { resolveMergeFieldValue } from '@/lib/editor/merge-field-aliases'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
 import { useNavigationGuard } from '@/hooks/use-navigation-guard'
 import { useQueryClient } from '@tanstack/react-query'
@@ -280,12 +282,14 @@ export default function EditorPage({
           })
           setIsCanvasMode(true)
 
-          const chatMsgs = (doc.chatMessages as Array<{ id: string; role: string; content: string; createdAt: string }>) ?? []
+          const chatMsgs = (doc.chatMessages as Array<{ id: string; role: string; content: string; createdAt: string; metadata?: { toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }>; thinking?: string } }>) ?? []
           setChatMessages(chatMsgs.map((m) => ({
             id: m.id,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             timestamp: new Date(m.createdAt),
+            ...(m.metadata?.toolCalls?.length ? { toolCalls: m.metadata.toolCalls } : {}),
+            ...(m.metadata?.thinking ? { thinking: m.metadata.thinking } : {}),
           })))
         }
       }).catch(() => {
@@ -456,8 +460,11 @@ export default function EditorPage({
             await api.post(`/documents/${newId}/chat-messages`, {
               role: m.role,
               content: m.content,
-              metadata: { migratedFromGuest: true },
-            }).catch(e => console.error(e))
+              metadata: {
+                migratedFromGuest: true,
+                ...(m.toolCalls?.length ? { toolCalls: m.toolCalls } : {}),
+              },
+            }).catch((e) => console.error(e))
           }
         }
         clearSession()
@@ -617,14 +624,16 @@ export default function EditorPage({
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create draft')
 
-        // Migrate chat messages to the new document
         if (chatMessages && chatMessages.length > 0) {
           for (const m of chatMessages) {
             await api.post(`/documents/${newId}/chat-messages`, {
               role: m.role,
               content: m.content,
-              metadata: { migratedFromGuest: true },
-            }).catch(e => console.error(e))
+              metadata: {
+                migratedFromGuest: true,
+                ...(m.toolCalls?.length ? { toolCalls: m.toolCalls } : {}),
+              },
+            }).catch((e) => console.error(e))
           }
         }
 
@@ -655,10 +664,14 @@ export default function EditorPage({
 
   // Handle chat messages
   const handleSendMessage = async (message: string) => {
+    const hasFile = !!attachedFile
+    const effectiveMessage = message.trim() || (hasFile ? (t('chat_file_only_prompt') || 'Xử lý file đính kèm') : '')
+    if (!effectiveMessage) return
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: message,
+      content: effectiveMessage,
       timestamp: new Date(),
       ...(attachedFile && { attachedFileName: attachedFile.name }),
     }
@@ -670,33 +683,55 @@ export default function EditorPage({
     if (isAuthenticated && resolvedParams.id !== 'new') {
       api.post(`/documents/${resolvedParams.id}/chat-messages`, {
         role: 'user',
-        content: message,
+        content: effectiveMessage,
         metadata: attachedFile ? { attachedFileName: attachedFile.name } : undefined,
       }).catch((e) => console.error(e))
     }
 
     let attachedSources: Array<{ fileName: string; text: string }> | undefined
     if (attachedFile) {
-      try {
-        if (isAuthenticated && workspaceId) {
+      // 1. Upload to storage (tính vào dung lượng) khi đã đăng nhập và có workspace
+      if (isAuthenticated && workspaceId) {
+        try {
           const uploadForm = new FormData()
           uploadForm.append('file', attachedFile)
           uploadForm.append('workspaceId', workspaceId)
           await api.upload('/files/upload', uploadForm)
           queryClient.invalidateQueries({ queryKey: ['files'] })
+          queryClient.invalidateQueries({ queryKey: ['files', 'storage', workspaceId] })
+          queryClient.invalidateQueries({ queryKey: ['dashboard', 'overview'] })
+        } catch (e) {
+          console.error('File upload failed', e)
+          toast.error(t('toast_file_upload_failed'))
         }
+      } else if (isAuthenticated && !workspaceId) {
+        toast.error(t('toast_select_workspace_to_save_file'))
+      }
+
+      // 2. Extract text để gửi cho AI (PDF, DOC, DOCX, TXT)
+      try {
         const form = new FormData()
         form.append('file', attachedFile)
         const extractRes = await fetch('/api/extract-text', { method: 'POST', body: form })
-        if (!extractRes.ok) throw new Error('Extract failed')
-        const { text } = await extractRes.json()
-        if (text && typeof text === 'string') {
-          attachedSources = [{ fileName: attachedFile.name, text }]
-          setThinkingProgress((prev) => [...prev, THINKING_STEP_AFTER_EXTRACT])
+        if (extractRes.ok) {
+          const { text } = await extractRes.json()
+          attachedSources = [{
+            fileName: attachedFile.name,
+            text: typeof text === 'string' ? text : '',
+          }]
+        } else {
+          attachedSources = [{
+            fileName: attachedFile.name,
+            text: `[File đính kèm: ${attachedFile.name} - Không trích xuất được văn bản từ định dạng này.]`,
+          }]
         }
       } catch (e) {
         console.error('Extract text failed', e)
         toast.error(t('toast_extract_failed'))
+        attachedSources = [{
+          fileName: attachedFile.name,
+          text: `[File đính kèm: ${attachedFile.name} - Lỗi khi trích xuất nội dung.]`,
+        }]
       }
       setAttachedFile(null)
     }
@@ -718,26 +753,29 @@ export default function EditorPage({
 
     try {
       const existingContentText = editorContentToPlainText(editorContent)
-      // Send previous chat turns (exclude the current message just added) for conversational context
       const previousMessages = chatMessages
         .filter((m) => m.id !== userMessage.id && (m.role === 'user' || m.role === 'assistant'))
-        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          ...(m.toolCalls?.length ? { toolCalls: m.toolCalls } : {}),
+        }))
 
-      const response = await fetch('/api/ai/generate', {
+      const response = await fetch('/api/ai/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          prompt: message,
-          locale,
-          metadata: {
-            contractType: 'general',
-          },
-          workspaceId,
-          existingContent: existingContentText || undefined,
+          userMessage: effectiveMessage,
+          workspaceId: workspaceId ?? undefined,
+          documentId: resolvedParams.id !== 'new' ? resolvedParams.id : undefined,
           mergeFieldValues: Object.keys(mergeFieldValues).length > 0 ? mergeFieldValues : undefined,
+          existingContent: existingContentText || undefined,
           attachedSources,
           chatHistory: previousMessages.length > 0 ? previousMessages : undefined,
-        })
+          metadata: { contractType: 'general' },
+          stream: true,
+        }),
       })
 
       if (!response.ok) {
@@ -746,13 +784,61 @@ export default function EditorPage({
         throw new Error(errorData.error || `Error ${response.status}: Failed to generate contract`)
       }
 
-      const result = await response.json()
-      
+      let result: Record<string, unknown> | undefined
+
+      const contentType = response.headers.get('Content-Type') ?? ''
+      if (contentType.includes('ndjson') || contentType.includes('x-ndjson')) {
+        setThinkingProgress(['**Đang kết nối AI...**\nChờ model phân tích và quyết định các bước.'])
+        const reader = response.body?.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        if (!reader) throw new Error('No response body')
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+          for (const line of lines) {
+            if (!line.trim()) continue
+            try {
+              const ev = JSON.parse(line) as { type?: string; name?: string; text?: string; result?: unknown; message?: string }
+              if (ev.type === 'tool' && ev.name) {
+                const label = TOOL_NAME_LABELS_IN_PROGRESS[ev.name] || `Đang xử lý ${ev.name}...`
+                setThinkingProgress((prev) => [...prev, label])
+              } else if (ev.type === 'gemini_thinking' && typeof ev.text === 'string') {
+                setThinkingProgress((prev) => [...prev, ev.text as string])
+              } else if (ev.type === 'done' && ev.result) {
+                result = ev.result as Record<string, unknown>
+              } else if (ev.type === 'error' && ev.message) {
+                throw new Error(ev.message)
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e
+            }
+          }
+        }
+        if (buffer.trim()) {
+          try {
+            const ev = JSON.parse(buffer) as { type?: string; result?: unknown; message?: string }
+            if (ev.type === 'done' && ev.result) result = ev.result as Record<string, unknown>
+            else if (ev.type === 'error' && ev.message) throw new Error(ev.message)
+          } catch (e) {
+            if (e instanceof Error && !e.message.includes('JSON')) throw e
+          }
+        }
+        if (!result) throw new Error('No result from stream')
+      } else {
+        result = (await response.json()) as Record<string, unknown>
+      }
+
+      const finalResult = result
       let aiContent = ''
 
-      if (result.type === 'contract_generation') {
-        const genResult = result as ContractGenerationResult
-        aiContent = buildContractSummaryMessage(genResult, locale)
+      if (finalResult.type === 'contract_generation') {
+        const genResult = finalResult as unknown as ContractGenerationResult
+        const geminiMessage = typeof finalResult.message === 'string' ? finalResult.message.trim() : ''
+        aiContent = geminiMessage || buildContractSummaryMessage(genResult, locale)
 
         const { content: newContent, allMergeKeys } = contractResultToTipTapContent(genResult, {
           mergeKeyToLabel,
@@ -764,27 +850,41 @@ export default function EditorPage({
             Array.from(allMergeKeys).map((key) => ({
               fieldKey: key,
               label: mergeKeyToLabel(key),
-              sampleValue: mergeFieldValues[key] ?? '',
+              sampleValue: resolveMergeFieldValue(key, mergeFieldValues) || mergeFieldValues[key] || '',
             }))
           )
           setMergeFieldValues({
             ...mergeFieldValues,
-            ...Object.fromEntries(Array.from(allMergeKeys).map((k) => [k, mergeFieldValues[k] ?? ''])),
+            ...Object.fromEntries(
+              Array.from(allMergeKeys).map((k) => [
+                k,
+                resolveMergeFieldValue(k, mergeFieldValues) || mergeFieldValues[k] || '',
+              ])
+            ),
           })
         }
 
         setEditorContent(newContent)
         updateMetadata({ title: genResult.content.title || documentTitle })
         setIsCanvasMode(true)
-      } else if (result.type === 'error') {
-        aiContent = result.message || t("ai_error_unsupported")
+      } else if (finalResult.type === 'contract_review') {
+        const reviewMessage = typeof finalResult.message === 'string' ? finalResult.message.trim() : ''
+        aiContent = reviewMessage || JSON.stringify(finalResult, null, 2)
+      } else if (finalResult.type === 'error') {
+        aiContent = (typeof finalResult.message === 'string' ? finalResult.message : null) || t("ai_error_unsupported")
         if (isAuthenticated) {
           api.post('/ai/refund-credit', {}).catch(() => {})
         }
+      } else if (finalResult.type === 'text' && typeof finalResult.text === 'string') {
+        aiContent = finalResult.text
       } else {
-        // Handle other types or generic response
-        aiContent = JSON.stringify(result, null, 2)
+        aiContent = typeof finalResult.text === 'string' ? finalResult.text : JSON.stringify(finalResult, null, 2)
       }
+
+      const toolCalls = finalResult.toolCalls as Array<{ name: string; args: Record<string, unknown>; result: unknown }> | undefined
+      const geminiThinking = typeof finalResult.geminiThinking === 'string' ? finalResult.geminiThinking : ''
+      const toolThinking = toolCalls?.length ? buildThinkingFromToolCalls(toolCalls, locale) : ''
+      const combinedThinking = [toolThinking, geminiThinking].filter(Boolean).join('\n\n')
 
       const aiMessage: ChatMessage & { isError?: boolean } = {
         id: (Date.now() + 1).toString(),
@@ -792,21 +892,24 @@ export default function EditorPage({
         content: aiContent,
         timestamp: new Date(),
         isStreaming: false,
-        isError: result.type === 'error',
-        hasContract: result.type === 'contract_generation',
-        ...(result.type === 'contract_generation' && {
-          thinking: getSimulatedThinking(result as ContractGenerationResult, locale),
-        }),
+        isError: finalResult.type === 'error',
+        hasContract: finalResult.type === 'contract_generation',
+        ...(toolCalls?.length ? { toolCalls } : {}),
+        ...(combinedThinking ? { thinking: combinedThinking } : {}),
       }
-      
+
       setChatMessages((prev) => [...prev, aiMessage])
 
-      // Persist assistant message (best-effort)
       if (isAuthenticated && resolvedParams.id !== 'new') {
         api.post(`/documents/${resolvedParams.id}/chat-messages`, {
           role: 'assistant',
           content: aiContent,
-          metadata: aiMessage.thinking ? { thinking: aiMessage.thinking, hasContract: aiMessage.hasContract } : { hasContract: aiMessage.hasContract },
+          metadata: {
+            thinking: combinedThinking || undefined,
+            hasContract: aiMessage.hasContract,
+            ...(toolCalls?.length ? { toolCalls } : {}),
+            ...(geminiThinking ? { geminiThinking } : {}),
+          },
         }).catch((e) => console.error(e))
       }
 
@@ -819,10 +922,11 @@ export default function EditorPage({
       }
       toast.error(t('toast_generate_error'))
       setThinkingProgress([])
+      const errorContent = error instanceof Error ? error.message : t('toast_ai_error')
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: t('toast_ai_error'),
+        content: errorContent,
         timestamp: new Date(),
         isError: true,
       }
@@ -833,11 +937,26 @@ export default function EditorPage({
     }
   }
 
+  const showSaveReminder = isDirty && resolvedParams.id === 'new' && !isTourActive
+
   return (
-    <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative">
+    <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
+      {showSaveReminder && (
+        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-200 dark:bg-amber-500/10">
+          <span className="text-sm font-medium">{t("editor_unsaved_reminder")}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-amber-600/50 hover:bg-amber-500/20 shrink-0"
+            onClick={() => handleSaveDraftToDb('draft')}
+          >
+            {t("save_draft_save")}
+          </Button>
+        </div>
+      )}
 
       {/* Main Content Area - 3 Column Layout */}
-      <div className="relative z-10 flex w-full h-full min-h-0 gap-2">
+      <div className="relative z-10 flex flex-1 w-full min-h-0 gap-2 overflow-hidden">
         
         {/* Left: Chat Area (30%) */}
         <motion.div 

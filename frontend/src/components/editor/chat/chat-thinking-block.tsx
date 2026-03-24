@@ -20,7 +20,9 @@ export function ChatThinkingBlock({
 }: ChatThinkingBlockProps) {
   const { t } = useT()
   const isExpanded = expandedMessageId === messageId
-  const stepCount = (thinking.match(/\*\*\d+\./g) || []).length
+  const numberedSteps = (thinking.match(/\*\*\d+\./g) || []).length
+  const bulletSteps = (thinking.match(/^- /gm) || []).length
+  const stepCount = numberedSteps || bulletSteps
   const label = stepCount ? t('chat_view_thinking_steps', { count: stepCount }) : t('chat_view_thinking')
 
   return (
@@ -31,7 +33,7 @@ export function ChatThinkingBlock({
         className="flex items-center gap-2 w-full text-left py-1 hover:opacity-90 transition-opacity"
       >
         <span className="flex-1 ml-2 text-sm font-semibold text-foreground">
-          {isExpanded ? t('chat_hide_thinking') : label}
+          {label}
         </span>
         {isExpanded ? (
           <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" />

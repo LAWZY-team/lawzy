@@ -60,7 +60,7 @@ export class SourcesService {
       }
       const filename = data.file.originalname || 'file';
       const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-      s3Key = `sources/${data.workspaceId}/${uuid}-${safeName}`;
+      s3Key = `sources/${data.workspaceId}/${data.userId}/${uuid}-${safeName}`;
 
       await this.s3.send(
         new PutObjectCommand({

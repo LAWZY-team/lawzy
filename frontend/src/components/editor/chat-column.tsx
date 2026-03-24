@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChatMessageList } from './chat/chat-message-list'
 import { ChatInputArea } from './chat/chat-input-area'
+import { useDashboardOverview } from '@/hooks/dashboard/use-dashboard'
 import type { ChatMessage } from './chat/types'
 export type { ChatMessage } from './chat/types'
 
@@ -36,14 +37,25 @@ export function ChatColumn({
   thinkingSteps = [],
 }: ChatColumnProps) {
   const [input, setInput] = useState('')
-  const [expandedThinking, setExpandedThinking] = useState<string | null>(null)
-  const [thinkingCollapsed, setThinkingCollapsed] = useState(true)
+  const lastWithThinking = [...(messages || [])].reverse().find((m) => m.role === 'assistant' && m.thinking)
+  const [expandedThinking, setExpandedThinking] = useState<string | null>(() => lastWithThinking?.id ?? null)
+  const [thinkingCollapsed, setThinkingCollapsed] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const { data: overview } = useDashboardOverview()
 
   useEffect(() => {
-    if (!isLoading) return
-    queueMicrotask(() => setThinkingCollapsed(true))
-  }, [isLoading])
+    if (isLoading && thinkingSteps.length > 0) {
+      setThinkingCollapsed(false)
+    }
+  }, [isLoading, thinkingSteps.length])
+
+  const lastAutoExpandedRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.thinking)
+    if (!lastAssistant || lastAutoExpandedRef.current.has(lastAssistant.id)) return
+    lastAutoExpandedRef.current.add(lastAssistant.id)
+    setExpandedThinking(lastAssistant.id)
+  }, [messages])
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -69,7 +81,6 @@ export function ChatColumn({
     <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
       <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background z-10 sticky top-0">
         <div className="flex items-center gap-2">
-          {/* <Sparkles className="w-5 h-5 text-blue-400" /> */}
           <h3 className="font-medium text-sm">Lawzy AI</h3>
         </div>
         {onClose && (
@@ -108,6 +119,9 @@ export function ChatColumn({
         attachedFile={attachedFile}
         onAttachFile={onAttachFile}
         onRemoveAttachedFile={onRemoveAttachedFile}
+        aiCreditsUsed={overview?.aiCreditsUsed}
+        aiCreditsLimit={overview?.aiCreditsLimit}
+        aiCreditsRemaining={overview?.aiCreditsRemaining}
       />
     </div>
   )

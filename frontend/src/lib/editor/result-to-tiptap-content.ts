@@ -84,11 +84,23 @@ export function contractResultToTipTapContent(
     return { content: newContent, allMergeKeys }
   }
 
-  for (const section of sections as Array<{ heading?: string; content?: string; mergeFields?: string[] }>) {
+  const modifiedIndices = new Set((result.metadata?.modifiedSectionIndices ?? []) as number[])
+
+  for (let idx = 0; idx < sections.length; idx++) {
+    const section = sections[idx] as { heading?: string; content?: string; mergeFields?: string[] }
     if (Array.isArray(section.mergeFields)) {
       section.mergeFields.forEach((raw: string) => {
         const key = String(raw).replace(/^\{\{|\}\}$/g, '').trim()
         if (key) allMergeKeys.add(key)
+      })
+    }
+    if (modifiedIndices.has(idx) && section.heading) {
+      newContent.content?.push({
+        type: 'paragraph',
+        attrs: { textAlign: 'left' },
+        content: [
+          { type: 'text', text: '✏️ Đã cập nhật theo yêu cầu', marks: [{ type: 'italic' }] },
+        ],
       })
     }
     if (section.heading) {

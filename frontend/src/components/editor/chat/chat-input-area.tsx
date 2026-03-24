@@ -17,6 +17,9 @@ interface ChatInputAreaProps {
   attachedFile: { name: string } | null
   onAttachFile?: (file: File) => void
   onRemoveAttachedFile?: () => void
+  aiCreditsUsed?: number
+  aiCreditsLimit?: number
+  aiCreditsRemaining?: number
 }
 
 export function ChatInputArea({
@@ -28,8 +31,23 @@ export function ChatInputArea({
   attachedFile,
   onAttachFile,
   onRemoveAttachedFile,
+  aiCreditsUsed,
+  aiCreditsLimit,
+  aiCreditsRemaining,
 }: ChatInputAreaProps) {
   const { t } = useT()
+
+  const footerLine = (() => {
+    const used = aiCreditsUsed ?? 0
+    const total = aiCreditsLimit ?? 0
+    if (aiCreditsLimit === -1) {
+      return t('chat_credit_and_warning_unlimited', { used })
+    }
+    if (aiCreditsLimit != null && (aiCreditsUsed != null || aiCreditsRemaining != null)) {
+      return t('chat_credit_and_warning', { used, total })
+    }
+    return t('chat_ai_warning')
+  })()
   const [isDragOver, setIsDragOver] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -57,7 +75,6 @@ export function ChatInputArea({
           try {
             recognitionRef.current.stop()
           } catch {
-            // noop
           }
         }
         recognitionRef.current = null
@@ -87,7 +104,8 @@ export function ChatInputArea({
   }
 
   const handleSubmit = () => {
-    if (input.trim() && !isLoading) {
+    const canSubmit = (input.trim() || hasAttachedFile) && !isLoading
+    if (canSubmit) {
       onSubmit()
       setInput('')
       if (textareaRef.current) textareaRef.current.style.height = '56px'
@@ -250,7 +268,7 @@ export function ChatInputArea({
             )}
 
             <div className="absolute right-2 bottom-2 flex items-center gap-1">
-              {input.trim() ? (
+              {input.trim() || hasAttachedFile ? (
                 <Button
                   type="button"
                   onClick={handleSubmit}
@@ -281,7 +299,7 @@ export function ChatInputArea({
           </div>
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground text-center">
-          {t("chat_ai_warning")}
+          {footerLine}
         </p>
       </div>
     </div>

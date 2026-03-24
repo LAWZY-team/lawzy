@@ -8,7 +8,8 @@ export interface FileItem {
   mimeType: string;
   s3Key: string;
   createdAt: string;
-  user?: { name: string; avatar?: string };
+  userId?: string;
+  user?: { id: string; name: string; avatar?: string };
 }
 
 interface PaginatedFiles {
@@ -18,10 +19,14 @@ interface PaginatedFiles {
   limit: number;
 }
 
-export function useFiles(workspaceId: string, opts?: { page?: number; limit?: number }) {
+export function useFiles(
+  workspaceId: string,
+  opts?: { page?: number; limit?: number; filterByUserId?: string }
+) {
   const params = new URLSearchParams({ workspaceId });
   if (opts?.page) params.set('page', String(opts.page));
   if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.filterByUserId) params.set('filterByUserId', opts.filterByUserId);
 
   return useQuery<PaginatedFiles>({
     queryKey: ['files', workspaceId, opts],

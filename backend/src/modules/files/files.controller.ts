@@ -29,6 +29,7 @@ export class FilesController {
     @Query('workspaceId') workspaceId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('filterByUserId') filterByUserId?: string,
   ) {
     if (!workspaceId) {
       throw new BadRequestException('workspaceId is required');
@@ -37,6 +38,7 @@ export class FilesController {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       userId: req.user.userId,
+      filterByUserId: filterByUserId || undefined,
     };
     return this.filesService.findByWorkspace(workspaceId, opts);
   }
