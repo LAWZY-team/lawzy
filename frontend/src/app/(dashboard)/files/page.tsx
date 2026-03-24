@@ -120,12 +120,6 @@ export default function FilesPage() {
         <p className="text-muted-foreground">{t("files_subtitle")}</p>
       </div>
 
-      <div className={DASHBOARD_GRID_QUOTA}>
-        <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
-        <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
-        <ReferralCard />
-      </div>
-
       <div className="flex flex-wrap items-center gap-4 py-2">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

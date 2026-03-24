@@ -30,7 +30,11 @@ import {
   DASHBOARD_CARD_HOVER,
   DASHBOARD_GRID_CHART,
   DASHBOARD_CARD_ANIMATION,
+  DASHBOARD_GRID_QUOTA,
 } from "@/components/dashboard/dashboard-card.styles"
+import { QuotaCard } from "@/components/dashboard/quota-card"
+import { ReferralCard } from "@/components/dashboard/referral-card"
+import { useDashboardQuota } from "@/hooks/dashboard/use-dashboard"
 
 export default function DashboardPage() {
   useAuthStore()
@@ -46,6 +50,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>("year")
   const enabledCards = useDashboardDisplayStore((s) => s.enabledCards)
   const { data: initialData, isLoading } = useDashboardInitial(10, period)
+  const { data: quota, isLoading: isQuotaLoading } = useDashboardQuota()
   const overview = initialData?.overview ?? null
   const recentDocs = initialData?.recentDocuments ?? null
   const chartData = initialData?.chart ?? null
@@ -107,6 +112,12 @@ export default function DashboardPage() {
             {statCardsEnabled && (
               <StatsCards showCards={enabledCards} overview={overview} isLoading={isLoading} />
             )}
+
+            <div className={DASHBOARD_GRID_QUOTA}>
+              <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
+              <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
+              <ReferralCard />
+            </div>
 
             {chartCardsEnabled && (
               <div className={DASHBOARD_GRID_CHART}>
@@ -181,6 +192,8 @@ export default function DashboardPage() {
                 )}
               </div>
             )}
+
+            
           </div>
           )}
         </ScrollArea>
