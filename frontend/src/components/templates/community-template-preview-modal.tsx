@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { getDownloadUrl, getPreviewUrl, type ContractTemplateFile } from "@/lib/api/contract-templates"
+import { getDownloadUrl, getPreviewUrl, saveTemplateToWorkspace, type ContractTemplateFile } from "@/lib/api/contract-templates"
+import { useWorkspaceStore } from "@/stores/workspace-store"
+import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 
 function isPdf(fileName: string): boolean {
   return fileName.toLowerCase().endsWith(".pdf")
@@ -32,6 +35,8 @@ export function CommunityTemplatePreviewModal({
   onClose: () => void
   onDelete: (id: string) => void
 }) {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
+  const qc = useQueryClient()
   if (!file) return null
 
   const previewSupported = isPdf(file.fileName)
@@ -48,6 +53,26 @@ export function CommunityTemplatePreviewModal({
         <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
           <h3 className="font-semibold truncate">{file.fileName}</h3>
           <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!workspaceId}
+              onClick={async () => {
+                try {
+                  if (!workspaceId) return
+                  await saveTemplateToWorkspace({ scope: "community", id: file.id, workspaceId })
+                  await qc.invalidateQueries({ queryKey: ["files"] })
+                  await qc.invalidateQueries({ queryKey: ["files", "storage", workspaceId] })
+                  await qc.invalidateQueries({ queryKey: ["dashboard", "quota", workspaceId] })
+                  toast.success("Đã lưu vào Workspace")
+                } catch (e) {
+                  console.error(e)
+                  toast.error("Không thể lưu vào Workspace")
+                }
+              }}
+            >
+              Lưu về
+            </Button>
             <Button
               variant="ghost"
               size="sm"

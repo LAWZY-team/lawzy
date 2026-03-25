@@ -13,6 +13,10 @@ import { EditorContent, Editor } from "@tiptap/react";
 import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from "@/stores/editor-store";
 import { useUserFieldsStore } from "@/stores/user-fields-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { api } from "@/lib/api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
 import {
   Play,
   MoreHorizontal,
@@ -111,6 +115,13 @@ export function CanvasEditor({
   onChangeTitle,
 }: CanvasEditorProps) {
   const [docTitle, setDocTitle] = useState(title);
+  const queryClient = useQueryClient();
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? "";
+  const params = useParams();
+  const documentId =
+    params && typeof (params as { id?: unknown }).id === "string"
+      ? String((params as { id?: unknown }).id)
+      : "";
 
   useEffect(() => {
     if (title && title !== docTitle) {
@@ -352,6 +363,23 @@ export function CanvasEditor({
       }
 
       const blob = await res.blob();
+
+      // Persist export output to workspace storage (counts towards usage)
+      try {
+        if (workspaceId) {
+          const form = new FormData();
+          form.append("file", new File([blob], `${docTitle || "Hợp đồng"}.docx`, { type: blob.type }));
+          form.append("workspaceId", workspaceId);
+          if (documentId) form.append("documentId", documentId);
+          await api.upload("/files/upload-export", form);
+          queryClient.invalidateQueries({ queryKey: ["files"] });
+          queryClient.invalidateQueries({ queryKey: ["files", "storage", workspaceId] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard", "quota", workspaceId] });
+        }
+      } catch (e) {
+        console.error("Persist export failed", e);
+      }
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

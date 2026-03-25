@@ -22,6 +22,12 @@ export interface DashboardQuota {
   totalFiles: number;
   totalSources: number;
   storageUsed: number;
+  storageBreakdown?: {
+    input_upload: { bytes: number; count: number };
+    input_source: { bytes: number; count: number };
+    template: { bytes: number; count: number };
+    export_output: { bytes: number; count: number };
+  };
   aiCreditsUsed?: number;
   aiCreditsLimit?: number;
   aiCreditsRemaining?: number;

@@ -9,6 +9,7 @@ export function useThinkingProgress(isGenerating: boolean): [string[], React.Dis
   const [thinkingProgress, setThinkingProgress] = useState<string[]>([])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setThinkingProgress([])
   }, [isGenerating])
 

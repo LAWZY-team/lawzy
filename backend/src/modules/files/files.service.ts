@@ -19,7 +19,8 @@ import { PlansService } from '../plans/plans.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
 
 const DEFAULT_STORAGE_BYTES =
-  parseInt(process.env.DEFAULT_STORAGE_BYTES || '524288000', 10) || 500 * 1024 * 1024;
+  parseInt(process.env.DEFAULT_STORAGE_BYTES || '524288000', 10) ||
+  500 * 1024 * 1024;
 
 @Injectable()
 export class FilesService {
@@ -45,11 +46,10 @@ export class FilesService {
     file: Express.Multer.File;
     userId: string;
     workspaceId: string;
+    category?: 'input_upload' | 'template' | 'export_output';
+    documentId?: string | null;
   }) {
-    await this.workspaceAccess.requireMembership(
-      data.workspaceId,
-      data.userId,
-    );
+    await this.workspaceAccess.requireMembership(data.workspaceId, data.userId);
     const { bytes: used, limitBytes } = await this.getStorageUsed(
       data.workspaceId,
     );
@@ -62,17 +62,13 @@ export class FilesService {
     const client = this.ensureClient();
     const bucket = this.getBucket();
     const uuid = randomUUID();
-    let originalName = data.file.originalname || 'file';
-    const mojibakeChars = /[\u00C2-\u00C6]/;
-    if (mojibakeChars.test(originalName)) {
-      try {
-        const fixed = Buffer.from(originalName, 'latin1').toString('utf8');
-        if (!fixed.includes('\uFFFD')) originalName = fixed;
-      } catch {
-        /* keep original */
-      }
-    }
-    const safeName = originalName.replace(/[^a-zA-Z0-9._\u00C0-\u024F\s-]/g, '_');
+    const originalName = this.fixUploadFilename(
+      data.file.originalname || 'file',
+    );
+    const safeName = originalName.replace(
+      /[^a-zA-Z0-9._\u00C0-\u024F\s-]/g,
+      '_',
+    );
     const key = `uploads/${data.workspaceId}/${data.userId}/${uuid}-${safeName}`;
 
     await client.send(
@@ -84,23 +80,87 @@ export class FilesService {
       }),
     );
 
-    const file = await this.prisma.file.create({
-      data: {
-        name: originalName,
-        size: data.file.size,
-        mimeType: data.file.mimetype || 'application/octet-stream',
-        s3Key: key,
-        userId: data.userId,
-        workspaceId: data.workspaceId,
-      },
-    });
+    // Prisma types may be resolved from a different workspace node_modules in some editors;
+    // keep runtime shape correct and avoid blocking on type resolution.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const createData = {
+      name: originalName,
+      size: data.file.size,
+      mimeType: data.file.mimetype || 'application/octet-stream',
+      s3Key: key,
+      category: data.category ?? 'input_upload',
+      documentId: data.documentId ?? null,
+      userId: data.userId,
+      workspaceId: data.workspaceId,
+    } as any;
 
-    return file;
+    return this.prisma.file.create({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: createData,
+    });
+  }
+
+  private fixUploadFilename(input: string): string {
+    const str = typeof input === 'string' && input.trim() ? input : 'file';
+
+    // Some multipart parsers treat header params as latin1 and may produce mojibake
+    // for UTF-8 filenames (common for Vietnamese).
+    const candidates: string[] = [str];
+
+    // 1) Common fix: interpret original string bytes as latin1 then decode as utf8.
+    try {
+      candidates.push(Buffer.from(str, 'latin1').toString('utf8'));
+    } catch {
+      // ignore
+    }
+
+    // 2) Sometimes the string is percent-encoded (RFC5987-ish) - decode if it looks like it.
+    if (/%[0-9A-Fa-f]{2}/.test(str)) {
+      try {
+        candidates.push(decodeURIComponent(str));
+      } catch {
+        // ignore
+      }
+    }
+
+    // Choose the "best" candidate by heuristic scoring.
+    const score = (s: string) => {
+      const repl = (s.match(/\uFFFD/g) ?? []).length;
+      const mojibake = (s.match(/[ÃÂÄÅÆ]/g) ?? []).length;
+      const viLetters = (s.match(/[\u0100-\u024F\u1E00-\u1EFF]/g) ?? []).length;
+      let control = 0;
+      for (let i = 0; i < s.length; i++) {
+        const code = s.charCodeAt(i);
+        if (code >= 0x0000 && code <= 0x001f) control++;
+      }
+      // lower is better except viLetters.
+      return viLetters * 3 - repl * 10 - mojibake * 2 - control * 5;
+    };
+
+    let best = str;
+    let bestScore = score(str);
+    for (const c of candidates) {
+      if (!c || typeof c !== 'string') continue;
+      const sc = score(c);
+      if (sc > bestScore) {
+        best = c;
+        bestScore = sc;
+      }
+    }
+
+    return best;
   }
 
   async findByWorkspace(
     workspaceId: string,
-    opts?: { page?: number; limit?: number; userId?: string; filterByUserId?: string },
+    opts?: {
+      page?: number;
+      limit?: number;
+      userId?: string;
+      filterByUserId?: string;
+      documentId?: string;
+      category?: 'input_upload' | 'template' | 'export_output';
+    },
   ) {
     if (opts?.userId) {
       await this.workspaceAccess.requireMembership(workspaceId, opts.userId);
@@ -108,8 +168,15 @@ export class FilesService {
     const page = opts?.page ?? 1;
     const limit = opts?.limit ?? 20;
     const skip = (page - 1) * limit;
-    const where: { workspaceId: string; userId?: string } = { workspaceId };
+    const where: {
+      workspaceId: string;
+      userId?: string;
+      documentId?: string;
+      category?: 'input_upload' | 'template' | 'export_output';
+    } = { workspaceId };
     if (opts?.filterByUserId) where.userId = opts.filterByUserId;
+    if (opts?.documentId) where.documentId = opts.documentId;
+    if (opts?.category) where.category = opts.category;
 
     const [data, total] = await Promise.all([
       this.prisma.file.findMany({
@@ -209,7 +276,9 @@ export class FilesService {
           typeof ql?.storageBytes === 'number' ? ql.storageBytes : undefined;
         if (limitBytes == null) {
           const defaultPlan = await this.plansService.findDefaultPlan();
-          const dq = defaultPlan?.quotaLimits as { storageBytes?: number } | null;
+          const dq = defaultPlan?.quotaLimits as {
+            storageBytes?: number;
+          } | null;
           limitBytes =
             typeof dq?.storageBytes === 'number'
               ? dq.storageBytes
@@ -234,12 +303,15 @@ export class FilesService {
       try {
         const plan = await this.plansService.findBySlug(slug, true);
         const ql = plan.quotaLimits as { storageBytes?: number } | null;
-        let storage = typeof ql?.storageBytes === 'number' ? ql.storageBytes : null;
+        let storage =
+          typeof ql?.storageBytes === 'number' ? ql.storageBytes : null;
         if (storage == null) {
           const def = await this.plansService.findDefaultPlan();
           const dq = def?.quotaLimits as { storageBytes?: number } | null;
           storage =
-            typeof dq?.storageBytes === 'number' ? dq.storageBytes : DEFAULT_STORAGE_BYTES;
+            typeof dq?.storageBytes === 'number'
+              ? dq.storageBytes
+              : DEFAULT_STORAGE_BYTES;
         }
         planBySlug.set(slug, storage);
       } catch {
@@ -250,7 +322,7 @@ export class FilesService {
     let usedByWorkspace: Map<string, number>;
     if (options?.fromR2) {
       const r2Result = await this.getStorageFromR2();
-      usedByWorkspace = r2Result.byWorkspace ?? new Map();
+      usedByWorkspace = r2Result.byWorkspace ?? new Map<string, number>();
     } else {
       const [fileSums, sourceSums] = await Promise.all([
         this.prisma.file.groupBy({

@@ -45,6 +45,7 @@ export function ChatColumn({
 
   useEffect(() => {
     if (isLoading && thinkingSteps.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setThinkingCollapsed(false)
     }
   }, [isLoading, thinkingSteps.length])
@@ -54,6 +55,7 @@ export function ChatColumn({
     const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.thinking)
     if (!lastAssistant || lastAutoExpandedRef.current.has(lastAssistant.id)) return
     lastAutoExpandedRef.current.add(lastAssistant.id)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedThinking(lastAssistant.id)
   }, [messages])
 

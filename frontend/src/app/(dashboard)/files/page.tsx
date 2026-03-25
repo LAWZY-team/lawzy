@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive, ChevronLeft, ChevronRight } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -53,16 +54,23 @@ const PAGE_SIZE = 20
 
 export default function FilesPage() {
   const { t } = useT()
+  const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
   const [page, setPage] = useState(1)
   const [filterByUserId, setFilterByUserId] = useState<string>("")
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id ?? ""
+  const documentId = searchParams.get("documentId") || undefined
+  const category =
+    (searchParams.get("category") as "input_upload" | "template" | "export_output" | null) ||
+    undefined
 
   const { data, isLoading } = useFiles(workspaceId, {
     page,
     limit: PAGE_SIZE,
     filterByUserId: filterByUserId || undefined,
+    documentId,
+    category,
   })
   const { data: workspace } = useWorkspace(workspaceId)
   const deleteMutation = useDeleteFile()

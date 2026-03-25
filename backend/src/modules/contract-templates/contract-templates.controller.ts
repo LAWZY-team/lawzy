@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Query,
+  Request,
   Res,
   StreamableFile,
   UploadedFile,
@@ -24,6 +25,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ContractTemplatesService } from './contract-templates.service';
 import type { TemplateScope } from './contract-templates.types';
+import { FilesService } from '../files/files.service';
 
 function parseScope(scope: string): TemplateScope {
   if (scope === 'system' || scope === 'community') return scope;
@@ -42,7 +44,10 @@ function sanitizeFilenameForHeader(input: string): string {
 }
 @Controller('contract-templates')
 export class ContractTemplatesController {
-  constructor(private readonly service: ContractTemplatesService) {}
+  constructor(
+    private readonly service: ContractTemplatesService,
+    private readonly filesService: FilesService,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -145,5 +150,36 @@ export class ContractTemplatesController {
   async deleteCommunity(@Param('id') id: string) {
     await this.service.deleteCommunity(id);
     return { success: true };
+  }
+
+  @Post(':scope/:id/save-to-workspace')
+  @UseGuards(JwtAuthGuard)
+  async saveToWorkspace(
+    @Request() req: any,
+    @Param('scope') scopeRaw: string,
+    @Param('id') id: string,
+    @Body('workspaceId') workspaceId?: string,
+  ) {
+    if (!workspaceId) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    const scope = parseScope(scopeRaw);
+    const userId = req.user.userId;
+
+    const { buffer, contentType, fileName, size } =
+      await this.service.getTemplateBuffer(scope, id);
+    const fakeMulterFile = {
+      originalname: fileName,
+      mimetype: contentType,
+      size,
+      buffer,
+    } as unknown as Express.Multer.File;
+
+    return this.filesService.upload({
+      file: fakeMulterFile,
+      userId,
+      workspaceId,
+      category: 'template',
+    });
   }
 }

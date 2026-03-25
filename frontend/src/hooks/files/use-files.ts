@@ -21,12 +21,20 @@ interface PaginatedFiles {
 
 export function useFiles(
   workspaceId: string,
-  opts?: { page?: number; limit?: number; filterByUserId?: string }
+  opts?: {
+    page?: number;
+    limit?: number;
+    filterByUserId?: string;
+    documentId?: string;
+    category?: 'input_upload' | 'template' | 'export_output';
+  }
 ) {
   const params = new URLSearchParams({ workspaceId });
   if (opts?.page) params.set('page', String(opts.page));
   if (opts?.limit) params.set('limit', String(opts.limit));
   if (opts?.filterByUserId) params.set('filterByUserId', opts.filterByUserId);
+  if (opts?.documentId) params.set('documentId', opts.documentId);
+  if (opts?.category) params.set('category', opts.category);
 
   return useQuery<PaginatedFiles>({
     queryKey: ['files', workspaceId, opts],

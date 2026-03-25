@@ -74,3 +74,28 @@ export function getPreviewUrl(scope: TemplateScope, id: string): string {
   // `inline=1` makes backend return Content-Disposition: inline so the browser can render PDF in iframe
   return `${getDownloadUrl(scope, id)}?inline=1`;
 }
+
+export async function saveTemplateToWorkspace(params: {
+  scope: TemplateScope;
+  id: string;
+  workspaceId: string;
+}): Promise<{ id: string; name: string; size: number; mimeType: string; s3Key: string }> {
+  const res = await fetch(
+    `${getBackendBaseUrl()}/contract-templates/${params.scope}/${encodeURIComponent(
+      params.id,
+    )}/save-to-workspace`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspaceId: params.workspaceId }),
+    },
+  );
+  if (!res.ok) throw new Error('Failed to save template to workspace');
+  return (await res.json()) as {
+    id: string;
+    name: string;
+    size: number;
+    mimeType: string;
+    s3Key: string;
+  };
+}

@@ -88,6 +88,12 @@ export class DashboardService {
         totalFiles: 0,
         totalSources: 0,
         storageUsed: 0,
+        storageBreakdown: {
+          input_upload: { bytes: 0, count: 0 },
+          input_source: { bytes: 0, count: 0 },
+          template: { bytes: 0, count: 0 },
+          export_output: { bytes: 0, count: 0 },
+        },
         aiCreditsUsed: 0,
         aiCreditsLimit: AI_CREDITS_LIMIT_MVP,
         aiCreditsRemaining: AI_CREDITS_LIMIT_MVP,
@@ -101,6 +107,7 @@ export class DashboardService {
       totalSources,
       fileSizes,
       sourceSizes,
+      fileGrouped,
       creditInfo,
     ] = await Promise.all([
       this.prisma.file.count({
@@ -117,16 +124,42 @@ export class DashboardService {
         where: { workspaceId: { in: workspaceIds } },
         _sum: { size: true },
       }),
+      this.prisma.file.groupBy({
+        by: ['category'],
+        where: { workspaceId: { in: workspaceIds } },
+        _sum: { size: true },
+        _count: { _all: true },
+      }),
       this.getUserCreditInfo(userId, workspaceIds[0] ?? null),
     ]);
 
     const storageUsed =
       (fileSizes._sum.size ?? 0) + (sourceSizes._sum.size ?? 0);
 
+    const byCategory = new Map<
+      string,
+      { bytes: number; count: number }
+    >();
+    for (const g of fileGrouped) {
+      byCategory.set(String((g as any).category), {
+        bytes: Number((g as any)._sum?.size ?? 0),
+        count: Number((g as any)._count?._all ?? 0),
+      });
+    }
+
+    const inputSourceBytes = Number(sourceSizes._sum.size ?? 0);
+    const storageBreakdown = {
+      input_upload: byCategory.get('input_upload') ?? { bytes: 0, count: 0 },
+      input_source: { bytes: inputSourceBytes, count: totalSources },
+      template: byCategory.get('template') ?? { bytes: 0, count: 0 },
+      export_output: byCategory.get('export_output') ?? { bytes: 0, count: 0 },
+    };
+
     return {
       totalFiles,
       totalSources,
       storageUsed,
+      storageBreakdown,
       ...creditInfo,
     };
   }

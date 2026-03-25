@@ -231,4 +231,22 @@ export class ContractTemplatesService {
       }),
     );
   }
+
+  async getTemplateBuffer(
+    scope: TemplateScope,
+    id: string,
+  ): Promise<{ fileName: string; contentType: string; size: number; buffer: Buffer }> {
+    const obj = await this.download(scope, id);
+    const body = (obj as any).Body;
+    if (!body) throw new Error('Template file not found');
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const buffer = Buffer.concat(chunks);
+    const contentType =
+      ((obj as any).ContentType as string) || 'application/octet-stream';
+    return { fileName: id, contentType, size: buffer.length, buffer };
+  }
 }

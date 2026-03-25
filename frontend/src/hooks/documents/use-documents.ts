@@ -6,6 +6,7 @@ export interface DocumentItem {
   title: string;
   type: string;
   status: string;
+  documentSizeBytes?: number;
   visibility?: 'private' | 'workspace';
   metadata?: Record<string, unknown>;
   createdAt: string;
