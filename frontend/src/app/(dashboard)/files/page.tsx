@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive, ChevronLeft, ChevronRight } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -52,7 +52,7 @@ const formatBytes = (bytes: number, decimals = 2) => {
 
 const PAGE_SIZE = 20
 
-export default function FilesPage() {
+function FilesPageContent() {
   const { t } = useT()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
@@ -266,5 +266,21 @@ export default function FilesPage() {
       )}
     </div>
     </ScrollArea>
+  )
+}
+
+export default function FilesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col gap-4 p-6">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-80" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      }
+    >
+      <FilesPageContent />
+    </Suspense>
   )
 }
