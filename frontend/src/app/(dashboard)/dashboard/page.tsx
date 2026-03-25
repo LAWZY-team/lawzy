@@ -66,6 +66,11 @@ export default function DashboardPage() {
     enabledCards.includes("workspace_breakdown") ||
     enabledCards.includes("recent_docs")
 
+    const quotaCardsEnabled =
+    enabledCards.includes("ai_quota") ||
+    enabledCards.includes("storage") ||
+    enabledCards.includes("referral")
+
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
       <div className="flex flex-col min-h-0 px-6">
@@ -113,11 +118,17 @@ export default function DashboardPage() {
               <StatsCards showCards={enabledCards} overview={overview} isLoading={isLoading} />
             )}
 
-            <div className={DASHBOARD_GRID_QUOTA}>
-              <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
-              <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
-              <ReferralCard />
-            </div>
+            {quotaCardsEnabled && (
+              <div className={DASHBOARD_GRID_QUOTA}>
+                {enabledCards.includes("ai_quota") && (
+                  <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
+                )}
+                {enabledCards.includes("storage") && (
+                  <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
+                )}
+                {enabledCards.includes("referral") && <ReferralCard />}
+              </div>
+            )}
 
             {chartCardsEnabled && (
               <div className={DASHBOARD_GRID_CHART}>
