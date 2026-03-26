@@ -111,6 +111,7 @@ const vi = {
   tmpl_library: "Thư viện {n} mẫu hợp đồng có sẵn",
   tmpl_system: "Hệ thống",
   tmpl_community: "Cộng đồng",
+  tmpl_internal: "Nội bộ",
   tmpl_not_found: "Không tìm thấy mẫu hợp đồng",
   tmpl_try_different: "Thử thay đổi bộ lọc hoặc tìm kiếm khác",
   tmpl_found: "Tìm thấy {n} mẫu hợp đồng",

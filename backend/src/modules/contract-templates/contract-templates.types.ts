@@ -1,13 +1,14 @@
-export type TemplateScope = 'system' | 'community';
+export type TemplateScope = 'system' | 'community' | 'internal';
 
 export interface ContractTemplateFile {
-  key: string;
-  id: string; // filename within scope, e.g. uuid.pdf
-  fileName: string; // same as id for now
-  /** Optional display name (stored in R2 object metadata for community uploads) */
+  key: string | null;
+  id: string; // Template.id
+  fileName: string;
   name?: string;
-  /** Optional description (stored in R2 object metadata for community uploads) */
   description?: string;
   size: number;
   lastModified: string | null;
+  scope: TemplateScope;
+  workspaceId?: string | null;
+  createdBy?: string | null;
 }

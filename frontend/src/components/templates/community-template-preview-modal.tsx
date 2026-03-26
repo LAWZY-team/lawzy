@@ -29,11 +29,13 @@ export function CommunityTemplatePreviewModal({
   open,
   onClose,
   onDelete,
+  scope = "community",
 }: {
   file: ContractTemplateFile | null
   open: boolean
   onClose: () => void
   onDelete: (id: string) => void
+  scope?: "community" | "internal"
 }) {
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
   const qc = useQueryClient()
@@ -60,7 +62,7 @@ export function CommunityTemplatePreviewModal({
               onClick={async () => {
                 try {
                   if (!workspaceId) return
-                  await saveTemplateToWorkspace({ scope: "community", id: file.id, workspaceId })
+                  await saveTemplateToWorkspace({ scope, id: file.id, workspaceId })
                   await qc.invalidateQueries({ queryKey: ["files"] })
                   await qc.invalidateQueries({ queryKey: ["files", "storage", workspaceId] })
                   await qc.invalidateQueries({ queryKey: ["dashboard", "quota", workspaceId] })
@@ -76,7 +78,7 @@ export function CommunityTemplatePreviewModal({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.open(getDownloadUrl("community", file.id), "_blank")}
+              onClick={() => window.open(getDownloadUrl(scope, file.id), "_blank")}
             >
               <Download className="h-4 w-4 mr-1.5" />
               Tải
@@ -101,7 +103,7 @@ export function CommunityTemplatePreviewModal({
               {previewSupported ? (
                 <iframe
                   key={file.id}
-                  src={getPreviewUrl("community", file.id)}
+                  src={getPreviewUrl(scope, file.id)}
                   className="h-full w-full"
                   title={file.fileName}
                 />

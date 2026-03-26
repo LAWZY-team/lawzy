@@ -12,6 +12,7 @@ import { CommunityTemplateGrid } from "@/components/templates/community-template
 import { CommunityTemplatePreviewModal } from "@/components/templates/community-template-preview-modal"
 import { CommunityTemplateUploadModal } from "@/components/templates/community-template-upload-modal"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 import type { TemplateViewMode } from "@/components/templates/template-filters"
 import {
   CommunityTemplateFilters,
@@ -25,6 +26,7 @@ function matchesFileType(fileName: string, type: CommunityFileType): boolean {
 }
 
 export function CommunityTemplatesTab({
+  scope = "community",
   searchQuery,
   onSearchChange,
   selectedFileType,
@@ -34,6 +36,7 @@ export function CommunityTemplatesTab({
   viewMode,
   onViewModeChange,
 }: {
+  scope?: "community" | "internal"
   searchQuery: string
   onSearchChange: (q: string) => void
   selectedFileType: CommunityFileType
@@ -45,10 +48,11 @@ export function CommunityTemplatesTab({
 }) {
   const [selected, setSelected] = React.useState<ContractTemplateFile | null>(null)
   const [uploadOpen, setUploadOpen] = React.useState(false)
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
 
-  const listQuery = useContractTemplates("community")
-  const uploadMutation = useUploadContractTemplate()
-  const deleteMutation = useDeleteContractTemplate()
+  const listQuery = useContractTemplates(scope)
+  const uploadMutation = useUploadContractTemplate(scope)
+  const deleteMutation = useDeleteContractTemplate(scope)
 
   const files = React.useMemo<ContractTemplateFile[]>(() => listQuery.data?.files ?? [], [listQuery.data])
 
@@ -82,7 +86,13 @@ export function CommunityTemplatesTab({
 
   const onUpload = async (params: { file: File; name: string; description?: string }) => {
     try {
-      await uploadMutation.mutateAsync(params)
+      if (scope === "internal" && !workspaceId) {
+        toast.error("Chưa chọn workspace")
+        return
+      }
+      await uploadMutation.mutateAsync(
+        scope === "internal" ? { ...params, workspaceId } : params
+      )
       setUploadOpen(false)
       toast.success("Upload thành công")
     } catch (e: unknown) {
@@ -119,7 +129,7 @@ export function CommunityTemplatesTab({
         <Button
           className="h-9"
           onClick={() => setUploadOpen(true)}
-          disabled={uploadMutation.isPending}
+          disabled={uploadMutation.isPending || (scope === "internal" && !workspaceId)}
         >
           <Upload className="h-4 w-4 mr-2" />
           Upload
@@ -147,7 +157,7 @@ export function CommunityTemplatesTab({
                   files={filteredFiles}
                   viewMode={viewMode}
                   onView={(f) => setSelected(f)}
-                  onDownload={(f) => window.open(getDownloadUrl("community", f.id), "_blank")}
+                  onDownload={(f) => window.open(getDownloadUrl(scope, f.id), "_blank")}
                   onDelete={(f) => onDelete(f.id)}
                 />
               </ScrollArea>
@@ -159,6 +169,7 @@ export function CommunityTemplatesTab({
             open={!!selected}
             onClose={() => setSelected(null)}
             onDelete={onDelete}
+            scope={scope}
           />
 
           <CommunityTemplateUploadModal
