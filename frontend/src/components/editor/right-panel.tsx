@@ -57,6 +57,8 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
     Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>
   >([])
   const [restoring, setRestoring] = useState<string | null>(null)
+  const [editingVersionId, setEditingVersionId] = useState<string | null>(null)
+  const [editingLabel, setEditingLabel] = useState('')
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const loadVersions = useCallback(() => {
@@ -270,6 +272,28 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
       toast.error(t('toast_version_restore_failed'))
     } finally {
       setRestoring(null)
+    }
+  }
+
+  const handleUpdateVersionLabel = async (versionId: string) => {
+    if (!isAuthenticated || !currentDocumentId || !editingLabel.trim()) {
+      setEditingVersionId(null)
+      return
+    }
+
+    try {
+      await api.patch(`/documents/${currentDocumentId}/versions/${versionId}`, {
+        label: editingLabel.trim(),
+      })
+      setVersions((prev) =>
+        prev.map((v) => (v.id === versionId ? { ...v, label: editingLabel.trim() } : v))
+      )
+      toast.success(t('toast_saved'))
+    } catch (e) {
+      console.error(e)
+      toast.error(t('toast_save_failed'))
+    } finally {
+      setEditingVersionId(null)
     }
   }
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -491,6 +515,10 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                         width={24}
                         height={24}
                         className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.srcset = ""
+                          e.currentTarget.src = "/logo/lawzy-triangle.png"
+                        }}
                       />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white uppercase">
@@ -532,12 +560,55 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                     {versions.map((v, idx) => (
                       <Card
                         key={v.id}
-                        className="p-3 bg-background border-border flex items-start justify-between gap-2"
+                        className="p-3 bg-background border-border flex items-start justify-between gap-2 group/version"
                       >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {v.label || t("panel_version_n", { n: versions.length - idx })}
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          {editingVersionId === v.id ? (
+                            <div className="flex flex-col gap-1.5 pb-1">
+                              <Input
+                                autoFocus
+                                value={editingLabel}
+                                onChange={(e) => setEditingLabel(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleUpdateVersionLabel(v.id)
+                                  if (e.key === 'Escape') setEditingVersionId(null)
+                                }}
+                                onBlur={() => handleUpdateVersionLabel(v.id)}
+                                className="h-7 text-sm px-2 bg-muted/50 border-primary/30 focus-visible:ring-primary/20"
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors pr-6 relative flex items-center gap-1.5"
+                              onClick={() => {
+                                setEditingVersionId(v.id)
+                                setEditingLabel(v.label || t('panel_version_n', { n: versions.length - idx }))
+                              }}
+                            >
+                              <span>{v.label || t('panel_version_n', { n: versions.length - idx })}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4 opacity-0 group-hover/version:opacity-100 transition-opacity hover:bg-transparent"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-muted-foreground"
+                                >
+                                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                  <path d="m15 5 4 4" />
+                                </svg>
+                              </Button>
+                            </div>
+                          )}
                           <div className="text-[11px] text-muted-foreground">
                             {new Date(v.createdAt).toLocaleString('vi-VN')}
                           </div>
@@ -547,7 +618,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                           size="sm"
                           variant="outline"
                           className="shrink-0 h-8"
-                          disabled={restoring === v.id}
+                          disabled={restoring === v.id || editingVersionId === v.id}
                           onClick={() => handleRestoreVersion(v.id)}
                           title={t("panel_restore_btn")}
                         >

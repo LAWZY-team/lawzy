@@ -4,7 +4,7 @@ import * as React from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { I18nProvider, useT } from "@/components/i18n-provider"
-import { OnboardingTour } from "@/components/onboarding-tour"
+// import { OnboardingTour } from "@/components/onboarding-tour"
 import { useAuthStore } from "@/stores/auth-store"
 import { toast } from "sonner"
 
@@ -31,7 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         {children}
-        <OnboardingTour />
+        {/* <OnboardingTour /> */}
         <UnauthorizedHandler />
       </I18nProvider>
     </QueryClientProvider>

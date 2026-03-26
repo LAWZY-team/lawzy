@@ -43,6 +43,14 @@ function formatDate(date: string) {
   return formatDistanceToNow(new Date(date), { addSuffix: true, locale: vi })
 }
 
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B"
+  const units = ["B", "KB", "MB", "GB"]
+  const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / Math.pow(1024, idx)
+  return `${value.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
+}
+
 function DocumentsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -113,6 +121,7 @@ function DocumentsContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("recent_docs_name")}</TableHead>
+                  <TableHead>Kích thước</TableHead>
                   <TableHead>{t("recent_docs_status")}</TableHead>
                   <TableHead>{t("recent_docs_updated")}</TableHead>
                   <TableHead className="w-[50px]" />
@@ -124,13 +133,14 @@ function DocumentsContent() {
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell />
                     </TableRow>
                   ))
                 ) : mineDocs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                       {t("docs_empty")}
                     </TableCell>
                   </TableRow>
@@ -142,6 +152,9 @@ function DocumentsContent() {
                           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                           {doc.title}
                         </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatBytes(doc.documentSizeBytes ?? 0)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="capitalize">
@@ -163,6 +176,11 @@ function DocumentsContent() {
                               <Link href={`/editor/${doc.id}`}>{t("recent_docs_open")}</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem>{t("recent_docs_share")}</DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/files?documentId=${encodeURIComponent(doc.id)}&category=export_output`}>
+                                Xem file xuất
+                              </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(doc.id)}>
                               {t("common_delete")}
                             </DropdownMenuItem>

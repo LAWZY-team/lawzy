@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { FileIcon, MoreVertical, Trash2, Download, Search, HardDrive, ChevronLeft, ChevronRight } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -34,6 +35,11 @@ import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 import { fixMojibake } from "@/lib/fix-mojibake"
+import { QuotaCard } from "@/components/dashboard/quota-card"
+import { ReferralCard } from "@/components/dashboard/referral-card"
+import { useDashboardQuota } from "@/hooks/dashboard/use-dashboard"
+import { DASHBOARD_GRID_QUOTA } from "@/components/dashboard/dashboard-card.styles"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return "0 Bytes"
@@ -46,21 +52,29 @@ const formatBytes = (bytes: number, decimals = 2) => {
 
 const PAGE_SIZE = 20
 
-export default function FilesPage() {
+function FilesPageContent() {
   const { t } = useT()
+  const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
   const [page, setPage] = useState(1)
   const [filterByUserId, setFilterByUserId] = useState<string>("")
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id ?? ""
+  const documentId = searchParams.get("documentId") || undefined
+  const category =
+    (searchParams.get("category") as "input_upload" | "template" | "export_output" | null) ||
+    undefined
 
   const { data, isLoading } = useFiles(workspaceId, {
     page,
     limit: PAGE_SIZE,
     filterByUserId: filterByUserId || undefined,
+    documentId,
+    category,
   })
   const { data: workspace } = useWorkspace(workspaceId)
   const deleteMutation = useDeleteFile()
+  const { data: quota, isLoading: isQuotaLoading } = useDashboardQuota()
 
   const files = data?.data ?? []
   const total = data?.total ?? 0
@@ -107,6 +121,7 @@ export default function FilesPage() {
   }
 
   return (
+    <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">{t("files_title")}</h2>
@@ -243,12 +258,29 @@ export default function FilesPage() {
               size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-            >
+            > 
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
     </div>
+    </ScrollArea>
+  )
+}
+
+export default function FilesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col gap-4 p-6">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-80" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      }
+    >
+      <FilesPageContent />
+    </Suspense>
   )
 }

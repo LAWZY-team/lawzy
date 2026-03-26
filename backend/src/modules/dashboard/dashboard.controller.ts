@@ -36,6 +36,15 @@ export class DashboardController {
     return this.dashboardService.getOverview(userId, workspaceId || null);
   }
 
+  @Get('quota')
+  async getQuota(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
+    const userId = req.user.userId;
+    return this.dashboardService.getQuotaOverview(userId, workspaceId || null);
+  }
+
   @Get('chart')
   async getChart(
     @Request() req: any,

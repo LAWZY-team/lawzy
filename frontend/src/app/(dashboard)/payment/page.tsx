@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePlans, filterPlansForDisplay } from "@/hooks/plans/use-plans";
 import { usePayments, useCreatePayment } from "@/hooks/payments/use-payments";
@@ -54,13 +55,15 @@ export default function PaymentPage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-bold tracking-tight">{t("payment_title")}</h2>
-        <p className="text-muted-foreground">{t("payment_subtitle")}</p>
-      </div>
+    <div className="flex flex-1 flex-col h-full min-h-0">
+      <div className="flex flex-col min-h-0 px-6">
+        <div className="flex flex-col gap-2 pt-6 pb-2 shrink-0">
+          <h2 className="text-3xl font-bold tracking-tight">{t("payment_title")}</h2>
+          <p className="text-muted-foreground">{t("payment_subtitle")}</p>
+        </div>
 
-      <Tabs defaultValue="plans" className="w-full">
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+          <Tabs defaultValue="plans" className="w-full pb-8">
         <TabsList>
           <TabsTrigger value="plans">{t("payment_tab_current_plan")}</TabsTrigger>
           <TabsTrigger value="history">{t("payment_history_title")}</TabsTrigger>
@@ -154,6 +157,8 @@ export default function PaymentPage() {
           )}
         </TabsContent>
       </Tabs>
+        </ScrollArea>
+      </div>
     </div>
   );
 }

@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     ]
 
     const toolCallsCollected: Array<{ name: string; args: Record<string, unknown>; result: unknown }> = []
-    let geminiThinkingAccumulated: string[] = []
+    const geminiThinkingAccumulated: string[] = []
     let turn = 0
     let lastText = ''
 

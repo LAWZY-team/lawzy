@@ -30,6 +30,8 @@ export class FilesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('filterByUserId') filterByUserId?: string,
+    @Query('documentId') documentId?: string,
+    @Query('category') category?: 'input_upload' | 'template' | 'export_output',
   ) {
     if (!workspaceId) {
       throw new BadRequestException('workspaceId is required');
@@ -39,6 +41,8 @@ export class FilesController {
       limit: limit ? parseInt(limit, 10) : undefined,
       userId: req.user.userId,
       filterByUserId: filterByUserId || undefined,
+      documentId: documentId || undefined,
+      category: category || undefined,
     };
     return this.filesService.findByWorkspace(workspaceId, opts);
   }
@@ -69,6 +73,35 @@ export class FilesController {
     });
   }
 
+  @Post('upload-export')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  async uploadExport(
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body('workspaceId') workspaceId: string,
+    @Body('documentId') documentId?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    if (!workspaceId) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    const userId = req.user.userId;
+    return this.filesService.upload({
+      file,
+      userId,
+      workspaceId,
+      category: 'export_output',
+      documentId: documentId || null,
+    });
+  }
+
   @Get('storage/:workspaceId')
   async getStorageUsed(
     @Request() req: any,
@@ -95,8 +128,19 @@ export class FilesController {
     const buffer = await this.streamToBuffer(body);
     return new StreamableFile(buffer, {
       type: contentType,
-      disposition: `attachment; filename="${encodeURIComponent(name)}"`,
+      // RFC 5987 for UTF-8 filenames (better cross-browser behavior).
+      disposition: `attachment; filename="${this.asciiFallbackFilename(
+        name,
+      )}"; filename*=UTF-8''${encodeURIComponent(name)}`,
     });
+  }
+
+  private asciiFallbackFilename(name: string): string {
+    const base = (name || 'file')
+      .replace(/[\r\n"]/g, '')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .trim();
+    return base || 'file';
   }
 
   @Delete(':id')

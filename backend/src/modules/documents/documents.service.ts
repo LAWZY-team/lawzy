@@ -109,7 +109,33 @@ export class DocumentsService {
       this.prisma.document.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    const docIds = data.map((d) => d.id);
+    const exportByDoc = new Map<string, number>();
+    if (docIds.length > 0) {
+      const grouped = await this.prisma.file.groupBy({
+        by: ['documentId'],
+        where: {
+          documentId: { in: docIds },
+          category: 'export_output',
+        },
+        _sum: { size: true },
+      });
+      for (const row of grouped) {
+        if (row.documentId) {
+          exportByDoc.set(row.documentId, Number(row._sum.size ?? 0));
+        }
+      }
+    }
+
+    return {
+      data: data.map((d) => ({
+        ...d,
+        documentSizeBytes: exportByDoc.get(d.id) ?? 0,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   private async getUserWorkspaceIds(userId: string, scopeWorkspaceId?: string | null): Promise<string[]> {
@@ -180,7 +206,33 @@ export class DocumentsService {
       this.prisma.document.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    const docIds = data.map((d) => d.id);
+    const exportByDoc = new Map<string, number>();
+    if (docIds.length > 0) {
+      const grouped = await this.prisma.file.groupBy({
+        by: ['documentId'],
+        where: {
+          documentId: { in: docIds },
+          category: 'export_output',
+        },
+        _sum: { size: true },
+      });
+      for (const row of grouped) {
+        if (row.documentId) {
+          exportByDoc.set(row.documentId, Number(row._sum.size ?? 0));
+        }
+      }
+    }
+
+    return {
+      data: data.map((d) => ({
+        ...d,
+        documentSizeBytes: exportByDoc.get(d.id) ?? 0,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   /**
@@ -241,7 +293,7 @@ export class DocumentsService {
         versions: {
           orderBy: { createdAt: 'desc' },
         },
-        chatMessages: true,
+        chatMessages: { orderBy: { createdAt: 'asc' } },
         creator: {
           select: { id: true, name: true, avatar: true },
         },
@@ -359,6 +411,28 @@ export class DocumentsService {
         label: data.label,
         createdBy: data.createdBy,
       },
+    });
+  }
+
+  async updateVersion(
+    documentId: string,
+    versionId: string,
+    data: { label: string },
+    userId: string,
+  ) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: versionId, documentId },
+    });
+
+    if (!version) {
+      throw new NotFoundException('Version not found');
+    }
+
+    return this.prisma.documentVersion.update({
+      where: { id: versionId },
+      data: { label: data.label },
     });
   }
 

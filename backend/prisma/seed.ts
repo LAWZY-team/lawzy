@@ -5,7 +5,7 @@ import {
   TERM_CONTENT_EN,
   PRIVACY_CONTENT_VI,
   PRIVACY_CONTENT_EN,
-} from './policy-content.js';
+} from './policy-content';
 import { DEFAULT_EMAIL_TEMPLATES } from './email-templates-seed';
 
 const prisma = new PrismaClient();

@@ -9,8 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { QuotaCard } from "@/components/dashboard/quota-card"
-import { ReferralCard } from "@/components/dashboard/referral-card"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { OverviewChart } from "@/components/dashboard/overview-chart"
 import { StatsByWorkspace } from "@/components/dashboard/stats-by-workspace"
@@ -30,10 +28,13 @@ import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import {
   DASHBOARD_CARD_HOVER,
-  DASHBOARD_GRID_QUOTA,
   DASHBOARD_GRID_CHART,
   DASHBOARD_CARD_ANIMATION,
+  DASHBOARD_GRID_QUOTA,
 } from "@/components/dashboard/dashboard-card.styles"
+import { QuotaCard } from "@/components/dashboard/quota-card"
+import { ReferralCard } from "@/components/dashboard/referral-card"
+import { useDashboardQuota } from "@/hooks/dashboard/use-dashboard"
 
 export default function DashboardPage() {
   useAuthStore()
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>("year")
   const enabledCards = useDashboardDisplayStore((s) => s.enabledCards)
   const { data: initialData, isLoading } = useDashboardInitial(10, period)
+  const { data: quota, isLoading: isQuotaLoading } = useDashboardQuota()
   const overview = initialData?.overview ?? null
   const recentDocs = initialData?.recentDocuments ?? null
   const chartData = initialData?.chart ?? null
@@ -59,14 +61,15 @@ export default function DashboardPage() {
     enabledCards.includes("completed") ||
     enabledCards.includes("drafting") ||
     enabledCards.includes("total_files")
-  const quotaCardsEnabled =
-    enabledCards.includes("ai_quota") ||
-    enabledCards.includes("storage") ||
-    enabledCards.includes("referral")
   const chartCardsEnabled =
     enabledCards.includes("chart") ||
     enabledCards.includes("workspace_breakdown") ||
     enabledCards.includes("recent_docs")
+
+    const quotaCardsEnabled =
+    enabledCards.includes("ai_quota") ||
+    enabledCards.includes("storage") ||
+    enabledCards.includes("referral")
 
   return (
     <div className="flex flex-1 flex-col h-full min-h-0">
@@ -118,10 +121,10 @@ export default function DashboardPage() {
             {quotaCardsEnabled && (
               <div className={DASHBOARD_GRID_QUOTA}>
                 {enabledCards.includes("ai_quota") && (
-                  <QuotaCard show="quota" overview={overview} isLoading={isLoading} />
+                  <QuotaCard show="quota" overview={quota ?? null} isLoading={isQuotaLoading} />
                 )}
                 {enabledCards.includes("storage") && (
-                  <QuotaCard show="storage" overview={overview} isLoading={isLoading} />
+                  <QuotaCard show="storage" overview={quota ?? null} isLoading={isQuotaLoading} />
                 )}
                 {enabledCards.includes("referral") && <ReferralCard />}
               </div>
@@ -200,6 +203,8 @@ export default function DashboardPage() {
                 )}
               </div>
             )}
+
+            
           </div>
           )}
         </ScrollArea>

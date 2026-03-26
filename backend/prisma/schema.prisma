@@ -202,6 +202,7 @@ model Document {
   template     Template?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
   versions     DocumentVersion[]
   chatMessages ChatMessage[]
+  files        File[]
 
   @@index([workspaceId])
   @@index([createdBy])
@@ -249,19 +250,30 @@ model Template {
   @@map("templates")
 }
 
+enum FileCategory {
+  input_upload
+  template
+  export_output
+}
+
 model File {
   id          String   @id @default(uuid())
   name        String
   size        Int
   mimeType    String   @map("mime_type")
   s3Key       String   @map("s3_key")
+  category    FileCategory @default(input_upload)
+  documentId  String?  @map("document_id")
   userId      String   @map("user_id")
   workspaceId String   @map("workspace_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  document  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@index([category])
+  @@index([documentId])
   @@index([workspaceId])
   @@index([userId])
   @@map("files")
