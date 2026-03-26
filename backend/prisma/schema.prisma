@@ -96,6 +96,7 @@ model Workspace {
   sources        Source[]
   payments       Payment[]
   customFields   WorkspaceCustomField[]
+  templates      Template[]
 
   @@map("workspaces")
 }
@@ -239,14 +240,21 @@ model Template {
   mergeFields Json?    @map("merge_fields")
   metadata    Json?
   s3Key       String?  @map("s3_key")
+  fileName    String?  @map("file_name")
+  fileSize    Int?     @map("file_size")
+  mimeType    String?  @map("mime_type")
+  workspaceId String?  @map("workspace_id")
   createdBy   String?  @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   documents Document[]
   creator   User?      @relation("TemplateCreator", fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([createdBy])
+  @@index([workspaceId])
+  @@index([scope, workspaceId])
   @@map("templates")
 }
 
