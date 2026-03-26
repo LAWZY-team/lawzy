@@ -15,12 +15,15 @@ export interface ListContractTemplatesResponse {
   files: ContractTemplateFile[];
 }
 
-function getBackendBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:5000';
+const PROXY_BASE = '/api/proxy';
+
+function getProxyUrl(path: string): string {
+  if (!path.startsWith('/')) return `${PROXY_BASE}/${path}`;
+  return `${PROXY_BASE}${path}`;
 }
 
 export async function listContractTemplates(scope: TemplateScope): Promise<ListContractTemplatesResponse> {
-  const res = await fetch(`${getBackendBaseUrl()}/contract-templates?scope=${scope}`, {
+  const res = await fetch(getProxyUrl(`/contract-templates?scope=${encodeURIComponent(scope)}`), {
     method: 'GET',
     cache: 'no-store',
     headers: {
@@ -42,7 +45,7 @@ export async function uploadCommunityTemplate(params: {
   form.append('name', params.name);
   if (params.description) form.append('description', params.description);
 
-  const res = await fetch(`${getBackendBaseUrl()}/contract-templates/community`, {
+  const res = await fetch(getProxyUrl('/contract-templates/community'), {
     method: 'POST',
     body: form,
   });
@@ -58,7 +61,7 @@ export async function uploadCommunityTemplate(params: {
 
 export async function deleteCommunityTemplate(id: string): Promise<void> {
   const res = await fetch(
-    `${getBackendBaseUrl()}/contract-templates/community/${encodeURIComponent(id)}`,
+    getProxyUrl(`/contract-templates/community/${encodeURIComponent(id)}`),
     {
       method: 'DELETE',
     },
@@ -67,7 +70,7 @@ export async function deleteCommunityTemplate(id: string): Promise<void> {
 }
 
 export function getDownloadUrl(scope: TemplateScope, id: string): string {
-  return `${getBackendBaseUrl()}/contract-templates/${scope}/${encodeURIComponent(id)}/download`;
+  return getProxyUrl(`/contract-templates/${scope}/${encodeURIComponent(id)}/download`);
 }
 
 export function getPreviewUrl(scope: TemplateScope, id: string): string {
@@ -81,9 +84,9 @@ export async function saveTemplateToWorkspace(params: {
   workspaceId: string;
 }): Promise<{ id: string; name: string; size: number; mimeType: string; s3Key: string }> {
   const res = await fetch(
-    `${getBackendBaseUrl()}/contract-templates/${params.scope}/${encodeURIComponent(
-      params.id,
-    )}/save-to-workspace`,
+    getProxyUrl(
+      `/contract-templates/${params.scope}/${encodeURIComponent(params.id)}/save-to-workspace`,
+    ),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
