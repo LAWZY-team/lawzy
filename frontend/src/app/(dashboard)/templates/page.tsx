@@ -16,7 +16,7 @@ import { useT } from "@/components/i18n-provider"
 
 export default function TemplatesPage() {
   const { t } = useT()
-  const [activeTab, setActiveTab] = useState<"system" | "community">("system")
+  const [activeTab, setActiveTab] = useState<"system" | "community" | "internal">("system")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedType, setSelectedType] = useState("all")
   const [selectedSort, setSelectedSort] = useState("recent")
@@ -27,6 +27,10 @@ export default function TemplatesPage() {
   const [communityFileType, setCommunityFileType] = useState<CommunityFileType>("all")
   const [communitySort, setCommunitySort] = useState<CommunitySort>("recent")
   const [communityViewMode, setCommunityViewMode] = useState<"card" | "list">("card")
+  const [internalSearch, setInternalSearch] = useState("")
+  const [internalFileType, setInternalFileType] = useState<CommunityFileType>("all")
+  const [internalSort, setInternalSort] = useState<CommunitySort>("recent")
+  const [internalViewMode, setInternalViewMode] = useState<"card" | "list">("card")
 
   const { data: templates = [], isLoading } = useTemplates("system")
 
@@ -69,11 +73,12 @@ export default function TemplatesPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "system" | "community")} className="flex-1 min-h-0 flex flex-col">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "system" | "community" | "internal")} className="flex-1 min-h-0 flex flex-col">
         <div className="shrink-0 flex items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="system">{t("tmpl_system")}</TabsTrigger>
             <TabsTrigger value="community">{t("tmpl_community")}</TabsTrigger>
+            <TabsTrigger value="internal">{t("tmpl_internal")}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -126,6 +131,7 @@ export default function TemplatesPage() {
           className="flex flex-col flex-1 min-h-0 mt-4 data-[state=inactive]:hidden"
         >
           <CommunityTemplatesTab
+            scope="community"
             searchQuery={communitySearch}
             onSearchChange={setCommunitySearch}
             selectedFileType={communityFileType}
@@ -134,6 +140,23 @@ export default function TemplatesPage() {
             onSortChange={setCommunitySort}
             viewMode={communityViewMode}
             onViewModeChange={setCommunityViewMode}
+          />
+        </TabsContent>
+
+        <TabsContent
+          value="internal"
+          className="flex flex-col flex-1 min-h-0 mt-4 data-[state=inactive]:hidden"
+        >
+          <CommunityTemplatesTab
+            scope="internal"
+            searchQuery={internalSearch}
+            onSearchChange={setInternalSearch}
+            selectedFileType={internalFileType}
+            onFileTypeChange={setInternalFileType}
+            selectedSort={internalSort}
+            onSortChange={setInternalSort}
+            viewMode={internalViewMode}
+            onViewModeChange={setInternalViewMode}
           />
         </TabsContent>
       </Tabs>

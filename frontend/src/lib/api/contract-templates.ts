@@ -1,13 +1,16 @@
-export type TemplateScope = 'system' | 'community';
+export type TemplateScope = 'system' | 'community' | 'internal';
 
 export interface ContractTemplateFile {
-  key: string;
-  id: string; // uuid.pdf
+  key: string | null;
+  id: string;
   fileName: string;
   name?: string;
   description?: string;
   size: number;
   lastModified: string | null;
+  scope: TemplateScope;
+  workspaceId?: string | null;
+  createdBy?: string | null;
 }
 
 export interface ListContractTemplatesResponse {
@@ -59,9 +62,44 @@ export async function uploadCommunityTemplate(params: {
   return data;
 }
 
+export async function uploadInternalTemplate(params: {
+  file: File;
+  name: string;
+  description?: string;
+  workspaceId: string;
+}): Promise<{ id: string; key: string; name?: string; description?: string }> {
+  const form = new FormData();
+  form.append('file', params.file);
+  form.append('name', params.name);
+  form.append('workspaceId', params.workspaceId);
+  if (params.description) form.append('description', params.description);
+
+  const res = await fetch(getProxyUrl('/contract-templates/internal'), {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error('Failed to upload internal template');
+  return (await res.json()) as {
+    id: string;
+    key: string;
+    name?: string;
+    description?: string;
+  };
+}
+
 export async function deleteCommunityTemplate(id: string): Promise<void> {
   const res = await fetch(
     getProxyUrl(`/contract-templates/community/${encodeURIComponent(id)}`),
+    {
+      method: 'DELETE',
+    },
+  );
+  if (!res.ok) throw new Error('Failed to delete template');
+}
+
+export async function deleteInternalTemplate(id: string): Promise<void> {
+  const res = await fetch(
+    getProxyUrl(`/contract-templates/internal/${encodeURIComponent(id)}`),
     {
       method: 'DELETE',
     },

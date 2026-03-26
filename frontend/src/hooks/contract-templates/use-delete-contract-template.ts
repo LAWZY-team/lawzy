@@ -1,10 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { deleteCommunityTemplate } from '@/lib/api/contract-templates';
+import {
+  deleteCommunityTemplate,
+  deleteInternalTemplate,
+  type TemplateScope,
+} from '@/lib/api/contract-templates';
 
-export function useDeleteContractTemplate() {
+export function useDeleteContractTemplate(scope: Extract<TemplateScope, 'community' | 'internal'> = 'community') {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteCommunityTemplate(id),
+    mutationFn: (id: string) =>
+      scope === 'internal' ? deleteInternalTemplate(id) : deleteCommunityTemplate(id),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['contract-templates'] });
     },

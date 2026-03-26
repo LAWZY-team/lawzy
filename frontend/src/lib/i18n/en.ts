@@ -121,6 +121,7 @@ const en: Record<TranslationKey, string> = {
   tmpl_library: "Library of {n} contract templates",
   tmpl_system: "System",
   tmpl_community: "Community",
+  tmpl_internal: "Internal",
   tmpl_not_found: "No templates found",
   tmpl_try_different: "Try different filters or search terms",
   tmpl_found: "Found {n} templates",
