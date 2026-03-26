@@ -37,7 +37,7 @@ function parseScope(scope: string): TemplateScope {
   );
 }
 
-const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx']);
+const ALLOWED_EXT = new Set(['.pdf']);
 function sanitizeFilenameForHeader(input: string): string {
   if (!input) return 'download';
   // Loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
@@ -72,7 +72,7 @@ export class ContractTemplatesController {
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
-          return cb(new Error('Only PDF, DOC, DOCX are allowed'), false);
+          return cb(new Error('Only PDF is allowed'), false);
         }
         cb(null, true);
       },
@@ -89,7 +89,7 @@ export class ContractTemplatesController {
     }
     const ext = extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      throw new BadRequestException('Only PDF, DOC, DOCX are allowed');
+      throw new BadRequestException('Only PDF is allowed');
     }
 
     const defaultName = (file.originalname || 'template')
@@ -134,7 +134,7 @@ export class ContractTemplatesController {
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
-          return cb(new Error('Only PDF, DOC, DOCX are allowed'), false);
+          return cb(new Error('Only PDF is allowed'), false);
         }
         cb(null, true);
       },
@@ -152,7 +152,7 @@ export class ContractTemplatesController {
     }
     const ext = extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      throw new BadRequestException('Only PDF, DOC, DOCX are allowed');
+      throw new BadRequestException('Only PDF is allowed');
     }
     if (!workspaceId) {
       throw new BadRequestException('workspaceId is required');

@@ -13,6 +13,7 @@ import { CommunityTemplatePreviewModal } from "@/components/templates/community-
 import { CommunityTemplateUploadModal } from "@/components/templates/community-template-upload-modal"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useT } from "@/components/i18n-provider"
 import type { TemplateViewMode } from "@/components/templates/template-filters"
 import {
   CommunityTemplateFilters,
@@ -23,6 +24,10 @@ import {
 function matchesFileType(fileName: string, type: CommunityFileType): boolean {
   if (type === "all") return true
   return fileName.toLowerCase().endsWith(`.${type}`)
+}
+
+function isPdf(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith(".pdf")
 }
 
 export function CommunityTemplatesTab({
@@ -46,6 +51,7 @@ export function CommunityTemplatesTab({
   viewMode: TemplateViewMode
   onViewModeChange: (m: TemplateViewMode) => void
 }) {
+  const { t } = useT()
   const [selected, setSelected] = React.useState<ContractTemplateFile | null>(null)
   const [uploadOpen, setUploadOpen] = React.useState(false)
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
@@ -87,16 +93,16 @@ export function CommunityTemplatesTab({
   const onUpload = async (params: { file: File; name: string; description?: string }) => {
     try {
       if (scope === "internal" && !workspaceId) {
-        toast.error("Chưa chọn workspace")
+        toast.error(t("toast_select_workspace_to_save_file"))
         return
       }
       await uploadMutation.mutateAsync(
         scope === "internal" ? { ...params, workspaceId } : params
       )
       setUploadOpen(false)
-      toast.success("Upload thành công")
+      toast.success(t("tmpl_upload_success"))
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Upload thất bại"
+      const msg = e instanceof Error ? e.message : t("tmpl_upload_failed")
       toast.error(msg)
     }
   }
@@ -104,10 +110,10 @@ export function CommunityTemplatesTab({
   const onDelete = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id)
-      toast.success("Đã xóa")
+      toast.success(t("tmpl_deleted"))
       setSelected((prev) => (prev?.id === id ? null : prev))
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Xóa thất bại"
+      const msg = e instanceof Error ? e.message : t("tmpl_delete_failed")
       toast.error(msg)
     }
   }
@@ -132,31 +138,37 @@ export function CommunityTemplatesTab({
           disabled={uploadMutation.isPending || (scope === "internal" && !workspaceId)}
         >
           <Upload className="h-4 w-4 mr-2" />
-          Upload
+          {t("tmpl_upload_action")}
         </Button>
       </div>
 
       {listQuery.isError ? (
-        <div className="text-destructive">Không tải được danh sách</div>
+        <div className="text-destructive">{t("tmpl_list_load_failed")}</div>
       ) : (
         <>
           {filteredFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-lg font-semibold">Không tìm thấy file</p>
+              <p className="text-lg font-semibold">{t("tmpl_comm_not_found")}</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Thử thay đổi bộ lọc hoặc tìm kiếm khác
+                {t("tmpl_try_different")}
               </p>
             </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground shrink-0 mb-2">
-                Tìm thấy {filteredFiles.length} file
+                {t("tmpl_comm_found", { n: filteredFiles.length })}
               </p>
               <ScrollArea className="flex-1 min-h-0">
                 <CommunityTemplateGrid
                   files={filteredFiles}
                   viewMode={viewMode}
-                  onView={(f) => setSelected(f)}
+                  onView={(f) => {
+                    if (!isPdf(f.fileName)) {
+                      toast.error(t("tmpl_pdf_preview_only"))
+                      return
+                    }
+                    setSelected(f)
+                  }}
                   onDownload={(f) => window.open(getDownloadUrl(scope, f.id), "_blank")}
                   onDelete={(f) => onDelete(f.id)}
                 />
