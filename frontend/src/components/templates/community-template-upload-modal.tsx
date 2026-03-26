@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import type { ContractTemplateFile } from "@/lib/api/contract-templates"
+import { toast } from "sonner"
+import { useT } from "@/components/i18n-provider"
 
 function baseNameFromFile(file: File): string {
   return file.name.replace(/\.[^/.]+$/, "").trim()
@@ -36,6 +38,7 @@ export function CommunityTemplateUploadModal({
   onSubmit: (params: { file: File; name: string; description?: string }) => void
   isSubmitting: boolean
 }) {
+  const { t } = useT()
   const [file, setFile] = React.useState<File | null>(null)
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
@@ -57,6 +60,11 @@ export function CommunityTemplateUploadModal({
   }, [open])
 
   const onPickFile = (f: File | null) => {
+    if (f && !f.name.toLowerCase().endsWith(".pdf")) {
+      toast.error(t("tmpl_pdf_only"))
+      setFile(null)
+      return
+    }
     setFile(f)
     if (!f) return
     const base = baseNameFromFile(f)
@@ -66,32 +74,32 @@ export function CommunityTemplateUploadModal({
   const canSubmit = !!file && !!name.trim() && !isSubmitting
 
   return (
-    <Modal open={open} onClose={onClose} size="lg" title="Upload mẫu hợp đồng (Cộng đồng)">
+    <Modal open={open} onClose={onClose} size="lg" title={t("tmpl_comm_upload_title")}>
       <div className="p-6 space-y-5">
         <div className="space-y-2">
-          <Label>Tên</Label>
+          <Label>{t("tmpl_comm_name")}</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ví dụ: NDA - Công ty A"
+            placeholder={t("tmpl_comm_name_placeholder")}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>Mô tả ngắn</Label>
+          <Label>{t("tmpl_comm_desc")}</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Mô tả ngắn"
+            placeholder={t("tmpl_comm_desc_placeholder")}
             rows={3}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>File</Label>
+          <Label>{t("files_table_name")}</Label>
           <Input
             type="file"
-            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".pdf,application/pdf"
             onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
           />
           {file && (
@@ -104,7 +112,7 @@ export function CommunityTemplateUploadModal({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Hủy
+            {t("common_cancel")}
           </Button>
           <Button
             onClick={() =>
@@ -113,7 +121,7 @@ export function CommunityTemplateUploadModal({
             disabled={!canSubmit}
           >
             <Upload className="h-4 w-4 mr-2" />
-            Upload
+            {t("tmpl_upload_action")}
           </Button>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { getDownloadUrl, getPreviewUrl, saveTemplateToWorkspace, type ContractTe
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
+import { useT } from "@/components/i18n-provider"
 
 function isPdf(fileName: string): boolean {
   return fileName.toLowerCase().endsWith(".pdf")
@@ -37,6 +38,7 @@ export function CommunityTemplatePreviewModal({
   onDelete: (id: string) => void
   scope?: "community" | "internal"
 }) {
+  const { t } = useT()
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
   const qc = useQueryClient()
   if (!file) return null
@@ -66,14 +68,14 @@ export function CommunityTemplatePreviewModal({
                   await qc.invalidateQueries({ queryKey: ["files"] })
                   await qc.invalidateQueries({ queryKey: ["files", "storage", workspaceId] })
                   await qc.invalidateQueries({ queryKey: ["dashboard", "quota", workspaceId] })
-                  toast.success("Đã lưu vào Workspace")
+                  toast.success(t("tmpl_saved_to_workspace"))
                 } catch (e) {
                   console.error(e)
-                  toast.error("Không thể lưu vào Workspace")
+                  toast.error(t("tmpl_save_workspace_failed"))
                 }
               }}
             >
-              Lưu về
+              {t("tmpl_save_to_workspace")}
             </Button>
             <Button
               variant="ghost"
@@ -81,13 +83,13 @@ export function CommunityTemplatePreviewModal({
               onClick={() => window.open(getDownloadUrl(scope, file.id), "_blank")}
             >
               <Download className="h-4 w-4 mr-1.5" />
-              Tải
+              {t("common_download")}
             </Button>
             <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)}>
               <Trash2 className="h-4 w-4 mr-1.5" />
-              Xóa
+              {t("common_delete")}
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Đóng">
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common_close")}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -97,7 +99,7 @@ export function CommunityTemplatePreviewModal({
           <div className="flex-1 min-w-[max(360px,55%)] border-r flex flex-col overflow-hidden">
             <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
               <FileText className="h-4 w-4" />
-              Xem trước
+              {t("tmpl_preview")}
             </div>
             <div className="flex-1 min-h-0">
               {previewSupported ? (
@@ -109,7 +111,7 @@ export function CommunityTemplatePreviewModal({
                 />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground p-6 text-center">
-                  File này chưa hỗ trợ xem trước. Vui lòng tải về để xem nội dung.
+                  {t("tmpl_pdf_preview_only_message")}
                 </div>
               )}
             </div>
@@ -117,12 +119,12 @@ export function CommunityTemplatePreviewModal({
 
           <div className="flex shrink-0 w-[280px] flex-col bg-muted/20 overflow-hidden">
             <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
-              Thông tin file
+              {t("tmpl_file_info")}
             </div>
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-4 space-y-4">
                 <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground">Loại</span>
+                  <span className="text-muted-foreground">{t("tmpl_type")}</span>
                   <Badge variant="secondary">{previewSupported ? "PDF" : "FILE"}</Badge>
                 </div>
 
@@ -130,11 +132,11 @@ export function CommunityTemplatePreviewModal({
 
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-muted-foreground">Kích thước</span>
+                    <span className="text-muted-foreground">{t("tmpl_comm_size")}</span>
                     <span className="font-medium">{formatBytes(file.size)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-muted-foreground">Cập nhật</span>
+                    <span className="text-muted-foreground">{t("tmpl_updated")}</span>
                     <span className="font-medium">
                       {file.lastModified ? new Date(file.lastModified).toLocaleString() : "—"}
                     </span>
