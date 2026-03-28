@@ -203,9 +203,25 @@ export class ContractTemplatesController {
 
       const inline = inlineRaw === '1' || inlineRaw === 'true';
       const dispositionType = inline ? 'inline' : 'attachment';
+
+      let fileName = id;
+      try {
+        const meta = await this.service.getTemplateByIdForScope(
+          scope,
+          id,
+          req.user.userId,
+        );
+        fileName = meta.fileName;
+      } catch {
+        // Fallback or legacy
+        if (!fileName.toLowerCase().endsWith('.pdf')) {
+          fileName += '.pdf';
+        }
+      }
+
       res.set({
         'Content-Type': obj.ContentType ?? 'application/octet-stream',
-        'Content-Disposition': `${dispositionType}; filename="${sanitizeFilenameForHeader(id)}"`,
+        'Content-Disposition': `${dispositionType}; filename="${sanitizeFilenameForHeader(fileName)}"`,
       });
       return new StreamableFile(body as unknown as Uint8Array);
     } catch (e: unknown) {
