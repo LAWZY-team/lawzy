@@ -184,6 +184,8 @@ const vi = {
 
   sources_subtitle: "Tài liệu tham chiếu pháp lý / nghiệp vụ để AI trích dẫn khi soạn hợp đồng",
   sources_empty: "Chưa có nguồn nào. Thêm file PDF, DOCX hoặc TXT để AI tham chiếu khi soạn hợp đồng.",
+  sources_coming_soon_title: "Nguồn tham chiếu cho hợp đồng thông minh",
+  sources_coming_soon_description: "Lawzy sắp ra mắt tính năng “Nguồn tham chiếu”, cho phép bạn cung cấp tài liệu, mẫu hợp đồng hoặc nội dung riêng để AI sử dụng khi soạn thảo. Nhờ đó, hợp đồng được tạo ra không chỉ nhanh mà còn bám sát thực tế, đúng ngữ cảnh và phù hợp với nhu cầu cụ thể của bạn.",
 
   // Payment
   payment_subtitle: "Quản lý gói dịch vụ và theo dõi hạn mức sử dụng",

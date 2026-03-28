@@ -196,6 +196,8 @@ const en: Record<TranslationKey, string> = {
   // Sources
   sources_subtitle: "Legal / business reference documents for AI citation when drafting contracts",
   sources_empty: "No sources yet. Add PDF, DOCX or TXT files for AI reference when drafting contracts.",
+  sources_coming_soon_title: "Reference Sources for Smart Contracts",
+  sources_coming_soon_description: "Lawzy is about to launch the 'Reference Sources' feature, which allows you to provide your own documents, contract templates, or content for the AI to use while drafting. This ensures that the generated contracts are not only fast but also realistic, contextually accurate, and tailored to your specific needs.",
 
   // Payment
   payment_subtitle: "Manage subscription plans and usage quotas",

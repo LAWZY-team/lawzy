@@ -81,8 +81,9 @@ function ResetPasswordForm() {
 
   if (isSuccess) {
     return (
-      <div className="w-full max-w-md px-4">
-        <Card className="border-0 shadow-xl">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] w-full py-8">
+        <div className="w-full max-w-md px-4 text-center">
+          <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-4 items-center text-center">
             <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
@@ -99,14 +100,16 @@ function ResetPasswordForm() {
               <Link href="/login">Đăng nhập ngay</Link>
             </Button>
           </CardFooter>
-        </Card>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-md px-4">
-      <Card className="border-0 shadow-xl">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] w-full py-8">
+      <div className="w-full max-w-md px-4">
+        <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-4 items-center text-center pb-2">
             <Image src="/lawzy-logo.png" alt="Lawzy" width={120} height={40} priority />
           <div>
@@ -197,7 +200,8 @@ function ResetPasswordForm() {
             </Button>
           </CardFooter>
         </form>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
