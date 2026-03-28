@@ -146,6 +146,7 @@ const en: Record<TranslationKey, string> = {
   tmpl_comm_desc: "Short description",
   tmpl_comm_desc_placeholder: "Short description",
   tmpl_comm_size: "Size",
+  tmpl_creator: "Creator",
   tmpl_system_type: "Contract type",
   tmpl_system_labor: "Labor",
   tmpl_system_sale: "Sale",

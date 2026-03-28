@@ -178,6 +178,7 @@ export class ContractTemplatesService {
     updatedAt: Date;
     createdAt: Date;
     metadata: unknown;
+    creator?: { name: string } | null;
   }): ContractTemplateFile {
     const meta = parseTemplateMeta(row.metadata);
     const fileName = meta.fileName || meta.legacyId || row.title;
@@ -193,6 +194,7 @@ export class ContractTemplatesService {
       scope: row.scope as TemplateScope,
       workspaceId: meta.workspaceId ?? null,
       createdBy: row.createdBy,
+      creatorName: row.creator?.name ?? null,
     };
   }
 
@@ -216,6 +218,7 @@ export class ContractTemplatesService {
           updatedAt: true,
           createdAt: true,
           metadata: true,
+          creator: { select: { name: true } },
         },
       });
       if (systemRows.length > 0) {
@@ -254,6 +257,7 @@ export class ContractTemplatesService {
         updatedAt: true,
         createdAt: true,
         metadata: true,
+        creator: { select: { name: true } },
       },
     });
     const filtered =

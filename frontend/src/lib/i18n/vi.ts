@@ -136,6 +136,7 @@ const vi = {
   tmpl_comm_desc: "Mô tả ngắn",
   tmpl_comm_desc_placeholder: "Mô tả ngắn",
   tmpl_comm_size: "Kích thước",
+  tmpl_creator: "Người tạo",
   tmpl_system_type: "Loại hợp đồng",
   tmpl_system_labor: "Lao động",
   tmpl_system_sale: "Mua bán",

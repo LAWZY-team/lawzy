@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import type { ContractTemplateFile } from "@/lib/api/contract-templates"
 import type { TemplateViewMode } from "./template-filters"
 import { useT } from "@/components/i18n-provider"
+import { useAuthStore } from "@/stores/auth-store"
 
 function fileExt(name: string): string {
   const idx = name.lastIndexOf(".")
@@ -36,6 +37,8 @@ export function CommunityTemplateGrid({
   viewMode?: TemplateViewMode
 }) {
   const { t } = useT()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.roles?.includes("admin")
 
   if (viewMode === "list") {
     return (
@@ -73,10 +76,12 @@ export function CommunityTemplateGrid({
                 <Download className="h-4 w-4 mr-1.5" />
                 {t("common_download")}
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                {t("common_delete")}
-              </Button>
+              {(isAdmin || f.createdBy === currentUser?.id) && (
+                <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  {t("common_delete")}
+                </Button>
+              )}
             </div>
           </Card>
         ))}
@@ -105,6 +110,12 @@ export function CommunityTemplateGrid({
               )}
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between gap-2">
+                  <span>{t("tmpl_creator")}</span>
+                  <span className="font-medium text-foreground truncate max-w-[150px]">
+                    {f.creatorName ?? t("auth_position_other")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
                   <span>{t("tmpl_comm_size")}</span>
                   <span className="font-medium text-foreground">{formatBytes(f.size)}</span>
                 </div>
@@ -127,9 +138,11 @@ export function CommunityTemplateGrid({
               <Download className="h-4 w-4 mr-2" />
               {t("common_download")}
             </Button>
-            <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label={t("common_delete")}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {(isAdmin || f.createdBy === currentUser?.id) && (
+              <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label={t("common_delete")}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}
