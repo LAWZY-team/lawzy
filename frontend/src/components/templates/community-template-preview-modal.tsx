@@ -12,6 +12,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { useT } from "@/components/i18n-provider"
+import { useAuthStore } from "@/stores/auth-store"
 
 function isPdf(fileName: string): boolean {
   return fileName.toLowerCase().endsWith(".pdf")
@@ -41,6 +42,8 @@ export function CommunityTemplatePreviewModal({
   const { t } = useT()
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? ""
   const qc = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.roles?.includes("admin")
   if (!file) return null
 
   const previewSupported = isPdf(file.fileName)
@@ -85,10 +88,12 @@ export function CommunityTemplatePreviewModal({
               <Download className="h-4 w-4 mr-1.5" />
               {t("common_download")}
             </Button>
-            <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)}>
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              {t("common_delete")}
-            </Button>
+            {(isAdmin || file.createdBy === currentUser?.id) && (
+              <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)}>
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                {t("common_delete")}
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common_close")}>
               <X className="h-4 w-4" />
             </Button>
@@ -131,6 +136,12 @@ export function CommunityTemplatePreviewModal({
                 <Separator />
 
                 <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">{t("tmpl_creator")}</span>
+                    <span className="font-medium truncate max-w-[120px]">
+                      {file.creatorName ?? t("auth_position_other")}
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">{t("tmpl_comm_size")}</span>
                     <span className="font-medium">{formatBytes(file.size)}</span>

@@ -11,4 +11,5 @@ export interface ContractTemplateFile {
   scope: TemplateScope;
   workspaceId?: string | null;
   createdBy?: string | null;
+  creatorName?: string | null;
 }

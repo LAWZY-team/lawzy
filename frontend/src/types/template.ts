@@ -81,6 +81,8 @@ export interface Template {
   mergeFields: MergeFieldDefinition[] | null;
   metadata: TemplateMetadata | null;
   s3Key: string | null;
+  createdBy?: string | null;
+  creatorName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
