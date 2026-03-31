@@ -440,6 +440,49 @@ export default function EditorPage({
     try {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
+      const sanitizeFileNameLocal = (input: string) =>
+        input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
+
+      const uploadSnapshot = async (params: {
+        documentId: string
+        fileName: string
+        payload: unknown
+      }) => {
+        if (!workspaceId) {
+          toast.error(t('toast_select_workspace_to_save_file'))
+          return
+        }
+
+        const blob = new Blob([JSON.stringify(params.payload)], {
+          type: 'application/json',
+        })
+
+        const form = new FormData()
+        form.append(
+          'file',
+          new File([blob], params.fileName, { type: 'application/json' }),
+        )
+        form.append('workspaceId', workspaceId)
+        form.append('documentId', params.documentId)
+
+        await api.upload('/files/upload-export', form)
+
+        // Refresh storage + document size derived from File(category=export_output).
+        queryClient.invalidateQueries({ queryKey: ['files'] })
+        queryClient.invalidateQueries({
+          queryKey: ['files', 'storage', workspaceId],
+        })
+        queryClient.invalidateQueries({
+          queryKey: ['dashboard', 'quota', workspaceId],
+        })
+        queryClient.invalidateQueries({
+          predicate: (q) =>
+            Array.isArray(q.queryKey) &&
+            q.queryKey.length > 0 &&
+            q.queryKey[0] === 'documents',
+        })
+      }
+
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -467,6 +510,32 @@ export default function EditorPage({
             }).catch((e) => console.error(e))
           }
         }
+
+        // Persist draft snapshot to S3/R2 immediately so storage usage counts now.
+        try {
+          await uploadSnapshot({
+            documentId: newId,
+            fileName: `${sanitizeFileNameLocal(
+              documentTitle || (sourceMetadata?.title as string | undefined) || 'draft',
+            )}-draft-${newId}.json`,
+            payload: {
+              kind: 'document-draft-snapshot',
+              documentId: newId,
+              savedAt: new Date().toISOString(),
+              title: documentTitle || sourceMetadata?.title,
+              type: sourceMetadata?.type ?? 'contract',
+              status,
+              visibility,
+              contentJSON: editorContent,
+              metadata: sourceMetadata,
+              mergeFieldValues: persistedMergeValues,
+            },
+          })
+        } catch (e) {
+          console.error('Draft snapshot upload failed', e)
+          toast.error(t('toast_file_upload_failed'))
+        }
+
         clearSession()
 
         setIsDirty(false)
@@ -489,6 +558,28 @@ export default function EditorPage({
         metadata: useEditorStore.getState().metadata,
       })
 
+      // Persist version snapshot to S3/R2 immediately so storage usage counts now.
+      try {
+        await uploadSnapshot({
+          documentId: resolvedParams.id,
+          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${resolvedParams.id}.json`,
+          payload: {
+            kind: 'document-draft-snapshot',
+            documentId: resolvedParams.id,
+            savedAt: new Date().toISOString(),
+            title: documentTitle,
+            status,
+            visibility,
+            contentJSON: editorContent,
+            metadata: useEditorStore.getState().metadata,
+            mergeFieldValues: persistedMergeValues,
+          },
+        })
+      } catch (e) {
+        console.error('Draft snapshot upload failed', e)
+        toast.error(t('toast_file_upload_failed'))
+      }
+
       setIsDirty(false)
       toast.success(t('toast_saved'))
       if (pendingUrl) {
@@ -498,7 +589,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient])
 
   const { isActive: isTourActive } = useOnboardingStore()
 
@@ -601,6 +692,60 @@ export default function EditorPage({
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
 
+  const sanitizeFileName = (input: string) =>
+    input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
+
+  const persistDraftSnapshotToS3 = async (opts: {
+    documentId: string
+    workspaceId?: string | null
+    fileName: string
+    payload: unknown
+  }) => {
+    const resolvedWorkspaceId =
+      opts.workspaceId ??
+      workspaceId ??
+      (
+        await api.get<{ workspaceId?: string }>(
+          `/documents/${opts.documentId}`,
+        )
+      )?.workspaceId
+
+    if (!resolvedWorkspaceId) {
+      throw new Error('Missing workspaceId for storage upload')
+    }
+
+    const blob = new Blob([JSON.stringify(opts.payload)], {
+      type: 'application/json',
+    })
+
+    const form = new FormData()
+    form.append(
+      'file',
+      new File([blob], opts.fileName, { type: 'application/json' }),
+    )
+    form.append('workspaceId', resolvedWorkspaceId)
+    form.append('documentId', opts.documentId)
+
+    await api.upload('/files/upload-export', form)
+
+    // Ensure storage UI + quota charts update immediately.
+    queryClient.invalidateQueries({ queryKey: ['files'] })
+    queryClient.invalidateQueries({
+      queryKey: ['files', 'storage', resolvedWorkspaceId],
+    })
+    queryClient.invalidateQueries({
+      queryKey: ['dashboard', 'quota', resolvedWorkspaceId],
+    })
+    // Documents list uses a separate query key: ['documents', ...]
+    // so we need to invalidate it to reflect the increased documentSizeBytes.
+    queryClient.invalidateQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) &&
+        q.queryKey.length > 0 &&
+        q.queryKey[0] === 'documents',
+    })
+  }
+
   const handleSave = async () => {
     if (!isAuthenticated) {
       toast.error(t('toast_login_required'))
@@ -637,6 +782,33 @@ export default function EditorPage({
           }
         }
 
+        // Persist draft snapshot to S3/R2 immediately so storage usage counts now.
+        try {
+          const createdWorkspaceId = String(
+            (created as { workspaceId?: unknown }).workspaceId ??
+              workspaceId ??
+              '',
+          )
+          await persistDraftSnapshotToS3({
+            documentId: newId,
+            workspaceId: createdWorkspaceId || workspaceId,
+            fileName: `${sanitizeFileName(documentTitle || (sourceMetadata?.title as string | undefined) || 'draft')}-draft-${newId}.json`,
+            payload: {
+              kind: 'document-draft-snapshot',
+              documentId: newId,
+              savedAt: new Date().toISOString(),
+              title: documentTitle || sourceMetadata?.title,
+              type: sourceMetadata?.type ?? 'contract',
+              contentJSON: editorContent,
+              metadata: sourceMetadata,
+              mergeFieldValues: persistedMergeValues,
+            },
+          })
+        } catch (e) {
+          console.error('Draft snapshot upload failed', e)
+          toast.error(t('toast_file_upload_failed'))
+        }
+
         clearSession()
         toast.success(t('toast_draft_saved'))
         router.replace(`/editor/${newId}`)
@@ -644,12 +816,41 @@ export default function EditorPage({
       }
 
       const now = new Date()
-      await api.post(`/documents/${resolvedParams.id}/versions`, {
+      const versionLabel = t("version_save_label", {
+        date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US'),
+      })
+      const createdVersion = await api.post(`/documents/${resolvedParams.id}/versions`, {
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
-        label: t("version_save_label", { date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') }),
+        label: versionLabel,
       })
+      const versionId = String(
+        (createdVersion as { id?: unknown }).id ?? '',
+      ).trim()
+
+      // Persist version snapshot to S3/R2 immediately so storage usage counts now.
+      try {
+        await persistDraftSnapshotToS3({
+          documentId: resolvedParams.id,
+          workspaceId: workspaceId ?? null,
+          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${resolvedParams.id}.json`,
+          payload: {
+            kind: 'document-version-snapshot',
+            documentId: resolvedParams.id,
+            versionId: versionId || undefined,
+            savedAt: now.toISOString(),
+            label: versionLabel,
+            contentJSON: editorContent,
+            metadata: useEditorStore.getState().metadata,
+            mergeFieldValues: persistedMergeValues,
+            chatCursorAt: now.toISOString(),
+          },
+        })
+      } catch (e) {
+        console.error('Version snapshot upload failed', e)
+        toast.error(t('toast_file_upload_failed'))
+      }
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
       setIsDirty(false)

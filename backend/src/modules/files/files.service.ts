@@ -21,6 +21,8 @@ import { WorkspaceAccessService } from '../../common/workspace-access.service';
 const DEFAULT_STORAGE_BYTES =
   parseInt(process.env.DEFAULT_STORAGE_BYTES || '524288000', 10) ||
   500 * 1024 * 1024;
+// `files.s3_key` is VARCHAR(191) in MySQL migrations.
+const MAX_S3_KEY_LENGTH = 191;
 
 @Injectable()
 export class FilesService {
@@ -40,6 +42,17 @@ export class FilesService {
       throw new Error('R2/S3 is not configured');
     }
     return this.s3;
+  }
+
+  private truncateForS3Key(name: string, maxLen: number): string {
+    if (!name || name.length <= maxLen) return name;
+    const lastDot = name.lastIndexOf('.');
+    const hasExt = lastDot > 0 && lastDot < name.length - 1;
+    if (!hasExt) return name.slice(0, maxLen);
+    const ext = name.slice(lastDot);
+    const base = name.slice(0, lastDot);
+    const keepBaseLen = Math.max(1, maxLen - ext.length);
+    return `${base.slice(0, keepBaseLen)}${ext}`;
   }
 
   async upload(data: {
@@ -65,11 +78,17 @@ export class FilesService {
     const originalName = this.fixUploadFilename(
       data.file.originalname || 'file',
     );
-    const safeName = originalName.replace(
-      /[^a-zA-Z0-9._\u00C0-\u024F\s-]/g,
-      '_',
-    );
-    const key = `uploads/${data.workspaceId}/${data.userId}/${uuid}-${safeName}`;
+    const safeName = originalName
+      .replace(/[^a-zA-Z0-9._\u00C0-\u024F\s-]/g, '_')
+      .trim();
+    const prefix = `uploads/${data.workspaceId}/${data.userId}/${uuid}-`;
+    const maxNameLen = Math.max(1, MAX_S3_KEY_LENGTH - prefix.length);
+    const safeKeyName = this.truncateForS3Key(safeName, maxNameLen);
+    let key = `${prefix}${safeKeyName}`;
+    if (key.length > MAX_S3_KEY_LENGTH) {
+      // Absolute fallback to guarantee DB insert safety.
+      key = `uploads/${data.workspaceId}/${data.userId}/${uuid}`;
+    }
 
     await client.send(
       new PutObjectCommand({
