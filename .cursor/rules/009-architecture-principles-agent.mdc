@@ -1,0 +1,68 @@
+---
+description: Architecture and component design principles for Lawzy. Apply when creating or refactoring forms, components, API integration, error handling, state management, or making architectural decisions. Ensures consistency with Service→Hook→Component pattern, form consolidation, and robust AI processing.
+globs:
+alwaysApply: false
+---
+
+# Lawzy Architecture Principles
+
+## Critical Rules
+
+### 1. Service → Hook → Component (Layered Architecture)
+
+- **APIs**: HTTP client, interceptors, error transformation. Location: `src/lib/api/`
+- **Services**: Business logic, call API. (To be developed for scalability)
+- **Hooks**: State, side effects, call service/api. Location: `src/hooks/`
+- **Components**: UI only. Should call hooks, not API directly.
+
+```
+Component → Hook → Service/API Client → Backend
+```
+
+### 2. Consolidate UI by Purpose
+
+- Avoid creating multiple components for the same UI pattern.
+- Example: Use `QuestionnaireForm` for all AI-generated questionnaires, not a separate form for each contract type.
+
+### 3. State Management with Zustand
+
+- Use Zustand for global UI state, user fields, and editor state.
+- Keep store logic clean and separate from UI.
+- Use `persist` middleware for states that should survive page refreshes (e.g., current workspace, guest session).
+
+### 4. Robust AI Response Handling
+
+- **Type-based rendering**: The chat should handle different response types from AI: `text`, `contract_generation`, `intake_questionnaire`, `contract_review`.
+- **Atomic Chat Messages**: Each message is a self-contained unit that can render text, a form, or a document summary.
+
+### 5. Multi-Layer Error Handling
+
+- **Error Boundary**: Catches React component errors.
+- **Hook/API level**: Catch fetch errors, show toasts with `sonner`.
+- **AI level**: Handle AI failures or timeouts with user-friendly messages and credit refund logic.
+
+### 6. Atomic Design in Components
+
+- **Atoms**: Button, Input, Badge (from shadcn/ui).
+- **Molecules**: FormField, ChatMessageItem.
+- **Organisms**: ChatColumn, CanvasEditor.
+- Compose components from shadcn/ui primitives.
+
+### 7. Skeleton Loading
+
+- Provide loading states for async UI using shadcn/ui `Skeleton`.
+- Use `thinkingProgress` for long-running AI tasks to provide feedback.
+
+## Examples
+
+<example>
+  **Valid**: QuestionnaireForm handles all field types (text, date, select) based on a schema.
+</example>
+
+<example>
+  **Valid**: EditorPage uses `useEditorStore` for state and `api` client for persistence.
+</example>
+
+<example type="invalid">
+  **Invalid**: Calling `fetch('/api/ai/ask')` directly inside a Button's `onClick` without a wrapper hook or service.
+</example>

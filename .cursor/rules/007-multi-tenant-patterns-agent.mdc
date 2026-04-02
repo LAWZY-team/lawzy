@@ -1,0 +1,124 @@
+---
+description: Multi-tenant patterns for frontend - workspace context resolution, API integration, and data isolation best practices
+globs:
+alwaysApply: false
+---
+# Lawzy Multi-Tenant Frontend Patterns
+
+**Architecture**: Workspace-based multi-tenancy with NestJS backend  
+**Pattern**: Frontend resolves workspace → Backend isolates data via workspaceId  
+**Critical**: Workspace context must be correct or backend returns 404/wrong data
+
+## Frontend's Role in Multi-Tenancy
+
+### Workspace Resolution Responsibility
+
+**Frontend's Job**:
+1. Determine which workspace the user is currently accessing (managed in `workspace-store.ts`)
+2. Send `workspaceId` with API requests that require context (Documents, Files, Sources)
+3. Ensure workspace context is consistent across the session
+
+**Backend's Job**:
+1. Receive `workspaceId` and validate user membership via `WorkspaceAccessService`
+2. Filter data by `workspaceId` in all database queries
+3. Return data isolated to that workspace
+
+**Key Principle**: Frontend manages the current workspace selection, backend ensures strict data isolation.
+
+---
+
+## Pattern 1: WorkspaceStore - Centralized Selection
+
+**Problem**: How to consistently track the active workspace?
+
+**Solution**: Use a Zustand store to manage the current workspace.
+
+**Implementation**: `src/stores/workspace-store.ts`
+
+```typescript
+export const useWorkspaceStore = create<WorkspaceStore>()(
+  persist(
+    (set, get) => ({
+      currentWorkspace: null,
+      workspaces: [],
+      // ...
+      setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace }),
+    }),
+    { name: 'lawzy-workspace-storage' }
+  )
+);
+```
+
+**Usage**:
+- **Components**: Use `currentWorkspace?.id` for data fetching.
+- **Sidebar**: Workspace switcher updates the store.
+
+---
+
+## Pattern 2: Explicit Workspace Context in API Calls
+
+**Problem**: How to ensure backend knows which workspace to scope?
+
+**Solution**: Pass `workspaceId` explicitly in request bodies or query parameters.
+
+**Example**: Creating a document
+```typescript
+// src/app/(dashboard)/editor/[id]/page.tsx
+const created = await api.post('/documents', {
+  title: 'Untitled',
+  workspaceId: currentWorkspace.id, // Explicit context
+  contentJSON: editorContent,
+});
+```
+
+**Benefits**:
+- ✅ Clear intent in every API call
+- ✅ Allows user to work in multiple tabs with different workspaces if needed
+- ✅ Easy to debug which workspace data belongs to
+
+---
+
+## Pattern 3: Handling Workspace Access Errors
+
+**Problem**: What happens if a user tries to access a workspace they don't belong to?
+
+**Solution**: Backend returns `403 Forbidden` or `404 Not Found`.
+
+**Frontend Handling**:
+```typescript
+try {
+  await api.get(`/documents?workspaceId=${id}`);
+} catch (error) {
+  if (error instanceof AuthorizationError) {
+    toast.error('Bạn không có quyền truy cập workspace này');
+    router.push('/dashboard');
+  }
+}
+```
+
+---
+
+## Checklist for Workspace-Based Features
+
+When adding new features, ensure:
+
+- [ ] Entity has a `workspaceId` field in Prisma schema
+- [ ] Frontend sends `workspaceId` in create/list requests
+- [ ] Backend validates membership via `WorkspaceAccessService`
+- [ ] UI reflects the current workspace name
+- [ ] State is cleared or reloaded when switching workspaces
+- [ ] Tested with a user belonging to multiple workspaces
+
+---
+
+## Summary
+
+**Frontend Responsibilities**:
+1. ✅ Track active workspace in `workspace-store.ts`
+2. ✅ Pass `workspaceId` to API services
+3. ✅ Handle access errors gracefully
+
+**Backend Responsibilities**:
+1. ✅ Enforce membership checks on every workspace-scoped request
+2. ✅ Filter all DB queries by `workspaceId`
+3. ✅ Maintain strict audit logs of workspace access
