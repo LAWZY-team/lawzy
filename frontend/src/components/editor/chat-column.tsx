@@ -7,6 +7,9 @@ import { ChatMessageList } from './chat/chat-message-list'
 import { ChatInputArea } from './chat/chat-input-area'
 import { useDashboardQuota } from '@/hooks/dashboard/use-dashboard'
 import type { ChatMessage } from './chat/types'
+import type { QuestionnaireSchema } from '@/types/questionnaire'
+import type { UserCustomField } from '@/stores/user-fields-store'
+import type { WorkspaceFieldItem } from '@/hooks/workspaces/use-workspace-fields'
 export type { ChatMessage } from './chat/types'
 
 interface ChatColumnProps {
@@ -21,6 +24,12 @@ interface ChatColumnProps {
   onRemoveAttachedFile?: () => void
   userDisplayName?: string
   thinkingSteps?: string[]
+  activeQuestionnaire?: QuestionnaireSchema | null
+  onQuestionnaireSubmit?: (values: Record<string, string>) => void
+  onQuestionnaireSkip?: () => void
+  mergeFieldValues?: Record<string, string>
+  userFields?: UserCustomField[]
+  workspaceFields?: WorkspaceFieldItem[]
 }
 
 export function ChatColumn({
@@ -35,6 +44,12 @@ export function ChatColumn({
   onRemoveAttachedFile,
   userDisplayName,
   thinkingSteps = [],
+  activeQuestionnaire = null,
+  onQuestionnaireSubmit,
+  onQuestionnaireSkip,
+  mergeFieldValues = {},
+  userFields = [],
+  workspaceFields = [],
 }: ChatColumnProps) {
   const [input, setInput] = useState('')
   const lastWithThinking = [...(messages || [])].reverse().find((m) => m.role === 'assistant' && m.thinking)
@@ -45,8 +60,10 @@ export function ChatColumn({
 
   useEffect(() => {
     if (isLoading && thinkingSteps.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setThinkingCollapsed(false)
+      const timeoutId = setTimeout(() => {
+        setThinkingCollapsed(false)
+      }, 0)
+      return () => clearTimeout(timeoutId)
     }
   }, [isLoading, thinkingSteps.length])
 
@@ -55,8 +72,11 @@ export function ChatColumn({
     const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && m.thinking)
     if (!lastAssistant || lastAutoExpandedRef.current.has(lastAssistant.id)) return
     lastAutoExpandedRef.current.add(lastAssistant.id)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setExpandedThinking(lastAssistant.id)
+    
+    const timeoutId = setTimeout(() => {
+      setExpandedThinking(lastAssistant.id)
+    }, 0)
+    return () => clearTimeout(timeoutId)
   }, [messages])
 
   useEffect(() => {
@@ -110,6 +130,12 @@ export function ChatColumn({
         expandedThinkingId={expandedThinking}
         onToggleThinking={toggleThinking}
         onQuickAction={setInput}
+        activeQuestionnaire={activeQuestionnaire}
+        onQuestionnaireSubmit={onQuestionnaireSubmit}
+        onQuestionnaireSkip={onQuestionnaireSkip}
+        mergeFieldValues={mergeFieldValues}
+        userFields={userFields}
+        workspaceFields={workspaceFields}
       />
 
       <ChatInputArea
