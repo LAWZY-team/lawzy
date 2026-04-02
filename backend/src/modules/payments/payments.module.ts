@@ -8,6 +8,7 @@ import { PaymentsController } from './payments.controller';
 import { AdminPaymentsController } from './admin-payments.controller';
 import { WebhookPaymentsController } from './webhook-payments.controller';
 import { PaymentsService } from './payments.service';
+import { PayOSService } from './payos.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, UsersModule, PlansModule, EmailModule],
@@ -16,7 +17,7 @@ import { PaymentsService } from './payments.service';
     AdminPaymentsController,
     WebhookPaymentsController,
   ],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [PaymentsService, PayOSService],
+  exports: [PaymentsService, PayOSService],
 })
 export class PaymentsModule {}
