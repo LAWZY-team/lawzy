@@ -23,7 +23,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:setup": "prisma migrate deploy && ts-node prisma/seed.ts",
-    "script:backfill-company-code": "ts-node scripts/backfill-workspace-company-code.ts"
+    "script:backfill-company-code": "ts-node scripts/backfill-workspace-company-code.ts",
+    "payos:smoke": "ts-node -r dotenv/config scripts/payos-smoke.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",
@@ -33,6 +34,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@payos/node": "^2.0.5",
     "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",

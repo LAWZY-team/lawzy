@@ -1,0 +1,65 @@
+---
+description: Engineering rules for data safety and production readiness in Lawzy. These rules must be enforced to prevent data leaks, security issues, and architectural violations. Apply when implementing workspace-scoped features, write operations, or processing AI responses.
+globs:
+alwaysApply: false
+---
+# Lawzy Engineering Rules - Data Safety & AI Reliability
+
+**Project**: Lawzy - AI Legal Assistant Platform  
+**Focus**: Workspace isolation, data safety, and robust AI processing
+
+## Critical Rules
+
+### 1. Workspace Isolation Enforcement
+All database queries MUST be scoped to the user's active workspace.
+
+- ✅ **Write Operations**: Every `create` call must include `workspaceId` and `createdBy`.
+- ✅ **Read Operations**: Every `findMany`/`findUnique` must include `workspaceId` in the `where` clause or be validated via `WorkspaceAccessService.requireDocumentAccess()`.
+- ✅ **Update/Delete**: Must verify that the entity belongs to the user's workspace before proceeding.
+
+### 2. Transaction Safety in NestJS
+Use Prisma transactions for operations that affect multiple tables to maintain data integrity.
+
+```typescript
+// Example from PaymentsService
+await this.prisma.$transaction([
+  this.prisma.payment.update({ where: { id: paymentId }, data: { status: 'paid' } }),
+  this.prisma.workspace.update({ where: { id: workspaceId }, data: { plan: planSlug } }),
+]);
+```
+
+### 3. AI Result Processing (Questionnaire & Contract)
+AI-generated results must be robustly parsed and handled to prevent UI crashes or data corruption.
+
+- **Parsing**: Use `tryParseContractResponse` to extract JSON from markdown blocks.
+- **Validation**: Check for `type` field (e.g., `contract_generation`, `intake_questionnaire`, `contract_review`) before processing.
+- **Safety**: Always have a fallback for when the AI returns unexpected text or malformed JSON.
+
+### 4. File Extraction & S3 Safety
+- Validate file types (PDF, DOCX) on both frontend and backend.
+- Use UUID-based S3 keys to prevent file enumeration attacks.
+- Extraction of text from files must handle errors gracefully and provide fallbacks.
+
+### 5. Sanitization
+- Sanitize all user-provided text or AI-generated HTML before storage or rendering.
+- Use `isomorphic-dompurify` on the frontend and ensure inputs are validated on the backend via `class-validator` DTOs.
+
+## Checklist for Data Safety
+
+When adding new data-handling features, ensure:
+
+- [ ] Entity belongs to a `workspaceId`
+- [ ] Database queries are scoped using `WorkspaceAccessService`
+- [ ] Complex multi-table writes use `$transaction`
+- [ ] AI results are parsed through a central robust parser
+- [ ] S3 keys use random UUIDs
+- [ ] Inputs are sanitized and validated via DTOs
+- [ ] Error messages do not leak technical implementation details
+
+## Summary
+
+These rules ensure Lawzy is:
+- **Secure**: Data is strictly isolated by workspace.
+- **Reliable**: AI errors or malformed responses do not crash the application.
+- **Maintainable**: Clear patterns for data handling and transactions.
+- **Production-Ready**: Scalable and safe for real-world legal data.

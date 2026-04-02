@@ -453,6 +453,33 @@ const vi = {
   chat_credit_and_warning: "Đã sử dụng {used} lượt Lawzy AI trong tổng số {total} lượt. Lawzy AI có thể mắc lỗi. Hãy kiểm tra lại thông tin quan trọng.",
   chat_credit_and_warning_unlimited: "Đã sử dụng {used} lượt Lawzy AI. Lawzy AI có thể mắc lỗi. Hãy kiểm tra lại thông tin quan trọng.",
 
+  chat_empty_greeting: "Hôm nay tôi có thể giúp gì cho bạn?",
+  chat_quick_contract_svc_label: "Soạn hợp đồng dịch vụ",
+  chat_quick_contract_svc_prompt: `Tôi cần soạn một hợp đồng kiểu “một bên cung cấp dịch vụ, bên kia trả phí” — ví dụ tư vấn, thiết kế, vận hành, bảo trì, đào tạo… (tôi có thể bổ sung loại hình cụ thể ở tin nhắn sau nếu cần).
+
+Trước hết, tôi muốn được hỏi và điền thông tin theo từng nhóm cho gọn: các bên là ai, dịch vụ làm những gì, giá và cách thanh toán, thời hạn, cách bàn giao kết quả, khi nào được chấm dứt, và các điểm quan trọng khác thường có trong hợp đồng dịch vụ. Hãy tránh hỏi lan man.
+
+Sau khi tôi đã trả lời đủ các phần đó, hãy soạn giúp tôi bản hợp đồng phù hợp với pháp luật Việt Nam, bám sát thông tin tôi đã cung cấp.
+
+Gợi ý để tự viết yêu cầu lần sau: nói rõ loại hợp đồng, xin “hỏi thông tin trước, soạn bản hoàn chỉnh sau”, và liệt kê nhóm thông tin bạn cần (bên nào, việc gì, tiền, thời gian, v.v.).`,
+
+  chat_quick_risk_label: "Kiểm tra rủi ro pháp lý",
+  chat_quick_risk_prompt: `Tôi muốn bạn xem giúp bản hợp đồng đang soạn trên trang này và chỉ ra chỗ nào có thể rủi ro về pháp lý hoặc dễ gây tranh chấp: thiếu sót, diễn đạt mơ hồ, hoặc bất lợi cho một bên. Với mỗi ý, hãy giải thích ngắn gọn vì sao và gợi ý hướng chỉnh sửa nếu có.
+
+Nếu trên trang chưa có nội dung hợp đồng, hãy nhắc tôi cần có văn bản trước khi rà soát.
+
+Gợi ý tự prompt sau này: nói “rà soát rủi ro hợp đồng”, yêu cầu giải thích từng điểm và đề xuất sửa; có thể thêm “ưu tiên điều khoản về …” nếu bạn quan tâm riêng một phần.`,
+
+  chat_quick_civil_code_label: "Tra cứu Luật Dân sự 2015",
+  chat_quick_civil_code_prompt: `Tôi cần tra cứu các quy định trong Bộ luật Dân sự 2015 của Việt Nam liên quan đến vấn đề tôi đang quan tâm (trong ngữ cảnh hợp đồng hoặc nghĩa vụ dân sự nói chung). Hãy tóm tắt ý chính, dễ hiểu, và khi có thể hãy nêu rõ đang dựa vào điều khoản nào.
+
+Gợi ý tự prompt sau này: ghi tên văn bản luật và năm, mô tả ngắn vấn đề (ví dụ thanh toán, đặt cọc, chấm dứt hợp đồng, bồi thường), và xin trả lời có mục nhỏ cho dễ đọc.`,
+
+  chat_quick_explain_clause_label: "Giải thích điều khoản",
+  chat_quick_explain_clause_prompt: `Hãy giúp tôi hiểu các điều khoản trong bản hợp đồng đang mở: diễn giải bằng lời thường ngày, nêu ý nghĩa thực tế và chỗ cần cẩn trọng khi ký. Nếu tôi chưa chỉ rõ điều nào, hãy nêu các phần quan trọng nhất cần để ý trong bản nháp hiện tại.
+
+Gợi ý tự prompt sau này: “Giải thích điều …” hoặc “Điều khoản này có ý gì với tôi nếu … xảy ra?” — càng cụ thể tình huống càng dễ hiểu.`,
+
   toast_login_required: "Vui lòng đăng nhập để lưu.",
   toast_saved: "Đã lưu",
   toast_save_failed: "Lưu thất bại",
@@ -751,9 +778,10 @@ const vi = {
   payment_status_page_failed: "Thanh toán thất bại",
   payment_status_page_order: "Mã đơn hàng",
   payment_status_page_amount: "Số tiền",
-  payment_status_simulate: "Mô phỏng thành công",
-  payment_status_simulate_fail: "Mô phỏng thất bại",
-  payment_status_demo_hint: "Đây là môi trường demo. Sử dụng các nút bên dưới để mô phỏng kết quả thanh toán.",
+  payment_status_waiting_payos:
+    "Hoàn tất thanh toán trên payOS. Trang này tự cập nhật khi có xác nhận từ payOS.",
+  payment_open_checkout: "Mở trang thanh toán",
+  payment_status_not_found: "Không tìm thấy đơn hàng hoặc bạn chưa đăng nhập.",
   payment_status_redirect: "Chuyển về thanh toán trong {n} giây...",
   payment_btn_back_dashboard: "Về Dashboard",
   payment_btn_back_payment: "Về thanh toán",
@@ -768,7 +796,6 @@ const vi = {
   payment_status_page_desc_failed: "Vui lòng thử lại sau",
   payment_status_processing_label: "Đang xử lý",
   payment_status_toast_success: "Thanh toán thành công! Gói đã được kích hoạt.",
-  payment_status_toast_success_fallback: "Mô phỏng thành công (webhook chưa kết nối backend).",
 
   // Admin Storage
   admin_storage_title: "Quản lý dung lượng",
@@ -792,6 +819,12 @@ const vi = {
   pagination_prev: "Trước",
   pagination_next: "Sau",
   pagination_page: "Trang",
+
+  questionnaire_submit: "Tạo hợp đồng",
+  questionnaire_skip: "Bỏ qua, tạo ngay",
+  questionnaire_missing_required: "Vui lòng điền các trường bắt buộc: {fields}",
+  questionnaire_submitted_prompt: "Đã thu thập thông tin. Hãy tạo hợp đồng với dữ liệu sau:",
+  questionnaire_skipped_prompt: "Người dùng muốn bỏ qua bảng câu hỏi. Hãy tạo hợp đồng ngay với các trường trộn placeholder.",
 
   news_title: "Tin tức",
   news_subtitle: "Cập nhật tin tức và thông báo từ Lawzy",

@@ -1,0 +1,337 @@
+---
+description: Backend API architecture reference for frontend developers - understanding Laravel multi-tenant API
+globs:
+alwaysApply: false
+---
+# Backend API Reference (Laravel Multi-Tenant)
+
+**Purpose**: Help frontend developers understand backend architecture and API contracts.  
+**Backend**: Laravel 11.47.0 with Clean Architecture + Multi-Tenancy  
+**Location**: `D:\Company\api.noralib.com`
+
+## Backend Architecture Overview
+
+### Framework & Stack
+
+- **Framework**: Laravel 11.47.0 with PHP 8.3+
+- **Architecture**: Clean Architecture (Domain-Driven Design)
+- **Multi-Tenancy**: Database per tenant (stancl/tenancy pattern)
+- **Authentication**: JWT tokens in httpOnly cookies
+- **Database**: MySQL with multi-tenant isolation
+
+### Clean Architecture Layers
+
+**Domain Layer** (`app/Domain/`)
+- Business entities, value objects, interfaces
+- Framework-agnostic, pure PHP
+- Example: `Tenant.php`, `User.php`, `Book.php`
+
+**Application Layer** (`app/Application/`)
+- Use Cases and DTOs
+- Business logic orchestration
+- Example: `CreateBookUseCase.php`, `BorrowBookUseCase.php`
+
+**Infrastructure Layer** (`app/Infrastructure/`)
+- Eloquent models, repositories, external services
+- Database and framework implementations
+- Example: `BookRepository.php`, `TenantConnectionManager.php`
+
+**Presentation Layer** (`app/Presentation/`)
+- HTTP controllers, form requests, API resources
+- API endpoints and validation
+- Example: `BookController.php`, `BookResource.php`
+
+## Multi-Tenancy Architecture
+
+### Database Structure
+
+**Master Database**: `nora_master`
+- Stores tenant metadata (tenants table)
+- Central configuration and admin data
+
+**Tenant Databases**: `tenant_{uuid}`
+- Separate database per tenant/library
+- Complete data isolation
+- Example: `tenant_01KD9QX9ZSZ8FBW9CEX4RB3RPX`
+
+### Tenant Resolution
+
+**How Backend Resolves Tenant**:
+1. Read `X-Tenant-Domain` header from request
+2. Look up tenant in `nora_master.tenants` table by domain
+3. Switch database connection to `tenant_{uuid}`
+4. Execute request in tenant context
+
+**Frontend Responsibility**:
+- Send `X-Tenant-Domain` header with every request
+- Value comes from URL hostname or env variable
+- Handled automatically by Axios interceptor
+
+**Example**:
+```
+Request: GET /api/v1/books
+Headers:
+  X-Tenant-Domain: thuvientansonnhat3.noralib.com
+  Cookie: access_token=<jwt>
+
+Backend Action:
+  1. Resolve tenant from domain
+  2. Switch to tenant_01KE6H0Y4KD65DCEZX83EPK6TH
+  3. Query books from that tenant's database
+  4. Return books (isolated to that library)
+```
+
+### Middleware Stack
+
+Backend applies these middlewares in order:
+
+1. **VerifyTenantApiSecret** (admin APIs only)
+   - Validates API secret for admin operations
+   - Not used for regular user APIs
+
+2. **SetTenantConnection**
+   - Resolves tenant from `X-Tenant-Domain` header
+   - Switches database connection
+   - Returns 404 if tenant not found
+
+3. **TenantIsolation**
+   - Verifies tenant context is set
+   - Ensures queries go to correct database
+   - Prevents cross-tenant data leaks
+
+4. **JWT Authentication**
+   - Validates access_token cookie
+   - Returns 401 if invalid/expired
+   - Auto-refresh handled by frontend
+
+## API Response Format
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    // Response payload
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errors": {
+    // Validation errors (optional)
+    "field": ["Error message"]
+  }
+}
+```
+
+### HTTP Status Codes
+
+- `200 OK`: Successful operation
+- `201 Created`: Resource created
+- `204 No Content`: Successful delete
+- `400 Bad Request`: Invalid request
+- `401 Unauthorized`: Authentication required
+- `403 Forbidden`: Permission denied
+- `404 Not Found`: Resource/tenant not found
+- `422 Unprocessable Entity`: Validation errors
+- `500 Internal Server Error`: Backend error
+
+## Authentication Flow (Backend Perspective)
+
+### Login: `POST /api/v1/auth/login`
+
+**Request**:
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Backend Actions**:
+1. Validate credentials against tenant database
+2. Generate JWT access_token (15min expiry)
+3. Generate JWT refresh_token (7 days expiry)
+4. Set httpOnly cookies:
+   - `access_token` (path=/, httpOnly=true)
+   - `refresh_token` (path=/api/v1/auth/refresh, httpOnly=true)
+   - `user_role` (readable, for client-side routing)
+5. Return user data
+
+**Response**:
+```json
+{
+  "success": true,
+  "user": {
+    "id": "01KE...",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "librarian"
+  }
+}
+```
+
+### Token Refresh: `POST /api/v1/auth/refresh`
+
+**Backend Actions**:
+1. Read `refresh_token` from cookie
+2. Validate refresh token
+3. Generate new access_token + refresh_token
+4. Rotate httpOnly cookies
+5. Return success
+
+**Frontend**: Axios interceptor handles this automatically on 401.
+
+### Logout: `POST /api/v1/auth/logout`
+
+**Backend Actions**:
+1. Revoke refresh token in database
+2. Clear all auth cookies
+3. Return success
+
+## Common API Endpoints
+
+### Books
+
+- `GET /api/v1/books` - List books (paginated)
+- `GET /api/v1/books/{id}` - Get book details
+- `POST /api/v1/books` - Create book (admin/librarian)
+- `PUT /api/v1/books/{id}` - Update book
+- `DELETE /api/v1/books/{id}` - Delete book
+
+### Borrows
+
+- `GET /api/v1/borrows` - List borrows
+- `POST /api/v1/borrows` - Create borrow
+- `PUT /api/v1/borrows/{id}/return` - Return book
+
+### Users
+
+- `GET /api/v1/users` - List users (admin)
+- `GET /api/v1/users/{id}` - Get user
+- `POST /api/v1/users` - Create user
+- `PUT /api/v1/users/{id}` - Update user
+
+### Library Settings
+
+- `GET /api/v1/library-settings/library-info` - Get library info
+- `PUT /api/v1/library-settings/library-info` - Update library info
+
+## Query Parameters
+
+**Pagination**:
+- `page=1` - Page number
+- `per_page=20` - Items per page
+
+**Sorting**:
+- `sort_field=created_at` - Sort field
+- `sort_direction=desc` - Sort direction (asc/desc)
+
+**Filtering**:
+- `search=keyword` - Search query
+- `status=active` - Status filter
+- Custom filters per endpoint
+
+**Example**:
+```
+GET /api/v1/books?page=1&per_page=100&sort_field=title&sort_direction=asc&search=Harry
+```
+
+## Error Handling for Frontend
+
+### 401 Unauthorized
+
+**Causes**:
+- access_token expired
+- access_token invalid
+- User logged out
+
+**Frontend Action**:
+- Axios interceptor attempts refresh
+- If refresh succeeds: Retry request
+- If refresh fails: Redirect to login
+
+### 404 Not Found (Tenant)
+
+**Causes**:
+- Invalid `X-Tenant-Domain` header
+- Tenant doesn't exist in database
+
+**Frontend Action**:
+- Show "Library not found" error
+- Check tenant domain configuration
+
+### 403 Forbidden
+
+**Causes**:
+- User lacks permission for action
+- Reader trying to access admin endpoint
+
+**Frontend Action**:
+- Show "Permission denied" message
+- Don't retry (won't succeed)
+
+### 422 Validation Error
+
+**Causes**:
+- Invalid form data
+- Business rule violation
+
+**Frontend Action**:
+- Display field errors to user
+- Highlight invalid fields
+
+## Development Notes
+
+### Local Backend URL
+
+Development: `http://localhost:8001`
+- Started with: `php artisan serve --port=8001`
+- CORS enabled for `http://localhost:3000`
+
+### Testing Tenant Context
+
+Test tenants in database:
+- `test.library.local`
+- `thuvientansonnhat2.noralib.com`
+- `thuvientansonnhat3.noralib.com`
+- `thuvientansonnhat4.noralib.com`
+
+Set `NEXT_PUBLIC_TENANT_DOMAIN` in frontend `.env` to one of these.
+
+### CORS Configuration
+
+Backend allows:
+- `http://localhost:3000` (frontend dev)
+- Credentials: `true` (for cookies)
+
+If CORS errors occur, check backend `config/cors.php`.
+
+## Security Notes
+
+### What Frontend Should NOT Do
+
+❌ Never store JWT tokens in localStorage/sessionStorage
+❌ Never send password in GET requests
+❌ Never put secrets in NEXT_PUBLIC_* env variables
+❌ Never manipulate JWT tokens client-side
+
+### What Frontend DOES Do
+
+✅ Sends credentials via httpOnly cookies (automatic)
+✅ Includes `X-Tenant-Domain` header (automatic via Axios)
+✅ Handles token refresh transparently (Axios interceptor)
+✅ Stores non-sensitive user data in Redux
+
+## Related Documentation
+
+- Backend README: `D:\Company\api.noralib.com\README.md`
+- API Documentation: `D:\Company\api.noralib.com\docs\`
+- Postman Collection: `D:\Company\api.noralib.com\APIsCollections\`

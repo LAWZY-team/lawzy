@@ -9,8 +9,10 @@ export function useThinkingProgress(isGenerating: boolean): [string[], React.Dis
   const [thinkingProgress, setThinkingProgress] = useState<string[]>([])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setThinkingProgress([])
+    const timeoutId = setTimeout(() => {
+      setThinkingProgress([])
+    }, 0)
+    return () => clearTimeout(timeoutId)
   }, [isGenerating])
 
   return [thinkingProgress, setThinkingProgress]

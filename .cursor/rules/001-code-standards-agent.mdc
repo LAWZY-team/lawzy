@@ -1,0 +1,150 @@
+---
+description: Code Standards to be followed for Lawzy development
+globs:
+alwaysApply: true
+---
+# Lawzy Core Coding Standards
+
+## Tailwind CSS v4 Standards
+
+- Use `@import "tailwindcss"` instead of `@tailwind` directives
+- Use CSS variables for theme values instead of the `theme()` function when possible
+- Use `@config` directive to reference JavaScript config files when needed
+- Be mindful of hover styles on mobile as v4 only applies them on devices that support hover
+- Use `@utility` instead of `@layer utilities` for custom utilities
+- For arbitrary values with CSS variables, use parentheses syntax `bg-(--brand-color)` instead of square brackets
+
+## Critical Rules
+
+- **Package Manager**: Use `yarn` for all package management tasks.
+- **TypeScript Usage**: All new code MUST be written in TypeScript (`.ts` or `.tsx`).
+- **File/Directory Naming**: Use `kebab-case` for all file and directory names (e.g., `src/lib/utils.ts`, `src/components/user-profile`).
+- **Constant Definitions**: Use `UPPER_SNAKE_CASE` along with `as const` for defining read-only object literals or arrays that represent fixed collections or configurations.
+- **Function Style**: Prefer fat arrow functions (`=>`) over the `function` keyword for consistency, especially for callbacks and inline functions. Named exports or React components may use the `function` keyword where appropriate.
+- **Barrel Files**: Avoid creating new barrel files (`index.ts` files that only re-export from other modules). Aim to refactor existing ones where practical by importing directly from the source module. *Note: Existing barrel files are present in the codebase.*
+- **Extensibility**: Design components and systems with extensibility in mind, often using plugin architectures or similar patterns where appropriate.
+- **Factory Patterns**: Utilize factory functions or patterns when creating complex objects or when object creation logic needs to be centralized or abstracted (e.g., for dependency injection or different implementations).
+- **Error Handling**: Use specific error types. Prefer standard `Error` objects for generic issues and create custom error classes (extending `Error`) for domain-specific or operational errors. Log errors appropriately, providing sufficient context.
+- **Documentation (JSDoc)**: Add JSDoc comments to exported functions, classes, and complex types *after* the implementation is complete and verified. Include `@param`, `@returns`, and clear `@example` tags where helpful. Focus on clarity and practical usage examples.
+
+## Examples
+
+<example>
+  ```typescript
+  // src/lib/file-utils.ts
+  export const SUPPORTED_FILE_TYPES = ['pdf', 'docx', 'pptx', 'jpg', 'png'] as const;
+  export type SupportedFileType = typeof SUPPORTED_FILE_TYPES[number];
+
+  export const getFileExtension = (filename: string): string => {
+    return filename.split('.').pop()?.toLowerCase() || '';
+  };
+
+  // Importing directly, avoiding barrel files
+  import { getFileExtension } from '@/lib/file-utils';
+
+  // Basic Factory Example
+  interface DocumentProcessor {
+    process: (file: File) => Promise<void>;
+  }
+  const createDocumentProcessor = (config: any): DocumentProcessor => {
+    return {
+      process: async (file: File) => {
+        console.log('Processing file with config:', config);
+      },
+    };
+  };
+  const pdfProcessor = createDocumentProcessor({ type: 'pdf' });
+
+  // Custom Error Example
+  class FileUploadError extends Error {
+    constructor(fileName: string, reason: string) {
+      super(`Failed to upload file "${fileName}": ${reason}`);
+      this.name = 'FileUploadError';
+    }
+  }
+
+  /**
+   * Uploads a file to cloud storage.
+   * @param file The file to upload.
+   * @returns The uploaded file URL.
+   * @throws {FileUploadError} If the upload fails.
+   * @example
+   * try {
+   *   const url = await uploadFile(file);
+   *   console.log('Uploaded to:', url);
+   * } catch (error) {
+   *   if (error instanceof FileUploadError) {
+   *     console.error(error.message);
+   *   }
+   * }
+   */
+  const uploadFile = async (file: File): Promise<string> => {
+    try {
+      // Upload logic...
+      return 'https://storage.example.com/file.pdf';
+    } catch (error) {
+      throw new FileUploadError(file.name, error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
+  ```
+</example>
+
+<example type="invalid">
+  ```typescript
+
+  // Using npm instead of yarn
+  // npm install package-name
+
+  // Incorrect file naming
+  // src/components/UserProfile.tsx
+
+  // Using 'function' keyword unnecessarily
+  function getFileData(id) {
+    // ...
+  }
+
+  // Using mutable object for constants
+  export const Config = {
+    API_URL: 'http://example.com', // Can be accidentally mutated
+  };
+
+  // Creating a new barrel file
+  // src/lib/index.ts
+  export * from './file-utils';
+  export * from './image-utils';
+
+  // Tightly coupled code, hard to extend
+  class DocumentHandler {
+    handlePdf() {
+      // Specific PDF handling logic...
+    }
+    // Adding DOCX would require modifying this class directly
+  }
+
+  // Direct instantiation where a factory might be better
+  const processor = new DocumentProcessor(dep1, new AnotherDep(), config.setting);
+  // vs.
+  // const processor = createDocumentProcessor(config);
+
+  // Vague error handling
+  function doSomethingRisky() {
+    try {
+      // ... operation ...
+    } catch (e) {
+      throw new Error("Something went wrong"); // Too generic
+    }
+  }
+
+  // Adding JSDoc prematurely to unfinished code
+  /**
+   * @param file - File to process (TODO: implement)
+   * @returns Processed file (TODO: check logic)
+   * @example
+   * processFile(file) // Expected: processed file (TODO: write test)
+   */
+  const processFile = (file: File) => {
+    // WIP
+    return null; // Incorrect logic, documented too early
+  }
+  ```
+</example>
