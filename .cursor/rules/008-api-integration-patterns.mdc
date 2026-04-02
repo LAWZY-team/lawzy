@@ -1,0 +1,627 @@
+---
+description: API integration patterns for frontend - service layer, error handling, type safety, and best practices for calling Laravel backend
+globs:
+alwaysApply: true
+---
+# API Integration Patterns
+
+**Backend**: NestJS 11 Backend API 
+**Client**: Axios with interceptors 
+**Pattern**: Service Layer → Hook → Component
+
+## Architecture Overview
+
+```
+Component
+    ↓ uses
+Custom Hook (useBooks, useBorrows)
+    ↓ calls
+Service Layer (bookService, borrowService)
+    ↓ uses
+HTTP Client (apiRequest with interceptors)
+    ↓ sends
+HTTP Request to Backend API
+```
+
+**Key Principle**: Each layer has single responsibility. Components don't call API directly.
+
+---
+
+## Pattern 1: Service Layer Structure
+
+**Location**: `src/core/services/api/*.service.ts`
+
+**Purpose**: Centralized API calls with type safety
+
+**Structure**:
+
+```typescript
+// src/core/services/api/books.service.ts
+import { apiRequest } from './client';
+import type { Book, BookFilters } from './types/book.types';
+import type { ApiResponse, PaginatedResponse } from './types/api-response';
+
+export const bookService = {
+  /**
+   * Get paginated list of books
+   */
+  async getAll(filters?: BookFilters): Promise<PaginatedResponse<Book>> {
+    const params = {
+      page: filters?.page || 1,
+      per_page: filters?.perPage || 20,
+      search: filters?.search,
+      sort_field: filters?.sortField,
+      sort_direction: filters?.sortDirection,
+    };
+    
+    const response = await apiRequest.get<PaginatedResponse<Book>>(
+      '/books',
+      { params }
+    );
+    
+    return response.data;
+  },
+
+  /**
+   * Get single book by ID
+   */
+  async getById(id: string): Promise<Book> {
+    const response = await apiRequest.get<{ book: Book }>(`/books/${id}`);
+    return response.data.book;
+  },
+
+  /**
+   * Create new book (admin/librarian only)
+   */
+  async create(data: CreateBookDTO): Promise<Book> {
+    const response = await apiRequest.post<{ book: Book }>('/books', data);
+    return response.data.book;
+  },
+
+  /**
+   * Update existing book
+   */
+  async update(id: string, data: UpdateBookDTO): Promise<Book> {
+    const response = await apiRequest.put<{ book: Book }>(
+      `/books/${id}`,
+      data
+    );
+    return response.data.book;
+  },
+
+  /**
+   * Delete book
+   */
+  async delete(id: string): Promise<void> {
+    await apiRequest.delete(`/books/${id}`);
+  },
+};
+```
+
+**Best Practices**:
+- ✅ One service per resource (books, users, borrows)
+- ✅ JSDoc comments for all methods
+- ✅ Fully typed params and return values
+- ✅ Use `apiRequest` helper (has interceptors)
+- ✅ Transform backend response to frontend types if needed
+- ❌ Don't add business logic (belongs in hooks)
+- ❌ Don't manage loading/error state (belongs in hooks)
+
+---
+
+## Pattern 2: Type Definitions
+
+**Location**: `src/core/services/api/types/*.types.ts`
+
+**Purpose**: Type safety for API contracts
+
+**Structure**:
+
+```typescript
+// src/core/services/api/types/book.types.ts
+
+/**
+ * Book entity from backend
+ */
+export interface Book {
+  id: string;
+  isbn: string;
+  title: string;
+  author: string;
+  publisher: string;
+  publishedYear: number;
+  coverImage: string | null;
+  status: BookStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Book status enum
+ */
+export type BookStatus = 'available' | 'borrowed' | 'maintenance' | 'lost';
+
+/**
+ * Create book DTO (frontend → backend)
+ */
+export interface CreateBookDTO {
+  isbn: string;
+  title: string;
+  author: string;
+  publisher: string;
+  publishedYear: number;
+  quantity: number;
+}
+
+/**
+ * Update book DTO
+ */
+export interface UpdateBookDTO extends Partial<CreateBookDTO> {
+  status?: BookStatus;
+}
+
+/**
+ * Book filters for list query
+ */
+export interface BookFilters {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  status?: BookStatus;
+  sortField?: 'title' | 'author' | 'publishedYear' | 'createdAt';
+  sortDirection?: 'asc' | 'desc';
+}
+```
+
+**Best Practices**:
+- ✅ Match backend DTOs (but use camelCase in frontend)
+- ✅ Separate read types (Book) and write types (CreateBookDTO)
+- ✅ Use TypeScript enums or union types for status
+- ✅ Document fields with JSDoc
+- ❌ Don't define types in component files
+- ❌ Don't use `any` type
+
+---
+
+## Pattern 3: Custom Hooks for Data Fetching
+
+**Location**: `src/hooks/use*.ts`
+
+**Purpose**: Manage data fetching, loading, error states
+
+**Structure**:
+
+```typescript
+// src/hooks/useBooks.ts
+import { useState, useEffect, useCallback } from 'react';
+import { bookService } from '@/core/services/api/books.service';
+import type { Book, BookFilters } from '@/core/services/api/types/book.types';
+import type { PaginatedResponse } from '@/core/services/api/types/api-response';
+
+interface UseBooksReturn {
+  books: Book[];
+  loading: boolean;
+  error: Error | null;
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    total: number;
+  } | null;
+  refetch: () => Promise<void>;
+}
+
+export const useBooks = (filters?: BookFilters): UseBooksReturn => {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [pagination, setPagination] = useState<UseBooksReturn['pagination']>(null);
+
+  const fetchBooks = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await bookService.getAll(filters);
+      
+      setBooks(response.data);
+      setPagination({
+        currentPage: response.meta.current_page,
+        totalPages: response.meta.last_page,
+        total: response.meta.total,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch books'));
+      console.error('Error fetching books:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    fetchBooks();
+  }, [fetchBooks]);
+
+  return {
+    books,
+    loading,
+    error,
+    pagination,
+    refetch: fetchBooks,
+  };
+};
+```
+
+**Best Practices**:
+- ✅ Return loading, error, data, and actions
+- ✅ Use `useCallback` for refetch function
+- ✅ Handle errors gracefully
+- ✅ Reset error state on retry
+- ✅ Debounce/throttle if filters change frequently
+- ❌ Don't include UI logic (toast notifications)
+- ❌ Don't manage global state here (use Redux for that)
+
+---
+
+## Pattern 4: Error Handling
+
+**Problem**: Different error types require different handling
+
+**Solution**: Use typed error classes from Axios interceptor
+
+**Implementation**:
+
+```typescript
+// In component or hook
+import {
+  AuthenticationError,
+  ValidationError,
+  NotFoundError,
+} from '@/core/services/api/types/api-error';
+
+try {
+  await bookService.create(bookData);
+  toast.success('Tạo sách thành công');
+} catch (error) {
+  if (error instanceof ValidationError) {
+    // Show field-specific errors
+    Object.entries(error.errors).forEach(([field, messages]) => {
+      toast.error(`${field}: ${messages.join(', ')}`);
+    });
+  } else if (error instanceof AuthenticationError) {
+    // Redirect to login (usually handled by interceptor)
+    router.push('/login');
+  } else if (error instanceof NotFoundError) {
+    toast.error('Sách không tồn tại');
+  } else {
+    // Generic error
+    toast.error('Đã xảy ra lỗi, vui lòng thử lại');
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+**Error Types** (defined in `src/core/services/api/types/api-error.ts`):
+- `NetworkError`: No network connection
+- `AuthenticationError`: 401 (handled by interceptor, rarely seen)
+- `AuthorizationError`: 403 (permission denied)
+- `ValidationError`: 422 (form validation errors)
+- `NotFoundError`: 404
+- `MethodNotAllowedError`: 405
+- `ServerError`: 500+
+
+**Best Practices**:
+- ✅ Use typed error checks (`instanceof`)
+- ✅ Show user-friendly messages
+- ✅ Log technical details to console (development)
+- ✅ Send critical errors to monitoring (production)
+- ❌ Don't show stack traces to users
+- ❌ Don't catch errors silently
+
+---
+
+## Pattern 5: Query Parameters & Pagination
+
+**Problem**: How to handle complex query parameters?
+
+**Solution**: Use helper functions and type-safe builders
+
+**Implementation**:
+
+```typescript
+// src/core/services/api/utils/query-builder.ts
+export const buildQueryParams = (filters: Record<string, any>) => {
+  const params = new URLSearchParams();
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (Array.isArray(value)) {
+        value.forEach(v => params.append(`${key}[]`, String(v)));
+      } else {
+        params.set(key, String(value));
+      }
+    }
+  });
+  
+  return params;
+};
+
+// Usage in service
+async getAll(filters?: BookFilters) {
+  const params = buildQueryParams({
+    page: filters?.page,
+    per_page: filters?.perPage,
+    search: filters?.search,
+    status: filters?.status,
+  });
+  
+  return apiRequest.get(`/books?${params}`);
+}
+```
+
+**Pagination Pattern**:
+
+```typescript
+// In component
+const [currentPage, setCurrentPage] = useState(1);
+const { books, pagination, loading } = useBooks({
+  page: currentPage,
+  perPage: 20,
+});
+
+return (
+  <>
+    <BookList books={books} loading={loading} />
+    
+    <Pagination
+      currentPage={pagination?.currentPage || 1}
+      totalPages={pagination?.totalPages || 1}
+      onPageChange={setCurrentPage}
+    />
+  </>
+);
+```
+
+---
+
+## Pattern 6: Optimistic Updates
+
+**Problem**: UI feels slow waiting for API response
+
+**Solution**: Update UI immediately, rollback on error
+
+**Implementation**:
+
+```typescript
+const useOptimisticBookUpdate = () => {
+  const [books, setBooks] = useState<Book[]>([]);
+  
+  const updateBook = async (id: string, updates: Partial<Book>) => {
+    // 1. Save previous state
+    const previousBooks = [...books];
+    
+    // 2. Optimistically update UI
+    setBooks(prev => prev.map(book =>
+      book.id === id ? { ...book, ...updates } : book
+    ));
+    
+    try {
+      // 3. Send to backend
+      const updatedBook = await bookService.update(id, updates);
+      
+      // 4. Update with real data from backend
+      setBooks(prev => prev.map(book =>
+        book.id === id ? updatedBook : book
+      ));
+      
+      toast.success('Cập nhật thành công');
+    } catch (error) {
+      // 5. Rollback on error
+      setBooks(previousBooks);
+      toast.error('Cập nhật thất bại');
+    }
+  };
+  
+  return { books, updateBook };
+};
+```
+
+**When to Use**:
+- ✅ Simple updates (status change, toggle favorite)
+- ✅ User-initiated actions with immediate feedback
+- ❌ Complex validations (wait for backend)
+- ❌ Critical data (financial transactions)
+
+---
+
+## Pattern 7: Request Cancellation
+
+**Problem**: Component unmounts but API request continues
+
+**Solution**: Cancel requests on unmount
+
+**Implementation**:
+
+```typescript
+import { useEffect, useRef } from 'react';
+import axios from 'axios';
+
+const useBooks = () => {
+  const abortControllerRef = useRef<AbortController>();
+  
+  useEffect(() => {
+    const fetchBooks = async () => {
+      // Create new AbortController
+      abortControllerRef.current = new AbortController();
+      
+      try {
+        const response = await apiRequest.get('/books', {
+          signal: abortControllerRef.current.signal,
+        });
+        setBooks(response.data);
+      } catch (error) {
+        if (axios.isCancel(error)) {
+          console.log('Request canceled');
+        } else {
+          setError(error);
+        }
+      }
+    };
+    
+    fetchBooks();
+    
+    // Cleanup: cancel request on unmount
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+};
+```
+
+**When to Use**:
+- ✅ Slow API calls (search, filters)
+- ✅ Components that mount/unmount frequently
+- ✅ Tab switching, route changes
+- ❌ Critical writes (may cause partial updates)
+
+---
+
+## Pattern 8: Retry Logic
+
+**Problem**: Transient network errors should retry
+
+**Solution**: Retry with exponential backoff
+
+**Implementation**:
+
+```typescript
+const retryRequest = async <T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
+
+// Usage
+const books = await retryRequest(() => bookService.getAll());
+```
+
+**When to Use**:
+- ✅ Network errors (timeout, connection refused)
+- ✅ 502/503 server errors (temporary)
+- ❌ 4xx client errors (won't succeed on retry)
+- ❌ Authentication errors (need user action)
+
+---
+
+## Best Practices Summary
+
+### DO ✅
+
+1. **Use Service Layer**: All API calls through service files
+2. **Type Everything**: Use TypeScript for all API types
+3. **Handle Errors**: Use typed error classes, show user-friendly messages
+4. **Log Errors**: Console log in dev, send to monitoring in production
+5. **Cancel Requests**: Cleanup on component unmount
+6. **Use Interceptors**: Don't repeat headers/auth logic
+7. **Pagination**: Use backend pagination for large lists
+8. **Loading States**: Always show loading indicators
+
+### DON'T ❌
+
+1. **Don't Call API in Components**: Use hooks/services
+2. **Don't Use `any` Type**: Defeats TypeScript purpose
+3. **Don't Catch Silently**: Always handle or rethrow errors
+4. **Don't Hardcode Tenant**: Use TenantDomainService
+5. **Don't Store Passwords**: Use httpOnly cookies
+6. **Don't Mix Concerns**: Service = API, Hook = State, Component = UI
+7. **Don't Forget Cleanup**: Cancel requests, clear timers
+8. **Don't Over-Optimize**: Premature optimization is evil
+
+---
+
+## Checklist for New API Integration
+
+When adding new API feature:
+
+- [ ] Created service file in `src/core/services/api/`
+- [ ] Defined types in `types/` subfolder
+- [ ] Created custom hook in `src/hooks/`
+- [ ] Error handling with typed errors
+- [ ] Loading and error states
+- [ ] Pagination if needed
+- [ ] Request cancellation on unmount
+- [ ] JSDoc comments on service methods
+- [ ] Tested with backend API
+- [ ] Handles tenant context correctly
+
+---
+
+## Example: Complete Flow
+
+```typescript
+// 1. Define types
+// src/core/services/api/types/borrow.types.ts
+export interface Borrow {
+  id: string;
+  bookId: string;
+  userId: string;
+  borrowedAt: string;
+  dueDate: string;
+  returnedAt: string | null;
+  status: 'active' | 'returned' | 'overdue';
+}
+
+// 2. Create service
+// src/core/services/api/borrows.service.ts
+export const borrowService = {
+  async getAll(): Promise<Borrow[]> {
+    const response = await apiRequest.get('/borrows');
+    return response.data;
+  },
+};
+
+// 3. Create hook
+// src/hooks/useBorrows.ts
+export const useBorrows = () => {
+  const [borrows, setBorrows] = useState<Borrow[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    borrowService.getAll()
+      .then(setBorrows)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+  
+  return { borrows, loading };
+};
+
+// 4. Use in component
+// src/components/BorrowList.tsx
+const BorrowList = () => {
+  const { borrows, loading } = useBorrows();
+  
+  if (loading) return <Spinner />;
+  
+  return (
+    <div>
+      {borrows.map(borrow => (
+        <BorrowCard key={borrow.id} borrow={borrow} />
+      ))}
+    </div>
+  );
+};
+```
+
+**Result**: Clean separation of concerns, type-safe, testable, maintainable.

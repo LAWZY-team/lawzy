@@ -1,0 +1,184 @@
+---
+description: Clean Architecture boundary rules to prevent framework dependencies from leaking into Application and Domain layers. Critical for testability, portability, and maintainability. Apply when creating Use Cases, Domain Entities, or any code in Application/Domain layers.
+globs:
+alwaysApply: false
+---
+
+# Clean Architecture Boundary Rules
+
+**Version**: v3.0
+
+## Critical Rules
+
+### Application Layer: No Framework Facades
+
+**Statement**: Application layer (Use Cases) must NOT use framework facades or static calls directly.
+
+**Forbidden**:
+- Framework facades (`Tenancy::`, `Auth::`, `DB::`, `Cache::`, etc.)
+- Framework helpers (`request()`, `config()`, `env()`, `cache()`, `auth()`, etc.)
+- Static calls to framework services via `app()` or service locator pattern
+
+**Required**: Inject Domain interfaces instead. All framework dependencies must be abstracted through Domain interfaces implemented in Infrastructure layer.
+
+**Rationale**: Maintains testability (can mock interfaces), portability (can swap implementations or frameworks), and clear dependency boundaries (explicit dependencies).
+
+**Example Bad Code**:
+```php
+// ❌ WRONG: Use Case calling framework directly
+class CreateUserUseCase {
+    public function execute($dto) {
+        $tenant = Tenancy::tenant(); // Framework facade
+        $user = Auth::user(); // Framework helper
+        // ...
+    }
+}
+```
+
+**Example Good Code**:
+```php
+// ✅ CORRECT: Use Case with injected interfaces
+class CreateUserUseCase {
+    public function __construct(
+        private readonly ITenancyContext $tenancyContext,
+        private readonly IAuthContext $authContext,
+        private readonly IUserRepository $repository
+    ) {}
+    
+    public function execute($dto) {
+        $tenant = $this->tenancyContext->getCurrentTenant();
+        $actor = $this->authContext->getCurrentUser();
+        // ...
+    }
+}
+```
+
+---
+
+### Domain Layer: No Framework Dependencies
+
+**Statement**: Domain layer must be completely framework-agnostic.
+
+**Forbidden**:
+- Any Laravel/framework imports (except `DateTimeImmutable` from PHP)
+- Eloquent models
+- Facades
+- Framework helpers
+
+**Allowed**:
+- PHP standard library
+- `DateTimeImmutable`
+- Domain interfaces and value objects
+
+**Rationale**: Domain layer represents pure business logic, independent of any framework.
+
+---
+
+### Infrastructure Layer: Framework Implementation
+
+**Statement**: Infrastructure layer implements Domain interfaces using framework-specific code.
+
+**Required**:
+- Implement Domain interfaces
+- Use framework facades/helpers in implementations
+- Register bindings in service providers (`AppServiceProvider::register()`)
+- Use singleton for stateless services
+
+**Rationale**: Infrastructure is the only layer that should know about framework details.
+
+---
+
+### Service Provider Registration
+
+**Statement**: Domain interfaces must be bound to Infrastructure implementations in service providers.
+
+**Required**:
+- Bind all Domain interfaces in `AppServiceProvider::register()`
+- Use singleton for stateless services
+- Document bindings clearly
+
+**Rationale**: Enables dependency injection and maintains Clean Architecture boundaries.
+
+---
+
+## Use Case Authorization Rules
+
+### Tenant Boundary Enforcement
+
+**Statement**: Use Cases must not allow creation of tenant-level objects within tenant database.
+
+**Rationale**: Tenant = database boundary. Tenant creation belongs in central system during provisioning, not via API in tenant database.
+
+**Enforcement**: Use Case must throw exception if attempting to create tenant-level objects in tenant context.
+
+**Example**: In education SaaS, creating Province (tenant) must happen in central DB, not in province's tenant DB.
+
+---
+
+### Scope Enforcement in Use Cases
+
+**Statement**: List/Get Use Cases must enforce entity scope based on scope context.
+
+**Required**:
+- Entity user: only their entity data
+- Tenant admin: all entities in tenant (read-only) OR specific entity (if route has entity slug)
+
+**Rationale**: Authorization must be enforced at Use Case level, not deferred to controllers/policies only. Controllers handle HTTP concerns, Use Cases handle business rules including authorization.
+
+**Example Bad Code**:
+```php
+// ❌ WRONG: No scope enforcement in Use Case
+class GetResourcesUseCase {
+    public function execute() {
+        return $this->repository->getAll(); // Relies only on global scope
+    }
+}
+```
+
+**Example Good Code**:
+```php
+// ✅ CORRECT: Explicit scope enforcement
+class GetResourcesUseCase {
+    public function execute(ScopeContext $context, User $actor) {
+        // Check authorization
+        if ($context->mode === ScopeMode::TENANT_ALL && !$actor->canViewTenantWide()) {
+            throw new AuthorizationException();
+        }
+        
+        // Query with context
+        return $this->repository->getAllInScope($context);
+    }
+}
+```
+
+---
+
+## Summary
+
+Clean Architecture boundaries ensure:
+- **Testability**: Can mock interfaces, test business logic without framework
+- **Portability**: Can swap implementations or even frameworks without rewriting business logic
+- **Maintainability**: Clear dependencies, explicit contracts, easier to understand
+- **Framework Independence**: Domain/Application layers are pure PHP, no framework coupling
+- **Team Scalability**: Multiple developers can work on different layers without conflicts
+
+**Dependency Direction**: 
+```
+Presentation → Application → Domain
+Infrastructure → Application → Domain
+Domain depends on NOTHING
+```
+
+**Enforcement Strategy**:
+1. **Code Review**: Reject PRs with framework dependencies in Domain/Application
+2. **Static Analysis**: Use tools to detect framework imports in wrong layers
+3. **Architecture Tests**: Automated tests verify layer boundaries
+4. **Team Training**: Ensure all developers understand and follow boundaries
+
+**Common Violations to Watch For**:
+- Using `auth()`, `request()`, `config()` helpers in Use Cases
+- Calling Eloquent models directly in Application layer
+- Domain entities with Laravel imports
+- Use Cases with facade calls
+
+**Violations must be caught in code review and fixed before merge. No exceptions.**
