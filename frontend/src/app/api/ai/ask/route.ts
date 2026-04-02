@@ -8,6 +8,12 @@ import { LAWZY_AGENT_TOOLS } from '../tools/declarations'
 import { executeTool, type AgentToolContext } from '../tools/execute'
 import { AGENT_SYSTEM_PROMPT } from '@/lib/ai/agent-system-prompt'
 import { GeminiClient } from '@/lib/ai/gemini-client'
+import {
+  buildOutputLanguageInstruction,
+  mergeFieldsContextHeader,
+  userMessageLocalePrefix,
+} from '@/lib/ai/output-language-instruction'
+import type { Locale } from '@/lib/i18n'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const AI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
@@ -96,7 +102,11 @@ function tryParseContractResponse(text: string): unknown {
   if (end === -1) return null
   try {
     const parsed = JSON.parse(toParse.slice(start, end + 1))
-    if (parsed?.type === 'contract_generation' || parsed?.type === 'contract_review') return parsed
+    if (
+      parsed?.type === 'contract_generation' ||
+      parsed?.type === 'contract_review' ||
+      parsed?.type === 'intake_questionnaire'
+    ) return parsed
     if (parsed?.type === 'error' && typeof parsed.message === 'string') return parsed
     return null
   } catch {
@@ -120,8 +130,8 @@ export async function POST(req: NextRequest) {
       existingContent = '',
       attachedSources = [],
       chatHistory = [],
-      metadata = { contractType: 'general' },
       stream: useStream = false,
+      locale: localeRaw,
     } = body as {
       userMessage?: string
       workspaceId?: string | null
@@ -130,9 +140,12 @@ export async function POST(req: NextRequest) {
       existingContent?: string
       attachedSources?: Array<{ fileName: string; text: string }>
       chatHistory?: Array<{ role: string; content: string; toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }> }>
-      metadata?: { contractType?: string }
       stream?: boolean
+      locale?: string
     }
+
+    const locale: Locale = localeRaw === 'en' ? 'en' : 'vi'
+    const systemPromptWithLocale = AGENT_SYSTEM_PROMPT + buildOutputLanguageInstruction(locale)
 
     if (!userMessage || typeof userMessage !== 'string') {
       return NextResponse.json({ error: 'userMessage is required' }, { status: 400 })
@@ -165,12 +178,12 @@ export async function POST(req: NextRequest) {
     }
 
     const truncatedHistory = messagesToGeminiFormat(chatHistory)
-    let currentUserMessage = userMessage
+    let currentUserMessage = userMessageLocalePrefix(locale) + userMessage
     if (toolContext.mergeFieldValues && Object.keys(toolContext.mergeFieldValues).length > 0) {
       const fieldsText = Object.entries(toolContext.mergeFieldValues)
         .map(([key, value]) => `  ${key}: ${value}`)
         .join('\n')
-      currentUserMessage += `\n\n---\n[DANH SÁCH TRƯỜNG TRỘN VÀ GIÁ TRỊ ĐÃ ĐIỀN - dùng đúng các key này, có thể tham chiếu giá trị khi cần. Không hỏi lại thông tin đã có ở đây.]\n${fieldsText}`
+      currentUserMessage += mergeFieldsContextHeader(locale) + fieldsText
     }
     const contents: GeminiContent[] = [
       ...truncatedHistory,
@@ -195,7 +208,7 @@ export async function POST(req: NextRequest) {
 
         const geminiRequestBody = {
           contents,
-          systemInstruction: { parts: [{ text: AGENT_SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: systemPromptWithLocale }] },
           tools: [{ functionDeclarations: LAWZY_AGENT_TOOLS }],
           toolConfig: { functionCallingConfig: { mode: 'AUTO' as const } },
           generationConfig: {

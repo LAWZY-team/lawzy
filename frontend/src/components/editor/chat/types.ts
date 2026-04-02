@@ -1,3 +1,5 @@
+import type { QuestionnaireSchema } from '@/types/questionnaire'
+
 export interface ToolCallItem {
   name: string
   args: Record<string, unknown>
@@ -13,6 +15,8 @@ export interface ChatMessage {
   isStreaming?: boolean
   isError?: boolean
   hasContract?: boolean
+  hasQuestionnaire?: boolean
+  questionnaireSchema?: QuestionnaireSchema
   attachedFileName?: string
   toolCalls?: ToolCallItem[]
 }
