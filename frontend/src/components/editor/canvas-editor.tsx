@@ -62,7 +62,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { createPublicShareSnapshot } from "@/lib/api/public-shares";
+import { createPublicShareWithAccessCode } from "@/lib/api/public-shares";
 import { sanitizeEditorHtml, sanitizeHtml } from "@/lib/sanitize";
 
 const CONTRACT_BODY_CLASSES = [
@@ -144,6 +144,8 @@ export function CanvasEditor({
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
+  const [shareRecipientEmail, setShareRecipientEmail] = useState<string>("");
+  const [shareAccessCode, setShareAccessCode] = useState<string | null>(null);
 
   const fieldsForToggles = useMemo(() => {
     // Only re-check lists when the keys change or custom/template fields are added
@@ -408,14 +410,23 @@ export function CanvasEditor({
     try {
       setShareLoading(true);
       setShareUrl(null);
+      setShareAccessCode(null);
 
-      const data = await createPublicShareSnapshot({
+      const email = shareRecipientEmail.trim();
+      if (!email) {
+        toast.error("Vui lòng nhập email người nhận trước khi tạo link");
+        return;
+      }
+
+      const data = await createPublicShareWithAccessCode({
         title: docTitle || undefined,
         html: getFinalHtml(),
+        recipientEmail: email,
       });
       const baseUrl = getPublicAppBaseUrl();
       const url = `${baseUrl}/share/${data.token}`;
       setShareUrl(url);
+      setShareAccessCode(data.accessCode);
       toast.success("Đã tạo link chia sẻ");
     } catch (e) {
       console.error(e);
@@ -967,10 +978,20 @@ export function CanvasEditor({
             <DialogTitle>Chia sẻ link công khai</DialogTitle>
             <DialogDescription>
               Tạo link snapshot chỉ đọc. Người nhận không cần đăng nhập và chỉ
-              có thể xem.
+              có thể xem. Nhập email người nhận để hệ thống gửi mã truy cập.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Email người nhận</label>
+              <input
+                type="email"
+                value={shareRecipientEmail}
+                onChange={(e) => setShareRecipientEmail(e.target.value)}
+                placeholder="nguoiki@example.com"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
             <Button
               type="button"
               onClick={handleCreateShareLink}
@@ -980,7 +1001,7 @@ export function CanvasEditor({
             </Button>
             {shareUrl && (
               <div className="space-y-2">
-                <div className="text-sm font-medium">Link</div>
+                <div className="text-sm font-medium">Link chia sẻ</div>
                 <div className="flex items-center gap-2">
                   <input
                     value={shareUrl}
@@ -995,6 +1016,22 @@ export function CanvasEditor({
                     Sao chép
                   </Button>
                 </div>
+                {shareAccessCode && (
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium">
+                      Mã truy cập (mã hợp đồng)
+                    </div>
+                    <input
+                      value={shareAccessCode}
+                      readOnly
+                      className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm font-mono tracking-[0.3em]"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mã này cũng đã được gửi tới email người nhận. Người nhận
+                      cần nhập email và mã này để yêu cầu OTP truy cập.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
