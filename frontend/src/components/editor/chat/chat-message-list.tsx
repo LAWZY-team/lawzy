@@ -4,16 +4,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { ChatLoadingThinking } from "./chat-loading-thinking";
+import { QuestionnaireForm } from "./questionnaire-form";
 import type { ChatMessage } from "./types";
+import type { QuestionnaireSchema } from "@/types/questionnaire";
+import type { UserCustomField } from "@/stores/user-fields-store";
+import type { WorkspaceFieldItem } from "@/hooks/workspaces/use-workspace-fields";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
+import type { TranslationKey } from "@/lib/i18n";
 
-const QUICK_ACTIONS = [
-  { text: "Soạn hợp đồng dịch vụ" },
-  { text: "Kiểm tra rủi ro pháp lý"},
-  { text: "Tra cứu Luật Dân sự 2015"},
-  { text: "Giải thích điều khoản"},
-] as const;
+const QUICK_ACTION_KEYS: readonly {
+  labelKey: TranslationKey;
+  promptKey: TranslationKey;
+}[] = [
+  { labelKey: "chat_quick_contract_svc_label", promptKey: "chat_quick_contract_svc_prompt" },
+  { labelKey: "chat_quick_risk_label", promptKey: "chat_quick_risk_prompt" },
+  { labelKey: "chat_quick_civil_code_label", promptKey: "chat_quick_civil_code_prompt" },
+  { labelKey: "chat_quick_explain_clause_label", promptKey: "chat_quick_explain_clause_prompt" },
+];
 
 interface ChatMessageListProps {
   scrollAreaRef: React.RefObject<HTMLDivElement | null>;
@@ -28,6 +37,12 @@ interface ChatMessageListProps {
   expandedThinkingId: string | null;
   onToggleThinking: (id: string) => void;
   onQuickAction: (text: string) => void;
+  activeQuestionnaire?: QuestionnaireSchema | null;
+  onQuestionnaireSubmit?: (values: Record<string, string>) => void;
+  onQuestionnaireSkip?: () => void;
+  mergeFieldValues?: Record<string, string>;
+  userFields?: UserCustomField[];
+  workspaceFields?: WorkspaceFieldItem[];
 }
 
 export function ChatMessageList({
@@ -42,7 +57,15 @@ export function ChatMessageList({
   expandedThinkingId,
   onToggleThinking,
   onQuickAction,
+  activeQuestionnaire,
+  onQuestionnaireSubmit,
+  onQuestionnaireSkip,
+  mergeFieldValues = {},
+  userFields = [],
+  workspaceFields = [],
 }: ChatMessageListProps) {
+  const { t } = useT();
+
   return (
     <ScrollArea ref={scrollAreaRef} className="flex-1 w-full min-h-0">
       <div
@@ -54,7 +77,6 @@ export function ChatMessageList({
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700">
             <div className="space-y-2 max-w-md">
-              {/* Xin chào, {userDisplayName?.trim() || "Luật sư"} */}
               <Image
                 width={90}
                 height={90}
@@ -62,20 +84,18 @@ export function ChatMessageList({
                 alt="Lawzy"
                 className="object-contain"
               />
-              <p className="text-muted-foreground">
-                Hôm nay tôi có thể giúp gì cho bạn?
-              </p>
+              <p className="text-muted-foreground">{t("chat_empty_greeting")}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-              {QUICK_ACTIONS.map((action) => (
+              {QUICK_ACTION_KEYS.map((action) => (
                 <button
-                  key={action.text}
+                  key={action.labelKey}
                   type="button"
                   className="p-4 text-sm text-left bg-background hover:bg-accent border border-border rounded-xl transition-all flex items-center gap-3 text-foreground group"
-                  onClick={() => onQuickAction(action.text)}
+                  onClick={() => onQuickAction(t(action.promptKey))}
                 >
-                  <span>{action.text}</span>
+                  <span>{t(action.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -93,6 +113,18 @@ export function ChatMessageList({
               />
             ))}
           </AnimatePresence>
+        )}
+
+        {activeQuestionnaire && !isLoading && onQuestionnaireSubmit && onQuestionnaireSkip && (
+          <QuestionnaireForm
+            schema={activeQuestionnaire}
+            mergeFieldValues={mergeFieldValues}
+            userFields={userFields}
+            workspaceFields={workspaceFields}
+            onSubmit={onQuestionnaireSubmit}
+            onSkip={onQuestionnaireSkip}
+            isSubmitting={isLoading}
+          />
         )}
 
         {isLoading && (

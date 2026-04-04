@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { TemplateViewMode } from "./template-filters"
+import { useT } from "@/components/i18n-provider"
 
 export type CommunityFileType = "all" | "pdf" | "doc" | "docx"
 export type CommunitySort = "recent" | "az" | "za"
@@ -37,17 +38,19 @@ export function CommunityTemplateFilters({
   viewMode: TemplateViewMode
   onViewModeChange: (mode: TemplateViewMode) => void
 }) {
+  const { t } = useT()
+
   return (
     <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
       <div className="flex-1 min-w-[200px] max-w-[320px] space-y-1.5">
         <Label htmlFor="community-search" className="text-xs">
-          Tìm kiếm
+          {t("tmpl_comm_search")}
         </Label>
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             id="community-search"
-            placeholder="Tìm theo tên hoặc mô tả..."
+            placeholder={t("tmpl_comm_search_placeholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-9 pl-8"
@@ -58,14 +61,14 @@ export function CommunityTemplateFilters({
       <div className="flex items-end gap-2">
         <div className="w-[160px] shrink-0 space-y-1.5">
           <Label htmlFor="community-type" className="text-xs">
-            Loại file
+            {t("tmpl_comm_file_type")}
           </Label>
           <Select value={selectedFileType} onValueChange={(v) => onFileTypeChange(v as CommunityFileType)}>
             <SelectTrigger id="community-type" className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">{t("tmpl_comm_all")}</SelectItem>
               <SelectItem value="pdf">PDF</SelectItem>
               <SelectItem value="doc">DOC</SelectItem>
               <SelectItem value="docx">DOCX</SelectItem>
@@ -75,14 +78,14 @@ export function CommunityTemplateFilters({
 
         <div className="w-[160px] shrink-0 space-y-1.5">
           <Label htmlFor="community-sort" className="text-xs">
-            Sắp xếp
+            {t("tmpl_comm_sort")}
           </Label>
           <Select value={selectedSort} onValueChange={(v) => onSortChange(v as CommunitySort)}>
             <SelectTrigger id="community-sort" className="h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recent">Mới nhất</SelectItem>
+              <SelectItem value="recent">{t("tmpl_comm_sort_recent")}</SelectItem>
               <SelectItem value="az">A-Z</SelectItem>
               <SelectItem value="za">Z-A</SelectItem>
             </SelectContent>
@@ -90,11 +93,11 @@ export function CommunityTemplateFilters({
         </div>
 
         <div className="flex items-end gap-0 pb-0.5">
-          <Label className="sr-only">Hiển thị</Label>
+          <Label className="sr-only">{t("tmpl_comm_display")}</Label>
           <div
             className="flex rounded-md border border-input bg-background p-0.5"
             role="group"
-            aria-label="Chế độ hiển thị"
+            aria-label={t("tmpl_comm_display_mode")}
           >
             <Button
               type="button"
@@ -105,7 +108,7 @@ export function CommunityTemplateFilters({
               aria-pressed={viewMode === "card"}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              Thẻ
+              {t("tmpl_comm_view_card")}
             </Button>
             <Button
               type="button"
@@ -116,7 +119,7 @@ export function CommunityTemplateFilters({
               aria-pressed={viewMode === "list"}
             >
               <List className="h-3.5 w-3.5" />
-              Danh sách
+              {t("tmpl_comm_view_list")}
             </Button>
           </div>
         </div>

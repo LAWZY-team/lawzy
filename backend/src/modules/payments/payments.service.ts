@@ -2,7 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
+import type { Webhook } from '@payos/node';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
 import { EmailService } from '../email/email.service';
@@ -12,14 +14,17 @@ const FRONTEND_URL = (
   process.env.FRONTEND_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   'http://localhost:3000'
-).replace(/\/$/, ''); // Loại bỏ slash cuối để tránh // khi nối path
+).replace(/\/$/, '');
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly plansService: PlansService,
     private readonly emailService: EmailService,
+    private readonly payos: PayOSService,
   ) {}
 
   async create(userId: string, workspaceId: string, planId: string) {
@@ -38,11 +43,12 @@ export class PaymentsService {
       wsId = membership.workspaceId;
     }
 
-    const orderCode = `lawzy${Date.now()}`;
-    const result = await PayOSService.createPayment({
-      orderCode,
+    const orderCodeNum = Date.now();
+    const orderCode = String(orderCodeNum);
+    const result = await this.payos.createPayment({
+      orderCode: orderCodeNum,
       amount: plan.price,
-      description: `Lawzy - Gói ${plan.name}`,
+      description: `Lawzy ${plan.name}`,
       items: [{ name: plan.name, quantity: 1, price: plan.price }],
       returnUrl: `${FRONTEND_URL}/payment/status/${orderCode}`,
       cancelUrl: `${FRONTEND_URL}/payment`,
@@ -157,7 +163,6 @@ export class PaymentsService {
         : []),
     ]);
 
-    // Gửi email thanh toán thành công khi status = paid
     if (status === 'paid') {
       const paymentWithUser = await this.prisma.payment.findUnique({
         where: { id: payment.id },
@@ -180,5 +185,16 @@ export class PaymentsService {
     }
 
     return this.getByOrderCode(orderCode);
+  }
+
+  async handlePayOSWebhook(body: Webhook): Promise<void> {
+    if (!this.payos.isConfigured()) {
+      this.logger.warn('payOS webhook received but credentials not configured');
+      throw new BadRequestException('payOS not configured');
+    }
+    const data = await this.payos.verifyWebhookPayload(body);
+    const orderCode = String(data.orderCode);
+    const paid = body.success === true && data.code === '00';
+    await this.syncAndFulfill(orderCode, paid ? 'paid' : 'failed');
   }
 }

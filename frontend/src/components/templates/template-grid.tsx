@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Template } from "@/types/template"
 import type { TemplateViewMode } from "./template-filters"
+import { useT } from "@/components/i18n-provider"
 
 interface TemplateGridProps {
   templates: Template[]
@@ -16,6 +17,8 @@ interface TemplateGridProps {
 }
 
 export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: TemplateGridProps) {
+  const { t } = useT()
+
   if (viewMode === "list") {
     return (
       <div className="flex flex-col gap-2">
@@ -39,10 +42,10 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
               <div className="flex shrink-0 gap-2">
                 <Button variant="outline" size="sm" onClick={() => onViewTemplate(template)}>
                   <Eye className="h-4 w-4 mr-1.5" />
-                  Xem
+                  {t("tmpl_view")}
                 </Button>
                 <Button size="sm" asChild>
-                  <Link href={`/editor/new?template=${template.id}`}>Sử dụng</Link>
+                  <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
                 </Button>
               </div>
             </Card>
@@ -71,7 +74,7 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
               <div className="space-y-3">
                 {laws.length > 0 && (
                   <div className="text-xs text-muted-foreground">
-                    <p className="font-semibold mb-1">Nguồn:</p>
+                    <p className="font-semibold mb-1">{t("tmpl_source")}:</p>
                     <p>{laws.join(", ")}</p>
                   </div>
                 )}
@@ -81,10 +84,10 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
             <CardFooter className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => onViewTemplate(template)}>
                 <Eye className="h-4 w-4 mr-2" />
-                Xem
+                {t("tmpl_view")}
               </Button>
               <Button asChild className="flex-1">
-                <Link href={`/editor/new?template=${template.id}`}>Sử dụng</Link>
+                <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
               </Button>
             </CardFooter>
           </Card>

@@ -121,6 +121,44 @@ const en: Record<TranslationKey, string> = {
   tmpl_library: "Library of {n} contract templates",
   tmpl_system: "System",
   tmpl_community: "Community",
+  tmpl_internal: "Internal",
+  tmpl_upload_action: "Upload",
+  tmpl_upload_success: "Upload successful",
+  tmpl_upload_failed: "Upload failed",
+  tmpl_deleted: "Deleted",
+  tmpl_delete_failed: "Delete failed",
+  tmpl_list_load_failed: "Failed to load list",
+  tmpl_comm_not_found: "No files found",
+  tmpl_comm_found: "Found {n} files",
+  tmpl_comm_search: "Search",
+  tmpl_comm_search_placeholder: "Search by name or description...",
+  tmpl_comm_file_type: "File type",
+  tmpl_comm_all: "All",
+  tmpl_comm_sort: "Sort",
+  tmpl_comm_sort_recent: "Most recent",
+  tmpl_comm_display: "Display",
+  tmpl_comm_display_mode: "Display mode",
+  tmpl_comm_view_card: "Card",
+  tmpl_comm_view_list: "List",
+  tmpl_comm_upload_title: "Upload contract template",
+  tmpl_comm_name: "Name",
+  tmpl_comm_name_placeholder: "Example: NDA - Company A",
+  tmpl_comm_desc: "Short description",
+  tmpl_comm_desc_placeholder: "Short description",
+  tmpl_comm_size: "Size",
+  tmpl_creator: "Creator",
+  tmpl_system_type: "Contract type",
+  tmpl_system_labor: "Labor",
+  tmpl_system_sale: "Sale",
+  tmpl_system_partnership: "Partnership",
+  tmpl_system_sort_popular: "Most popular",
+  tmpl_file_info: "File information",
+  tmpl_pdf_only: "Only PDF uploads are allowed",
+  tmpl_pdf_preview_only: "Preview is only supported for PDF files",
+  tmpl_pdf_preview_only_message: "This file type is not supported for preview. Please download it to view content.",
+  tmpl_save_to_workspace: "Save to workspace",
+  tmpl_saved_to_workspace: "Saved to workspace",
+  tmpl_save_workspace_failed: "Cannot save to workspace",
   tmpl_not_found: "No templates found",
   tmpl_try_different: "Try different filters or search terms",
   tmpl_found: "Found {n} templates",
@@ -158,6 +196,8 @@ const en: Record<TranslationKey, string> = {
   // Sources
   sources_subtitle: "Legal / business reference documents for AI citation when drafting contracts",
   sources_empty: "No sources yet. Add PDF, DOCX or TXT files for AI reference when drafting contracts.",
+  sources_coming_soon_title: "Reference Sources for Smart Contracts",
+  sources_coming_soon_description: "Lawzy is about to launch the 'Reference Sources' feature, which allows you to provide your own documents, contract templates, or content for the AI to use while drafting. This ensures that the generated contracts are not only fast but also realistic, contextually accurate, and tailored to your specific needs.",
 
   // Payment
   payment_subtitle: "Manage subscription plans and usage quotas",
@@ -430,6 +470,33 @@ const en: Record<TranslationKey, string> = {
   chat_credit_remaining_only: "{n} credit remaining",
   chat_credit_and_warning: "Used {used} Lawzy AI credits out of {total}. Lawzy AI can make mistakes. Please verify important information.",
   chat_credit_and_warning_unlimited: "Used {used} Lawzy AI credits. Lawzy AI can make mistakes. Please verify important information.",
+
+  chat_empty_greeting: "How can I help you today?",
+  chat_quick_contract_svc_label: "Draft a service agreement",
+  chat_quick_contract_svc_prompt: `I need to draft an agreement where one party provides a service and the other pays for it — for example consulting, design, operations, maintenance, training, and so on (I can specify the exact type in a follow-up if needed).
+
+First, I’d like you to walk me through the key facts in clear groups: who the parties are, what the service covers, price and payment, duration, how results are handed over, when the contract can end, and other points that usually matter in a service contract. Please keep questions focused and avoid unnecessary detail.
+
+After I’ve answered those parts, please draft a contract suited to Vietnamese law, based on what I provided.
+
+Tip for writing your own prompt later: name the kind of contract, ask to “collect information first, then produce the full draft,” and list the topic areas you care about (parties, scope, money, timing, etc.).`,
+
+  chat_quick_risk_label: "Legal risk review",
+  chat_quick_risk_prompt: `Please review the contract draft on this page and point out where there may be legal risk or dispute risk: gaps, vague wording, or terms that seem unfair to one side. For each point, briefly explain why it matters and suggest how it could be improved if possible.
+
+If there is no contract text on the page yet, remind me that you need content before you can review it.
+
+Tip for your own prompts later: say you want a “legal risk review,” ask for explanations per issue and suggested fixes, and optionally add “focus on clauses about …” if you care about one area.`,
+
+  chat_quick_civil_code_label: "Look up Civil Code 2015",
+  chat_quick_civil_code_prompt: `I need help finding what Vietnam’s Civil Code 2015 says about a topic I care about, in the context of contracts or civil obligations in general. Summarize the main ideas in plain language, and when possible mention which articles or sections you rely on.
+
+Tip for your own prompts later: name the law and year, describe the issue in a few words (payment, deposit, termination, damages, etc.), and ask for a short structured answer so it’s easy to read.`,
+
+  chat_quick_explain_clause_label: "Explain contract clauses",
+  chat_quick_explain_clause_prompt: `Please help me understand the clauses in the contract I have open: explain them in everyday language, what they mean in practice, and what to watch out for before signing. If I haven’t named specific clauses, highlight the most important parts to notice in the current draft.
+
+Tip for your own prompts later: try “Explain clause …” or “What does this mean for me if … happens?” — the more concrete the situation, the clearer the answer.`,
 
   // Toasts
   toast_login_required: "Please log in to save.",
@@ -736,9 +803,10 @@ const en: Record<TranslationKey, string> = {
   payment_status_page_failed: "Payment failed",
   payment_status_page_order: "Order ID",
   payment_status_page_amount: "Amount",
-  payment_status_simulate: "Simulate success",
-  payment_status_simulate_fail: "Simulate failure",
-  payment_status_demo_hint: "This is a demo environment. Use the buttons below to simulate payment results.",
+  payment_status_waiting_payos:
+    "Complete payment on payOS. This page updates automatically when payOS confirms.",
+  payment_open_checkout: "Open payment page",
+  payment_status_not_found: "Order not found or you are not signed in.",
   payment_status_redirect: "Redirecting to payment in {n} seconds...",
   payment_btn_back_dashboard: "Back to Dashboard",
   payment_btn_back_payment: "Back to payment",
@@ -753,7 +821,6 @@ const en: Record<TranslationKey, string> = {
   payment_status_page_desc_failed: "Please try again later",
   payment_status_processing_label: "Processing",
   payment_status_toast_success: "Payment successful! Plan activated.",
-  payment_status_toast_success_fallback: "Simulation successful (webhook not connected to backend).",
 
   // Admin Storage
   admin_storage_title: "Storage Management",
@@ -778,6 +845,13 @@ const en: Record<TranslationKey, string> = {
   pagination_prev: "Previous",
   pagination_next: "Next",
   pagination_page: "Page",
+
+  // Questionnaire
+  questionnaire_submit: "Generate contract",
+  questionnaire_skip: "Skip, generate now",
+  questionnaire_missing_required: "Please fill in required fields: {fields}",
+  questionnaire_submitted_prompt: "Information collected. Generate the contract with the following data:",
+  questionnaire_skipped_prompt: "User wants to skip the questionnaire. Generate the contract immediately with placeholder merge fields.",
 
   // Public news
   news_title: "News",

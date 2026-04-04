@@ -21,18 +21,23 @@ import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { extname } from 'node:path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
 import { ContractTemplatesService } from './contract-templates.service';
 import type { TemplateScope } from './contract-templates.types';
 import { FilesService } from '../files/files.service';
+import type { Request as ExpressRequest } from 'express';
+
+type AuthRequest = ExpressRequest & { user: { userId: string } };
 
 function parseScope(scope: string): TemplateScope {
-  if (scope === 'system' || scope === 'community') return scope;
-  throw new BadRequestException('Invalid scope. Must be system|community');
+  if (scope === 'system' || scope === 'community' || scope === 'internal') {
+    return scope;
+  }
+  throw new BadRequestException(
+    'Invalid scope. Must be system|community|internal',
+  );
 }
 
-const ALLOWED_EXT = new Set(['.pdf', '.doc', '.docx']);
+const ALLOWED_EXT = new Set(['.pdf']);
 function sanitizeFilenameForHeader(input: string): string {
   if (!input) return 'download';
   // Loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
@@ -51,9 +56,10 @@ export class ContractTemplatesController {
 
   @Get()
   @Header('Cache-Control', 'no-store')
-  async list(@Query('scope') scopeRaw: string) {
+  @UseGuards(JwtAuthGuard)
+  async list(@Request() req: AuthRequest, @Query('scope') scopeRaw: string) {
     const scope = parseScope(scopeRaw);
-    const files = await this.service.list(scope);
+    const files = await this.service.list(scope, req.user.userId);
     return { scope, files };
   }
 
@@ -66,13 +72,14 @@ export class ContractTemplatesController {
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
-          return cb(new Error('Only PDF, DOC, DOCX are allowed'), false);
+          return cb(new Error('Only PDF is allowed'), false);
         }
         cb(null, true);
       },
     }),
   )
   async uploadCommunity(
+    @Request() req: AuthRequest,
     @UploadedFile() file?: Express.Multer.File,
     @Body('name') nameRaw?: string,
     @Body('description') descriptionRaw?: string,
@@ -82,7 +89,7 @@ export class ContractTemplatesController {
     }
     const ext = extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      throw new BadRequestException('Only PDF, DOC, DOCX are allowed');
+      throw new BadRequestException('Only PDF is allowed');
     }
 
     const defaultName = (file.originalname || 'template')
@@ -97,11 +104,74 @@ export class ContractTemplatesController {
     if (description.length > 300) {
       throw new BadRequestException('Description is too long (max 300 chars)');
     }
-
-    const result = await this.service.uploadCommunity({
+    const result = await this.service.uploadForScope({
+      scope: 'community',
+      userId: req.user.userId,
       name,
       description: description || undefined,
       ext,
+      originalName: file.originalname,
+      buffer: file.buffer,
+      contentType: file.mimetype || 'application/octet-stream',
+    });
+    return {
+      id: result.id,
+      key: result.key,
+      name: result.name,
+      description: result.description,
+      originalName: file.originalname,
+      size: file.size,
+      contentType: file.mimetype,
+    };
+  }
+
+  @Post('internal')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const ext = extname(file.originalname || '').toLowerCase();
+        if (!ALLOWED_EXT.has(ext)) {
+          return cb(new Error('Only PDF is allowed'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadInternal(
+    @Request() req: AuthRequest,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('name') nameRaw?: string,
+    @Body('description') descriptionRaw?: string,
+    @Body('workspaceId') workspaceId?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const ext = extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_EXT.has(ext)) {
+      throw new BadRequestException('Only PDF is allowed');
+    }
+    if (!workspaceId) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    const defaultName = (file.originalname || 'template')
+      .replace(ext, '')
+      .trim();
+    const name = (nameRaw ?? defaultName).trim();
+    if (!name) throw new BadRequestException('Name is required');
+    const description = (descriptionRaw ?? '').trim();
+
+    const result = await this.service.uploadForScope({
+      scope: 'internal',
+      userId: req.user.userId,
+      workspaceId,
+      name,
+      description: description || undefined,
+      ext,
+      originalName: file.originalname,
       buffer: file.buffer,
       contentType: file.mimetype || 'application/octet-stream',
     });
@@ -117,7 +187,9 @@ export class ContractTemplatesController {
   }
 
   @Get(':scope/:id/download')
+  @UseGuards(JwtAuthGuard)
   async download(
+    @Request() req: AuthRequest,
     @Param('scope') scopeRaw: string,
     @Param('id') id: string,
     @Query('inline') inlineRaw: string | undefined,
@@ -125,15 +197,31 @@ export class ContractTemplatesController {
   ) {
     const scope = parseScope(scopeRaw);
     try {
-      const obj = await this.service.download(scope, id);
+      const obj = await this.service.download(scope, id, req.user?.userId);
       const body = obj.Body;
       if (!body) throw new NotFoundException('File not found');
 
       const inline = inlineRaw === '1' || inlineRaw === 'true';
       const dispositionType = inline ? 'inline' : 'attachment';
+
+      let fileName = id;
+      try {
+        const meta = await this.service.getTemplateByIdForScope(
+          scope,
+          id,
+          req.user.userId,
+        );
+        fileName = meta.fileName;
+      } catch {
+        // Fallback or legacy
+        if (!fileName.toLowerCase().endsWith('.pdf')) {
+          fileName += '.pdf';
+        }
+      }
+
       res.set({
         'Content-Type': obj.ContentType ?? 'application/octet-stream',
-        'Content-Disposition': `${dispositionType}; filename="${sanitizeFilenameForHeader(id)}"`,
+        'Content-Disposition': `${dispositionType}; filename="${sanitizeFilenameForHeader(fileName)}"`,
       });
       return new StreamableFile(body as unknown as Uint8Array);
     } catch (e: unknown) {
@@ -145,17 +233,23 @@ export class ContractTemplatesController {
   }
 
   @Delete('community/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  async deleteCommunity(@Param('id') id: string) {
-    await this.service.deleteCommunity(id);
+  @UseGuards(JwtAuthGuard)
+  async deleteCommunity(@Request() req: AuthRequest, @Param('id') id: string) {
+    await this.service.deleteCommunity(id, req.user.userId);
+    return { success: true };
+  }
+
+  @Delete('internal/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteInternal(@Request() req: AuthRequest, @Param('id') id: string) {
+    await this.service.deleteInternal(id, req.user.userId);
     return { success: true };
   }
 
   @Post(':scope/:id/save-to-workspace')
   @UseGuards(JwtAuthGuard)
   async saveToWorkspace(
-    @Request() req: any,
+    @Request() req: AuthRequest,
     @Param('scope') scopeRaw: string,
     @Param('id') id: string,
     @Body('workspaceId') workspaceId?: string,
@@ -167,7 +261,7 @@ export class ContractTemplatesController {
     const userId = req.user.userId;
 
     const { buffer, contentType, fileName, size } =
-      await this.service.getTemplateBuffer(scope, id);
+      await this.service.getTemplateBuffer(scope, id, userId);
     const fakeMulterFile = {
       originalname: fileName,
       mimetype: contentType,

@@ -15,7 +15,6 @@ import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
 import { useSidebar } from '@/components/ui/sidebar'
-import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
@@ -38,6 +37,7 @@ import {
   buildThinkingFromToolCalls,
   TOOL_NAME_LABELS_IN_PROGRESS,
 } from '@/lib/editor/contract-result'
+import type { QuestionnaireSchema, IntakeQuestionnaireResult } from '@/types/questionnaire'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { resolveMergeFieldValue } from '@/lib/editor/merge-field-aliases'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
@@ -131,6 +131,7 @@ export default function EditorPage({
   const [isDirty, setIsDirty] = useState(false)
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
   const [pendingUrl] = useState<string | null>(null)
+  const [activeQuestionnaire, setActiveQuestionnaire] = useState<QuestionnaireSchema | null>(null)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -440,6 +441,49 @@ export default function EditorPage({
     try {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
+      const sanitizeFileNameLocal = (input: string) =>
+        input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
+
+      const uploadSnapshot = async (params: {
+        documentId: string
+        fileName: string
+        payload: unknown
+      }) => {
+        if (!workspaceId) {
+          toast.error(t('toast_select_workspace_to_save_file'))
+          return
+        }
+
+        const blob = new Blob([JSON.stringify(params.payload)], {
+          type: 'application/json',
+        })
+
+        const form = new FormData()
+        form.append(
+          'file',
+          new File([blob], params.fileName, { type: 'application/json' }),
+        )
+        form.append('workspaceId', workspaceId)
+        form.append('documentId', params.documentId)
+
+        await api.upload('/files/upload-export', form)
+
+        // Refresh storage + document size derived from File(category=export_output).
+        queryClient.invalidateQueries({ queryKey: ['files'] })
+        queryClient.invalidateQueries({
+          queryKey: ['files', 'storage', workspaceId],
+        })
+        queryClient.invalidateQueries({
+          queryKey: ['dashboard', 'quota', workspaceId],
+        })
+        queryClient.invalidateQueries({
+          predicate: (q) =>
+            Array.isArray(q.queryKey) &&
+            q.queryKey.length > 0 &&
+            q.queryKey[0] === 'documents',
+        })
+      }
+
       if (resolvedParams.id === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
@@ -467,6 +511,32 @@ export default function EditorPage({
             }).catch((e) => console.error(e))
           }
         }
+
+        // Persist draft snapshot to S3/R2 immediately so storage usage counts now.
+        try {
+          await uploadSnapshot({
+            documentId: newId,
+            fileName: `${sanitizeFileNameLocal(
+              documentTitle || (sourceMetadata?.title as string | undefined) || 'draft',
+            )}-draft-${newId}.json`,
+            payload: {
+              kind: 'document-draft-snapshot',
+              documentId: newId,
+              savedAt: new Date().toISOString(),
+              title: documentTitle || sourceMetadata?.title,
+              type: sourceMetadata?.type ?? 'contract',
+              status,
+              visibility,
+              contentJSON: editorContent,
+              metadata: sourceMetadata,
+              mergeFieldValues: persistedMergeValues,
+            },
+          })
+        } catch (e) {
+          console.error('Draft snapshot upload failed', e)
+          toast.error(t('toast_file_upload_failed'))
+        }
+
         clearSession()
 
         setIsDirty(false)
@@ -489,6 +559,28 @@ export default function EditorPage({
         metadata: useEditorStore.getState().metadata,
       })
 
+      // Persist version snapshot to S3/R2 immediately so storage usage counts now.
+      try {
+        await uploadSnapshot({
+          documentId: resolvedParams.id,
+          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${resolvedParams.id}.json`,
+          payload: {
+            kind: 'document-draft-snapshot',
+            documentId: resolvedParams.id,
+            savedAt: new Date().toISOString(),
+            title: documentTitle,
+            status,
+            visibility,
+            contentJSON: editorContent,
+            metadata: useEditorStore.getState().metadata,
+            mergeFieldValues: persistedMergeValues,
+          },
+        })
+      } catch (e) {
+        console.error('Draft snapshot upload failed', e)
+        toast.error(t('toast_file_upload_failed'))
+      }
+
       setIsDirty(false)
       toast.success(t('toast_saved'))
       if (pendingUrl) {
@@ -498,7 +590,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t])
+  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient])
 
   const { isActive: isTourActive } = useOnboardingStore()
 
@@ -601,6 +693,60 @@ export default function EditorPage({
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
 
+  const sanitizeFileName = (input: string) =>
+    input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
+
+  const persistDraftSnapshotToS3 = async (opts: {
+    documentId: string
+    workspaceId?: string | null
+    fileName: string
+    payload: unknown
+  }) => {
+    const resolvedWorkspaceId =
+      opts.workspaceId ??
+      workspaceId ??
+      (
+        await api.get<{ workspaceId?: string }>(
+          `/documents/${opts.documentId}`,
+        )
+      )?.workspaceId
+
+    if (!resolvedWorkspaceId) {
+      throw new Error('Missing workspaceId for storage upload')
+    }
+
+    const blob = new Blob([JSON.stringify(opts.payload)], {
+      type: 'application/json',
+    })
+
+    const form = new FormData()
+    form.append(
+      'file',
+      new File([blob], opts.fileName, { type: 'application/json' }),
+    )
+    form.append('workspaceId', resolvedWorkspaceId)
+    form.append('documentId', opts.documentId)
+
+    await api.upload('/files/upload-export', form)
+
+    // Ensure storage UI + quota charts update immediately.
+    queryClient.invalidateQueries({ queryKey: ['files'] })
+    queryClient.invalidateQueries({
+      queryKey: ['files', 'storage', resolvedWorkspaceId],
+    })
+    queryClient.invalidateQueries({
+      queryKey: ['dashboard', 'quota', resolvedWorkspaceId],
+    })
+    // Documents list uses a separate query key: ['documents', ...]
+    // so we need to invalidate it to reflect the increased documentSizeBytes.
+    queryClient.invalidateQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) &&
+        q.queryKey.length > 0 &&
+        q.queryKey[0] === 'documents',
+    })
+  }
+
   const handleSave = async () => {
     if (!isAuthenticated) {
       toast.error(t('toast_login_required'))
@@ -637,6 +783,33 @@ export default function EditorPage({
           }
         }
 
+        // Persist draft snapshot to S3/R2 immediately so storage usage counts now.
+        try {
+          const createdWorkspaceId = String(
+            (created as { workspaceId?: unknown }).workspaceId ??
+              workspaceId ??
+              '',
+          )
+          await persistDraftSnapshotToS3({
+            documentId: newId,
+            workspaceId: createdWorkspaceId || workspaceId,
+            fileName: `${sanitizeFileName(documentTitle || (sourceMetadata?.title as string | undefined) || 'draft')}-draft-${newId}.json`,
+            payload: {
+              kind: 'document-draft-snapshot',
+              documentId: newId,
+              savedAt: new Date().toISOString(),
+              title: documentTitle || sourceMetadata?.title,
+              type: sourceMetadata?.type ?? 'contract',
+              contentJSON: editorContent,
+              metadata: sourceMetadata,
+              mergeFieldValues: persistedMergeValues,
+            },
+          })
+        } catch (e) {
+          console.error('Draft snapshot upload failed', e)
+          toast.error(t('toast_file_upload_failed'))
+        }
+
         clearSession()
         toast.success(t('toast_draft_saved'))
         router.replace(`/editor/${newId}`)
@@ -644,12 +817,41 @@ export default function EditorPage({
       }
 
       const now = new Date()
-      await api.post(`/documents/${resolvedParams.id}/versions`, {
+      const versionLabel = t("version_save_label", {
+        date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US'),
+      })
+      const createdVersion = await api.post(`/documents/${resolvedParams.id}/versions`, {
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
-        label: t("version_save_label", { date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') }),
+        label: versionLabel,
       })
+      const versionId = String(
+        (createdVersion as { id?: unknown }).id ?? '',
+      ).trim()
+
+      // Persist version snapshot to S3/R2 immediately so storage usage counts now.
+      try {
+        await persistDraftSnapshotToS3({
+          documentId: resolvedParams.id,
+          workspaceId: workspaceId ?? null,
+          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${resolvedParams.id}.json`,
+          payload: {
+            kind: 'document-version-snapshot',
+            documentId: resolvedParams.id,
+            versionId: versionId || undefined,
+            savedAt: now.toISOString(),
+            label: versionLabel,
+            contentJSON: editorContent,
+            metadata: useEditorStore.getState().metadata,
+            mergeFieldValues: persistedMergeValues,
+            chatCursorAt: now.toISOString(),
+          },
+        })
+      } catch (e) {
+        console.error('Version snapshot upload failed', e)
+        toast.error(t('toast_file_upload_failed'))
+      }
       window.dispatchEvent(new Event('lawzy:refresh-versions'))
       setLastSaved(now.toISOString())
       setIsDirty(false)
@@ -663,7 +865,7 @@ export default function EditorPage({
   }
 
   // Handle chat messages
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = useCallback(async (message: string) => {
     const hasFile = !!attachedFile
     const effectiveMessage = message.trim() || (hasFile ? (t('chat_file_only_prompt') || 'Xử lý file đính kèm') : '')
     if (!effectiveMessage) return
@@ -753,6 +955,7 @@ export default function EditorPage({
 
     try {
       const existingContentText = editorContentToPlainText(editorContent)
+      const mergeFieldValuesForRequest = useEditorStore.getState().mergeFieldValues
       const previousMessages = chatMessages
         .filter((m) => m.id !== userMessage.id && (m.role === 'user' || m.role === 'assistant'))
         .map((m) => ({
@@ -767,9 +970,11 @@ export default function EditorPage({
         credentials: 'include',
         body: JSON.stringify({
           userMessage: effectiveMessage,
+          locale,
           workspaceId: workspaceId ?? undefined,
           documentId: resolvedParams.id !== 'new' ? resolvedParams.id : undefined,
-          mergeFieldValues: Object.keys(mergeFieldValues).length > 0 ? mergeFieldValues : undefined,
+          mergeFieldValues:
+            Object.keys(mergeFieldValuesForRequest).length > 0 ? mergeFieldValuesForRequest : undefined,
           existingContent: existingContentText || undefined,
           attachedSources,
           chatHistory: previousMessages.length > 0 ? previousMessages : undefined,
@@ -840,33 +1045,61 @@ export default function EditorPage({
         const geminiMessage = typeof finalResult.message === 'string' ? finalResult.message.trim() : ''
         aiContent = geminiMessage || buildContractSummaryMessage(genResult, locale)
 
+        const mfvSnapshot = useEditorStore.getState().mergeFieldValues
+
         const { content: newContent, allMergeKeys } = contractResultToTipTapContent(genResult, {
           mergeKeyToLabel,
-          mergeFieldValues,
+          mergeFieldValues: mfvSnapshot,
         })
 
+        let mergedForSave: Record<string, string> = mfvSnapshot
         if (allMergeKeys.size > 0) {
           setTemplateMergeFields(
             Array.from(allMergeKeys).map((key) => ({
               fieldKey: key,
               label: mergeKeyToLabel(key),
-              sampleValue: resolveMergeFieldValue(key, mergeFieldValues) || mergeFieldValues[key] || '',
+              sampleValue: resolveMergeFieldValue(key, mfvSnapshot) || mfvSnapshot[key] || '',
             }))
           )
-          setMergeFieldValues({
-            ...mergeFieldValues,
+          mergedForSave = {
+            ...mfvSnapshot,
             ...Object.fromEntries(
               Array.from(allMergeKeys).map((k) => [
                 k,
-                resolveMergeFieldValue(k, mergeFieldValues) || mergeFieldValues[k] || '',
+                resolveMergeFieldValue(k, mfvSnapshot) || mfvSnapshot[k] || '',
               ])
             ),
-          })
+          }
+          setMergeFieldValues(mergedForSave)
         }
 
+        const nextTitle = genResult.content.title || documentTitle
         setEditorContent(newContent)
-        updateMetadata({ title: genResult.content.title || documentTitle })
+        updateMetadata({ title: nextTitle })
         setIsCanvasMode(true)
+        setActiveQuestionnaire(null)
+
+        if (isAuthenticated && resolvedParams.id !== 'new') {
+          flushMergeFieldDrafts()
+          try {
+            await api.patch(`/documents/${resolvedParams.id}`, {
+              title: nextTitle,
+              contentJSON: newContent,
+              mergeFieldValues: mergedForSave,
+              metadata: useEditorStore.getState().metadata,
+            })
+            setIsDirty(false)
+          } catch (e) {
+            console.error('Persist document after contract generation failed', e)
+          }
+        }
+      } else if (finalResult.type === 'intake_questionnaire') {
+        const iqResult = finalResult as unknown as IntakeQuestionnaireResult
+        const iqMessage = typeof iqResult.message === 'string' ? iqResult.message.trim() : ''
+        aiContent = iqMessage || 'Vui lòng điền thông tin bên dưới để tôi soạn hợp đồng chính xác hơn.'
+        if (iqResult.questionnaire?.sections?.length) {
+          setActiveQuestionnaire(iqResult.questionnaire)
+        }
       } else if (finalResult.type === 'contract_review') {
         const reviewMessage = typeof finalResult.message === 'string' ? finalResult.message.trim() : ''
         aiContent = reviewMessage || JSON.stringify(finalResult, null, 2)
@@ -894,6 +1127,10 @@ export default function EditorPage({
         isStreaming: false,
         isError: finalResult.type === 'error',
         hasContract: finalResult.type === 'contract_generation',
+        hasQuestionnaire: finalResult.type === 'intake_questionnaire',
+        ...(finalResult.type === 'intake_questionnaire'
+          ? { questionnaireSchema: (finalResult as unknown as IntakeQuestionnaireResult).questionnaire }
+          : {}),
         ...(toolCalls?.length ? { toolCalls } : {}),
         ...(combinedThinking ? { thinking: combinedThinking } : {}),
       }
@@ -935,26 +1172,36 @@ export default function EditorPage({
       setIsGenerating(false)
       setThinkingProgress([])
     }
-  }
+  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, queryClient, resolvedParams.id, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues])
 
-  const showSaveReminder = isDirty && resolvedParams.id === 'new' && !isTourActive
+  const handleQuestionnaireSubmit = useCallback((values: Record<string, string>) => {
+    setActiveQuestionnaire(null)
+
+    const prev = useEditorStore.getState().mergeFieldValues
+    const next: Record<string, string> = { ...prev }
+    for (const [key, val] of Object.entries(values)) {
+      const trimmed = typeof val === 'string' ? val.trim() : ''
+      if (trimmed) next[key] = trimmed
+    }
+    setMergeFieldValues(next)
+
+    const dataLines = Object.entries(values)
+      .filter(([, v]) => (typeof v === 'string' ? v.trim() : ''))
+      .map(([k, v]) => `  ${k}: ${v}`)
+      .join('\n')
+
+    const prompt = `[QUESTIONNAIRE_RESPONSE]\n${t('questionnaire_submitted_prompt')}\n${dataLines}`
+    void handleSendMessage(prompt)
+  }, [setMergeFieldValues, t, handleSendMessage])
+
+  const handleQuestionnaireSkip = useCallback(() => {
+    setActiveQuestionnaire(null)
+    const prompt = `[QUESTIONNAIRE_SKIP]\n${t('questionnaire_skipped_prompt')}`
+    handleSendMessage(prompt)
+  }, [t, handleSendMessage])
 
   return (
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
-      {showSaveReminder && (
-        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-200 dark:bg-amber-500/10">
-          <span className="text-sm font-medium">{t("editor_unsaved_reminder")}</span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-amber-600/50 hover:bg-amber-500/20 shrink-0"
-            onClick={() => handleSaveDraftToDb('draft')}
-          >
-            {t("save_draft_save")}
-          </Button>
-        </div>
-      )}
-
       {/* Main Content Area - 3 Column Layout */}
       <div className="relative z-10 flex flex-1 w-full min-h-0 gap-2 overflow-hidden">
         
@@ -993,6 +1240,12 @@ export default function EditorPage({
                 setAttachedFile(file)
               }}
               onRemoveAttachedFile={() => setAttachedFile(null)}
+              activeQuestionnaire={activeQuestionnaire}
+              onQuestionnaireSubmit={handleQuestionnaireSubmit}
+              onQuestionnaireSkip={handleQuestionnaireSkip}
+              mergeFieldValues={mergeFieldValues}
+              userFields={customFields}
+              workspaceFields={workspaceFields}
             />
           </div>
         </motion.div>

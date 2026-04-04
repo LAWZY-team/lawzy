@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { ContractTemplateFile } from "@/lib/api/contract-templates"
 import type { TemplateViewMode } from "./template-filters"
+import { useT } from "@/components/i18n-provider"
+import { useAuthStore } from "@/stores/auth-store"
 
 function fileExt(name: string): string {
   const idx = name.lastIndexOf(".")
@@ -34,6 +36,10 @@ export function CommunityTemplateGrid({
   onDelete: (f: ContractTemplateFile) => void
   viewMode?: TemplateViewMode
 }) {
+  const { t } = useT()
+  const currentUser = useAuthStore((s) => s.user)
+  const isAdmin = currentUser?.roles?.includes("admin")
+
   if (viewMode === "list") {
     return (
       <div className="flex flex-col gap-2">
@@ -64,16 +70,18 @@ export function CommunityTemplateGrid({
             <div className="flex shrink-0 gap-2">
               <Button variant="outline" size="sm" onClick={() => onView(f)}>
                 <Eye className="h-4 w-4 mr-1.5" />
-                Xem
+                {t("tmpl_view")}
               </Button>
               <Button variant="outline" size="sm" onClick={() => onDownload(f)}>
                 <Download className="h-4 w-4 mr-1.5" />
-                Tải
+                {t("common_download")}
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Xóa
-              </Button>
+              {(isAdmin || f.createdBy === currentUser?.id) && (
+                <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  {t("common_delete")}
+                </Button>
+              )}
             </div>
           </Card>
         ))}
@@ -102,11 +110,17 @@ export function CommunityTemplateGrid({
               )}
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between gap-2">
-                  <span>Kích thước</span>
+                  <span>{t("tmpl_creator")}</span>
+                  <span className="font-medium text-foreground truncate max-w-[150px]">
+                    {f.creatorName ?? t("auth_position_other")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>{t("tmpl_comm_size")}</span>
                   <span className="font-medium text-foreground">{formatBytes(f.size)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span>Cập nhật</span>
+                  <span>{t("tmpl_updated")}</span>
                   <span className="font-medium text-foreground">
                     {f.lastModified ? new Date(f.lastModified).toLocaleString() : "—"}
                   </span>
@@ -118,15 +132,17 @@ export function CommunityTemplateGrid({
           <CardFooter className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => onView(f)}>
               <Eye className="h-4 w-4 mr-2" />
-              Xem
+              {t("tmpl_view")}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => onDownload(f)}>
               <Download className="h-4 w-4 mr-2" />
-              Tải
+              {t("common_download")}
             </Button>
-            <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label="Xóa">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {(isAdmin || f.createdBy === currentUser?.id) && (
+              <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label={t("common_delete")}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}

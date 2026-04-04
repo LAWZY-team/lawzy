@@ -45,7 +45,11 @@ export default function PaymentPage() {
         workspaceId: currentWorkspace?.id,
       });
       if (result.checkoutUrl) {
-        router.push(result.checkoutUrl);
+        if (/^https?:\/\//i.test(result.checkoutUrl)) {
+          window.location.href = result.checkoutUrl;
+        } else {
+          router.push(result.checkoutUrl);
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("payment_toast_error"));

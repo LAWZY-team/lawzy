@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -7,8 +12,12 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
 import { getR2Env } from '../../config/env';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
+import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { WorkspaceAccessService } from '../../common/workspace-access.service';
+import { UsersService } from '../users/users.service';
 import type {
   ContractTemplateFile,
   TemplateScope,
@@ -16,12 +25,15 @@ import type {
 
 const SYSTEM_PREFIX = 'templates/system/';
 const COMMUNITY_PREFIX = 'templates/community/';
+const INTERNAL_PREFIX = 'templates/internal/';
 // Backward-compat: some existing objects may already be stored directly under `templates/`
 // (as seen in Cloudflare UI when browsing the `templates/` prefix).
 const LEGACY_SYSTEM_PREFIX = 'templates/';
 
 function prefixForScope(scope: TemplateScope): string {
-  return scope === 'system' ? SYSTEM_PREFIX : COMMUNITY_PREFIX;
+  if (scope === 'system') return SYSTEM_PREFIX;
+  if (scope === 'internal') return INTERNAL_PREFIX;
+  return COMMUNITY_PREFIX;
 }
 
 function sanitizeHeaderValue(input: string | undefined): string | undefined {
@@ -50,19 +62,74 @@ function getMetadataString(
   return s.length ? s : undefined;
 }
 
+function parseTemplateMeta(input: unknown): {
+  workspaceId?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSize?: number;
+  legacyId?: string;
+} {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+  const obj = input as Record<string, unknown>;
+  return {
+    workspaceId:
+      typeof obj.workspaceId === 'string' ? obj.workspaceId : undefined,
+    fileName: typeof obj.fileName === 'string' ? obj.fileName : undefined,
+    mimeType: typeof obj.mimeType === 'string' ? obj.mimeType : undefined,
+    fileSize: typeof obj.fileSize === 'number' ? obj.fileSize : undefined,
+    legacyId: typeof obj.legacyId === 'string' ? obj.legacyId : undefined,
+  };
+}
+
 @Injectable()
 export class ContractTemplatesService {
-  private readonly bucket = getR2Env().bucket;
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+    private readonly workspaceAccess: WorkspaceAccessService,
+    @Inject(R2_S3_CLIENT) private readonly s3: S3Client | null,
+  ) {}
 
-  constructor(@Inject(R2_S3_CLIENT) private readonly s3: S3Client) {}
+  private getBucket(): string {
+    return getR2Env().bucket;
+  }
+
+  private ensureClient(): S3Client {
+    if (!this.s3) {
+      throw new Error('R2/S3 is not configured');
+    }
+    return this.s3;
+  }
+
+  private parseRoles(raw: unknown): string[] {
+    if (Array.isArray(raw)) return raw.map((v) => String(v).toLowerCase());
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.map((v) => String(v).toLowerCase());
+        }
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private async isAdmin(userId: string): Promise<boolean> {
+    const user = await this.usersService.findById(userId);
+    if (!user) return false;
+    const roles = this.parseRoles(user.roles);
+    return roles.includes('admin');
+  }
 
   private async headMetadata(
     key: string,
   ): Promise<{ name?: string; description?: string }> {
     try {
-      const head = await this.s3.send(
+      const head = await this.ensureClient().send(
         new HeadObjectCommand({
-          Bucket: this.bucket,
+          Bucket: this.getBucket(),
           Key: key,
         }),
       );
@@ -77,9 +144,9 @@ export class ContractTemplatesService {
   }
 
   private async listForPrefix(prefix: string): Promise<ContractTemplateFile[]> {
-    const res = await this.s3.send(
+    const res = await this.ensureClient().send(
       new ListObjectsV2Command({
-        Bucket: this.bucket,
+        Bucket: this.getBucket(),
         Prefix: prefix,
       }),
     );
@@ -96,78 +163,121 @@ export class ContractTemplatesService {
           fileName: id,
           size: o.Size ?? 0,
           lastModified: o.LastModified ? o.LastModified.toISOString() : null,
+          scope: 'system',
         };
       });
   }
 
-  async list(scope: TemplateScope): Promise<ContractTemplateFile[]> {
+  private mapTemplateToContractFile(row: {
+    id: string;
+    title: string;
+    description: string | null;
+    s3Key: string | null;
+    scope: string;
+    createdBy: string | null;
+    updatedAt: Date;
+    createdAt: Date;
+    metadata: unknown;
+    creator?: { name: string } | null;
+  }): ContractTemplateFile {
+    const meta = parseTemplateMeta(row.metadata);
+    const fileName = meta.fileName || meta.legacyId || row.title;
+    return {
+      key: row.s3Key,
+      id: row.id,
+      fileName,
+      name: row.title,
+      description: row.description ?? undefined,
+      size: meta.fileSize ?? 0,
+      lastModified:
+        row.updatedAt?.toISOString?.() ?? row.createdAt.toISOString(),
+      scope: row.scope as TemplateScope,
+      workspaceId: meta.workspaceId ?? null,
+      createdBy: row.createdBy,
+      creatorName: row.creator?.name ?? null,
+    };
+  }
+
+  async list(
+    scope: TemplateScope,
+    userId: string,
+  ): Promise<ContractTemplateFile[]> {
+    const admin = await this.isAdmin(userId);
+
     if (scope === 'system') {
+      const systemRows = await this.prisma.template.findMany({
+        where: { scope: 'system' },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          s3Key: true,
+          scope: true,
+          createdBy: true,
+          updatedAt: true,
+          createdAt: true,
+          metadata: true,
+          creator: { select: { name: true } },
+        },
+      });
+      if (systemRows.length > 0) {
+        return systemRows.map((r) => this.mapTemplateToContractFile(r));
+      }
+
+      // Legacy fallback for old system objects that have no DB metadata yet.
       const [system, legacy] = await Promise.all([
         this.listForPrefix(SYSTEM_PREFIX),
         this.listForPrefix(LEGACY_SYSTEM_PREFIX),
       ]);
-      // De-dup by object key (in case you later move objects into templates/system/)
       const merged = new Map<string, ContractTemplateFile>();
-      for (const f of [...system, ...legacy]) merged.set(f.key, f);
-      return [...merged.values()].sort((a, b) =>
-        (b.lastModified ?? '').localeCompare(a.lastModified ?? ''),
-      );
+      for (const f of [...system, ...legacy]) merged.set(f.key ?? f.id, f);
+      return [...merged.values()];
     }
 
-    const prefix = prefixForScope(scope);
-    const community = await this.listForPrefix(prefix);
-    // Enrich community files with metadata (name/description) stored on object.
-    const enriched = await Promise.all(
-      community.map(async (f) => {
-        const meta = await this.headMetadata(f.key);
-        return { ...f, ...meta };
-      }),
-    );
-    return enriched.sort((a, b) =>
-      (b.lastModified ?? '').localeCompare(a.lastModified ?? ''),
-    );
+    const memberships =
+      scope === 'community' || admin
+        ? []
+        : await this.prisma.workspaceMember.findMany({
+            where: { userId },
+            select: { workspaceId: true },
+          });
+    const memberWorkspaceIds = memberships.map((m) => m.workspaceId);
+
+    const rows = await this.prisma.template.findMany({
+      where: { scope },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        s3Key: true,
+        scope: true,
+        createdBy: true,
+        updatedAt: true,
+        createdAt: true,
+        metadata: true,
+        creator: { select: { name: true } },
+      },
+    });
+    const filtered =
+      scope === 'community' || admin
+        ? rows
+        : rows.filter((r) => {
+            const ws = parseTemplateMeta(r.metadata).workspaceId;
+            return !!ws && memberWorkspaceIds.includes(ws);
+          });
+    return filtered.map((r) => this.mapTemplateToContractFile(r));
   }
 
-  private async keyExists(key: string): Promise<boolean> {
-    try {
-      await this.s3.send(
-        new HeadObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-        }),
-      );
-      return true;
-    } catch (e: unknown) {
-      if (
-        e instanceof Error &&
-        (e.name === 'NotFound' || e.name === 'NoSuchKey')
-      ) {
-        return false;
-      }
-      return false;
-    }
-  }
-
-  private async findAvailableId(
-    baseName: string,
-    ext: string,
-  ): Promise<string> {
-    const safeBase = sanitizeBaseName(baseName) || 'template';
-    for (let i = 0; i < 200; i++) {
-      const suffix = i === 0 ? '' : `-${i + 1}`;
-      const id = `${safeBase}${suffix}${ext}`;
-      const key = `${COMMUNITY_PREFIX}${id}`;
-      const exists = await this.keyExists(key);
-      if (!exists) return id;
-    }
-    // Fallback
-    return `${safeBase}-${Date.now()}${ext}`;
-  }
-
-  async uploadCommunity(params: {
+  async uploadForScope(params: {
+    scope: 'community' | 'internal';
+    userId: string;
+    workspaceId?: string;
     name: string; // display name (without extension)
     description?: string;
     ext: string;
+    originalName?: string;
     buffer: Buffer;
     contentType: string;
   }): Promise<{
@@ -176,12 +286,27 @@ export class ContractTemplatesService {
     name?: string;
     description?: string;
   }> {
-    const prefix = COMMUNITY_PREFIX;
-    const id = await this.findAvailableId(params.name, params.ext);
-    const key = `${prefix}${id}`;
-    await this.s3.send(
+    if (params.scope === 'internal') {
+      if (!params.workspaceId) {
+        throw new NotFoundException('Workspace not found');
+      }
+      await this.workspaceAccess.requireMembership(
+        params.workspaceId,
+        params.userId,
+      );
+    }
+    const client = this.ensureClient();
+    const prefix = prefixForScope(params.scope);
+    const safeBase = sanitizeBaseName(params.name) || 'template';
+    const objectName = `${safeBase}-${randomUUID()}${params.ext}`;
+    const key =
+      params.scope === 'internal'
+        ? `${prefix}${params.workspaceId}/${objectName}`
+        : `${prefix}${objectName}`;
+
+    await client.send(
       new PutObjectCommand({
-        Bucket: this.bucket,
+        Bucket: this.getBucket(),
         Key: key,
         Body: params.buffer,
         ContentType: params.contentType,
@@ -195,15 +320,69 @@ export class ContractTemplatesService {
         },
       }),
     );
-    return { key, id, name: params.name, description: params.description };
+
+    const created = await this.prisma.template.create({
+      data: {
+        title: params.name,
+        description: params.description,
+        category: 'contract',
+        scope: params.scope,
+        s3Key: key,
+        metadata: {
+          ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
+          fileName: params.originalName || `${safeBase}${params.ext}`,
+          fileSize: params.buffer.length,
+          mimeType: params.contentType,
+        },
+        createdBy: params.userId,
+      },
+      select: { id: true },
+    });
+    return {
+      key,
+      id: created.id,
+      name: params.name,
+      description: params.description,
+    };
   }
 
-  async download(scope: TemplateScope, id: string) {
-    const key = `${prefixForScope(scope)}${id}`;
+  private async resolveDownloadObjectKey(
+    scope: TemplateScope,
+    id: string,
+    userId?: string,
+  ): Promise<string> {
+    const tmpl = await this.prisma.template.findUnique({
+      where: { id },
+      select: { id: true, s3Key: true, scope: true, metadata: true },
+    });
+    if (tmpl) {
+      if (tmpl.scope !== scope) throw new NotFoundException('File not found');
+      if (scope === 'internal' && userId) {
+        const admin = await this.isAdmin(userId);
+        if (!admin) {
+          const workspaceId = parseTemplateMeta(tmpl.metadata).workspaceId;
+          if (!workspaceId) throw new NotFoundException('File not found');
+          const ok = await this.workspaceAccess.hasMembership(
+            workspaceId,
+            userId,
+          );
+          if (!ok) throw new NotFoundException('File not found');
+        }
+      }
+      if (!tmpl.s3Key) throw new NotFoundException('File not found');
+      return tmpl.s3Key;
+    }
+    // Legacy key compatibility
+    return `${prefixForScope(scope)}${id}`;
+  }
+
+  async download(scope: TemplateScope, id: string, userId?: string) {
+    const client = this.ensureClient();
+    const key = await this.resolveDownloadObjectKey(scope, id, userId);
     try {
-      return await this.s3.send(
+      return await client.send(
         new GetObjectCommand({
-          Bucket: this.bucket,
+          Bucket: this.getBucket(),
           Key: key,
         }),
       );
@@ -211,9 +390,9 @@ export class ContractTemplatesService {
       // Backward-compat for system scope
       if (scope === 'system' && e instanceof Error && e.name === 'NoSuchKey') {
         const legacyKey = `${LEGACY_SYSTEM_PREFIX}${id}`;
-        return this.s3.send(
+        return client.send(
           new GetObjectCommand({
-            Bucket: this.bucket,
+            Bucket: this.getBucket(),
             Key: legacyKey,
           }),
         );
@@ -222,31 +401,119 @@ export class ContractTemplatesService {
     }
   }
 
-  async deleteCommunity(id: string): Promise<void> {
-    const key = `${COMMUNITY_PREFIX}${id}`;
-    await this.s3.send(
-      new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      }),
-    );
+  async deleteTemplate(
+    scope: 'community' | 'internal',
+    id: string,
+    userId: string,
+  ): Promise<void> {
+    const tmpl = await this.prisma.template.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        scope: true,
+        s3Key: true,
+        createdBy: true,
+        metadata: true,
+      },
+    });
+    if (!tmpl || tmpl.scope !== scope) {
+      throw new NotFoundException('Template not found');
+    }
+    const admin = await this.isAdmin(userId);
+    const isCreator = tmpl.createdBy === userId;
+    if (!admin && !isCreator) {
+      throw new ForbiddenException('No permission to delete this template');
+    }
+    const workspaceId = parseTemplateMeta(tmpl.metadata).workspaceId;
+    if (scope === 'internal' && !admin && workspaceId) {
+      const ok = await this.workspaceAccess.hasMembership(workspaceId, userId);
+      if (!ok) throw new NotFoundException('Template not found');
+    }
+    if (tmpl.s3Key) {
+      await this.ensureClient().send(
+        new DeleteObjectCommand({
+          Bucket: this.getBucket(),
+          Key: tmpl.s3Key,
+        }),
+      );
+    }
+    await this.prisma.template.delete({ where: { id } });
+  }
+
+  async deleteCommunity(id: string, userId: string): Promise<void> {
+    return this.deleteTemplate('community', id, userId);
+  }
+
+  async deleteInternal(id: string, userId: string): Promise<void> {
+    return this.deleteTemplate('internal', id, userId);
+  }
+
+  async getTemplateByIdForScope(
+    scope: TemplateScope,
+    id: string,
+    userId: string,
+  ): Promise<{ fileName: string; mimeType: string }> {
+    const tmpl = await this.prisma.template.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        scope: true,
+        metadata: true,
+      },
+    });
+    if (!tmpl || tmpl.scope !== scope) {
+      throw new NotFoundException('Template not found');
+    }
+    const meta = parseTemplateMeta(tmpl.metadata);
+    if (scope === 'internal') {
+      const admin = await this.isAdmin(userId);
+      if (!admin) {
+        if (!meta.workspaceId) {
+          throw new NotFoundException('Template not found');
+        }
+        const ok = await this.workspaceAccess.hasMembership(
+          meta.workspaceId,
+          userId,
+        );
+        if (!ok) throw new NotFoundException('Template not found');
+      }
+    }
+    return {
+      fileName: meta.fileName || 'template',
+      mimeType: meta.mimeType || 'application/octet-stream',
+    };
   }
 
   async getTemplateBuffer(
     scope: TemplateScope,
     id: string,
-  ): Promise<{ fileName: string; contentType: string; size: number; buffer: Buffer }> {
-    const obj = await this.download(scope, id);
-    const body = (obj as any).Body;
+    userId?: string,
+  ): Promise<{
+    fileName: string;
+    contentType: string;
+    size: number;
+    buffer: Buffer;
+  }> {
+    const obj = await this.download(scope, id, userId);
+    const body = obj.Body as AsyncIterable<Uint8Array> | undefined;
     if (!body) throw new Error('Template file not found');
 
     const chunks: Buffer[] = [];
-    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    for await (const chunk of body) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
     const buffer = Buffer.concat(chunks);
-    const contentType =
-      ((obj as any).ContentType as string) || 'application/octet-stream';
-    return { fileName: id, contentType, size: buffer.length, buffer };
+    const contentType = obj.ContentType || 'application/octet-stream';
+
+    let fileName = id;
+    if (userId) {
+      try {
+        const meta = await this.getTemplateByIdForScope(scope, id, userId);
+        fileName = meta.fileName || id;
+      } catch {
+        // fallback to id for legacy objects
+      }
+    }
+    return { fileName, contentType, size: buffer.length, buffer };
   }
 }
