@@ -4,10 +4,45 @@ Tất cả file compose nằm trong `docker/`. **Chạy từ thư mục gốc la
 
 ## Local Development
 
+### Chỉ DB trên máy (tùy chọn)
+
+Nếu **không** dùng MySQL local, bỏ qua bước này — chỉ cần `DATABASE_URL` production trong `backend/.env`.
+
 ```bash
-# Chỉ MySQL (port 3307)
+# MySQL dev cục bộ (port 3307) — chỉ khi bạn muốn DB trên máy
 docker compose -f docker/compose.dev.yml up -d
 ```
+
+### Backend API trong Docker + DB production (khuyến nghị: không tạo DB local)
+
+1. Trong `backend/.env` đặt **`DATABASE_URL` trỏ thẳng tới MySQL production** (copy từ Coolify / biến môi trường server). Host trong URL là hostname/IP công khai của MySQL — backend trong container kết nối giống máy bạn, **không** cần `host.docker.internal` trừ khi MySQL chạy trên chính máy host.
+2. Đảm bảo firewall / allowlist MySQL cloud cho phép IP máy bạn (hoặc VPN tới mạng nội bộ nếu DB private).
+3. Các biến khác (`JWT_SECRET`, `JWT_REFRESH_SECRET`, R2, PayOS, …) giữ khớp nhu cầu local; compose chỉ override `FRONTEND_URL` và `PORT` nếu có.
+4. **Không** bắt buộc `backend/.env.docker`. File đó chỉ hữu ích khi MySQL nằm trên **máy host** và bạn cần host `host.docker.internal` thay cho `localhost` (xem `backend/.env.docker.example`).
+5. Chạy backend:
+
+```bash
+docker compose -f docker/compose.local-backend.yml up
+# hoặc từ root:
+docker compose -f docker-compose.local-backend.yml up
+```
+
+Compose **không** chạy `prisma migrate deploy` hay seed — tránh ghi đè dữ liệu production. Schema phải đã khớp với DB (đã migrate trên server).
+
+5. Frontend (terminal trên máy):
+
+```bash
+cd frontend && yarn dev
+```
+
+Trong `frontend/.env.local`:
+
+```env
+BACKEND_URL=http://localhost:5000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Trình duyệt mở `http://localhost:3000/login` — cookie auth qua proxy same-origin tới backend `:5000`.
 
 ## Full Stack (UAT / Production)
 
@@ -36,7 +71,8 @@ Coolify: **base_directory**: `/` (repo root), **compose**: `docker/compose.uat-b
 docker/
 ├── mysql/
 │   └── init.sql       # Init DB (lawzy, lawzy_uat, nocodb)
-├── compose.dev.yml    # MySQL dev local
+├── compose.dev.yml           # MySQL dev local
+├── compose.local-backend.yml # Backend API (Docker) + .env (DB có thể production)
 ├── compose.uat.yml    # UAT full
 ├── compose.prod.yml   # Production full
 ├── compose.uat-backend.yml

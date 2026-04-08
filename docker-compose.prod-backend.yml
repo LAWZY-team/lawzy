@@ -35,6 +35,8 @@ services:
       R2_REGION: ${R2_REGION}
       NODE_ENV: production
       FRONTEND_URL: ${FRONTEND_URL}
+      LEGAL_CRAWLER_TLS_STRICT: "true"
+      NODE_EXTRA_CA_CERTS: /app/tls/globalsign-rsa-ov-ssl-ca-2018.pem
     ports:
       - "5001:5001"
     depends_on:
