@@ -5,7 +5,7 @@ export interface PublicShareSnapshot {
 }
 
 function getBackendBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, '') ?? 'http://localhost:5000'
+  return process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:5000'
 }
 
 export async function createPublicShareSnapshot(params: {

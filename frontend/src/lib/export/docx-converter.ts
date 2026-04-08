@@ -1,22 +1,35 @@
 import type { JSONContent } from '@tiptap/core'
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+} from 'docx'
 
 interface ExportMetadata {
   title?: string
 }
+
+type DocChild = Paragraph | Table
 
 export async function convertTipTapToDocx(
   content: JSONContent,
   metadata?: ExportMetadata,
 ) {
   void metadata
-  const children: Paragraph[] = []
+  const children: DocChild[] = []
 
-  // Convert TipTap JSON to docx
   if (content?.content) {
     for (const node of content.content) {
-      const paragraphs = convertNode(node)
-      children.push(...paragraphs)
+      const elements = convertNode(node)
+      children.push(...elements)
     }
   }
 
@@ -49,8 +62,8 @@ interface TipTapNode {
   text?: string
 }
 
-function convertNode(node: TipTapNode): Paragraph[] {
-  const result: Paragraph[] = []
+function convertNode(node: TipTapNode): DocChild[] {
+  const result: DocChild[] = []
 
   let alignment: (typeof AlignmentType)[keyof typeof AlignmentType] | undefined
   if (node.attrs?.textAlign) {
@@ -63,7 +76,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
   }
 
   switch (node.type) {
-    case 'heading':
+    case 'heading': {
       const level = node.attrs?.level || 1
       const headingLevel =
         level === 1 ? HeadingLevel.HEADING_1 :
@@ -79,6 +92,7 @@ function convertNode(node: TipTapNode): Paragraph[] {
         })
       )
       break
+    }
 
     case 'paragraph':
       result.push(
@@ -86,6 +100,16 @@ function convertNode(node: TipTapNode): Paragraph[] {
           children: convertInlineContent(node.content || []),
           alignment,
           spacing: { after: 120 },
+        })
+      )
+      break
+
+    case 'horizontalRule':
+      result.push(
+        new Paragraph({
+          children: [new TextRun({ text: '' })],
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: '999999' } },
+          spacing: { before: 120, after: 120 },
         })
       )
       break
@@ -126,6 +150,40 @@ function convertNode(node: TipTapNode): Paragraph[] {
       }
       break
 
+    case 'table':
+      if (node.content) {
+        const tableRows = node.content
+          .filter((row) => row.type === 'tableRow')
+          .map((row) => {
+            const cells = (row.content || [])
+              .filter((cell) => cell.type === 'tableCell' || cell.type === 'tableHeader')
+              .map((cell) => {
+                const cellParagraphs = (cell.content || [])
+                  .flatMap((cellChild) => {
+                    if (cellChild.type === 'paragraph') {
+                      return [new Paragraph({
+                        children: convertInlineContent(cellChild.content || []),
+                      })]
+                    }
+                    return convertNode(cellChild as TipTapNode).filter(
+                      (c): c is Paragraph => c instanceof Paragraph
+                    )
+                  })
+                return new TableCell({
+                  children: cellParagraphs.length > 0
+                    ? cellParagraphs
+                    : [new Paragraph({ children: [new TextRun({ text: '' })] })],
+                  width: { size: 0, type: WidthType.AUTO },
+                })
+              })
+            return new TableRow({ children: cells })
+          })
+        if (tableRows.length > 0) {
+          result.push(new Table({ rows: tableRows }))
+        }
+      }
+      break
+
     case 'clause':
       if (node.content) {
         for (const child of node.content) {
@@ -135,7 +193,6 @@ function convertNode(node: TipTapNode): Paragraph[] {
       break
 
     default:
-      // Fallback for unknown node types
       if (node.content) {
         result.push(
           new Paragraph({

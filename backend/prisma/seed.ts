@@ -125,6 +125,12 @@ const DEFAULT_PLANS = [
       workspaceMembers: 1,
       templates: 3,
       aiAssistant: false,
+      maxSources: 3,
+      maxSourceSizeBytes: 20 * 1024 * 1024, // 20 MB
+      sourceTypes: ['pdf'],
+      systemSourceAccess: 'basic',
+      citationsEnabled: false,
+      urlSourceEnabled: false,
     },
   },
   {
@@ -146,6 +152,12 @@ const DEFAULT_PLANS = [
       aiAssistant: true,
       aiTopUpPricePerRequest: 1000,
       aiTopUpMinCredits: 50,
+      maxSources: 50,
+      maxSourceSizeBytes: 50 * 1024 * 1024, // 50 MB
+      sourceTypes: ['pdf', 'docx', 'txt', 'url'],
+      systemSourceAccess: 'full',
+      citationsEnabled: true,
+      urlSourceEnabled: true,
     },
   },
   {
@@ -167,6 +179,12 @@ const DEFAULT_PLANS = [
       aiAssistant: true,
       aiTopUpPricePerRequest: 1000,
       aiTopUpMinCredits: 50,
+      maxSources: 50,
+      maxSourceSizeBytes: 50 * 1024 * 1024, // 50 MB
+      sourceTypes: ['pdf', 'docx', 'txt', 'url'],
+      systemSourceAccess: 'full',
+      citationsEnabled: true,
+      urlSourceEnabled: true,
     },
   },
   {
@@ -192,6 +210,12 @@ const DEFAULT_PLANS = [
       storagePerSeatBytes: 2 * 1024 * 1024 * 1024, // +2 GB/seat
       aiTopUpPricePerRequest: 1000,
       aiTopUpMinCredits: 50,
+      maxSources: 200,
+      maxSourceSizeBytes: 100 * 1024 * 1024, // 100 MB
+      sourceTypes: ['pdf', 'docx', 'txt', 'url'],
+      systemSourceAccess: 'premium',
+      citationsEnabled: true,
+      urlSourceEnabled: true,
     },
   },
   {
@@ -211,6 +235,12 @@ const DEFAULT_PLANS = [
       workspaceMembers: 'unlimited',
       templates: 'unlimited',
       aiAssistant: true,
+      maxSources: 'unlimited',
+      maxSourceSizeBytes: 200 * 1024 * 1024, // 200 MB
+      sourceTypes: ['pdf', 'docx', 'txt', 'url'],
+      systemSourceAccess: 'premium',
+      citationsEnabled: true,
+      urlSourceEnabled: true,
     },
   },
 ];
@@ -283,12 +313,13 @@ async function main() {
   }
 
   const adminEmail = 'admin@lawzy.vn';
+  const adminSeedPassword = 'Lawzy@2026';
   let adminUser = await prisma.user.findUnique({
     where: { email: adminEmail },
   });
 
   if (!adminUser) {
-    const hashed = await bcrypt.hash('Lawzy@2026', 12);
+    const hashed = await bcrypt.hash(adminSeedPassword, 12);
     adminUser = await prisma.user.create({
       data: {
         email: adminEmail,

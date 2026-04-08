@@ -26,20 +26,21 @@ export const LAWZY_AGENT_TOOLS = [
   {
     name: 'list_sources',
     description:
-      'Liệt kê nguồn tham chiếu trong workspace (mẫu hợp đồng, văn bản luật, tài liệu). Gọi khi user nói "dựa trên nguồn", "theo mẫu workspace".',
+      'Liệt kê nguồn trong workspace và nguồn Lawzy (theo gói plan). Gọi khi user nói "dựa trên nguồn", "theo mẫu workspace". Không bắt buộc workspaceId — hệ thống dùng workspace phiên làm việc.',
     parameters: {
       type: 'object',
       properties: {
         workspaceId: {
           type: 'string',
-          description: 'ID workspace',
+          description:
+            'Tùy chọn. Chỉ truyền nếu chắc chắn là UUID workspace; thường để trống.',
         },
         limit: {
           type: 'number',
           description: 'Số kết quả tối đa (mặc định 10)',
         },
       },
-      required: ['workspaceId'],
+      required: [],
     },
   },
   {
@@ -70,19 +71,27 @@ export const LAWZY_AGENT_TOOLS = [
   {
     name: 'search_sources',
     description:
-      'Tìm nguồn trong workspace theo từ khóa, tag. Gọi khi cần tìm mẫu/tài liệu liên quan.',
+      'Tìm đoạn nguồn liên quan (workspace + Lawzy theo plan) theo từ khóa. Gọi khi cần trích xuất căn cứ từ tài liệu. Không bắt buộc workspaceId — để trống để dùng workspace phiên.',
     parameters: {
       type: 'object',
       properties: {
-        workspaceId: { type: 'string', description: 'ID workspace' },
+        workspaceId: {
+          type: 'string',
+          description:
+            'Tùy chọn. UUID workspace; nếu không chắc chắn thì để trống.',
+        },
         query: { type: 'string', description: 'Từ khóa tìm kiếm' },
+        topK: {
+          type: 'number',
+          description: 'Số đoạn trả về (mặc định 10, tối đa 20)',
+        },
         tags: {
           type: 'array',
           items: { type: 'string' },
           description: 'Tags lọc (optional)',
         },
       },
-      required: ['workspaceId', 'query'],
+      required: ['query'],
     },
   },
   {
@@ -103,15 +112,18 @@ export const LAWZY_AGENT_TOOLS = [
   {
     name: 'search_documents',
     description:
-      'Tìm document trong workspace theo từ khóa. Gọi khi cần tham khảo hợp đồng đã có.',
+      'Tìm document trong workspace theo từ khóa. Gọi khi cần tham khảo hợp đồng đã có. workspaceId tùy chọn — để trống dùng workspace phiên.',
     parameters: {
       type: 'object',
       properties: {
-        workspaceId: { type: 'string', description: 'ID workspace' },
+        workspaceId: {
+          type: 'string',
+          description: 'Tùy chọn. UUID workspace; thường để trống.',
+        },
         query: { type: 'string', description: 'Từ khóa tìm kiếm' },
         limit: { type: 'number', description: 'Số kết quả tối đa (mặc định 5)' },
       },
-      required: ['workspaceId', 'query'],
+      required: ['query'],
     },
   },
 ]

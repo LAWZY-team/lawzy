@@ -21,6 +21,7 @@ import { PlansModule } from './modules/plans/plans.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { EmailModule } from './modules/email/email.module';
 import { AiModule } from './modules/ai/ai.module';
+import { SourceProcessingModule } from './modules/source-processing/source-processing.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AiModule } from './modules/ai/ai.module';
     PlansModule,
     PaymentsModule,
     AiModule,
+    SourceProcessingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

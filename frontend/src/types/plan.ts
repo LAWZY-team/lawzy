@@ -19,6 +19,18 @@ export interface QuotaLimits {
   aiTopUpMinCredits?: number;
   /** For yearly plans: slug of equivalent monthly plan (for savings calculation) */
   monthlyEquivalentSlug?: string;
+  /** Max user-uploaded sources per workspace */
+  maxSources?: number | 'unlimited';
+  /** Max file size per source upload (bytes) */
+  maxSourceSizeBytes?: number;
+  /** Allowed source file types */
+  sourceTypes?: string[];
+  /** Level of access to Lawzy-provided legal sources: basic | full | premium */
+  systemSourceAccess?: 'basic' | 'full' | 'premium';
+  /** Whether AI includes source citations in output */
+  citationsEnabled?: boolean;
+  /** Whether URL source import is enabled */
+  urlSourceEnabled?: boolean;
 }
 
 /** Compute price for Team plan given seat count */

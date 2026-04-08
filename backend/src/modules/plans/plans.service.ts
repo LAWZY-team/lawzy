@@ -12,6 +12,12 @@ export interface QuotaLimits {
   pricePerSeat?: number;
   minSeats?: number;
   maxSeats?: number;
+  maxSources?: number | 'unlimited';
+  maxSourceSizeBytes?: number;
+  sourceTypes?: string[];
+  systemSourceAccess?: 'basic' | 'full' | 'premium';
+  citationsEnabled?: boolean;
+  urlSourceEnabled?: boolean;
 }
 
 export interface PlanCreateInput {

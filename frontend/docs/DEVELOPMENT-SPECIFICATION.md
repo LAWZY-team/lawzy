@@ -48,7 +48,7 @@ Chi tiết: `docker/README.md`.
 
 ### Biến môi trường
 
-- **frontend/.env.local**: `BACKEND_URL=http://localhost:5000`
+- **frontend/.env.local**: `BACKEND_URL=http://127.0.0.1:5000` (tránh lỗi proxy 502 trên Windows khi `localhost` ưu tiên IPv6; có thể bỏ nếu dùng helper `getBackendBaseUrl()` đã rewrite `localhost`)
 - **backend/.env**: `DATABASE_URL="mysql://root:lawzy-dev-2025@localhost:3307/lawzy"`, `PORT=5000`
 
 ### Khắc phục lỗi

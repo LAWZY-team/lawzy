@@ -16,11 +16,14 @@ RUN npx prisma generate
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV LEGAL_CRAWLER_TLS_STRICT=true
+ENV NODE_EXTRA_CA_CERTS=/app/tls/globalsign-rsa-ov-ssl-ca-2018.pem
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/tls ./tls
 
 EXPOSE 5000
 CMD ["sh", "-c", "npx prisma migrate deploy && (node prisma/seed.js || true) && exec node dist/src/main"]

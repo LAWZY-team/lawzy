@@ -1,45 +1,79 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { getBackendBaseUrl } from "@/lib/server/get-backend-base-url";
 
-const BACKEND_URL =
-  process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+/** Allow long-running uploads through the dev/proxy path. */
+export const maxDuration = 120;
+
+function isJsonRequestContentType(contentType: string | null): boolean {
+  if (!contentType) return false;
+  const ct = contentType.toLowerCase();
+  return ct.includes("application/json") || ct.includes("+json");
+}
 
 async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }>) {
+  const backendBase = getBackendBaseUrl();
   const { path } = await params;
-  const backendPath = `/${path.join('/')}`;
+  const backendPath = `/${path.join("/")}`;
   const searchParams = req.nextUrl.searchParams.toString();
-  const url = `${BACKEND_URL}${backendPath}${searchParams ? `?${searchParams}` : ''}`;
+  const url = `${backendBase}${backendPath}${searchParams ? `?${searchParams}` : ""}`;
+
+  const incomingContentType = req.headers.get("Content-Type");
 
   const headers = new Headers();
-  const contentType = req.headers.get('Content-Type');
-  if (contentType) headers.set('Content-Type', contentType);
+  if (incomingContentType) headers.set("Content-Type", incomingContentType);
 
-  const cookie = req.headers.get('cookie');
-  if (cookie) headers.set('cookie', cookie);
+  const cookie = req.headers.get("cookie");
+  if (cookie) headers.set("cookie", cookie);
+
+  const authorization = req.headers.get("authorization");
+  if (authorization) headers.set("authorization", authorization);
 
   const fetchOpts: RequestInit = { method: req.method, headers };
 
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    if (contentType?.includes('multipart/form-data')) {
-      headers.delete('Content-Type');
-      fetchOpts.body = await req.arrayBuffer();
-      headers.set('Content-Type', contentType);
-    } else {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    if (isJsonRequestContentType(incomingContentType)) {
       try {
         const body = await req.text();
         if (body) fetchOpts.body = body;
       } catch {
-        // no body
+        /* no body */
       }
+    } else {
+      // multipart, file uploads, form-urlencoded, octet-stream — preserve raw bytes
+      headers.delete("Content-Type");
+      fetchOpts.body = await req.arrayBuffer();
+      if (incomingContentType) headers.set("Content-Type", incomingContentType);
+      headers.delete("Content-Length");
     }
   }
 
-  const backendRes = await fetch(url, fetchOpts);
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(url, fetchOpts);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Upstream unreachable";
+    let upstreamHost = backendBase;
+    try {
+      upstreamHost = new URL(backendBase).host;
+    } catch {
+      /* keep raw */
+    }
+    return NextResponse.json(
+      {
+        statusCode: 502,
+        message: `Proxy error: ${message}`,
+        upstreamHost,
+        path: backendPath,
+      },
+      { status: 502 }
+    );
+  }
 
   const resHeaders = new Headers();
   backendRes.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'set-cookie') {
+    if (key.toLowerCase() === "set-cookie") {
       resHeaders.append(key, value);
-    } else if (key.toLowerCase() !== 'transfer-encoding') {
+    } else if (key.toLowerCase() !== "transfer-encoding") {
       resHeaders.set(key, value);
     }
   });

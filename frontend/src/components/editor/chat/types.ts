@@ -1,4 +1,5 @@
 import type { QuestionnaireSchema } from '@/types/questionnaire'
+import type { SourceCitation, LawReference } from '@/lib/editor/contract-result'
 
 export interface ToolCallItem {
   name: string
@@ -19,4 +20,6 @@ export interface ChatMessage {
   questionnaireSchema?: QuestionnaireSchema
   attachedFileName?: string
   toolCalls?: ToolCallItem[]
+  sourceCitations?: SourceCitation[]
+  lawReferences?: LawReference[]
 }

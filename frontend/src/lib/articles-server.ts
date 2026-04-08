@@ -1,7 +1,4 @@
-const API_BASE =
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000";
+import { getBackendBaseUrl } from "@/lib/server/get-backend-base-url";
 
 export interface ArticleSummary {
   id: string;
@@ -16,7 +13,7 @@ export interface ArticleSummary {
 
 export async function fetchArticleBySlug(slug: string): Promise<ArticleSummary | null> {
   try {
-    const res = await fetch(`${API_BASE}/articles/by-slug/${encodeURIComponent(slug)}`, {
+    const res = await fetch(`${getBackendBaseUrl()}/articles/by-slug/${encodeURIComponent(slug)}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return null;
@@ -36,7 +33,7 @@ export async function fetchNewsList(opts?: {
     params.set("status", "published");
     params.set("page", String(opts?.page ?? 1));
     params.set("limit", String(opts?.limit ?? 6));
-    const res = await fetch(`${API_BASE}/articles?${params.toString()}`, {
+    const res = await fetch(`${getBackendBaseUrl()}/articles?${params.toString()}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return { data: [], totalPages: 1 };
