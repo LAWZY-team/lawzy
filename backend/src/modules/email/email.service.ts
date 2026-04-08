@@ -94,6 +94,69 @@ export class EmailService {
     }
   }
 
+  async sendPublicShareAccessEmail(data: {
+    toEmail: string;
+    title: string;
+    accessCode: string;
+    shareUrlToken: string;
+  }): Promise<void> {
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const shareUrl = `${frontendUrl.replace(/\/$/, '')}/share/${encodeURIComponent(
+      data.shareUrlToken,
+    )}`;
+
+    const html = buildLawzyEmailHtml({
+      title: 'Truy cập hợp đồng trên Lawzy',
+      greeting: `Xin chào,`,
+      body: `
+        <p>Bạn nhận được một hợp đồng được chia sẻ qua Lawzy với tiêu đề:</p>
+        <p><strong>${data.title}</strong></p>
+        <p>Để truy cập, vui lòng sử dụng mã truy cập dưới đây và làm theo hướng dẫn trên trang:</p>
+        <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 12px 0;">${data.accessCode}</p>
+        <p>Bạn có thể mở trực tiếp đường dẫn sau:</p>
+      `,
+      button: { text: 'Mở hợp đồng', url: shareUrl },
+      footerNote:
+        'Vì lý do bảo mật, bạn có thể được yêu cầu nhập thêm mã OTP gửi qua email khi truy cập.',
+    });
+
+    await this.sendIfConfigured({
+      to: data.toEmail,
+      subject: '[Lawzy] Mã truy cập hợp đồng',
+      html,
+    });
+  }
+
+  async sendPublicShareOtpEmail(data: {
+    toEmail: string;
+    title: string;
+    otp: string;
+  }): Promise<void> {
+    const html = buildLawzyEmailHtml({
+      title: 'Mã OTP truy cập hợp đồng',
+      greeting: `Xin chào,`,
+      body: `
+        <p>Bạn đang yêu cầu truy cập hợp đồng:</p>
+        <p><strong>${data.title}</strong></p>
+        <p>Vui lòng nhập mã OTP sau trên trang Lawzy để tiếp tục:</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 6px; margin: 16px 0;">${data.otp}</p>
+        <p>Mã OTP có hiệu lực trong <strong>10 phút</strong>.</p>
+      `,
+      button: undefined,
+      footerNote:
+        'Nếu bạn không thực hiện yêu cầu này, có thể bỏ qua email. Mã sẽ hết hạn sau 10 phút.',
+    });
+
+    await this.sendIfConfigured({
+      to: data.toEmail,
+      subject: '[Lawzy] Mã OTP truy cập hợp đồng',
+      html,
+    });
+  }
+
   async sendPasswordResetEmail(
     email: string,
     name: string,
