@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",
+    "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -42,14 +43,18 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.3.1",
     "google-auth-library": "^10.6.2",
+    "mammoth": "^1.12.0",
     "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "^2.4.5",
     "prisma": "^6.19.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sanitize-html": "^2.17.2",
-    "ts-node": "^10.9.2"
+    "tesseract.js": "^7.0.0",
+    "ts-node": "^10.9.2",
+    "undici": "^6.21.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

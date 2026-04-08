@@ -42,6 +42,8 @@ services:
       MAIL_FROM: ${MAIL_FROM}
       FRONTEND_URL: ${FRONTEND_URL}
       NODE_ENV: production
+      LEGAL_CRAWLER_TLS_STRICT: "true"
+      NODE_EXTRA_CA_CERTS: /app/tls/globalsign-rsa-ov-ssl-ca-2018.pem
       PORT: 5001
     ports:
       - "5001:5001"

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-
-const BACKEND_URL =
-  process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { getBackendBaseUrl } from "@/lib/server/get-backend-base-url";
 
 /** @deprecated Use /api/help-center/contact instead. Proxies to backend for backward compatibility. */
 export async function POST(request: Request) {
@@ -11,7 +9,7 @@ export async function POST(request: Request) {
     if (!name || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
-    const res = await fetch(`${BACKEND_URL}/help-center/contact`, {
+    const res = await fetch(`${getBackendBaseUrl()}/help-center/contact`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, phone, company, message }),

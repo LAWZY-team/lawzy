@@ -361,6 +361,7 @@ export class FilesService {
         );
       }
       for (const s of sourceSums) {
+        if (s.workspaceId == null) continue;
         usedByWorkspace.set(
           s.workspaceId,
           (usedByWorkspace.get(s.workspaceId) ?? 0) + (s._sum.size ?? 0),

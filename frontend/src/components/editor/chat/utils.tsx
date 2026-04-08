@@ -19,6 +19,5 @@ export function renderSimpleMarkdown(text: string): ReactNode {
 }
 
 export function acceptFile(file: File): boolean {
-  const n = file.name.toLowerCase()
   return /\.(pdf|doc|docx|txt)$/i.test(file.name)
 }

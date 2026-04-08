@@ -17,6 +17,7 @@ function formatMessageTime(ts: Date | string): string {
 import { Button } from '@/components/ui/button'
 import { ExpandableMessage } from './expandable-message'
 import { ChatThinkingBlock } from './chat-thinking-block'
+import { CitationPanel } from '../citation-panel'
 import type { ChatMessage } from './types'
 import Image from 'next/image'
 
@@ -112,6 +113,13 @@ export function ChatMessageBubble({
               </Button>
             </div>
           )}
+
+          {(message.sourceCitations?.length || message.lawReferences?.length) ? (
+            <CitationPanel
+              sourceCitations={message.sourceCitations ?? []}
+              lawReferences={message.lawReferences ?? []}
+            />
+          ) : null}
         </div>
         <span className={cn(
           'text-[10px] text-muted-foreground mt-1',

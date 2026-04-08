@@ -14,10 +14,16 @@ import {
   userMessageLocalePrefix,
 } from '@/lib/ai/output-language-instruction'
 import type { Locale } from '@/lib/i18n'
+import {
+  mergeSourceCitationsFromToolCalls,
+  type SourceCitation,
+} from '@/lib/editor/contract-result'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const AI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
-const MAX_AGENT_TURNS = 5
+const MAX_AGENT_TURNS = 8
+const GEMINI_MAX_RETRIES = 4
+const GEMINI_RETRY_BASE_MS = 900
 const MAX_HISTORY_MESSAGES = 20
 const GEMINI_TIMEOUT_MS = 60_000
 const MAX_INPUT_LENGTH = 4000
@@ -38,6 +44,64 @@ function buildGeminiApiUrl(): string {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is required')
   return `${GEMINI_API_BASE}/models/${AI_MODEL_NAME}:generateContent?key=${key}`
+}
+
+const SESSION_WORKSPACE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const buildAgentSessionContextBlock = (
+  workspaceId: string | null | undefined,
+  documentId: string | null | undefined
+): string => {
+  const lines: string[] = []
+  const w =
+    typeof workspaceId === 'string' && SESSION_WORKSPACE_UUID_RE.test(workspaceId.trim())
+      ? workspaceId.trim()
+      : null
+  if (w) {
+    lines.push(
+      `Phiên làm việc workspace (UUID): ${w}. Với list_sources / search_sources / search_documents: để trống workspaceId trong tham số tool (hoặc chỉ truyền đúng UUID này).`
+    )
+  } else {
+    lines.push(
+      'Chưa có workspace UUID hợp lệ trong phiên — không giả định workspace; dựa vào kết quả tool.'
+    )
+  }
+  if (typeof documentId === 'string' && documentId.trim().length > 0) {
+    lines.push(`Document hiện tại (id): ${documentId.trim()}.`)
+  }
+  if (lines.length === 0) return ''
+  return `\n\n**NGỮ CẢNH PHIÊN (SERVER):**\n${lines.join('\n')}\n`
+}
+
+const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+async function postGeminiWithRetry(
+  url: string,
+  body: Record<string, unknown>,
+  signal: AbortSignal
+): Promise<Response> {
+  let delay = GEMINI_RETRY_BASE_MS
+  let lastRes: Response | null = null
+  for (let attempt = 0; attempt < GEMINI_MAX_RETRIES; attempt++) {
+    const geminiResponse = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify(body),
+    })
+    lastRes = geminiResponse
+    if (geminiResponse.ok) return geminiResponse
+    if (geminiResponse.status === 429 || geminiResponse.status === 503) {
+      if (attempt < GEMINI_MAX_RETRIES - 1) {
+        await sleepMs(delay)
+        delay = Math.min(delay * 2, 12_000)
+        continue
+      }
+    }
+    return geminiResponse
+  }
+  return lastRes as Response
 }
 
 function getAuthHeaders(req: NextRequest): Record<string, string> {
@@ -145,7 +209,10 @@ export async function POST(req: NextRequest) {
     }
 
     const locale: Locale = localeRaw === 'en' ? 'en' : 'vi'
-    const systemPromptWithLocale = AGENT_SYSTEM_PROMPT + buildOutputLanguageInstruction(locale)
+    const systemPromptWithLocale =
+      AGENT_SYSTEM_PROMPT +
+      buildOutputLanguageInstruction(locale) +
+      buildAgentSessionContextBlock(workspaceId, documentId)
 
     if (!userMessage || typeof userMessage !== 'string') {
       return NextResponse.json({ error: 'userMessage is required' }, { status: 400 })
@@ -230,12 +297,11 @@ export async function POST(req: NextRequest) {
         const geminiUrl = buildGeminiApiUrl()
         let geminiResponse: Response
         try {
-          geminiResponse = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify(geminiRequestBody),
-          })
+          geminiResponse = await postGeminiWithRetry(
+            geminiUrl,
+            geminiRequestBody as Record<string, unknown>,
+            controller.signal
+          )
         } catch (fetchErr) {
           clearTimeout(timeout)
           const isTimeout = fetchErr instanceof Error && fetchErr.name === 'AbortError'
@@ -299,9 +365,27 @@ export async function POST(req: NextRequest) {
             ...(geminiThinkingAccumulated.length > 0 ? { geminiThinking: geminiThinkingAccumulated.join('\n\n') } : {}),
           }
           if (parsedContract) {
-            const p = parsedContract as { type?: string; message?: string }
+            const p = parsedContract as {
+              type?: string
+              message?: string
+              metadata?: { sourceCitations?: SourceCitation[] }
+            }
             if (p.type === 'error') {
               return { type: 'error', message: p.message ?? lastText, ...basePayload }
+            }
+            if (p.type === 'contract_generation' && toolCallsCollected.length > 0) {
+              const mergedCitations = mergeSourceCitationsFromToolCalls(
+                toolCallsCollected,
+                p.metadata?.sourceCitations
+              )
+              return {
+                ...parsedContract,
+                metadata: {
+                  ...(typeof p.metadata === 'object' && p.metadata !== null ? p.metadata : {}),
+                  sourceCitations: mergedCitations,
+                },
+                ...basePayload,
+              }
             }
             return {
               ...parsedContract,

@@ -28,6 +28,7 @@ export class SourcesController {
     @Query('workspaceId') workspaceId: string,
     @Query('page') pageStr?: string,
     @Query('limit') limitStr?: string,
+    @Query('includeSystem') includeSystem?: string,
   ) {
     if (!workspaceId) {
       throw new BadRequestException('workspaceId is required');
@@ -38,7 +39,30 @@ export class SourcesController {
       page,
       limit,
       userId: req.user.userId,
+      includeSystem: includeSystem === 'true',
     });
+  }
+
+  /**
+   * Lawzy system/premium sources visible to this workspace per plan (read-only list).
+   */
+  @Get('lawzy-catalog')
+  async lawzyCatalog(
+    @Request() req: { user: { userId: string } },
+    @Query('workspaceId') workspaceId: string,
+    @Query('page') pageStr?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    if (!workspaceId?.trim()) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    const page = pageStr ? parseInt(pageStr, 10) : 1;
+    const limit = limitStr ? parseInt(limitStr, 10) : 30;
+    return this.sourcesService.findLawzyCatalog(
+      workspaceId.trim(),
+      req.user.userId,
+      { page, limit },
+    );
   }
 
   @Post()
@@ -55,6 +79,7 @@ export class SourcesController {
     @Body('type') type: string,
     @Body('workspaceId') workspaceId: string,
     @Body('tags') tagsRaw?: string,
+    @Body('sourceUrl') sourceUrl?: string,
   ) {
     const userId = req.user.userId;
     if (!title?.trim()) {
@@ -81,7 +106,41 @@ export class SourcesController {
       workspaceId: workspaceId.trim(),
       file,
       tags,
+      sourceUrl: sourceUrl?.trim(),
     });
+  }
+
+  @Post('semantic-search')
+  async semanticSearch(
+    @Request() req: any,
+    @Body()
+    body: {
+      query: string;
+      workspaceId: string;
+      topK?: number;
+      includeSystemSources?: boolean;
+      sourceIds?: string[];
+    },
+  ) {
+    if (!body.query?.trim()) {
+      throw new BadRequestException('query is required');
+    }
+    if (!body.workspaceId?.trim()) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    return this.sourcesService.semanticSearch({
+      query: body.query.trim(),
+      workspaceId: body.workspaceId.trim(),
+      userId: req.user.userId,
+      topK: body.topK,
+      includeSystemSources: body.includeSystemSources,
+      sourceIds: body.sourceIds,
+    });
+  }
+
+  @Post(':id/reprocess')
+  async reprocess(@Request() req: any, @Param('id') id: string) {
+    return this.sourcesService.reprocessSource(id, req.user.userId);
   }
 
   @Get(':id')

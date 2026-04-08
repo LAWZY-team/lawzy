@@ -45,6 +45,10 @@ function getQuotaLimits(plan: Plan) {
     members: q.workspaceMembers,
     templates: q.templates,
     aiAssistant: q.aiAssistant ?? false,
+    maxSources: q.maxSources,
+    citationsEnabled: q.citationsEnabled ?? false,
+    urlSourceEnabled: q.urlSourceEnabled ?? false,
+    systemSourceAccess: q.systemSourceAccess ?? 'basic',
   };
 }
 
@@ -162,6 +166,34 @@ export function PricingCard({
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-primary shrink-0" />
                 {t("plan_feature_ai_assistant")}
+              </li>
+            )}
+            {limits.maxSources != null && (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary shrink-0" />
+                {limits.maxSources === 'unlimited'
+                  ? t("plan_sources_unlimited")
+                  : t("plan_sources_count", { n: limits.maxSources })}
+              </li>
+            )}
+            {limits.citationsEnabled && (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary shrink-0" />
+                {t("plan_feature_citations")}
+              </li>
+            )}
+            {limits.urlSourceEnabled && (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary shrink-0" />
+                {t("plan_feature_url_sources")}
+              </li>
+            )}
+            {limits.systemSourceAccess !== 'basic' && (
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-primary shrink-0" />
+                {limits.systemSourceAccess === 'premium'
+                  ? t("plan_feature_premium_legal_db")
+                  : t("plan_feature_full_legal_db")}
               </li>
             )}
           </ul>

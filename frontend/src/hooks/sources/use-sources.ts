@@ -6,11 +6,31 @@ export interface SourceItem {
   title: string;
   type: string;
   status: string;
+  scope?: string;
   s3Key?: string;
-  tags?: string[];
+  sourceUrl?: string | null;
+  size?: number;
+  pageCount?: number | null;
+  chunkCount?: number | null;
+  tags?: unknown;
   createdAt: string;
   updatedAt: string;
-  user?: { name: string; avatar?: string };
+  user?: { id?: string; name: string; avatar?: string | null };
+}
+
+/** Full source from GET /sources/:id (includes content for members). */
+export interface WorkspaceSourceDetail extends SourceItem {
+  content?: string | null;
+  processingError?: string | null;
+  workspaceId?: string | null;
+}
+
+export interface WorkspaceSourceChunk {
+  id: string;
+  content: string;
+  pageNumber: number | null;
+  chunkIndex: number;
+  tokenCount: number;
 }
 
 interface PaginatedSources {
@@ -29,6 +49,14 @@ export function useSources(workspaceId: string, opts?: { page?: number; limit?: 
     queryKey: ['sources', workspaceId, opts],
     queryFn: () => api.get(`/sources?${params.toString()}`),
     enabled: !!workspaceId,
+    refetchInterval: (query) => {
+      const list = query.state.data?.data ?? [];
+      if (list.length === 0) return false;
+      const hasInFlight = list.some(
+        (s) => s.status === 'pending' || s.status === 'processing',
+      );
+      return hasInFlight ? 2500 : false;
+    },
   });
 }
 
@@ -52,6 +80,26 @@ export function useDeleteSource() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/sources/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sources'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sources'] });
+      qc.invalidateQueries({ queryKey: ['workspace-source-detail'] });
+      qc.invalidateQueries({ queryKey: ['workspace-source-chunks'] });
+    },
+  });
+}
+
+export function useWorkspaceSourceDetail(sourceId: string | null, enabled: boolean) {
+  return useQuery<WorkspaceSourceDetail>({
+    queryKey: ['workspace-source-detail', sourceId],
+    queryFn: () => api.get(`/sources/${sourceId}`),
+    enabled: enabled && !!sourceId,
+  });
+}
+
+export function useWorkspaceSourceChunks(sourceId: string | null, enabled: boolean) {
+  return useQuery<{ chunks: WorkspaceSourceChunk[] }>({
+    queryKey: ['workspace-source-chunks', sourceId],
+    queryFn: () => api.get(`/sources/chunks/${sourceId}`),
+    enabled: enabled && !!sourceId,
   });
 }

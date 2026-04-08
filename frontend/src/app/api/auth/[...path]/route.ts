@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE } from "@/lib/auth";
 import { shouldVerifyBotProtection } from "@/lib/bot-protection";
-
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { getBackendBaseUrl } from "@/lib/server/get-backend-base-url";
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY;
 
 function isAuthPathRequiringBotProtection(path: string[]): boolean {
@@ -36,7 +35,7 @@ async function validateBotProtectionToken(
 async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }>) {
   const { path } = await params;
   const backendPath = `/auth/${path.join("/")}`;
-  const url = `${BACKEND_URL}${backendPath}`;
+  const url = `${getBackendBaseUrl()}${backendPath}`;
 
   const headers = new Headers();
   headers.set("Content-Type", req.headers.get("Content-Type") || "application/json");
