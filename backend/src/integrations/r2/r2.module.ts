@@ -20,6 +20,7 @@ import { R2_S3_CLIENT } from './r2.constants';
             secretAccessKey: env.secretAccessKey,
           },
           forcePathStyle: true,
+          maxAttempts: Math.max(3, Number(process.env.R2_SDK_MAX_ATTEMPTS) || 6),
         });
       },
     },

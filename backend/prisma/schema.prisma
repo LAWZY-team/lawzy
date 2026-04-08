@@ -288,25 +288,53 @@ model File {
 }
 
 model Source {
-  id          String   @id @default(uuid())
-  title       String
-  type        String   @default("pdf")
-  status      String   @default("pending")
-  s3Key       String?  @map("s3_key")
-  size        Int      @default(0)
-  content     String?  @db.LongText
-  tags        Json?
-  workspaceId String   @map("workspace_id")
-  userId      String   @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  title           String
+  type            String   @default("pdf")
+  status          String   @default("pending")
+  scope           String   @default("workspace") // 'workspace' | 'system' | 'premium'
+  s3Key           String?  @map("s3_key")
+  sourceUrl       String?  @db.Text @map("source_url")
+  size            Int      @default(0)
+  content         String?  @db.LongText
+  pageCount       Int?     @map("page_count")
+  chunkCount      Int?     @map("chunk_count")
+  processingError String?  @db.Text @map("processing_error")
+  tags            Json?
+  workspaceId     String?  @map("workspace_id")
+  userId          String   @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks    SourceChunk[]
 
   @@index([workspaceId])
   @@index([userId])
+  @@index([scope])
   @@map("sources")
+}
+
+model SourceChunk {
+  id         String   @id @default(uuid())
+  sourceId   String   @map("source_id")
+  parentId   String?  @map("parent_id")
+  content    String   @db.LongText
+  pageNumber Int?     @map("page_number")
+  chunkIndex Int      @map("chunk_index")
+  tokenCount Int      @default(0) @map("token_count")
+  embedding  Json?
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  source   Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  parent   SourceChunk? @relation("ChunkHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children SourceChunk[] @relation("ChunkHierarchy")
+
+  @@index([sourceId])
+  @@index([parentId])
+  @@map("source_chunks")
 }
 
 model ChatMessage {
