@@ -1119,6 +1119,10 @@ export default function EditorPage({
       const toolThinking = toolCalls?.length ? buildThinkingFromToolCalls(toolCalls, locale) : ''
       const combinedThinking = [toolThinking, geminiThinking].filter(Boolean).join('\n\n')
 
+      const genMeta = finalResult.type === 'contract_generation'
+        ? (finalResult as unknown as ContractGenerationResult).metadata
+        : undefined
+
       const aiMessage: ChatMessage & { isError?: boolean } = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -1133,6 +1137,8 @@ export default function EditorPage({
           : {}),
         ...(toolCalls?.length ? { toolCalls } : {}),
         ...(combinedThinking ? { thinking: combinedThinking } : {}),
+        ...(genMeta?.sourceCitations?.length ? { sourceCitations: genMeta.sourceCitations } : {}),
+        ...(genMeta?.lawReferences?.length ? { lawReferences: genMeta.lawReferences } : {}),
       }
 
       setChatMessages((prev) => [...prev, aiMessage])
@@ -1172,7 +1178,7 @@ export default function EditorPage({
       setIsGenerating(false)
       setThinkingProgress([])
     }
-  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, queryClient, resolvedParams.id, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues])
+  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, queryClient, resolvedParams.id, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues, updateMetadata])
 
   const handleQuestionnaireSubmit = useCallback((values: Record<string, string>) => {
     setActiveQuestionnaire(null)

@@ -3,16 +3,104 @@
  * Used by editor page: summary fallback when Gemini does not return message.
  */
 
+export interface SourceCitation {
+  sourceId?: string
+  sourceTitle?: string
+  fileName?: string
+  pageNumber?: number
+  articleNumber?: string
+  excerpt?: string
+  usedInClause?: string
+  relevance?: number
+}
+
+export interface LawReference {
+  law?: string
+  article?: string
+  text?: string
+}
+
+const CITATION_EXCERPT_MAX = 600
+
+const citationDedupeKey = (c: SourceCitation): string =>
+  `${c.sourceId ?? ''}|${(c.excerpt ?? '').slice(0, 96)}|${c.sourceTitle ?? ''}`
+
+/**
+ * Builds sourceCitations from agent tool results so metadata stays populated
+ * even when the model omits them in JSON.
+ */
+export const mergeSourceCitationsFromToolCalls = (
+  toolCalls: Array<{ name: string; result?: unknown }>,
+  existing?: SourceCitation[] | null
+): SourceCitation[] => {
+  const fromTools: SourceCitation[] = []
+  for (const tc of toolCalls) {
+    const raw = tc.result
+    if (raw === null || raw === undefined) continue
+    if (typeof raw !== 'object') continue
+    const r = raw as Record<string, unknown>
+    if ('error' in r && typeof r.error === 'string') continue
+    if (tc.name === 'get_source_content') {
+      const excerpt =
+        typeof r.content === 'string' ? r.content.slice(0, CITATION_EXCERPT_MAX) : undefined
+      fromTools.push({
+        sourceId: typeof r.id === 'string' ? r.id : undefined,
+        sourceTitle: typeof r.title === 'string' ? r.title : undefined,
+        fileName: typeof r.fileName === 'string' ? r.fileName : undefined,
+        excerpt,
+      })
+    }
+    if (tc.name === 'search_sources' && Array.isArray(raw)) {
+      for (const row of raw as Array<Record<string, unknown>>) {
+        const content = row.content
+        fromTools.push({
+          sourceId: typeof row.sourceId === 'string' ? row.sourceId : undefined,
+          sourceTitle: typeof row.sourceTitle === 'string' ? row.sourceTitle : undefined,
+          pageNumber: typeof row.pageNumber === 'number' ? row.pageNumber : undefined,
+          excerpt: typeof content === 'string' ? content.slice(0, CITATION_EXCERPT_MAX) : undefined,
+          relevance: typeof row.relevance === 'number' ? row.relevance : undefined,
+        })
+      }
+    }
+    if (tc.name === 'cite_law') {
+      const rag = r.ragSources
+      if (!Array.isArray(rag)) continue
+      for (const row of rag as Array<Record<string, unknown>>) {
+        const content = row.content
+        fromTools.push({
+          sourceTitle: typeof row.sourceTitle === 'string' ? row.sourceTitle : undefined,
+          pageNumber: typeof row.pageNumber === 'number' ? row.pageNumber : undefined,
+          excerpt: typeof content === 'string' ? content.slice(0, CITATION_EXCERPT_MAX) : undefined,
+          relevance: typeof row.relevance === 'number' ? row.relevance : undefined,
+        })
+      }
+    }
+  }
+  const merged: SourceCitation[] = [...(existing ?? []), ...fromTools]
+  const seen = new Set<string>()
+  return merged.filter((c) => {
+    const k = citationDedupeKey(c)
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
 /** Kết quả generate hợp đồng từ API */
 export interface ContractGenerationResult {
   type: 'contract_generation'
-  content: { title?: string; sections?: unknown[] }
+  content: {
+    title?: string
+    sections?: unknown[]
+    markdown?: string
+    mergeFields?: Array<{ key: string; label?: string; type?: string }>
+  }
   metadata?: {
     contractType?: string
     prompt?: string
     modifiedSectionIndices?: number[]
-    sourceCitations?: Array<{ sourceId?: string; fileName?: string; excerpt?: string; usedInClause?: string }>
-    lawReferences?: Array<{ law?: string; article?: string; text?: string }>
+    sourceCitations?: SourceCitation[]
+    lawReferences?: LawReference[]
     riskTags?: Array<{ tag?: string; level?: string; reason?: string }>
   }
 }

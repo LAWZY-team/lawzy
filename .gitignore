@@ -4,6 +4,8 @@ dist/
 generated/
 .env
 .env.local
+docker/.env
+backend/.env.docker
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
@@ -13,3 +15,4 @@ coverage/
 backend/docs/LOCAL-DEV-UAT-DATABASE.md
 docs/BUILD-*.md
 nul
+cjar*.txt

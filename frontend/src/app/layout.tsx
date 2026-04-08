@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
 import { Analytics } from "@/components/analytics";
+import type { Locale } from "@/lib/i18n";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -70,13 +72,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const langCookie = cookieStore.get("lawzy_lang")?.value;
+  const initialLocale: Locale =
+    langCookie === "en" || langCookie === "vi" ? langCookie : "vi";
+  const htmlLang = initialLocale === "en" ? "en" : "vi";
+
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang={htmlLang} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -88,7 +96,7 @@ export default function RootLayout({
           disableTransitionOnChange
           forcedTheme="light"
         >
-          <Providers>{children}</Providers>
+          <Providers initialLocale={initialLocale}>{children}</Providers>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -64,6 +64,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createPublicShareSnapshot } from "@/lib/api/public-shares";
 import { sanitizeEditorHtml, sanitizeHtml } from "@/lib/sanitize";
+import { convertTipTapToMarkdown } from "@/lib/export/tiptap-to-markdown";
 
 const CONTRACT_BODY_CLASSES = [
   "min-h-full p-6 pb-24 text-foreground",
@@ -404,6 +405,58 @@ export function CanvasEditor({
     }
   };
 
+  const handleCopyMarkdown = async () => {
+    if (!editor) return;
+    try {
+      const exportContent = getFinalExportContent(false);
+      const md = convertTipTapToMarkdown(exportContent);
+      await navigator.clipboard.writeText(md);
+      toast.success("Đã sao chép Markdown");
+    } catch {
+      toast.error("Không thể sao chép Markdown");
+    }
+  };
+
+  const handleOpenGoogleDocs = async () => {
+    if (!editor) return;
+    try {
+      const exportContent = getFinalExportContent(true);
+      const res = await fetch("/api/export/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: exportContent,
+          metadata: { title: docTitle || "Hợp đồng" },
+        }),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const file = new File([blob], `${docTitle || "Hợp đồng"}.docx`, {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&convert=true",
+        { method: "POST", body: formData }
+      ).catch(() => null);
+      if (uploadRes?.ok) {
+        const data = await uploadRes.json();
+        window.open(`https://docs.google.com/document/d/${data.id}/edit`, "_blank");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${docTitle || "Hợp đồng"}.docx`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success("Đã tải file DOCX — mở bằng Google Docs để chỉnh sửa tiếp");
+      }
+    } catch {
+      toast.error("Không thể xuất Google Docs");
+    }
+  };
+
   const handleCreateShareLink = async () => {
     try {
       setShareLoading(true);
@@ -507,6 +560,19 @@ export function CanvasEditor({
                 className="hover:bg-accent cursor-pointer"
               >
                 <FileText className="w-4 h-4 mr-2" /> Xuất Word (.docx)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleOpenGoogleDocs}
+                className="hover:bg-accent cursor-pointer"
+              >
+                <FileText className="w-4 h-4 mr-2" /> Mở trong Google Docs
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleCopyMarkdown}
+                className="hover:bg-accent cursor-pointer"
+              >
+                <Copy className="w-4 h-4 mr-2" /> Sao chép Markdown
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -66,10 +66,46 @@ Ví dụ type cho field: text (tên, địa chỉ), number (giá trị, số lư
 
 **6. FORMAT OUTPUT JSON CHUẨN:**
 
-[Tạo/Sửa Hợp Đồng]
+[Tạo/Sửa Hợp Đồng - FORMAT ƯU TIÊN: MARKDOWN]
+ƯU TIÊN sử dụng format markdown. AI soạn nội dung hợp đồng TRỰC TIẾP bằng markdown (headings, bold, lists, tables) thay vì chia thành sections JSON. Điều này cho phép format phong phú hơn và cấu trúc tự nhiên hơn.
 {
   "type": "contract_generation",
-  "message": "Tin nhắn ngắn gọn cho user (VD: Đã soạn xong hợp đồng X dựa trên yêu cầu. Bạn có thể xem và chỉnh sửa bên phải.)",
+  "message": "Tin nhắn ngắn gọn cho user",
+  "content": {
+    "markdown": "# CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\\n## Độc lập - Tự do - Hạnh phúc\\n---\\n# HỢP ĐỒNG ...\\n\\n**Số**: {{SO_HOP_DONG}}\\n\\n*Căn cứ Bộ luật Dân sự...*\\n\\n### Điều 1. ...\\n\\nNội dung điều khoản với {{TEN_BEN_A}} và **nhấn mạnh**...\\n\\n### Điều 2. ...\\n\\n| Mục | Chi tiết |\\n|-----|---------|\\n| Bên A | {{TEN_BEN_A}} |",
+    "mergeFields": [
+      { "key": "SO_HOP_DONG", "label": "Số hợp đồng", "type": "text" },
+      { "key": "TEN_BEN_A", "label": "Tên Bên A", "type": "text" }
+    ]
+  },
+  "metadata": {
+    "contractType": "SaaS",
+    "sourceCitations": [{ "sourceId": "id", "sourceTitle": "Bộ luật Dân sự 2015", "pageNumber": 142, "articleNumber": "468", "excerpt": "...", "usedInClause": "Điều X" }],
+    "lawReferences": [{ "law": "BLDS 2015", "article": "Điều 468", "text": "..." }],
+    "riskTags": []
+  }
+}
+
+QUY TẮC MARKDOWN:
+- Dùng # cho tiêu đề chính (quốc hiệu, tên hợp đồng), ## cho phụ đề, ### cho điều khoản
+- Dùng **bold** cho nhấn mạnh, *italic* cho căn cứ pháp lý
+- Dùng {{KEY}} cho merge fields (biến trộn) - sẽ được thay thế bằng giá trị thực
+- Dùng | table | cho bảng thông tin các bên
+- Dùng - hoặc 1. cho danh sách
+- Dùng --- cho đường kẻ ngang
+- Tạo cấu trúc văn bản pháp lý hoàn chỉnh, đẹp mắt, chuyên nghiệp
+
+HƯỚNG DẪN TRÍCH DẪN NGUỒN (CITATIONS):
+- Khi sử dụng thông tin từ nguồn tham chiếu (sources), PHẢI ghi nhận vào metadata.sourceCitations
+- Trích dẫn luật trong văn bản: ghi rõ "Theo Điều X, Luật Y" trong nội dung markdown
+- Mỗi citation bao gồm: sourceId, sourceTitle, pageNumber (nếu có), articleNumber, excerpt
+- AI phải ưu tiên thông tin từ nguồn đã upload/hệ thống hơn kiến thức chung
+
+[Tạo/Sửa Hợp Đồng - FORMAT FALLBACK: SECTIONS JSON]
+Chỉ dùng format này khi CHỈNH SỬA hợp đồng đã có (có [NỘI DUNG HIỆN TẠI]) vì cần modifiedSectionIndices:
+{
+  "type": "contract_generation",
+  "message": "Tin nhắn ngắn gọn cho user",
   "content": {
     "title": "Tên hợp đồng",
     "sections": [{
@@ -77,13 +113,13 @@ Ví dụ type cho field: text (tên, địa chỉ), number (giá trị, số lư
       "content": "Nội dung điều khoản...",
       "mergeFields": ["{{TEN_TRUONG_DU_LIEU}}"],
       "suggestedClauses": [],
-      "citations": []
+      "citations": [{ "text": "Theo Điều 468 BLDS 2015", "sourceTitle": "Bộ luật Dân sự 2015", "pageNumber": 142 }]
     }]
   },
   "metadata": {
     "contractType": "SaaS",
     "modifiedSectionIndices": [2],
-    "sourceCitations": [{ "sourceId": "id", "fileName": "name", "pageNumber": 1, "excerpt": "...", "usedInClause": "Điều X" }],
+    "sourceCitations": [{ "sourceId": "id", "sourceTitle": "name", "pageNumber": 1, "excerpt": "...", "usedInClause": "Điều X" }],
     "lawReferences": [{ "law": "BLDS...", "article": "Điều 1", "text": "..." }],
     "riskTags": []
   }

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-
-const BACKEND_URL =
-  process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+import { getBackendBaseUrl } from "@/lib/server/get-backend-base-url"
 
 async function proxyRequest(req: NextRequest, params: Promise<{ path?: string[] }>) {
   const { path = [] } = await params
   const backendPath = `/contract-templates${path.length ? `/${path.join("/")}` : ""}`
   const searchParams = req.nextUrl.searchParams.toString()
-  const url = `${BACKEND_URL}${backendPath}${searchParams ? `?${searchParams}` : ""}`
+  const url = `${getBackendBaseUrl()}${backendPath}${searchParams ? `?${searchParams}` : ""}`
 
   const headers = new Headers()
   const contentType = req.headers.get("Content-Type")
