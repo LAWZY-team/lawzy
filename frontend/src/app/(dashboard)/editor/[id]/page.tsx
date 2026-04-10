@@ -39,6 +39,9 @@ import {
   TOOL_NAME_LABELS_IN_PROGRESS,
 } from '@/lib/editor/contract-result'
 import type { QuestionnaireSchema, IntakeQuestionnaireResult } from '@/types/questionnaire'
+import { findContractType, type ContractTypeId } from '@/lib/editor/contract-questionnaires'
+import { type WizardFormStep } from '@/lib/editor/contract-wizard-config'
+import { ContractWizard } from '@/components/editor/chat/contract-wizard'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { resolveMergeFieldValue } from '@/lib/editor/merge-field-aliases'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
@@ -164,6 +167,8 @@ export default function EditorPage({
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
   const [pendingUrl] = useState<string | null>(null)
   const [activeQuestionnaire, setActiveQuestionnaire] = useState<QuestionnaireSchema | null>(null)
+  const [wizardContractTypeId, setWizardContractTypeId] = useState<ContractTypeId | null>(null)
+  const [isWizardSubmitting, setIsWizardSubmitting] = useState(false)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -1340,6 +1345,52 @@ export default function EditorPage({
     handleSendMessage(prompt)
   }, [t, handleSendMessage])
 
+  const handleContractTypeSelect = useCallback((contractTypeId: ContractTypeId) => {
+    setWizardContractTypeId(contractTypeId)
+  }, [])
+
+  const handleWizardSubmit = useCallback(async (
+    contractTypeId: ContractTypeId,
+    roleId: string | null,
+    values: Record<string, string>,
+    steps: WizardFormStep[],
+  ) => {
+    setIsWizardSubmitting(true)
+    const contractType = findContractType(contractTypeId)
+    const CONTRACT_TYPE_LABELS: Record<ContractTypeId, string> = {
+      labor: 'Hợp đồng lao động',
+      service: 'Hợp đồng cung cấp dịch vụ',
+      nda: 'Thỏa thuận bảo mật (NDA)',
+      goods: 'Hợp đồng mua bán hàng hóa',
+      rental: 'Hợp đồng thuê',
+    }
+    const typeLabel = CONTRACT_TYPE_LABELS[contractTypeId] ?? contractType?.title ?? contractTypeId
+    const sections = steps.map((step) => {
+      const lines = step.fields
+        .filter((f) => values[f.key]?.trim())
+        .map((f) => {
+          const displayValue = f.type === 'toggle'
+            ? (values[f.key] === 'true' ? 'Có' : 'Không')
+            : values[f.key]
+          return `  ${f.label}: ${displayValue}`
+        })
+        .join('\n')
+      return lines ? `${step.title}:\n${lines}` : null
+    }).filter(Boolean).join('\n\n')
+    const prompt = [
+      '[CONTRACT_WIZARD_SUBMISSION]',
+      `Loại hợp đồng: ${typeLabel}`,
+      roleId ? `Vai trò người dùng: ${roleId}` : '',
+      '',
+      sections,
+      '',
+      'Vui lòng soạn thảo hợp đồng đầy đủ và chính xác theo đúng pháp luật Việt Nam dựa trên thông tin trên.',
+    ].filter((l) => l !== '').join('\n')
+    setWizardContractTypeId(null)
+    setIsWizardSubmitting(false)
+    await handleSendMessage(prompt)
+  }, [handleSendMessage])
+
   return (
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
       {/* Main Content Area - 3 Column Layout */}
@@ -1360,33 +1411,43 @@ export default function EditorPage({
         >
           <div id="tour-editor-chat" className={cn(
             "w-full h-full transition-all duration-500",
-            !isCanvasMode ? "max-w-3xl mx-auto" : "w-full"
+            !isCanvasMode && !wizardContractTypeId ? "max-w-3xl mx-auto" : "w-full"
           )}>
-            <ChatColumn
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              isLoading={isGenerating}
-              thinkingSteps={thinkingProgress}
-              isCanvasMode={isCanvasMode}
-              onOpenCanvas={() => setIsCanvasMode(true)}
-              userDisplayName={useAuthStore.getState().user?.name}
-              attachedFile={attachedFile ? { name: attachedFile.name } : null}
-              onAttachFile={(file) => {
-                const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
-                if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
-                  toast.error(t("chat_file_type_error"))
-                  return
-                }
-                setAttachedFile(file)
-              }}
-              onRemoveAttachedFile={() => setAttachedFile(null)}
-              activeQuestionnaire={activeQuestionnaire}
-              onQuestionnaireSubmit={handleQuestionnaireSubmit}
-              onQuestionnaireSkip={handleQuestionnaireSkip}
-              mergeFieldValues={mergeFieldValues}
-              userFields={customFields}
-              workspaceFields={workspaceFields}
-            />
+            {wizardContractTypeId ? (
+              <ContractWizard
+                contractTypeId={wizardContractTypeId}
+                onBack={() => setWizardContractTypeId(null)}
+                onSubmit={handleWizardSubmit}
+                isSubmitting={isWizardSubmitting}
+              />
+            ) : (
+              <ChatColumn
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                isLoading={isGenerating}
+                thinkingSteps={thinkingProgress}
+                isCanvasMode={isCanvasMode}
+                onOpenCanvas={() => setIsCanvasMode(true)}
+                userDisplayName={useAuthStore.getState().user?.name}
+                attachedFile={attachedFile ? { name: attachedFile.name } : null}
+                onAttachFile={(file) => {
+                  const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+                  if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
+                    toast.error(t("chat_file_type_error"))
+                    return
+                  }
+                  setAttachedFile(file)
+                }}
+                onRemoveAttachedFile={() => setAttachedFile(null)}
+                activeQuestionnaire={activeQuestionnaire}
+                onQuestionnaireSubmit={handleQuestionnaireSubmit}
+                onQuestionnaireSkip={handleQuestionnaireSkip}
+                onContractTypeSelect={handleContractTypeSelect}
+                mergeFieldValues={mergeFieldValues}
+                userFields={customFields}
+                workspaceFields={workspaceFields}
+              />
+            )}
           </div>
         </motion.div>
 

@@ -1,9 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { LAWZY_SYSTEM_PROMPT } from './system-prompt'
-import {
-  getConfiguredGeminiModelCandidates,
-  shouldFallbackForGeminiError,
-} from './model-resolver'
 
 export interface ContractMetadata {
   contractType: string
@@ -43,20 +39,11 @@ export interface CiteLawRequest {
 export class GeminiClient {
   private genAI: GoogleGenerativeAI
   private model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>
-  private readonly modelCandidates: string[]
-  private modelIndex = 0
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey)
-    this.modelCandidates = getConfiguredGeminiModelCandidates()
-    this.model = this.buildModel(this.modelCandidates[this.modelIndex] ?? 'gemini-2.5-flash')
-    console.info(
-      `[GeminiClient] initialized model=${this.getCurrentModel()} candidates=${this.modelCandidates.join(',')}`
-    )
-  }
-
-  private buildModel(modelId: string): ReturnType<GoogleGenerativeAI['getGenerativeModel']> {
-    return this.genAI.getGenerativeModel({
+    const modelId = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+    this.model = this.genAI.getGenerativeModel({
       model: modelId,
       systemInstruction: LAWZY_SYSTEM_PROMPT,
       generationConfig: {
@@ -66,33 +53,6 @@ export class GeminiClient {
         maxOutputTokens: 65536,
       },
     })
-  }
-
-  private getCurrentModel(): string {
-    return this.modelCandidates[this.modelIndex] ?? 'gemini-2.5-flash'
-  }
-
-  private moveToNextModel(): boolean {
-    if (this.modelIndex >= this.modelCandidates.length - 1) return false
-    this.modelIndex += 1
-    this.model = this.buildModel(this.getCurrentModel())
-    console.warn(`[GeminiClient] fallback to model=${this.getCurrentModel()} index=${this.modelIndex}`)
-    return true
-  }
-
-  private async executeWithModelFallback(task: () => Promise<string>): Promise<string> {
-    // Try current model then fallback candidates on model/quota/overload errors.
-    for (;;) {
-      try {
-        return await task()
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error)
-        const canFallback = shouldFallbackForGeminiError({ message })
-        if (!canFallback || !this.moveToNextModel()) {
-          throw error
-        }
-      }
-    }
   }
 
   /**
@@ -280,15 +240,15 @@ export class GeminiClient {
       parts: [{ text: item.content }],
     }))
 
-    const text = await this.executeWithModelFallback(async () => {
-      if (history.length > 0) {
-        const chat = this.model.startChat({ history })
-        const result = await chat.sendMessage(userContent)
-        return result.response.text()
-      }
+    let text: string
+    if (history.length > 0) {
+      const chat = this.model.startChat({ history })
+      const result = await chat.sendMessage(userContent)
+      text = result.response.text()
+    } else {
       const result = await this.model.generateContent(userContent)
-      return result.response.text()
-    })
+      text = result.response.text()
+    }
 
     return this.parseResponse(text)
   }
@@ -301,11 +261,9 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const text = await this.executeWithModelFallback(async () => {
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      return response.text()
-    })
+    const result = await this.model.generateContent(prompt)
+    const response = await result.response
+    const text = response.text()
 
     return this.parseResponse(text)
   }
@@ -318,11 +276,9 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const text = await this.executeWithModelFallback(async () => {
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      return response.text()
-    })
+    const result = await this.model.generateContent(prompt)
+    const response = await result.response
+    const text = response.text()
 
     return this.parseResponse(text)
   }
@@ -334,11 +290,9 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const text = await this.executeWithModelFallback(async () => {
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      return response.text()
-    })
+    const result = await this.model.generateContent(prompt)
+    const response = await result.response
+    const text = response.text()
 
     return this.parseResponse(text)
   }

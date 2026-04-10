@@ -9,10 +9,6 @@ import { executeTool, type AgentToolContext } from '../tools/execute'
 import { AGENT_SYSTEM_PROMPT } from '@/lib/ai/agent-system-prompt'
 import { GeminiClient } from '@/lib/ai/gemini-client'
 import {
-  resolveGeminiModel,
-  shouldFallbackForGeminiError,
-} from '@/lib/ai/model-resolver'
-import {
   buildOutputLanguageInstruction,
   mergeFieldsContextHeader,
   userMessageLocalePrefix,
@@ -24,6 +20,7 @@ import {
 } from '@/lib/editor/contract-result'
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const AI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 const MAX_AGENT_TURNS = 8
 const GEMINI_MAX_RETRIES = 4
 const GEMINI_RETRY_BASE_MS = 900
@@ -43,10 +40,15 @@ interface GeminiContent {
   parts: GeminiPart[]
 }
 
-function buildGeminiApiUrl(modelName: string): string {
+function buildGeminiApiUrl(): string {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is required')
-  return `${GEMINI_API_BASE}/models/${modelName}:generateContent?key=${key}`
+  return `${GEMINI_API_BASE}/models/${AI_MODEL_NAME}:generateContent?key=${key}`
+}
+
+const isThinkingSupported = (modelName: string): boolean => {
+  const normalized = modelName.toLowerCase()
+  return !normalized.includes('tts')
 }
 
 const SESSION_WORKSPACE_UUID_RE =
@@ -188,10 +190,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
-    const modelResolution = await resolveGeminiModel(apiKey)
-    console.info(
-      `[AI ask] selectedModel=${modelResolution.selectedModel} candidates=${modelResolution.modelCandidates.join(',')}`
-    )
     const body = await req.json().catch(() => ({}))
     const {
       userMessage,
@@ -276,11 +274,7 @@ export async function POST(req: NextRequest) {
       | { type: 'error'; message: string }
 
     async function runAgentLoop(push: (event: StreamEvent) => void): Promise<unknown> {
-      let modelIndex = 0
       while (turn < MAX_AGENT_TURNS) {
-        const activeModel =
-          modelResolution.modelCandidates[modelIndex] ??
-          modelResolution.selectedModel
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
 
@@ -294,7 +288,8 @@ export async function POST(req: NextRequest) {
             maxOutputTokens: 8192,
             topP: 0.95,
             topK: 40,
-            ...(process.env.GEMINI_INCLUDE_THOUGHTS !== 'false'
+            ...(process.env.GEMINI_INCLUDE_THOUGHTS !== 'false' &&
+            isThinkingSupported(AI_MODEL_NAME)
               ? {
                   thinkingConfig: {
                     thinkingBudget: 8192,
@@ -305,7 +300,7 @@ export async function POST(req: NextRequest) {
           },
         }
 
-        const geminiUrl = buildGeminiApiUrl(activeModel)
+        const geminiUrl = buildGeminiApiUrl()
         let geminiResponse: Response
         try {
           geminiResponse = await postGeminiWithRetry(
@@ -329,18 +324,6 @@ export async function POST(req: NextRequest) {
               ? responseData.error
               : (responseData?.error as { message?: string })?.message ||
                 `API request failed: ${geminiResponse.status}`
-          const canFallback = shouldFallbackForGeminiError({
-            statusCode: geminiResponse.status,
-            message: errMsg,
-          })
-          const hasNextModel = modelIndex < modelResolution.modelCandidates.length - 1
-          if (canFallback && hasNextModel) {
-            modelIndex += 1
-            console.warn(
-              `[AI ask] fallback model from=${activeModel} to=${modelResolution.modelCandidates[modelIndex]} status=${geminiResponse.status}`
-            )
-            continue
-          }
           throw new Error(errMsg || 'Dịch vụ AI tạm thời không khả dụng.')
         }
 
