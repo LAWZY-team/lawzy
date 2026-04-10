@@ -11,6 +11,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyleKit } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
+import { Indent } from '@/lib/tiptap/extensions/indent'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
@@ -139,8 +140,11 @@ export default function EditorPage({
     }
   }, [currentWorkspace, fetchWorkspaces])
 
+  // Handle document ID locally to avoid Next.js unmounting when navigating from /editor/new
+  const [managedId, setManagedId] = useState(resolvedParams.id)
+
   // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
-  const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
+  const [isCanvasMode, setIsCanvasMode] = useState(managedId !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
@@ -226,7 +230,8 @@ export default function EditorPage({
       cancelled = true
     }
   }, [
-    resolvedParams.id, // Ensure we re-run when id changes
+    resolvedParams.id, // Keep for URL consistency but we mostly use managedId now
+    managedId,
     isTemplateEntry,
     getSession,
     setMergeFieldValues,
@@ -275,7 +280,7 @@ export default function EditorPage({
         }
       }
     }
-  }, [resolvedParams.id, isCanvasMode, isTemplateEntry, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+  }, [managedId, isCanvasMode, isTemplateEntry, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
 
   // Handle auth requirement for guest actions
   const handleAuthRequired = useCallback(() => {
@@ -333,9 +338,14 @@ export default function EditorPage({
 
   useEffect(() => {
     let cancelled = false
-    if (resolvedParams.id !== 'new') {
+    if (managedId !== 'new') {
+      // If we just saved and transitioned smoothly, we already have the state.
+      if (useEditorStore.getState().currentDocument === managedId && !initialLoadRef.current) {
+        return
+      }
+
       const pendingBootstrap = pendingEditorBootstrapRef.current
-      if (pendingBootstrap?.documentId === resolvedParams.id) {
+      if (pendingBootstrap?.documentId === managedId) {
         pendingEditorBootstrapRef.current = null
         applyDocumentBootstrap(pendingBootstrap)
         return () => {
@@ -343,7 +353,7 @@ export default function EditorPage({
         }
       }
       initialLoadRef.current = true
-      api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
+      api.get<Record<string, unknown>>(`/documents/${managedId}`).then((doc) => {
         if (cancelled) return
         if (doc) {
           setCurrentDocument(doc.id as string)
@@ -440,7 +450,7 @@ export default function EditorPage({
     return () => {
       cancelled = true
     }
-  }, [applyDocumentBootstrap, applyTemplateState, contractTemplateId, contractTemplateScope, resolvedParams.id, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
+  }, [applyDocumentBootstrap, applyTemplateState, contractTemplateId, contractTemplateScope, managedId, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {
@@ -490,6 +500,7 @@ export default function EditorPage({
       }),
       Underline,
       MergeFieldExtension,
+      Indent,
     ],
     content: editorContent,
       editorProps: {
@@ -590,7 +601,7 @@ export default function EditorPage({
         })
       }
 
-      if (resolvedParams.id === 'new') {
+      if (managedId === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
@@ -646,33 +657,21 @@ export default function EditorPage({
         clearSession()
 
         setIsDirty(false)
+        setManagedId(newId)
+        setCurrentDocument(newId)
+
         toast.success(t('toast_saved'))
-        pendingEditorBootstrapRef.current = {
-          documentId: newId,
-          editorContent,
-          metadata: {
-            title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
-            type: (sourceMetadata?.type as string | undefined) ?? 'contract',
-            tags: (sourceMetadata?.tags as string[] | undefined) ?? [],
-            riskLevel: (sourceMetadata?.riskLevel as 'low' | 'medium' | 'high' | undefined) ?? 'low',
-            visibility,
-            status,
-            creator: sourceMetadata?.creator as EditorMetadata['creator'],
-          },
-          mergeFieldValues: persistedMergeValues,
-          templateMergeFields: useEditorStore.getState().templateMergeFields,
-          chatMessages,
-        }
 
         if (pendingUrl) {
           router.push(pendingUrl)
         } else {
-          router.replace(`/editor/${newId}`)
+          // Use replaceState to update URL without triggering Next.js page remount
+          window.history.replaceState(null, '', `/editor/${newId}`)
         }
         return
       }
 
-      await api.patch(`/documents/${resolvedParams.id}`, {
+      await api.patch(`/documents/${managedId}`, {
         title: documentTitle,
         status,
         visibility,
@@ -684,11 +683,11 @@ export default function EditorPage({
       // Persist version snapshot to S3/R2 immediately so storage usage counts now.
       try {
         await uploadSnapshot({
-          documentId: resolvedParams.id,
-          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${resolvedParams.id}.json`,
+          documentId: managedId,
+          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${managedId}.json`,
           payload: {
             kind: 'document-draft-snapshot',
-            documentId: resolvedParams.id,
+            documentId: managedId,
             savedAt: new Date().toISOString(),
             title: documentTitle,
             status,
@@ -1476,6 +1475,7 @@ export default function EditorPage({
                   toolsPanelOpen={toolsPanelOpen}
                   onToggleTools={() => setToolsPanelOpen((v) => !v)}
                   onSave={handleSave}
+                  documentId={managedId === 'new' ? null : managedId}
                 />
               </div>
 

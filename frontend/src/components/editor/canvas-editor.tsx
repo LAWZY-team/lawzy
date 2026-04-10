@@ -41,7 +41,12 @@ import {
   AlignJustify,
   Share2,
   FileSearch,
+  List,
+  ListOrdered,
+  Indent,
+  Outdent,
 } from "lucide-react";
+import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -73,8 +78,16 @@ const CONTRACT_BODY_CLASSES = [
   "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2",
   "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1",
   "[&_p]:text-[15px] [&_p]:leading-relaxed [&_p]:mb-3",
+  "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-3",
+  "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-3",
+  "[&_li]:mb-1",
   "[&_.ProseMirror]:font-['Times_New_Roman',_serif]",
   "[&_.merge-field]:inline-flex [&_.merge-field]:align-baseline",
+  "[&_[data-indent='1']]:pl-8",
+  "[&_[data-indent='2']]:pl-16",
+  "[&_[data-indent='3']]:pl-24",
+  "[&_[data-indent='4']]:pl-32",
+  "[&_[data-indent='5']]:pl-40",
 ].join(" ");
 
 const getPublicAppBaseUrl = (): string => {
@@ -102,6 +115,8 @@ interface CanvasEditorProps {
   onToggleTools?: () => void;
   /** Gọi khi chọn "Lưu bản nháp" trong menu */
   onSave?: () => void;
+  /** Document ID for seamless transitions */
+  documentId?: string | null;
 }
 
 export function CanvasEditor({
@@ -114,15 +129,18 @@ export function CanvasEditor({
   onToggleTools,
   onSave,
   onChangeTitle,
+  documentId: propDocumentId,
 }: CanvasEditorProps) {
+  const { t } = useT();
   const [docTitle, setDocTitle] = useState(title);
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? "";
   const params = useParams();
   const documentId =
-    params && typeof (params as { id?: unknown }).id === "string"
+    propDocumentId ||
+    ((params && typeof (params as { id?: unknown }).id === "string")
       ? String((params as { id?: unknown }).id)
-      : "";
+      : "");
 
   useEffect(() => {
     if (title && title !== docTitle) {
@@ -338,8 +356,16 @@ export function CanvasEditor({
     }
     printWindow.document.write(`
       <!DOCTYPE html><html><head><meta charset="utf-8"><title>${docTitle || "Hợp đồng"}</title>
-      <style>body{font-family:system-ui,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
-      h1{font-size:1.5rem;margin:0.5em 0}h2{font-size:1.25rem;margin:0.5em 0}p{margin:0.4em 0}</style></head>
+      <style>
+        body{font-family:system-ui,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
+        h1{font-size:1.5rem;margin:0.5em 0}h2{font-size:1.25rem;margin:0.5em 0}p{margin:0.4em 0}
+        ul,ol{padding-left:20px;margin-bottom:10px}
+        [data-indent="1"]{padding-left:30px}
+        [data-indent="2"]{padding-left:60px}
+        [data-indent="3"]{padding-left:90px}
+        [data-indent="4"]{padding-left:120px}
+        [data-indent="5"]{padding-left:150px}
+      </style></head>
       <body>${html}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
@@ -720,15 +746,23 @@ export function CanvasEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="px-4 py-2 border-b border-border bg-background flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div 
+        className="px-4 py-2 border-b border-border bg-background flex items-center flex-nowrap gap-1 overflow-x-auto min-w-0 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+        onWheel={(e) => {
+          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            e.currentTarget.scrollLeft += e.deltaY;
+            e.preventDefault();
+          }
+        }}
+      >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
-              <span className="text-xs">Kiểu văn bản</span>
+              <span className="text-xs">{t('editor_text_style') || 'Kiểu văn bản'}</span>
               <ChevronDown className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
@@ -737,7 +771,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().setParagraph().run()}
               className="hover:bg-accent"
             >
-              Văn bản thường
+              {t('editor_paragraph') || 'Văn bản thường'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -745,7 +779,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 1
+              {t('editor_heading_1') || 'Tiêu đề 1'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -753,7 +787,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 2
+              {t('editor_heading_2') || 'Tiêu đề 2'}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -761,7 +795,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 3
+              {t('editor_heading_3') || 'Tiêu đề 3'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -771,7 +805,7 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
               <span className="text-xs truncate max-w-[120px]">
                 {fontFamilyLabel}
@@ -804,7 +838,7 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
               <span className="text-xs">{fontSizeLabel}</span>
               <ChevronDown className="w-3 h-3" />
@@ -853,8 +887,8 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent"
-              title="Căn chỉnh"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+              title={t("editor_align_left") || "Căn chỉnh"}
             >
               {editor.isActive({ textAlign: "center" }) ? (
                 <AlignCenter className="w-4 h-4" />
@@ -877,7 +911,7 @@ export function CanvasEditor({
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
                   (editor.isActive({ textAlign: "left" }) || (!editor.isActive({ textAlign: "center" }) && !editor.isActive({ textAlign: "right" }) && !editor.isActive({ textAlign: "justify" }))) && "bg-accent text-foreground"
                 )}
-                title="Căn trái"
+                title={t("editor_align_left")}
               >
                 <AlignLeft className="w-4 h-4" />
               </Button>
@@ -889,7 +923,7 @@ export function CanvasEditor({
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
                   editor.isActive({ textAlign: "center" }) && "bg-accent text-foreground"
                 )}
-                title="Căn giữa"
+                title={t("editor_align_center")}
               >
                 <AlignCenter className="w-4 h-4" />
               </Button>
@@ -901,7 +935,7 @@ export function CanvasEditor({
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
                   editor.isActive({ textAlign: "right" }) && "bg-accent text-foreground"
                 )}
-                title="Căn phải"
+                title={t("editor_align_right")}
               >
                 <AlignRight className="w-4 h-4" />
               </Button>
@@ -913,7 +947,7 @@ export function CanvasEditor({
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
                   editor.isActive({ textAlign: "justify" }) && "bg-accent text-foreground"
                 )}
-                title="Căn đều"
+                title={t("editor_align_justify")}
               >
                 <AlignJustify className="w-4 h-4" />
               </Button>
@@ -926,10 +960,10 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("bold") && "bg-accent text-foreground",
           )}
-          title="In đậm"
+          title={t("editor_bold")}
         >
           <Bold className="w-4 h-4" />
         </Button>
@@ -939,10 +973,10 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("italic") && "bg-accent text-foreground",
           )}
-          title="In nghiêng"
+          title={t("editor_italic")}
         >
           <Italic className="w-4 h-4" />
         </Button>
@@ -952,25 +986,25 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("underline") && "bg-accent text-foreground",
           )}
-          title="Gạch chân"
+          title={t("editor_underline")}
         >
           <UnderlineIcon className="w-4 h-4" />
         </Button>
 
         <div className="h-4 w-px bg-border mx-2"></div>
 
-        {/* <Button
+        <Button
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("bulletList") && "bg-accent text-foreground",
           )}
-          title="Danh sách"
+          title={t("editor_bullet_list")}
         >
           <List className="w-4 h-4" />
         </Button>
@@ -980,23 +1014,43 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("orderedList") && "bg-accent text-foreground",
           )}
-          title="Danh sách số"
+          title={t("editor_ordered_list")}
         >
           <ListOrdered className="w-4 h-4" />
-        </Button> */}
+        </Button>
 
-        <div className="flex-1"></div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().indent().run()}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+          title={t("editor_indent_increase")}
+        >
+          <Indent className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().outdent().run()}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+          title={t("editor_indent_decrease")}
+        >
+          <Outdent className="w-4 h-4" />
+        </Button>
+
+        <div className="h-4 w-px bg-border mx-2 shrink-0"></div>
 
         <Button
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
-          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
-          title="Hoàn tác"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 shrink-0"
+          title={t("editor_undo")}
         >
           <Undo className="w-4 h-4" />
         </Button>
@@ -1006,8 +1060,8 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
-          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
-          title="Làm lại"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 shrink-0"
+          title={t("editor_redo")}
         >
           <Redo className="w-4 h-4" />
         </Button>

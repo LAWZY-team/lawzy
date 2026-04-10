@@ -56,7 +56,12 @@ export async function convertTipTapToDocx(
 
 interface TipTapNode {
   type?: string
-  attrs?: Record<string, unknown> & { level?: number; fieldKey?: string; textAlign?: string }
+  attrs?: Record<string, unknown> & {
+    level?: number;
+    fieldKey?: string;
+    textAlign?: string;
+    indent?: number;
+  }
   content?: TipTapNode[]
   marks?: Array<{ type?: string; attrs?: Record<string, unknown> }>
   text?: string
@@ -75,6 +80,9 @@ function convertNode(node: TipTapNode): DocChild[] {
     }
   }
 
+  const indentValue = node.attrs?.indent ? (node.attrs.indent as number) * 360 : undefined
+  const indent = indentValue ? { left: indentValue } : undefined
+
   switch (node.type) {
     case 'heading': {
       const level = node.attrs?.level || 1
@@ -88,6 +96,7 @@ function convertNode(node: TipTapNode): DocChild[] {
           children: convertInlineContent(node.content || []),
           heading: headingLevel,
           alignment,
+          indent,
           spacing: { before: 240, after: 120 },
         })
       )
@@ -99,6 +108,7 @@ function convertNode(node: TipTapNode): DocChild[] {
         new Paragraph({
           children: convertInlineContent(node.content || []),
           alignment,
+          indent,
           spacing: { after: 120 },
         })
       )
@@ -198,6 +208,7 @@ function convertNode(node: TipTapNode): DocChild[] {
           new Paragraph({
             children: convertInlineContent(node.content),
             alignment,
+            indent,
           })
         )
       }
