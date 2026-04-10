@@ -3,6 +3,8 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { renderSimpleMarkdown } from './utils'
 
+import { useT } from '@/components/i18n-provider'
+
 interface ChatLoadingThinkingProps {
   thinkingSteps: string[]
   thinkingCollapsed: boolean
@@ -14,6 +16,8 @@ export function ChatLoadingThinking({
   thinkingCollapsed,
   onToggleCollapsed,
 }: ChatLoadingThinkingProps) {
+  const { t } = useT()
+
   return (
     <div className="flex flex-col gap-2 min-w-0 flex-1 max-w-[85%] md:max-w-[75%]">
       <button
@@ -27,7 +31,7 @@ export function ChatLoadingThinking({
           <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
         </div>
         <span className="text-xs text-muted-foreground font-medium">
-          Đang suy nghĩ{thinkingSteps.length > 0 ? ` (${thinkingSteps.length} bước)` : '...'}
+          {thinkingSteps.length > 0 ? t('chat_thinking_steps', { count: thinkingSteps.length }) : t('chat_thinking')}
         </span>
         {thinkingSteps.length > 0 && (
           <span className="text-muted-foreground/70 ml-1">

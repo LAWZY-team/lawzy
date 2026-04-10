@@ -334,7 +334,8 @@ export default function EditorPage({
       setChatMessages([])
       initialLoadRef.current = false
     }
-  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {

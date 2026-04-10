@@ -541,6 +541,8 @@ const en: Record<TranslationKey, string> = {
   chat_view_thinking: "View reasoning",
   chat_view_thinking_steps: "View reasoning ({count} steps)",
   chat_hide_thinking: "Hide reasoning",
+  chat_thinking: "Thinking...",
+  chat_thinking_steps: "Thinking ({count} steps)",
   chat_credit_line: "{used} used / {remaining} remaining",
   chat_credit_line_unlimited: "{used} used / Unlimited",
   chat_credit_remaining_only: "{n} credit remaining",

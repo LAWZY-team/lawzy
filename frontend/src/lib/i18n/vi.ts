@@ -523,6 +523,8 @@ const vi = {
   chat_view_thinking: "Xem suy luận",
   chat_view_thinking_steps: "Xem suy luận ({count} bước)",
   chat_hide_thinking: "Ẩn suy luận",
+  chat_thinking: "Đang suy nghĩ...",
+  chat_thinking_steps: "Đang suy nghĩ ({count} bước)",
   chat_credit_line: "{used} đã dùng / {remaining} còn lại",
   chat_credit_line_unlimited: "{used} đã dùng / Không giới hạn",
   chat_credit_remaining_only: "{n} credit còn lại",
