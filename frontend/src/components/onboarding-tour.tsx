@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronRight, ChevronLeft, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import onboardingData from "@/lib/i18n/onboarding.json"
 import { useAuthStore } from "@/stores/auth-store"
+import { useWorkspaceStore } from "@/stores/workspace-store"
 
 import { useOnboardingStore } from "@/stores/onboarding-store"
 
@@ -22,8 +23,6 @@ type Step = {
   route: string
   titleKey: string
   descriptionKey: string
-  isHintOnly?: boolean // If true, only show as a hint near target
-  requiresInteraction?: boolean // If true, automatically enters interaction mode (spotlight)
 }
 
 const STEPS: Step[] = [
@@ -36,16 +35,16 @@ const STEPS: Step[] = [
     descriptionKey: "welcome.description",
   },
   {
-    id: "editor",
-    targetId: "tour-editor-chat",
-    sidebarId: "sidebar--editor-new",
-    route: "/editor/new",
-    titleKey: "editor.title",
-    descriptionKey: "editor.description",
+    id: "workspace",
+    targetId: "",
+    sidebarId: "tour-workspace-create",
+    route: "",
+    titleKey: "workspace.title",
+    descriptionKey: "workspace.description",
   },
   {
     id: "dashboard",
-    targetId: "tour-dashboard-stats",
+    targetId: "",
     sidebarId: "sidebar--dashboard",
     route: "/dashboard",
     titleKey: "dashboard.title",
@@ -53,45 +52,43 @@ const STEPS: Step[] = [
   },
   {
     id: "documents",
-    targetId: "tour-documents-create",
+    targetId: "",
     sidebarId: "sidebar--documents",
     route: "/documents",
     titleKey: "documents.title",
     descriptionKey: "documents.description",
   },
   {
+    id: "fields",
+    targetId: "",
+    sidebarId: "sidebar--fields",
+    route: "/fields",
+    titleKey: "fields.title",
+    descriptionKey: "fields.description",
+  },
+  {
     id: "templates",
-    targetId: "tour-templates-list",
+    targetId: "",
     sidebarId: "sidebar--templates",
     route: "/templates",
     titleKey: "templates.title",
     descriptionKey: "templates.description",
   },
   {
-    id: "settings_trigger",
+    id: "sources",
     targetId: "",
-    sidebarId: "user-menu-trigger",
-    route: "",
-    titleKey: "settings.trigger_title",
-    descriptionKey: "settings.trigger_description",
-    requiresInteraction: true,
+    sidebarId: "sidebar--sources",
+    route: "/sources",
+    titleKey: "sources.title",
+    descriptionKey: "sources.description",
   },
   {
-    id: "settings_dropdown",
+    id: "editor",
     targetId: "",
-    sidebarId: "dropdown-settings-link",
-    route: "/settings",
-    titleKey: "settings.dropdown_title",
-    descriptionKey: "settings.dropdown_description",
-    requiresInteraction: true,
-  },
-  {
-    id: "settings_page",
-    targetId: "tour-settings-content",
-    sidebarId: "",
-    route: "/fields",
-    titleKey: "settings.final_title",
-    descriptionKey: "settings.final_description",
+    sidebarId: "sidebar--editor-new",
+    route: "/editor/new", // Forces navigation explicitly
+    titleKey: "editor.title",
+    descriptionKey: "editor.description",
   },
   {
     id: "finish",
@@ -105,12 +102,13 @@ const STEPS: Step[] = [
 
 export function OnboardingTour() {
   const pathname = usePathname()
-  const { locale } = useT()
+  const router = useRouter()
+  const { locale, setLocale, t } = useT()
   const { isAuthenticated, authResolved, user } = useAuthStore()
+  const workspaces = useWorkspaceStore((s) => s.workspaces)
   const { isActive, currentStepIndex, isCompleted, startTour, stopTour, setStepIndex, completeTour } = useOnboardingStore()
   
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
-  const [isInteracting, setIsInteracting] = useState(false) 
   
   const tOnboarding = (key: string) => {
     const keys = key.split(".")
@@ -122,10 +120,11 @@ export function OnboardingTour() {
   }
 
   const currentStep = STEPS[currentStepIndex]
+  const isWorkspaceRequired = currentStep.id === "workspace" && workspaces.length === 0;
 
   // Update target rect for spotlight
   const updateTargetRect = useCallback(() => {
-    const id = isInteracting ? currentStep.sidebarId : ""
+    const id = currentStep.sidebarId || currentStep.targetId
     if (!id) {
       setTargetRect(null)
       return
@@ -136,7 +135,7 @@ export function OnboardingTour() {
     } else {
       setTargetRect(null)
     }
-  }, [currentStep.sidebarId, isInteracting])
+  }, [currentStep.sidebarId, currentStep.targetId])
 
   const markTourCompleted = useCallback(() => {
     if (user) {
@@ -173,27 +172,23 @@ export function OnboardingTour() {
 
   // Poll for target visibility
   useEffect(() => {
-    if (isActive && isInteracting) {
+    if (isActive) {
       const interval = setInterval(updateTargetRect, 500)
       return () => clearInterval(interval)
     }
-  }, [isActive, isInteracting, updateTargetRect])
-
-  // Sync isInteracting with step requirements
-  useEffect(() => {
-    if (!isActive) return
-    const next = currentStep.requiresInteraction ||
-      (currentStep.route && !pathname.startsWith(currentStep.route))
-    queueMicrotask(() => setIsInteracting(!!next))
-  }, [isActive, currentStepIndex, currentStep.requiresInteraction, currentStep.route, pathname])
+  }, [isActive, updateTargetRect])
 
   const handleNext = useCallback(() => {
     if (currentStepIndex < STEPS.length - 1) {
+      const nextStep = STEPS[currentStepIndex + 1];
+      if (nextStep.route && !pathname.startsWith(nextStep.route)) {
+        router.push(nextStep.route);
+      }
       setStepIndex(currentStepIndex + 1)
     } else {
       markTourCompleted()
     }
-  }, [currentStepIndex, setStepIndex, markTourCompleted])
+  }, [currentStepIndex, setStepIndex, markTourCompleted, pathname, router])
 
   // Special handling for dropdown interaction - Poll for state
   useEffect(() => {
@@ -209,20 +204,13 @@ export function OnboardingTour() {
     }
   }, [isActive, currentStep.id, handleNext])
 
-  // Proceed automatically when pathname matches the target route
-  useEffect(() => {
-    if (isActive && isInteracting && currentStep.route && pathname.startsWith(currentStep.route)) {
-      queueMicrotask(() => {
-        setIsInteracting(false)
-        setTargetRect(null)
-      })
-    }
-  }, [pathname, isActive, isInteracting, currentStep.route])
-
   const handlePrev = () => {
     if (currentStepIndex > 0) {
+      const prevStep = STEPS[currentStepIndex - 1];
+      if (prevStep.route && !pathname.startsWith(prevStep.route)) {
+        router.push(prevStep.route);
+      }
       setStepIndex(currentStepIndex - 1)
-      setIsInteracting(false)
     }
   }
 
@@ -234,10 +222,10 @@ export function OnboardingTour() {
   if (!isActive) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none overflow-hidden">
-      {/* Dim Overlay and Spotlight - Only shown when waiting for interaction */}
+    <div className="fixed inset-0 z-[40] flex items-center justify-center pointer-events-none overflow-hidden">
+      {/* Dim Overlay and Spotlight */}
       <AnimatePresence>
-        {isInteracting && (
+        {(targetRect) && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -274,14 +262,14 @@ export function OnboardingTour() {
       {/* Info Card / Interaction Hint */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${currentStep.id}-${isInteracting}`}
+          key={`${currentStep.id}`}
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ 
             opacity: 1, 
             y: 0, 
             scale: 1,
-            // If interacting, position near sidebar link if possible or just center
-            ...(isInteracting && targetRect ? {
+            // Position near sidebar link if possible
+            ...((targetRect) ? {
                 top: Math.min(Math.max(20, targetRect.top - 20), window.innerHeight - 250),
                 left: targetRect.right + 20,
                 x: 0,
@@ -293,26 +281,28 @@ export function OnboardingTour() {
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
           className={cn(
             "pointer-events-auto w-[400px] max-w-[90vw]",
-            !isInteracting && "relative"
+            !targetRect && "relative"
           )}
         >
           <Card className="shadow-2xl border-primary/20 bg-background/95 backdrop-blur-sm">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0 text-primary">
+            <CardHeader className="pb-0 pt-4 px-6 flex flex-row items-center justify-between space-y-0 text-primary">
               <CardTitle className="text-lg font-bold">
-                {isInteracting 
-                  ? (currentStep.id === "settings_dropdown" ? tOnboarding("settings.dropdown_title") : (locale === "vi" ? "Click để tiếp tục" : "Click to continue"))
-                  : tOnboarding(currentStep.titleKey)}
+                {tOnboarding(currentStep.titleKey)}
               </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-6 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                onClick={() => setLocale(locale === "vi" ? "en" : "vi")}
+              >
+                {locale === "vi" ? "EN" : "VI"}
+              </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2 px-6 pb-2">
               <p className="text-base text-muted-foreground leading-relaxed">
-                {isInteracting 
-                  ? (currentStep.id === "settings_dropdown" ? tOnboarding("settings.dropdown_description") : (locale === "vi" ? `Vui lòng click vào mục ${tOnboarding(currentStep.titleKey)} trên thanh menu để khám phá.` : `Please click on ${tOnboarding(currentStep.titleKey)} in the menu to explore.`))
-                  : tOnboarding(currentStep.descriptionKey)
-                }
+                {tOnboarding(currentStep.descriptionKey)}
               </p>
               
-              {!isInteracting && (
               <div className="mt-6 flex items-center gap-1.5">
                 {STEPS.map((_, i) => (
                   <div 
@@ -324,21 +314,23 @@ export function OnboardingTour() {
                   />
                 ))}
               </div>
-              )}
             </CardContent>
-            {!isInteracting && (
             <CardFooter className="flex justify-between pt-4">
-              <Button variant="ghost" size="sm" onClick={handleSkip} className="text-sm font-medium">
-                {tOnboarding("buttons.skip")}
-              </Button>
+              <div className="flex-1">
+                {!isWorkspaceRequired && (
+                  <Button variant="ghost" size="sm" onClick={handleSkip} className="text-sm font-medium">
+                    {tOnboarding("buttons.skip")}
+                  </Button>
+                )}
+              </div>
               <div className="flex gap-2">
                 {currentStepIndex > 0 && currentStepIndex < STEPS.length - 1 && (
-                  <Button variant="outline" size="sm" onClick={handlePrev}>
+                  <Button variant="outline" size="sm" onClick={handlePrev} disabled={isWorkspaceRequired}>
                     <ChevronLeft className="mr-1 h-4 w-4" />
                     {tOnboarding("buttons.prev")}
                   </Button>
                 )}
-                <Button size="sm" onClick={handleNext} className="min-w-[100px]">
+                <Button size="sm" onClick={handleNext} className="min-w-[100px]" disabled={isWorkspaceRequired}>
                   {currentStepIndex === STEPS.length - 1 ? (
                     <>
                       {tOnboarding("buttons.finish")}
@@ -353,7 +345,6 @@ export function OnboardingTour() {
                 </Button>
               </div>
             </CardFooter>
-            )}
           </Card>
         </motion.div>
       </AnimatePresence>

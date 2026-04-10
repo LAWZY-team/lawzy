@@ -4,31 +4,33 @@
       "title": "Chào mừng bạn đến với Lawzy",
       "description": "Chào mừng bạn sử dụng Lawzy, nền tảng quản lý hợp đồng chuyên nghiệp. Hãy để chúng tôi hướng dẫn bạn qua các chức năng chính."
     },
+    "workspace": {
+      "title": "Tạo không gian làm việc",
+      "description": "Đầu tiên, hãy tạo hoặc chọn Workspace để lưu trữ và quản lý tài liệu nội bộ."
+    },
     "editor": {
-      "title": "Khởi tạo hợp đồng với AI",
-      "description": "Đây là khung chat nơi bạn có thể yêu cầu AI khởi tạo hoặc chỉnh sửa hợp đồng theo yêu cầu riêng của mình."
+      "title": "Tạo hợp đồng mới",
+      "description": "Trang khởi tạo hợp đồng có những câu prompt gợi ý sẵn giúp bạn dễ dàng tạo văn bản."
     },
     "dashboard": {
-      "title": "Bảng điều khiển",
+      "title": "Dashboard",
       "description": "Giúp bạn theo dõi các tài liệu đã tạo, dung lượng lưu trữ và hạn mức quota đã sử dụng của tài khoản."
     },
     "documents": {
-      "title": "Quản lý tài liệu",
-      "description": "Tất cả tài liệu của bạn sẽ được lưu trữ tại đây. Bạn có thể dễ dàng quản lý hoặc tạo hợp đồng mới bằng nút 'Tạo hợp đồng mới'."
+      "title": "Văn bản",
+      "description": "Nơi chứa các hợp đồng được bạn khởi tạo."
+    },
+    "fields": {
+      "title": "Trường thông tin",
+      "description": "Tùy ý thêm các trường thông tin cần lưu trữ lâu dài cho bản thân."
     },
     "templates": {
       "title": "Mẫu hợp đồng",
-      "description": "Thư viện các mẫu hợp đồng pháp lý mới nhất, giúp bạn tiết kiệm thời gian và đảm bảo tính pháp lý."
+      "description": "Hệ thống là các mẫu được cung cấp từ Lawzy, Cộng đồng là các mẫu được chia sẻ giữa người dùng trong nền tảng. Nội bộ là các mẫu được chia sẻ giữa những người cùng workspace với nhau."
     },
-    "settings": {
-      "title": "Cài đặt tài khoản",
-      "description": "Nơi bạn quản lý thông tin cá nhân, gói dịch vụ và các tùy chọn khác.",
-      "trigger_title": "Mở rộng menu",
-      "trigger_description": "Vui lòng click vào biểu tượng người dùng để mở rộng các tùy chọn cài cài đặt.",
-      "dropdown_title": "Chọn Cài đặt",
-      "dropdown_description": "Click vào mục 'Cài đặt' để đi đến trang quản lý tài khoản.",
-      "final_title": "Hoàn tất thiết lập",
-      "final_description": "Tại đây bạn có thể đổi mật khẩu, cập nhật hồ sơ và quản lý thông báo."
+    "sources": {
+      "title": "Nguồn",
+      "description": "Nạp nguồn cho các lần tạo hợp đồng dựa vào các tập tài liệu được cung cấp hướng dẫn trả lời bởi bạn."
     },
     "finish": {
       "title": "Sẵn sàng sử dụng!",
@@ -46,31 +48,33 @@
       "title": "Welcome to Lawzy",
       "description": "Lawzy is your expert legal contract management platform. Let us guide you through the key features to get you started quickly."
     },
+    "workspace": {
+      "title": "Create Workspace",
+      "description": "First, create or select a Workspace to store and manage your internal documents."
+    },
     "editor": {
-      "title": "AI Contract Generator",
-      "description": "Use our intelligent AI chat to generate, review, and edit any legal contract specifically tailored to your needs."
+      "title": "Create New Contract",
+      "description": "Contract generation page containing ready-made prompts to help you easily create documents."
     },
     "dashboard": {
-      "title": "Your Dashboard",
-      "description": "Track your statistics, document status, and workspace usage all in one central place."
+      "title": "Dashboard",
+      "description": "Helps you track your established documents, storage, and quota usage."
     },
     "documents": {
-      "title": "Manage Documents",
-      "description": "All your contracts are stored here. You can easily manage, organize, or create new ones from the 'Create New' button."
+      "title": "Documents",
+      "description": "Where the contracts you establish or upload are organized."
+    },
+    "fields": {
+      "title": "Information Fields",
+      "description": "Add optional long-term fields that can be reused in future documents."
     },
     "templates": {
-      "title": "Contract Library",
-      "description": "Browse our library of template legal contracts for quick starting points on various legal documents."
+      "title": "Contract Templates",
+      "description": "System templates are provided by Lawzy. Community templates are shared among users. Internal templates are visible only to members within your workspace."
     },
-    "settings": {
-      "title": "Account Settings",
-      "description": "Manage your profile, security, notifications, and subscription preferences.",
-      "trigger_title": "Expand Menu",
-      "trigger_description": "Please click on your user profile to expand management options.",
-      "dropdown_title": "Select Settings",
-      "dropdown_description": "Click on 'Settings' to go to the account management page.",
-      "final_title": "Complete Setup",
-      "final_description": "Here you can change your password, update your profile, and manage notifications."
+    "sources": {
+      "title": "Knowledge base",
+      "description": "Upload document sets to provide specific grounding contexts for your AI contract generation."
     },
     "finish": {
       "title": "You're All Set!",
