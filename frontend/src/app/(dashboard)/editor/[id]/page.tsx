@@ -15,7 +15,7 @@ import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
 import { useSidebar } from '@/components/ui/sidebar'
-import { useEditorStore } from '@/stores/editor-store'
+import { useEditorStore, type TemplateMergeField } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
@@ -25,6 +25,7 @@ import { useOnboardingStore } from '@/stores/onboarding-store'
 import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
 import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
+import { getStructuredContractTemplate } from '@/lib/api/contract-templates'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
 import type { DocContent } from '@/types/template'
@@ -49,6 +50,16 @@ import { useT } from '@/components/i18n-provider'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
+type EditorMetadata = ReturnType<typeof useEditorStore.getState>['metadata']
+
+interface PendingEditorBootstrap {
+  documentId: string
+  editorContent: JSONContent
+  metadata: EditorMetadata
+  mergeFieldValues: Record<string, string>
+  templateMergeFields: TemplateMergeField[] | null
+  chatMessages: ChatMessage[]
+}
 
 /** Hợp đồng lưu dạng template (clause/field) cần chuyển sang TipTap khi load */
 function isTemplateFormat(doc: unknown): doc is DocContent {
@@ -76,12 +87,32 @@ export default function EditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ template?: string; draft?: string }>
+  searchParams?: Promise<{
+    template?: string
+    draft?: string
+    contractTemplate?: string
+    contractTemplateScope?: string
+  }>
 }) {
   const router = useRouter()
   const resolvedParams = use(params)
-  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
+  const resolvedSearchParams = use(
+    searchParams ??
+      (Promise.resolve({}) as Promise<{
+        template?: string
+        draft?: string
+        contractTemplate?: string
+        contractTemplateScope?: string
+      }>),
+  )
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
+  const contractTemplateId =
+    typeof resolvedSearchParams.contractTemplate === 'string'
+      ? resolvedSearchParams.contractTemplate
+      : undefined
+  const contractTemplateScope =
+    resolvedSearchParams.contractTemplateScope === 'internal' ? 'internal' : 'community'
+  const isTemplateEntry = !!templateId || !!contractTemplateId
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues, metadata } = useEditorStore()
   const { customFields } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
@@ -128,6 +159,7 @@ export default function EditorPage({
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
   const guestRestoredRef = useRef(false)
   const initialLoadRef = useRef(true)
+  const pendingEditorBootstrapRef = useRef<PendingEditorBootstrap | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
   const [pendingUrl] = useState<string | null>(null)
@@ -159,7 +191,7 @@ export default function EditorPage({
 
   // Restore draft when coming back to /editor/new (guest) OR migrate guest draft into account on login
   useEffect(() => {
-    if (resolvedParams.id !== 'new') return
+    if (resolvedParams.id !== 'new' || isTemplateEntry) return
 
     let cancelled = false
 
@@ -190,6 +222,7 @@ export default function EditorPage({
     }
   }, [
     resolvedParams.id, // Ensure we re-run when id changes
+    isTemplateEntry,
     getSession,
     setMergeFieldValues,
     setTemplateMergeFields,
@@ -203,7 +236,7 @@ export default function EditorPage({
 
   // Save local session periodically on /editor/new
   useEffect(() => {
-    if (resolvedParams.id === 'new' && isCanvasMode) {
+    if (resolvedParams.id === 'new' && isCanvasMode && !isTemplateEntry) {
       const interval = setInterval(() => {
         const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as Window & { __isLoggingOut?: boolean }).__isLoggingOut;
         if (isLoggingOut) return
@@ -237,7 +270,7 @@ export default function EditorPage({
         }
       }
     }
-  }, [resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+  }, [resolvedParams.id, isCanvasMode, isTemplateEntry, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
 
   // Handle auth requirement for guest actions
   const handleAuthRequired = useCallback(() => {
@@ -248,10 +281,65 @@ export default function EditorPage({
     return false
   }, [isAuthenticated])
 
+  const applyTemplateState = useCallback((params: {
+    title: string
+    type: string
+    contentJSON: DocContent
+    mergeFields: Array<{ fieldKey: string; label: string; sampleValue?: string }>
+  }) => {
+    initialLoadRef.current = true
+    setCurrentDocument(null)
+    setChatMessages([])
+    const tipTapContent = templateContentToEditorContent(params.contentJSON)
+    setEditorContent(tipTapContent)
+    updateMetadata({
+      title: params.title,
+      type: params.type,
+      tags: [],
+      riskLevel: 'low',
+      visibility: 'workspace',
+      status: undefined,
+      creator: undefined,
+    })
+    const normalizedFields: TemplateMergeField[] = params.mergeFields.map((field) => ({
+      fieldKey: field.fieldKey,
+      label: field.label,
+      sampleValue: field.sampleValue,
+    }))
+    setTemplateMergeFields(normalizedFields)
+    setMergeFieldValues(
+      Object.fromEntries(
+        normalizedFields.map((field) => [field.fieldKey, field.sampleValue ?? '']),
+      ),
+    )
+    setIsCanvasMode(true)
+  }, [setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
+  const applyDocumentBootstrap = useCallback((bootstrap: PendingEditorBootstrap) => {
+    initialLoadRef.current = true
+    setCurrentDocument(bootstrap.documentId)
+    setTemplateMergeFields(bootstrap.templateMergeFields)
+    setMergeFieldValues(bootstrap.mergeFieldValues)
+    setEditorContent(bootstrap.editorContent)
+    updateMetadata(bootstrap.metadata)
+    setChatMessages(bootstrap.chatMessages)
+    setIsCanvasMode(true)
+  }, [setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
   useEffect(() => {
+    let cancelled = false
     if (resolvedParams.id !== 'new') {
+      const pendingBootstrap = pendingEditorBootstrapRef.current
+      if (pendingBootstrap?.documentId === resolvedParams.id) {
+        pendingEditorBootstrapRef.current = null
+        applyDocumentBootstrap(pendingBootstrap)
+        return () => {
+          cancelled = true
+        }
+      }
       initialLoadRef.current = true
       api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
+        if (cancelled) return
         if (doc) {
           setCurrentDocument(doc.id as string)
           setTemplateMergeFields(null)
@@ -294,48 +382,60 @@ export default function EditorPage({
           })))
         }
       }).catch(() => {
+        if (cancelled) return
         setChatMessages([])
         initialLoadRef.current = false
       })
     } else {
       setCurrentDocument(null)
-      if (templateId) {
-        api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
-          if (template?.contentJSON) {
-            const tipTapContent = templateContentToEditorContent(template.contentJSON as DocContent)
-            setEditorContent(tipTapContent)
-            updateMetadata({
-              title: template.title,
-              type: template.category ?? 'contract',
-              tags: [],
-            })
-            const fields = (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>
-            setTemplateMergeFields(
-              fields.map((f) => ({
-                fieldKey: f.fieldKey,
-                label: f.label,
-                sampleValue: f.sampleValue,
-              }))
-            )
-            setMergeFieldValues(
-              Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
-            )
-            setIsCanvasMode(true)
-          }
+      if (contractTemplateId) {
+        initialLoadRef.current = true
+        setTemplateMergeFields(null)
+        setMergeFieldValues({})
+        setChatMessages([])
+        setEditorContent(getDefaultContent(t("editor_default_title")))
+        getStructuredContractTemplate({
+          id: contractTemplateId,
+          scope: contractTemplateScope,
+        }).then((template) => {
+          if (cancelled || !template?.contentJSON) return
+          applyTemplateState({
+            title: template.title,
+            type: 'contract',
+            contentJSON: template.contentJSON as DocContent,
+            mergeFields: template.mergeFields ?? [],
+          })
         }).catch(() => {})
-        return
+      } else if (templateId) {
+        initialLoadRef.current = true
+        setTemplateMergeFields(null)
+        setMergeFieldValues({})
+        setChatMessages([])
+        setEditorContent(getDefaultContent(t("editor_default_title")))
+        api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
+          if (cancelled || !template?.contentJSON) return
+          applyTemplateState({
+            title: template.title,
+            type: template.category ?? 'contract',
+            contentJSON: template.contentJSON as DocContent,
+            mergeFields: (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>,
+          })
+        }).catch(() => {})
+      } else {
+        setTemplateMergeFields(null)
+        setMergeFieldValues({})
+        setEditorContent(getDefaultContent(t("editor_default_title")))
+        updateMetadata({ title: t("editor_untitled") })
+        // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
+        setIsCanvasMode(false)
+        setChatMessages([])
+        initialLoadRef.current = false
       }
-      setTemplateMergeFields(null)
-      setMergeFieldValues({})
-      setEditorContent(getDefaultContent(t("editor_default_title")))
-      updateMetadata({ title: t("editor_untitled") })
-      // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
-      setIsCanvasMode(false)
-      setChatMessages([])
-      initialLoadRef.current = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues])
+    return () => {
+      cancelled = true
+    }
+  }, [applyDocumentBootstrap, applyTemplateState, contractTemplateId, contractTemplateScope, resolvedParams.id, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {
@@ -542,6 +642,22 @@ export default function EditorPage({
 
         setIsDirty(false)
         toast.success(t('toast_saved'))
+        pendingEditorBootstrapRef.current = {
+          documentId: newId,
+          editorContent,
+          metadata: {
+            title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
+            type: (sourceMetadata?.type as string | undefined) ?? 'contract',
+            tags: (sourceMetadata?.tags as string[] | undefined) ?? [],
+            riskLevel: (sourceMetadata?.riskLevel as 'low' | 'medium' | 'high' | undefined) ?? 'low',
+            visibility,
+            status,
+            creator: sourceMetadata?.creator as EditorMetadata['creator'],
+          },
+          mergeFieldValues: persistedMergeValues,
+          templateMergeFields: useEditorStore.getState().templateMergeFields,
+          chatMessages,
+        }
 
         if (pendingUrl) {
           router.push(pendingUrl)
@@ -606,6 +722,7 @@ export default function EditorPage({
     if (
       isAuthenticated &&
       resolvedParams.id === 'new' &&
+      !isTemplateEntry &&
       guestRestoredRef.current &&
       !isTourActive &&
       !autoSaveTriggeredRef.current
@@ -615,7 +732,7 @@ export default function EditorPage({
         handleSaveDraftToDb('draft')
       }
     }
-  }, [isAuthenticated, resolvedParams.id, isTourActive, editorContent, handleSaveDraftToDb])
+  }, [isAuthenticated, resolvedParams.id, isTemplateEntry, isTourActive, editorContent, handleSaveDraftToDb])
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
@@ -813,6 +930,22 @@ export default function EditorPage({
 
         clearSession()
         toast.success(t('toast_draft_saved'))
+        pendingEditorBootstrapRef.current = {
+          documentId: newId,
+          editorContent,
+          metadata: {
+            title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
+            type: (sourceMetadata?.type as string | undefined) ?? 'contract',
+            tags: (sourceMetadata?.tags as string[] | undefined) ?? [],
+            riskLevel: (sourceMetadata?.riskLevel as 'low' | 'medium' | 'high' | undefined) ?? 'low',
+            visibility: 'workspace',
+            status: undefined,
+            creator: sourceMetadata?.creator as EditorMetadata['creator'],
+          },
+          mergeFieldValues: persistedMergeValues,
+          templateMergeFields: useEditorStore.getState().templateMergeFields,
+          chatMessages,
+        }
         router.replace(`/editor/${newId}`)
         return
       }

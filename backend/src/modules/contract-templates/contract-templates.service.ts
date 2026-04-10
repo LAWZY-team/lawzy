@@ -18,8 +18,13 @@ import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
 import { UsersService } from '../users/users.service';
+import { buildContractTemplateJson } from './build-contract-template-json';
+import { extractContractTemplateText } from './extract-contract-template-text';
+import { sanitizeContractTemplateFields } from './sanitize-contract-template-fields';
 import type {
+  ContractTemplateMetadata,
   ContractTemplateFile,
+  StructuredContractTemplate,
   TemplateScope,
 } from './contract-templates.types';
 
@@ -62,13 +67,7 @@ function getMetadataString(
   return s.length ? s : undefined;
 }
 
-function parseTemplateMeta(input: unknown): {
-  workspaceId?: string;
-  fileName?: string;
-  mimeType?: string;
-  fileSize?: number;
-  legacyId?: string;
-} {
+function parseTemplateMeta(input: unknown): ContractTemplateMetadata {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
   const obj = input as Record<string, unknown>;
   return {
@@ -78,6 +77,22 @@ function parseTemplateMeta(input: unknown): {
     mimeType: typeof obj.mimeType === 'string' ? obj.mimeType : undefined,
     fileSize: typeof obj.fileSize === 'number' ? obj.fileSize : undefined,
     legacyId: typeof obj.legacyId === 'string' ? obj.legacyId : undefined,
+    sourceFileName:
+      typeof obj.sourceFileName === 'string' ? obj.sourceFileName : undefined,
+    processingStatus:
+      typeof obj.processingStatus === 'string'
+        ? (obj.processingStatus as 'ready' | 'failed')
+        : undefined,
+    publishStatus:
+      typeof obj.publishStatus === 'string'
+        ? (obj.publishStatus as 'published' | 'hidden')
+        : undefined,
+    sanitizedFieldCount:
+      typeof obj.sanitizedFieldCount === 'number'
+        ? obj.sanitizedFieldCount
+        : undefined,
+    structuredAt:
+      typeof obj.structuredAt === 'string' ? obj.structuredAt : undefined,
   };
 }
 
@@ -178,6 +193,9 @@ export class ContractTemplatesService {
     updatedAt: Date;
     createdAt: Date;
     metadata: unknown;
+    contentJSON?: unknown;
+    mergeFields?: unknown;
+    mimeType?: string | null;
     creator?: { name: string } | null;
   }): ContractTemplateFile {
     const meta = parseTemplateMeta(row.metadata);
@@ -195,6 +213,12 @@ export class ContractTemplatesService {
       workspaceId: meta.workspaceId ?? null,
       createdBy: row.createdBy,
       creatorName: row.creator?.name ?? null,
+      mimeType: row.mimeType ?? meta.mimeType ?? null,
+      hasStructuredContent:
+        !!row.contentJSON &&
+        Array.isArray((row.mergeFields as unknown[] | undefined) ?? []),
+      processingStatus: meta.processingStatus ?? null,
+      publishStatus: meta.publishStatus ?? null,
     };
   }
 
@@ -218,6 +242,9 @@ export class ContractTemplatesService {
           updatedAt: true,
           createdAt: true,
           metadata: true,
+          contentJSON: true,
+          mergeFields: true,
+          mimeType: true,
           creator: { select: { name: true } },
         },
       });
@@ -257,6 +284,9 @@ export class ContractTemplatesService {
         updatedAt: true,
         createdAt: true,
         metadata: true,
+        contentJSON: true,
+        mergeFields: true,
+        mimeType: true,
         creator: { select: { name: true } },
       },
     });
@@ -286,7 +316,11 @@ export class ContractTemplatesService {
     name?: string;
     description?: string;
   }> {
+    const creator = await this.usersService.findById(params.userId);
     if (params.scope === 'internal') {
+      if (!creator) {
+        throw new NotFoundException('User not found');
+      }
       if (!params.workspaceId) {
         throw new NotFoundException('Workspace not found');
       }
@@ -304,6 +338,22 @@ export class ContractTemplatesService {
         ? `${prefix}${params.workspaceId}/${objectName}`
         : `${prefix}${objectName}`;
 
+    const extracted = await extractContractTemplateText({
+      buffer: params.buffer,
+      fileName: params.originalName || `${safeBase}${params.ext}`,
+      contentType: params.contentType,
+    });
+    const sanitized = sanitizeContractTemplateFields({ text: extracted.text });
+    const structured = buildContractTemplateJson({
+      text: sanitized.sanitizedText,
+      mergeFields: sanitized.mergeFields,
+      defaultTitle: params.name,
+    });
+    if (structured.contentJSON.content.length === 0) {
+      throw new Error('Failed to build structured template content');
+    }
+    const nowIso = new Date().toISOString();
+
     await client.send(
       new PutObjectCommand({
         Bucket: this.getBucket(),
@@ -320,30 +370,49 @@ export class ContractTemplatesService {
         },
       }),
     );
-
-    const created = await this.prisma.template.create({
-      data: {
-        title: params.name,
-        description: params.description,
-        category: 'contract',
-        scope: params.scope,
-        s3Key: key,
-        metadata: {
-          ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
+    try {
+      const created = await this.prisma.template.create({
+        data: {
+          title: params.name,
+          description: params.description,
+          category: 'contract',
+          scope: params.scope,
+          s3Key: key,
           fileName: params.originalName || `${safeBase}${params.ext}`,
           fileSize: params.buffer.length,
-          mimeType: params.contentType,
+          mimeType: extracted.detectedMimeType,
+          contentJSON: structured.contentJSON as any,
+          mergeFields: structured.mergeFields as any,
+          metadata: {
+            ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
+            fileName: params.originalName || `${safeBase}${params.ext}`,
+            fileSize: params.buffer.length,
+            mimeType: extracted.detectedMimeType,
+            sourceFileName: params.originalName || `${safeBase}${params.ext}`,
+            processingStatus: 'ready',
+            publishStatus: 'published',
+            sanitizedFieldCount: sanitized.sanitizedFieldCount,
+            structuredAt: nowIso,
+          },
+          createdBy: creator?.id,
         },
-        createdBy: params.userId,
-      },
-      select: { id: true },
-    });
-    return {
-      key,
-      id: created.id,
-      name: params.name,
-      description: params.description,
-    };
+        select: { id: true },
+      });
+      return {
+        key,
+        id: created.id,
+        name: params.name,
+        description: params.description,
+      };
+    } catch (error) {
+      await this.ensureClient().send(
+        new DeleteObjectCommand({
+          Bucket: this.getBucket(),
+          Key: key,
+        }),
+      );
+      throw error;
+    }
   }
 
   private async resolveDownloadObjectKey(
@@ -515,5 +584,60 @@ export class ContractTemplatesService {
       }
     }
     return { fileName, contentType, size: buffer.length, buffer };
+  }
+
+  async getStructuredTemplateForScope(
+    scope: Extract<TemplateScope, 'community' | 'internal'>,
+    id: string,
+    userId: string,
+  ): Promise<StructuredContractTemplate> {
+    const row = await this.prisma.template.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        scope: true,
+        contentJSON: true,
+        mergeFields: true,
+        metadata: true,
+      },
+    });
+    if (!row || row.scope !== scope) {
+      throw new NotFoundException('Template not found');
+    }
+    if (scope === 'internal') {
+      const meta = parseTemplateMeta(row.metadata);
+      const admin = await this.isAdmin(userId);
+      if (!admin) {
+        if (!meta.workspaceId) {
+          throw new NotFoundException('Template not found');
+        }
+        const hasMembership = await this.workspaceAccess.hasMembership(
+          meta.workspaceId,
+          userId,
+        );
+        if (!hasMembership) {
+          throw new NotFoundException('Template not found');
+        }
+      }
+    }
+    if (
+      !row.contentJSON ||
+      typeof row.contentJSON !== 'object' ||
+      !Array.isArray((row.mergeFields as unknown[] | undefined) ?? [])
+    ) {
+      throw new NotFoundException('Structured template not found');
+    }
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      scope,
+      contentJSON: row.contentJSON as unknown as StructuredContractTemplate['contentJSON'],
+      mergeFields:
+        row.mergeFields as unknown as StructuredContractTemplate['mergeFields'],
+      metadata: parseTemplateMeta(row.metadata),
+    };
   }
 }

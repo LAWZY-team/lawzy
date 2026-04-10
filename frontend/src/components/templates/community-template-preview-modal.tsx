@@ -1,22 +1,28 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { X, Download, Trash2, FileText } from "lucide-react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import { getDownloadUrl, getPreviewUrl, saveTemplateToWorkspace, type ContractTemplateFile } from "@/lib/api/contract-templates"
+import {
+  getDownloadUrl,
+  getPreviewUrl,
+  getStructuredContractTemplate,
+  saveTemplateToWorkspace,
+  type ContractTemplateFile,
+  type ContractTemplateStructured,
+} from "@/lib/api/contract-templates"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { useT } from "@/components/i18n-provider"
 import { useAuthStore } from "@/stores/auth-store"
-
-function isPdf(fileName: string): boolean {
-  return fileName.toLowerCase().endsWith(".pdf")
-}
+import { CommunityTemplateDocumentPreview } from "@/components/templates/community-template-document-preview"
+import { communityContractTemplateFile } from "@/lib/templates/community-contract-template-file"
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
@@ -44,9 +50,43 @@ export function CommunityTemplatePreviewModal({
   const qc = useQueryClient()
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin = currentUser?.roles?.includes("admin")
+  const [structuredTemplate, setStructuredTemplate] = React.useState<ContractTemplateStructured | null>(null)
+  const [isStructuredLoading, setIsStructuredLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    let cancelled = false
+    if (!open || !file || !file.hasStructuredContent) {
+      setStructuredTemplate(null)
+      setIsStructuredLoading(false)
+      return
+    }
+    setIsStructuredLoading(true)
+    void getStructuredContractTemplate({ scope, id: file.id })
+      .then((template) => {
+        if (!cancelled) {
+          setStructuredTemplate(template)
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(error)
+        if (!cancelled) {
+          setStructuredTemplate(null)
+          toast.error(t("tmpl_structured_load_failed"))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsStructuredLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [file?.hasStructuredContent, file?.id, open, scope, t])
+
   if (!file) return null
 
-  const previewSupported = isPdf(file.fileName)
+  const fileTypeLabel = communityContractTemplateFile.getTypeLabel(file.fileName)
 
   return (
     <Modal
@@ -60,6 +100,13 @@ export function CommunityTemplatePreviewModal({
         <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
           <h3 className="font-semibold truncate">{file.fileName}</h3>
           <div className="flex items-center gap-2 shrink-0">
+            {file.hasStructuredContent && (
+              <Button variant="secondary" size="sm" asChild>
+                <Link href={`/editor/new?contractTemplate=${file.id}&contractTemplateScope=${scope}`}>
+                  {t("tmpl_use_this")}
+                </Link>
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -104,20 +151,21 @@ export function CommunityTemplatePreviewModal({
           <div className="flex-1 min-w-[max(360px,55%)] border-r flex flex-col overflow-hidden">
             <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
               <FileText className="h-4 w-4" />
-           
+              {t("tmpl_preview")}
             </div>
             <div className="flex-1 min-h-0">
-              {previewSupported ? (
-                <iframe
-                  key={file.id}
-                  src={getPreviewUrl(scope, file.id)}
-                  className="h-full w-full"
-                  title={file.fileName}
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground p-6 text-center">
-                  {t("tmpl_pdf_preview_only_message")}
+              {file.hasStructuredContent && isStructuredLoading ? (
+                <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                  {t("tmpl_preview_loading")}
                 </div>
+              ) : (
+                <CommunityTemplateDocumentPreview
+                  fileName={file.fileName}
+                  contentJSON={structuredTemplate?.contentJSON ?? null}
+                  downloadUrl={getPreviewUrl(scope, file.id)}
+                  loadingMessage={t("tmpl_preview_loading")}
+                  unsupportedMessage={t("tmpl_preview_not_supported")}
+                />
               )}
             </div>
           </div>
@@ -130,8 +178,15 @@ export function CommunityTemplatePreviewModal({
               <div className="p-4 space-y-4">
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{t("tmpl_type")}</span>
-                  <Badge variant="secondary">{previewSupported ? "PDF" : "FILE"}</Badge>
+                  <Badge variant="secondary">{fileTypeLabel}</Badge>
                 </div>
+
+                {file.hasStructuredContent && (
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground">{t("tmpl_structure_status")}</span>
+                    <Badge variant="outline">{t("tmpl_ready_to_use")}</Badge>
+                  </div>
+                )}
 
                 <Separator />
 

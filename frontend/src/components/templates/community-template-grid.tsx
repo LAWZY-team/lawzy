@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Eye, FileText, Download, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { Eye, FileText, Trash2 } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { ContractTemplateFile } from "@/lib/api/contract-templates"
+import type { ContractTemplateFile, TemplateScope } from "@/lib/api/contract-templates"
 import type { TemplateViewMode } from "./template-filters"
 import { useT } from "@/components/i18n-provider"
 import { useAuthStore } from "@/stores/auth-store"
@@ -25,14 +26,14 @@ function formatBytes(bytes: number): string {
 
 export function CommunityTemplateGrid({
   files,
+  scope,
   onView,
-  onDownload,
   onDelete,
   viewMode = "card",
 }: {
   files: ContractTemplateFile[]
+  scope: Extract<TemplateScope, "community" | "internal">
   onView: (f: ContractTemplateFile) => void
-  onDownload: (f: ContractTemplateFile) => void
   onDelete: (f: ContractTemplateFile) => void
   viewMode?: TemplateViewMode
 }) {
@@ -72,9 +73,10 @@ export function CommunityTemplateGrid({
                 <Eye className="h-4 w-4 mr-1.5" />
                 {t("tmpl_view")}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => onDownload(f)}>
-                <Download className="h-4 w-4 mr-1.5" />
-                {t("common_download")}
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                  {t("tmpl_use")}
+                </Link>
               </Button>
               {(isAdmin || f.createdBy === currentUser?.id) && (
                 <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
@@ -134,9 +136,10 @@ export function CommunityTemplateGrid({
               <Eye className="h-4 w-4 mr-2" />
               {t("tmpl_view")}
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => onDownload(f)}>
-              <Download className="h-4 w-4 mr-2" />
-              {t("common_download")}
+            <Button variant="outline" className="flex-1" asChild>
+              <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                {t("tmpl_use")}
+              </Link>
             </Button>
             {(isAdmin || f.createdBy === currentUser?.id) && (
               <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label={t("common_delete")}>

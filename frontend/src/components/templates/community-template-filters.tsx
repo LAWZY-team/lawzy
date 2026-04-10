@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import type { TemplateViewMode } from "./template-filters"
 import { useT } from "@/components/i18n-provider"
 
-export type CommunityFileType = "all" | "pdf" | "doc" | "docx"
+export type CommunityFileType = "all" | "pdf" | "docx"
 export type CommunitySort = "recent" | "az" | "za"
 
 export function CommunityTemplateFilters({
@@ -70,7 +70,6 @@ export function CommunityTemplateFilters({
             <SelectContent>
               <SelectItem value="all">{t("tmpl_comm_all")}</SelectItem>
               <SelectItem value="pdf">PDF</SelectItem>
-              <SelectItem value="doc">DOC</SelectItem>
               <SelectItem value="docx">DOCX</SelectItem>
             </SelectContent>
           </Select>

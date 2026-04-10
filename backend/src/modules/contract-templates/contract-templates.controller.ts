@@ -37,7 +37,7 @@ function parseScope(scope: string): TemplateScope {
   );
 }
 
-const ALLOWED_EXT = new Set(['.pdf']);
+const ALLOWED_EXT = new Set(['.pdf', '.docx']);
 function sanitizeFilenameForHeader(input: string): string {
   if (!input) return 'download';
   // Loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
@@ -72,7 +72,7 @@ export class ContractTemplatesController {
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
-          return cb(new Error('Only PDF is allowed'), false);
+          return cb(new Error('Only PDF and DOCX are allowed'), false);
         }
         cb(null, true);
       },
@@ -89,7 +89,7 @@ export class ContractTemplatesController {
     }
     const ext = extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      throw new BadRequestException('Only PDF is allowed');
+      throw new BadRequestException('Only PDF and DOCX are allowed');
     }
 
     const defaultName = (file.originalname || 'template')
@@ -134,7 +134,7 @@ export class ContractTemplatesController {
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
-          return cb(new Error('Only PDF is allowed'), false);
+          return cb(new Error('Only PDF and DOCX are allowed'), false);
         }
         cb(null, true);
       },
@@ -152,7 +152,7 @@ export class ContractTemplatesController {
     }
     const ext = extname(file.originalname || '').toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      throw new BadRequestException('Only PDF is allowed');
+      throw new BadRequestException('Only PDF and DOCX are allowed');
     }
     if (!workspaceId) {
       throw new BadRequestException('workspaceId is required');
@@ -230,6 +230,26 @@ export class ContractTemplatesController {
       }
       throw e;
     }
+  }
+
+  @Get(':scope/:id/structured')
+  @UseGuards(JwtAuthGuard)
+  async getStructuredTemplate(
+    @Request() req: AuthRequest,
+    @Param('scope') scopeRaw: string,
+    @Param('id') id: string,
+  ) {
+    const scope = parseScope(scopeRaw);
+    if (scope !== 'community' && scope !== 'internal') {
+      throw new BadRequestException(
+        'Structured contract templates are only available for community|internal scopes',
+      );
+    }
+    return this.service.getStructuredTemplateForScope(
+      scope,
+      id,
+      req.user.userId,
+    );
   }
 
   @Delete('community/:id')

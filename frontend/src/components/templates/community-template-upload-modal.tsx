@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import type { ContractTemplateFile } from "@/lib/api/contract-templates"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
+import { communityContractTemplateFile } from "@/lib/templates/community-contract-template-file"
+
 
 function baseNameFromFile(file: File): string {
   return file.name.replace(/\.[^/.]+$/, "").trim()
@@ -60,8 +62,8 @@ export function CommunityTemplateUploadModal({
   }, [open])
 
   const onPickFile = (f: File | null) => {
-    if (f && !f.name.toLowerCase().endsWith(".pdf")) {
-      toast.error(t("tmpl_pdf_only"))
+    if (f && !communityContractTemplateFile.isSupported(f.name)) {
+      toast.error(t("tmpl_upload_supported_types"))
       setFile(null)
       return
     }
@@ -99,16 +101,19 @@ export function CommunityTemplateUploadModal({
           <Label>{t("files_table_name")}</Label>
           <Input
             type="file"
-            accept=".pdf,application/pdf"
+            accept={communityContractTemplateFile.accept}
             onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
           />
           {file && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span className="truncate">{file.name}</span>
+              <span>({communityContractTemplateFile.getTypeLabel(file.name)})</span>
             </div>
           )}
         </div>
+
+
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
