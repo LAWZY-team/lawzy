@@ -15,96 +15,27 @@ export interface SanitizedContractTemplateText {
 }
 
 const LABEL_HINTS = [
-  'ten',
-  'ho ten',
-  'full name',
-  'legal name',
-  'company name',
-  'party name',
-  'name',
-  'cong ty',
-  'doanh nghiep',
-  'company',
-  'enterprise',
-  'organization',
-  'dia chi',
-  'address',
-  'registered address',
-  'business address',
-  'email',
-  'dien thoai',
-  'so dien thoai',
-  'phone',
-  'telephone',
-  'mobile',
-  'contact number',
-  'mst',
-  'ma so thue',
-  'ma so doanh nghiep',
-  'tax',
-  'tax code',
-  'tax id',
-  'tax identification number',
-  'business registration number',
-  'registration number',
-  'fax',
-  'website',
-  'ngay sinh',
-  'date of birth',
-  'birthday',
-  'cccd',
-  'cmnd',
-  'ho chieu',
-  'passport',
-  'passport number',
-  'id number',
-  'identity card',
-  'quoc tich',
-  'nationality',
-  'chuc vu',
-  'dai dien',
-  'nguoi dai dien',
-  'title',
-  'position',
-  'job title',
-  'representative',
-  'legal representative',
-  'authorized representative',
-  'tai khoan',
-  'ngan hang',
-  'chi nhanh',
-  'account',
-  'account number',
-  'bank',
-  'bank account',
-  'bank name',
-  'branch',
-  'noi cap',
-  'ngay cap',
-  'issued by',
-  'issue date',
-  'issued date',
-  'ben a',
-  'ben b',
-  'nguoi lao dong',
-  'nguoi su dung lao dong',
-  'seller',
-  'buyer',
-  'provider',
-  'customer',
-  'employee',
-  'employer',
-  'contractor',
-  'client',
-  'service provider',
-  'signing',
-  'ngay ky',
-  'dia diem ky',
-  'signing date',
-  'signing place',
-  'signing location',
-  'effective date',
-  'commencement date',
+  'ten', 'ho ten', 'full name', 'legal name', 'company name', 'party name', 'name',
+  'cong ty', 'doanh nghiep', 'company', 'enterprise', 'organization',
+  'dia chi', 'address', 'registered address', 'business address',
+  'email', 'dien thoai', 'so dien thoai', 'phone', 'telephone', 'mobile',
+  'contact number', 'mst', 'ma so thue', 'ma so doanh nghiep', 'tax',
+  'tax code', 'tax id', 'tax identification number', 'business registration number',
+  'registration number', 'fax', 'website', 'ngay sinh', 'date of birth',
+  'birthday', 'cccd', 'cmnd', 'ho chieu', 'passport', 'passport number',
+  'id number', 'identity card', 'quoc tich', 'nationality', 'chuc vu',
+  'dai dien', 'nguoi dai dien', 'title', 'position', 'job title',
+  'representative', 'legal representative', 'authorized representative',
+  'tai khoan', 'ngan hang', 'chi nhanh', 'account', 'account number', 'bank',
+  'bank account', 'bank name', 'branch', 'noi cap', 'ngay cap', 'issued by',
+  'issue date', 'issued date', 'ben a', 'ben b', 'nguoi lao dong',
+  'nguoi su dung lao dong', 'seller', 'buyer', 'provider', 'customer',
+  'employee', 'employer', 'contractor', 'client', 'service provider',
+  'signing', 'ngay ky', 'dia diem ky', 'signing date', 'signing place',
+  'signing location', 'effective date', 'commencement date',
+  'gia thue', 'tien thue', 'gia tri', 'thanh toan', 'dat coc', 'tien coc',
+  'so tien', 'tien nha', 'chu tai khoan', 'so tai khoan', 'ngay thanh toan',
+  'thoi han', 'ngay het han', 'ngay bat dau', 'ngay ket thuc', 'phi', 'stk'
 ];
 
 const FIELD_TYPE_RULES: Array<{
@@ -112,23 +43,19 @@ const FIELD_TYPE_RULES: Array<{
   dataType: MergeFieldDataType;
 }> = [
   {
-    pattern:
-      /(ngay|date|sinh|ky|cap|birthday|effective date|commencement date|issue date|issued date)/i,
+    pattern: /(ngay|date|sinh|ky|cap|birthday|effective date|commencement date|issue date|issued date|thoi han)/i,
     dataType: 'date',
   },
   {
-    pattern:
-      /(gia|tong|phi|tien|amount|price|salary|luong|fee|payment|compensation|remuneration|deposit)/i,
+    pattern: /(gia|tong|phi|tien|amount|price|salary|luong|fee|payment|compensation|remuneration|deposit|dat coc)/i,
     dataType: 'currency',
   },
   {
-    pattern:
-      /(so luong|quantity|number|serial number|registration number|passport number|id number|tax id|phone number|account number|so)/i,
+    pattern: /(so luong|quantity|number|serial number|registration number|passport number|id number|tax id|phone number|account number|so|stk)/i,
     dataType: 'number',
   },
   {
-    pattern:
-      /(noi dung|mo ta|description|pham vi|address|scope|details|content|service description|goods description)/i,
+    pattern: /(noi dung|mo ta|description|pham vi|address|scope|details|content|service description|goods description|dia chi)/i,
     dataType: 'text',
   },
 ];
@@ -160,19 +87,31 @@ function isLikelyFieldLabel(label: string, value: string): boolean {
   ) {
     return false;
   }
-  if (label.length < 2 || label.length > 60) return false;
+  if (label.length < 2 || label.length > 120) return false;
   if (!value.trim()) return false;
-  if (value.length > 120) return false;
+  
   if (LABEL_HINTS.some((hint) => foldedLabel.includes(hint))) return true;
+  
   const labelWordCount = foldedLabel.split(/\s+/).filter(Boolean).length;
-  if (labelWordCount > 6) return false;
-  if (!/[a-zA-ZÀ-ỹ]/.test(label)) return false;
-  return /^(?:[A-ZÀ-Ỹ][\wÀ-ỹ]*\s*){1,6}$/u.test(label.trim());
+  if (labelWordCount > 15) return false;
+  
+  // Reject common sentence endings or paragraph lead-in
+  if (/(\bnhư sau\b|\bgồm\b|\bcác bước\b|\bquy định\b|\bsau đây\b)$/i.test(label.trim())) {
+    return false;
+  }
+  
+  if (value.length <= 100 && labelWordCount <= 15) {
+    if (labelWordCount <= 6) return true;
+    if (value.length <= 60) return true;
+  }
+
+  return /^(?:[A-ZÀ-Ỹ][\wÀ-ỹ]*\s*){1,10}$/u.test(label.trim());
 }
 
 function inferDataType(label: string): MergeFieldDataType {
+  const foldedLabel = foldVi(label);
   return (
-    FIELD_TYPE_RULES.find((rule) => rule.pattern.test(label))?.dataType ??
+    FIELD_TYPE_RULES.find((rule) => rule.pattern.test(foldedLabel))?.dataType ??
     'string'
   );
 }
@@ -218,7 +157,7 @@ function createFieldMatch(params: {
   return {
     field: {
       fieldKey,
-      label: cleanedLabel,
+      label: cleanedLabel || 'Nhập giá trị',
       dataType: inferDataType(cleanedLabel),
       required: false,
     },
@@ -234,8 +173,9 @@ function sanitizeSegments(params: {
   const segments = params.line.split(/(?<=;)/);
   let sanitizedCount = 0;
   const sanitizedSegments = segments.map((segment) => {
+    // Allows matching up to 120 chars for labels
     const match = segment.match(
-      /^(\s*[-*]?\s*)([^:;\n]{2,60}?)(\s*:\s*)([^;\n]+?)(\s*;?\s*)$/,
+      /^(\s*[-*]?\s*)([^:;\n]{2,120}?)(\s*:\s*)([^;\n]+?)(\s*;?\s*)$/
     );
     if (!match) return segment;
     const [, prefix, rawLabel, separator, rawValue, suffix] = match;
@@ -256,6 +196,37 @@ function sanitizeSegments(params: {
   };
 }
 
+function sanitizeInlineValues(params: {
+  line: string;
+  existingKeys: Set<string>;
+  mergeFields: MergeFieldDefinition[];
+}): { sanitizedLine: string; sanitizedCount: number } {
+  let { line, existingKeys, mergeFields } = params;
+  let sanitizedCount = 0;
+
+  // 1. Currency parsing (e.g. 34.000.000 VNĐ (Ba mươi bốn triệu đồng))
+  const moneyRegex = /(?:\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\s*(?:VNĐ|VND|đồng|dong|đ|USD|EUR))(?![a-zA-ZÀ-ỹ])(?:\s*\([^)]+\))?/gi;
+  line = line.replace(moneyRegex, (match) => {
+    const fieldMatch = createFieldMatch({ label: 'Số tiền', existingKeys });
+    fieldMatch.field.dataType = 'currency';
+    mergeFields.push(fieldMatch.field);
+    sanitizedCount++;
+    return fieldMatch.placeholder;
+  });
+
+  // 2. Date parsing (e.g. ngày 01 tháng 03 năm 2025, or 01/03/2025)
+  const dateRegex = /(?:(?:ng[aà]y\s+)?(?:0?[1-9]|[12][0-9]|3[01])\s*[-/.]\s*(?:0?[1-9]|1[012])\s*[-/.]\s*(?:19|20)\d\d|(?:ng[aà]y)\s+(?:0?[1-9]|[12][0-9]|3[01])\s+(?:th[aá]ng)\s+(?:0?[1-9]|1[012])\s+(?:n[aă]m)\s+(?:19|20)\d\d)/gi;
+  line = line.replace(dateRegex, (match) => {
+    const fieldMatch = createFieldMatch({ label: 'Ngày tháng năm', existingKeys });
+    fieldMatch.field.dataType = 'date';
+    mergeFields.push(fieldMatch.field);
+    sanitizedCount++;
+    return fieldMatch.placeholder;
+  });
+
+  return { sanitizedLine: line, sanitizedCount };
+}
+
 export const sanitizeContractTemplateFields = ({
   text,
 }: {
@@ -265,15 +236,26 @@ export const sanitizeContractTemplateFields = ({
   const existingKeys = new Set<string>();
   const lines = text.split(/\r?\n/);
   let sanitizedFieldCount = 0;
+  
   const sanitizedLines = lines.map((line) => {
-    const { sanitizedLine, sanitizedCount } = sanitizeSegments({
+    // 1. Process inline structural label segments (Label: Value)
+    const { sanitizedLine: postSegmentLine, sanitizedCount: count1 } = sanitizeSegments({
       line,
       existingKeys,
       mergeFields,
     });
-    sanitizedFieldCount += sanitizedCount;
-    return sanitizedLine;
+    
+    // 2. Fallback to process free-floating currency / date patterns
+    const { sanitizedLine: postInlineLine, sanitizedCount: count2 } = sanitizeInlineValues({
+      line: postSegmentLine,
+      existingKeys,
+      mergeFields,
+    });
+    
+    sanitizedFieldCount += (count1 + count2);
+    return postInlineLine;
   });
+  
   const sanitizedText = sanitizedLines
     .join('\n')
     .replace(/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/gmi, '')
@@ -281,6 +263,7 @@ export const sanitizeContractTemplateFields = ({
     .replace(/^\s*Page\s+\d+\s+of\s+\d+\s*$/gmi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+    
   return {
     sanitizedText,
     mergeFields,
