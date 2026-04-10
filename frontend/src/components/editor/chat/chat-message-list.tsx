@@ -5,10 +5,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { ChatLoadingThinking } from "./chat-loading-thinking";
 import { QuestionnaireForm } from "./questionnaire-form";
+import { ContractTypeCards } from "./contract-type-cards";
 import type { ChatMessage } from "./types";
 import type { QuestionnaireSchema } from "@/types/questionnaire";
 import type { UserCustomField } from "@/stores/user-fields-store";
 import type { WorkspaceFieldItem } from "@/hooks/workspaces/use-workspace-fields";
+import type { ContractTypeId } from "@/lib/editor/contract-questionnaires";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useT } from "@/components/i18n-provider";
@@ -37,6 +39,7 @@ interface ChatMessageListProps {
   expandedThinkingId: string | null;
   onToggleThinking: (id: string) => void;
   onQuickAction: (text: string) => void;
+  onContractTypeSelect?: (contractTypeId: ContractTypeId) => void;
   activeQuestionnaire?: QuestionnaireSchema | null;
   onQuestionnaireSubmit?: (values: Record<string, string>) => void;
   onQuestionnaireSkip?: () => void;
@@ -57,6 +60,7 @@ export function ChatMessageList({
   expandedThinkingId,
   onToggleThinking,
   onQuickAction,
+  onContractTypeSelect,
   activeQuestionnaire,
   onQuestionnaireSubmit,
   onQuestionnaireSkip,
@@ -70,34 +74,52 @@ export function ChatMessageList({
     <ScrollArea ref={scrollAreaRef} className="flex-1 w-full min-h-0">
       <div
         className={cn(
-          "px-4 py-6 md:px-6 space-y-8 w-full pb-6",
-          isCanvasMode ? "max-w-none" : "max-w-3xl mx-auto"
+          "w-full pb-6",
+          messages.length === 0
+            ? "px-6 py-8 md:px-10"
+            : cn(
+                "px-4 py-6 md:px-6 space-y-8",
+                isCanvasMode ? "max-w-none" : "max-w-3xl mx-auto",
+              ),
         )}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-in fade-in duration-700">
-            <div className="space-y-2 max-w-md">
+          <div className="flex flex-col items-center w-full text-center space-y-8 animate-in fade-in duration-700">
+            <div className="flex flex-col items-center space-y-2">
               <Image
-                width={90}
-                height={90}
+                width={72}
+                height={72}
                 src="/logo/lawzy-logo-whitebg.png"
                 alt="Lawzy"
                 className="object-contain"
               />
-              <p className="text-muted-foreground">{t("chat_empty_greeting")}</p>
+              <p className="text-muted-foreground text-sm">{t("chat_empty_greeting")}</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-              {QUICK_ACTION_KEYS.map((action) => (
-                <button
-                  key={action.labelKey}
-                  type="button"
-                  className="p-4 text-sm text-left bg-background hover:bg-accent border border-border rounded-xl transition-all flex items-center gap-3 text-foreground group"
-                  onClick={() => onQuickAction(t(action.promptKey))}
-                >
-                  <span>{t(action.labelKey)}</span>
-                </button>
-              ))}
+            {onContractTypeSelect && (
+              <div className="w-full max-w-4xl mx-auto">
+                <ContractTypeCards onSelect={onContractTypeSelect} />
+              </div>
+            )}
+
+            <div className="w-full max-w-2xl mx-auto space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">hoặc thử nhanh với AI</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {QUICK_ACTION_KEYS.map((action) => (
+                  <button
+                    key={action.labelKey}
+                    type="button"
+                    className="p-3.5 text-sm text-left bg-card hover:bg-accent border border-border rounded-xl transition-all text-foreground"
+                    onClick={() => onQuickAction(t(action.promptKey))}
+                  >
+                    <span>{t(action.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
