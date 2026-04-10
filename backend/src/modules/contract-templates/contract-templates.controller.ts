@@ -68,7 +68,7 @@ export class ContractTemplatesController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 50 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
@@ -125,12 +125,13 @@ export class ContractTemplatesController {
     };
   }
 
+  // limit file size 50MB
   @Post('internal')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 50 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const ext = extname(file.originalname || '').toLowerCase();
         if (!ALLOWED_EXT.has(ext)) {
