@@ -23,6 +23,7 @@ const vi = {
   sidebar_admin_users: "Người dùng",
   sidebar_admin_storage: "Dung lượng",
   sidebar_help_center: "Trung tâm trợ giúp",
+  sidebar_replay_tour: "Xem lại hướng dẫn",
   sidebar_inbox: "Liên hệ",
   sidebar_admin_plans: "Gói",
   sidebar_admin_relations: "Quan hệ",

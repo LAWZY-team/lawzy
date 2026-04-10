@@ -26,6 +26,7 @@ const en: Record<TranslationKey, string> = {
   sidebar_admin_users: "Users",
   sidebar_admin_storage: "Storage",
   sidebar_help_center: "Help Center",
+  sidebar_replay_tour: "Replay guide",
   sidebar_inbox: "Contacts",
   sidebar_admin_plans: "Plans",
   // Admin grouped (CRM/CMS style)

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronRight, LifeBuoy, Lock } from "lucide-react"
+import { ChevronRight, LifeBuoy, Lock, BookOpen } from "lucide-react"
 
 import {
   Collapsible,
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import { useAuthStore } from "@/stores/auth-store"
 import { useSidebarDisplayStore } from "@/stores/sidebar-display-store"
+import { useOnboardingStore } from "@/stores/onboarding-store"
 
 function isNavLink(item: NavLink | NavCollapsible): item is NavLink {
   return "href" in item && !("items" in item)
@@ -224,6 +225,7 @@ export function AppSidebar() {
   const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const isVisible = useSidebarDisplayStore((s) => s.isVisible)
+  const startTour = useOnboardingStore((s) => s.startTour)
   const isAdmin = user?.roles?.some((r) => r.toLowerCase() === "admin") ?? false
   const navGroups = React.useMemo(() => {
     const baseFiltered = baseNavGroups.map((g) =>
@@ -265,6 +267,22 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter id="sidebar-user-nav">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={t("sidebar_replay_tour")}
+              onClick={() => {
+                if (user) {
+                  localStorage.removeItem(`lawzy_onboarding_completed_${user.id}`)
+                }
+                startTour()
+              }}
+            >
+              <BookOpen className={cn("h-4 w-4 shrink-0", state === "collapsed" && "mx-auto")} />
+              <span className={cn("truncate", state === "collapsed" && "hidden")}>
+                {t("sidebar_replay_tour")}
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <HelpCenterPopover>
               <SidebarMenuButton

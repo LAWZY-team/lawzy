@@ -104,7 +104,7 @@ export function CommunityTemplatePreviewModal({
           <div className="flex-1 min-w-[max(360px,55%)] border-r flex flex-col overflow-hidden">
             <div className="px-3 py-2 border-b text-sm font-medium flex items-center gap-2 shrink-0">
               <FileText className="h-4 w-4" />
-              {t("tmpl_preview")}
+           
             </div>
             <div className="flex-1 min-h-0">
               {previewSupported ? (

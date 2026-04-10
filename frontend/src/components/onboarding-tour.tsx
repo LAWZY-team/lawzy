@@ -147,6 +147,10 @@ export function OnboardingTour() {
   useEffect(() => {
     if (!authResolved || !isAuthenticated || !user) return
     
+    // Chỉ khởi chạy tour nếu đang ở trong khu vực ứng dụng (Dashboard)
+    const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor)/.test(pathname)
+    if (!isAppRoute) return
+    
     const storageKey = `lawzy_onboarding_completed_${user.id}`
     const hasCompletedLocal = localStorage.getItem(storageKey) === 'true'
     
@@ -168,7 +172,7 @@ export function OnboardingTour() {
       }
       startTour()
     }
-  }, [isAuthenticated, authResolved, isCompleted, isActive, user, startTour, completeTour])
+  }, [isAuthenticated, authResolved, isCompleted, isActive, user, startTour, completeTour, pathname])
 
   // Poll for target visibility
   useEffect(() => {
@@ -220,6 +224,9 @@ export function OnboardingTour() {
   }
 
   if (!isActive) return null
+
+  const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor)/.test(pathname)
+  if (!isAppRoute) return null
 
   return (
     <div className="fixed inset-0 z-[40] flex items-center justify-center pointer-events-none overflow-hidden">
