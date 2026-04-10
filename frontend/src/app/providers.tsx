@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { I18nProvider, useT } from "@/components/i18n-provider"
 import type { Locale } from "@/lib/i18n"
-// import { OnboardingTour } from "@/components/onboarding-tour"
+import { OnboardingTour } from "@/components/onboarding-tour"
 import { useAuthStore } from "@/stores/auth-store"
 import { toast } from "sonner"
 
@@ -38,10 +38,9 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLocale={initialLocale}>
         {children}
-        {/* <OnboardingTour /> */}
+        <OnboardingTour />
         <UnauthorizedHandler />
       </I18nProvider>
     </QueryClientProvider>
   )
 }
-
