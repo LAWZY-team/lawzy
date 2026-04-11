@@ -21,6 +21,7 @@ import { UsersService } from '../users/users.service';
 import { buildContractTemplateJson } from './build-contract-template-json';
 import { extractContractTemplateText } from './extract-contract-template-text';
 import { sanitizeContractTemplateFields } from './sanitize-contract-template-fields';
+import { AiSanitizerService } from './ai-sanitizer.service';
 import type {
   ContractTemplateMetadata,
   ContractTemplateFile,
@@ -43,13 +44,24 @@ function prefixForScope(scope: TemplateScope): string {
 
 function sanitizeHeaderValue(input: string | undefined): string | undefined {
   if (!input) return undefined;
+  // Chuẩn hóa không dấu trước khi lọc ASCII để tránh mất ký tự
+  const normalized = removeAccents(input);
   // loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản
-  const cleaned = input.replace(/[\r\n]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+  const cleaned = normalized.replace(/[\r\n]/g, ' ').replace(/[^\x20-\x7E]/g, '');
   return cleaned.trim().slice(0, 200); // giới hạn độ dài cho chắc
 }
 
+function removeAccents(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
 function sanitizeBaseName(input: string): string {
-  const trimmed = input.trim();
+  const normalized = removeAccents(input);
+  const trimmed = normalized.trim();
   const noExt = trimmed.replace(/\.[^/.]+$/, '');
   const collapsed = noExt.replace(/\s+/g, '-');
   const cleaned = collapsed.replace(/[\\/:*?"<>|]+/g, '').replace(/-+/g, '-');
@@ -102,6 +114,7 @@ export class ContractTemplatesService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly workspaceAccess: WorkspaceAccessService,
+    private readonly aiSanitizer: AiSanitizerService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client | null,
   ) {}
 
@@ -343,7 +356,10 @@ export class ContractTemplatesService {
       fileName: params.originalName || `${safeBase}${params.ext}`,
       contentType: params.contentType,
     });
-    const sanitized = sanitizeContractTemplateFields({ text: extracted.text });
+    const sanitized = await sanitizeContractTemplateFields({
+      text: extracted.text,
+      aiSanitizer: this.aiSanitizer,
+    });
     const structured = buildContractTemplateJson({
       text: sanitized.sanitizedText,
       mergeFields: sanitized.mergeFields,
@@ -370,22 +386,23 @@ export class ContractTemplatesService {
         },
       }),
     );
+    const safeTitle = removeAccents(params.name);
     try {
       const created = await this.prisma.template.create({
         data: {
-          title: params.name,
+          title: safeTitle,
           description: params.description,
           category: 'contract',
           scope: params.scope,
           s3Key: key,
-          fileName: params.originalName || `${safeBase}${params.ext}`,
+          fileName: `${sanitizeBaseName(params.originalName || params.name)}${params.ext}`,
           fileSize: params.buffer.length,
           mimeType: extracted.detectedMimeType,
           contentJSON: structured.contentJSON as any,
           mergeFields: structured.mergeFields as any,
           metadata: {
             ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
-            fileName: params.originalName || `${safeBase}${params.ext}`,
+            fileName: `${sanitizeBaseName(params.originalName || params.name)}${params.ext}`,
             fileSize: params.buffer.length,
             mimeType: extracted.detectedMimeType,
             sourceFileName: params.originalName || `${safeBase}${params.ext}`,

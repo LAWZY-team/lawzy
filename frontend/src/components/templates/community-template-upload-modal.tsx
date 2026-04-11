@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Upload, FileText } from "lucide-react"
+import { Upload, FileText, Loader2 } from "lucide-react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import type { ContractTemplateFile } from "@/lib/api/contract-templates"
 import { toast } from "sonner"
 import { useT } from "@/components/i18n-provider"
 import { communityContractTemplateFile } from "@/lib/templates/community-contract-template-file"
+import { cn } from "@/lib/utils"
 
 
 function baseNameFromFile(file: File): string {
@@ -77,13 +78,14 @@ export function CommunityTemplateUploadModal({
 
   return (
     <Modal open={open} onClose={onClose} size="lg" title={t("tmpl_comm_upload_title")}>
-      <div className="p-6 space-y-5">
+      <div className={cn("p-6 space-y-5 transition-opacity", isSubmitting && "opacity-60")}>
         <div className="space-y-2">
           <Label>{t("tmpl_comm_name")}</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("tmpl_comm_name_placeholder")}
+            disabled={isSubmitting}
           />
         </div>
 
@@ -94,6 +96,7 @@ export function CommunityTemplateUploadModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t("tmpl_comm_desc_placeholder")}
             rows={3}
+            disabled={isSubmitting}
           />
         </div>
 
@@ -103,6 +106,7 @@ export function CommunityTemplateUploadModal({
             type="file"
             accept={communityContractTemplateFile.accept}
             onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            disabled={isSubmitting}
           />
           {file && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -125,8 +129,17 @@ export function CommunityTemplateUploadModal({
             }
             disabled={!canSubmit}
           >
-            <Upload className="h-4 w-4 mr-2" />
-            {t("tmpl_upload_action")}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t("sources_upload_success")}
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                {t("tmpl_upload_action")}
+              </>
+            )}
           </Button>
         </div>
       </div>

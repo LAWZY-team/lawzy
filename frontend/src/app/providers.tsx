@@ -39,7 +39,7 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <I18nProvider initialLocale={initialLocale}>
         {children}
-        {/* <OnboardingTour /> */}
+        <OnboardingTour />
         <UnauthorizedHandler />
       </I18nProvider>
     </QueryClientProvider>

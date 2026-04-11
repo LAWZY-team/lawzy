@@ -598,12 +598,12 @@ export function CanvasEditor({
               >
                 <FileText className="w-4 h-4 mr-2" /> Xuất Word (.docx)
               </DropdownMenuItem>
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={handleOpenGoogleDocs}
                 className="hover:bg-accent cursor-pointer"
               >
                 <FileText className="w-4 h-4 mr-2" /> Mở trong Google Docs
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleCopyMarkdown}

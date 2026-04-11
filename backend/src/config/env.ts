@@ -32,3 +32,17 @@ export function isR2Configured(): boolean {
     process.env.R2_BUCKET
   );
 }
+
+export interface GeminiSanitizerEnv {
+  apiKey: string;
+  model: string;
+}
+
+// only use gemini-2.5-flash
+// key from HMQ
+export function getGeminiSanitizerEnv(): GeminiSanitizerEnv {
+  return {
+    apiKey: requireEnv('GEMINI_API_KEY_SANITIZER'),
+    model: 'gemini-2.5-flash',
+  };
+}
