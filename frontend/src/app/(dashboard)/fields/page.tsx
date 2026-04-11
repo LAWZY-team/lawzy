@@ -43,6 +43,12 @@ import { useUserFieldsStore } from "@/stores/user-fields-store"
 import { api } from "@/lib/api/client"
 import { toast } from "sonner"
 import useStore from "@/lib/zustand/use-store"
+import {
+  USER_FIELD_GROUP_LABELS,
+  USER_FIELD_OTHER_GROUP_LABEL,
+  getUserFieldGroupForSettings,
+  type UserFieldSettingsGroupId,
+} from "@/lib/editor/user-field-profile"
 
 type FieldItem = { key: string; label: string; defaultValue: string }
 type WorkspaceFieldItem = FieldItem & { id?: string; isHidden?: boolean }
@@ -227,13 +233,92 @@ export default function FieldsPage() {
   )?.role ?? "viewer"
   const canEditWs = myRole === "admin" || myRole === "editor"
 
-  const allFields: { type: "user" | "workspace"; item: FieldItem }[] = [
-    ...userFields.map((item) => ({ type: "user" as const, item })),
-    ...(currentWorkspace ? wsFields.map((item) => ({ type: "workspace" as const, item })) : []),
-  ]
   const hasUserFields = userFields.length > 0
-  const hasWsFields = currentWorkspace && wsFields.length > 0
+  const hasWsFields = Boolean(currentWorkspace && wsFields.length > 0)
   const isEmpty = !hasUserFields && !hasWsFields
+
+  const SETTINGS_GROUP_ORDER: UserFieldSettingsGroupId[] = [
+    "basic",
+    "representative",
+    "contract_profile",
+    "other",
+  ]
+
+  const userFieldsByGroup = (gid: UserFieldSettingsGroupId) =>
+    userFields.filter((item) => getUserFieldGroupForSettings(item.key) === gid)
+
+  const renderFieldRow = (type: "user" | "workspace", item: FieldItem) => (
+    <TableRow key={`${type}-${item.key}`}>
+      <TableCell>
+        {type === "user" ? (
+          <span className="text-sm">{t("settings_fields_user")}</span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-sm">
+            <Building2 className="h-4 w-4" />
+            {currentWorkspace?.name}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="font-mono text-sm">{item.key}</TableCell>
+      <TableCell>{item.label}</TableCell>
+      <TableCell className="text-muted-foreground max-w-[200px] truncate">
+        {item.defaultValue || "—"}
+      </TableCell>
+      <TableCell>
+        {(type === "user" || canEditWs) && (
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() =>
+                setEditDialog({
+                  type,
+                  key: item.key,
+                  label: item.label,
+                  defaultValue: item.defaultValue,
+                })
+              }
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => setDeleteConfirm({ type, key: item.key })}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  )
+
+  const renderUserGroupTable = (gid: UserFieldSettingsGroupId, title: string) => {
+    const items = userFieldsByGroup(gid)
+    if (items.length === 0) return null
+    return (
+      <div key={gid} className="rounded-md border bg-card overflow-hidden">
+        <div className="border-b border-border bg-muted/40 px-4 py-2">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+              <TableHead>{t("settings_fields_key")}</TableHead>
+              <TableHead>{t("settings_fields_label")}</TableHead>
+              <TableHead>{t("settings_fields_default")}</TableHead>
+              <TableHead className="w-[100px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>{items.map((item) => renderFieldRow("user", item))}</TableBody>
+        </Table>
+      </div>
+    )
+  }
 
   return (
     <div id="tour-settings-content" className="flex flex-1 flex-col gap-4 p-6">
@@ -248,106 +333,96 @@ export default function FieldsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
-              <TableHead>{t("settings_fields_key")}</TableHead>
-              <TableHead>{t("settings_fields_label")}</TableHead>
-              <TableHead>{t("settings_fields_default")}</TableHead>
-              <TableHead className="w-[100px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {wsLoading && allFields.length === 0 ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+      <div className="flex flex-col gap-4">
+        {wsLoading && !hasUserFields && !hasWsFields ? (
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                  <TableHead>{t("settings_fields_key")}</TableHead>
+                  <TableHead>{t("settings_fields_label")}</TableHead>
+                  <TableHead>{t("settings_fields_default")}</TableHead>
+                  <TableHead className="w-[100px]" />
                 </TableRow>
-              ))
-            ) : isEmpty ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8">
-                  <div className="flex flex-col items-center justify-center gap-4 text-center">
-                    <p className="text-muted-foreground max-w-sm">
-                      {t("settings_fields_empty_hint")}
-                    </p>
-                    <Button
-                      onClick={() => {
-                        addSampleFields()
-                        toast.success(t("settings_fields_sample_added"))
-                      }}
-                      variant="default"
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t("settings_fields_add_sample")}
-                    </Button>
-                    <p className="text-xs text-muted-foreground/80 max-w-xs">
-                      {t("settings_fields_sample_hint")}
-                    </p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              allFields.map(({ type, item }) => (
-                <TableRow key={`${type}-${item.key}`}>
-                  <TableCell>
-                    {type === "user" ? (
-                      <span className="text-sm">{t("settings_fields_user")}</span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-sm">
-                        <Building2 className="h-4 w-4" />
-                        {currentWorkspace?.name}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{item.key}</TableCell>
-                  <TableCell>{item.label}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    {item.defaultValue || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {(type === "user" || canEditWs) && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() =>
-                            setEditDialog({
-                              type,
-                              key: item.key,
-                              label: item.label,
-                              defaultValue: item.defaultValue,
-                            })
-                          }
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            setDeleteConfirm({ type, key: item.key })
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : isEmpty ? (
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8">
+                    <div className="flex flex-col items-center justify-center gap-4 text-center">
+                      <p className="text-muted-foreground max-w-sm">
+                        {t("settings_fields_empty_hint")}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          addSampleFields()
+                          toast.success(t("settings_fields_sample_added"))
+                        }}
+                        variant="default"
+                        className="gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {t("settings_fields_add_sample")}
+                      </Button>
+                      <p className="text-xs text-muted-foreground/80 max-w-xs">
+                        {t("settings_fields_sample_hint")}
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <>
+            {SETTINGS_GROUP_ORDER.map((gid) => {
+              if (gid === "other") {
+                return renderUserGroupTable("other", USER_FIELD_OTHER_GROUP_LABEL)
+              }
+              return renderUserGroupTable(gid, USER_FIELD_GROUP_LABELS[gid])
+            })}
+            {hasWsFields && currentWorkspace && (
+              <div className="rounded-md border bg-card overflow-hidden">
+                <div className="border-b border-border bg-muted/40 px-4 py-2">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {currentWorkspace.name}
+                  </h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                      <TableHead>{t("settings_fields_key")}</TableHead>
+                      <TableHead>{t("settings_fields_label")}</TableHead>
+                      <TableHead>{t("settings_fields_default")}</TableHead>
+                      <TableHead className="w-[100px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {wsFields.map((item) => renderFieldRow("workspace", item))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
-          </TableBody>
-        </Table>
+          </>
+        )}
       </div>
 
       {/* Add dialog */}

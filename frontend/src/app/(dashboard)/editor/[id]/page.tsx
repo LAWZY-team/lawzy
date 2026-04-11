@@ -1395,12 +1395,12 @@ export default function EditorPage({
       {/* Main Content Area - 3 Column Layout */}
       <div className="relative z-10 flex flex-1 w-full min-h-0 gap-2 overflow-hidden">
         
-        {/* Left: Chat Area (30%) */}
+        {/* Left: Chat Area — hẹp hơn một chút khi mở canvas để nhường chỗ cho editor */}
         <motion.div 
           layout
           initial={false}
-          animate={{ 
-            width: isCanvasMode ? '30%' : '100%', // Chat shrinks when canvas is open
+          animate={{
+            width: isCanvasMode ? '32%' : '100%',
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 25 }}
           className={cn(
@@ -1410,7 +1410,9 @@ export default function EditorPage({
         >
           <div id="tour-editor-chat" className={cn(
             "w-full h-full transition-all duration-500",
-            !isCanvasMode && !wizardContractTypeId ? "max-w-3xl mx-auto" : "w-full"
+            !isCanvasMode && !wizardContractTypeId
+              ? "max-w-3xl min-[1100px]:max-w-4xl min-[1536px]:max-w-5xl mx-auto w-full"
+              : "w-full"
           )}>
             {wizardContractTypeId ? (
               <ContractWizard
@@ -1450,13 +1452,13 @@ export default function EditorPage({
           </div>
         </motion.div>
 
-        {/* Right Section: Editor + Metadata (70%) */}
+        {/* Right Section: Editor + Metadata */}
         <AnimatePresence>
           {isCanvasMode && (
             <motion.div
               layout
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '70%', opacity: 1 }}
+              animate={{ width: '68%', opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200, damping: 25 }}
               className="h-full relative z-0 flex gap-2"
@@ -1480,7 +1482,7 @@ export default function EditorPage({
               </div>
 
               {toolsPanelOpen && (
-                <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
+                <div className="flex h-full min-h-0 w-[min(28%,21rem)] min-w-[236px] shrink-0 flex-col overflow-hidden">
                   <RightPanel
                     editor={editor}
                     onAuthRequired={handleAuthRequired}

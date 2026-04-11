@@ -20,10 +20,19 @@ const QUICK_ACTION_KEYS: readonly {
   labelKey: TranslationKey;
   promptKey: TranslationKey;
 }[] = [
-  { labelKey: "chat_quick_contract_svc_label", promptKey: "chat_quick_contract_svc_prompt" },
+  {
+    labelKey: "chat_quick_contract_svc_label",
+    promptKey: "chat_quick_contract_svc_prompt",
+  },
   { labelKey: "chat_quick_risk_label", promptKey: "chat_quick_risk_prompt" },
-  { labelKey: "chat_quick_civil_code_label", promptKey: "chat_quick_civil_code_prompt" },
-  { labelKey: "chat_quick_explain_clause_label", promptKey: "chat_quick_explain_clause_prompt" },
+  {
+    labelKey: "chat_quick_civil_code_label",
+    promptKey: "chat_quick_civil_code_prompt",
+  },
+  {
+    labelKey: "chat_quick_explain_clause_label",
+    promptKey: "chat_quick_explain_clause_prompt",
+  },
 ];
 
 interface ChatMessageListProps {
@@ -76,28 +85,32 @@ export function ChatMessageList({
         className={cn(
           "w-full pb-6",
           messages.length === 0
-            ? "px-6 py-8 md:px-10"
+            ? "px-4 py-8 sm:px-6 md:px-10"
             : cn(
                 "px-4 py-6 md:px-6 space-y-8",
-                isCanvasMode ? "max-w-none" : "max-w-3xl mx-auto",
+                isCanvasMode
+                  ? "max-w-none"
+                  : "max-w-3xl min-[1200px]:max-w-4xl min-[1536px]:max-w-5xl mx-auto",
               ),
         )}
       >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center w-full text-center space-y-8 animate-in fade-in duration-700">
-            <div className="flex flex-col items-center space-y-2">
+          <div className="flex flex-col items-stretch w-full space-y-4 animate-in fade-in duration-700">
+            <div className="flex flex-col items-start w-full text-left">
               <Image
                 width={72}
                 height={72}
                 src="/logo/lawzy-logo-whitebg.png"
                 alt="Lawzy"
-                className="object-contain"
+                className="object-contain self-start"
               />
-              <p className="text-muted-foreground text-sm">{t("chat_empty_greeting")}</p>
+              {/* <p className="text-muted-foreground text-sm">
+                {t("chat_empty_greeting")}
+              </p> */}
             </div>
 
             {onContractTypeSelect && (
-              <div className="w-full max-w-4xl mx-auto">
+              <div className="w-full max-w-5xl min-[1100px]:max-w-6xl min-[1536px]:max-w-7xl mx-auto">
                 <ContractTypeCards onSelect={onContractTypeSelect} />
               </div>
             )}
@@ -105,7 +118,9 @@ export function ChatMessageList({
             <div className="w-full max-w-2xl mx-auto space-y-3">
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">hoặc thử nhanh với AI</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  hoặc thử nhanh với AI
+                </span>
                 <div className="flex-1 h-px bg-border" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -137,17 +152,20 @@ export function ChatMessageList({
           </AnimatePresence>
         )}
 
-        {activeQuestionnaire && !isLoading && onQuestionnaireSubmit && onQuestionnaireSkip && (
-          <QuestionnaireForm
-            schema={activeQuestionnaire}
-            mergeFieldValues={mergeFieldValues}
-            userFields={userFields}
-            workspaceFields={workspaceFields}
-            onSubmit={onQuestionnaireSubmit}
-            onSkip={onQuestionnaireSkip}
-            isSubmitting={isLoading}
-          />
-        )}
+        {activeQuestionnaire &&
+          !isLoading &&
+          onQuestionnaireSubmit &&
+          onQuestionnaireSkip && (
+            <QuestionnaireForm
+              schema={activeQuestionnaire}
+              mergeFieldValues={mergeFieldValues}
+              userFields={userFields}
+              workspaceFields={workspaceFields}
+              onSubmit={onQuestionnaireSubmit}
+              onSkip={onQuestionnaireSkip}
+              isSubmitting={isLoading}
+            />
+          )}
 
         {isLoading && (
           <motion.div
