@@ -340,7 +340,7 @@ export default function EditorPage({
     let cancelled = false
     if (managedId !== 'new') {
       // If we just saved and transitioned smoothly, we already have the state.
-      if (useEditorStore.getState().currentDocument === managedId && !initialLoadRef.current) {
+      if (useEditorStore.getState().currentDocumentId === managedId && !initialLoadRef.current) {
         return
       }
 
