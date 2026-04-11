@@ -148,39 +148,86 @@ function messagesToGeminiFormat(
   return result
 }
 
-/** Extract first complete JSON object and parse as contract response */
-function tryParseContractResponse(text: string): unknown {
-  const trimmed = text.trim()
-  const blockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  const toParse = blockMatch ? blockMatch[1].trim() : trimmed
-  const start = toParse.indexOf('{')
-  if (start === -1) return null
+/**
+ * First balanced `{...}` slice from start, respecting JSON strings so `{{merge}}`
+ * inside string values does not break depth counting.
+ */
+const sliceFirstBalancedJsonObject = (raw: string, start: number): string | null => {
+  if (raw[start] !== '{') return null
   let depth = 0
-  let end = -1
-  for (let i = start; i < toParse.length; i++) {
-    const c = toParse[i]
+  let inString: '"' | "'" | null = null
+  let escape = false
+  for (let i = start; i < raw.length; i++) {
+    const c = raw[i]
+    if (inString) {
+      if (escape) {
+        escape = false
+        continue
+      }
+      if (c === '\\') {
+        escape = true
+        continue
+      }
+      if (c === inString) inString = null
+      continue
+    }
+    if (c === '"' || c === "'") {
+      inString = c
+      continue
+    }
     if (c === '{') depth++
     else if (c === '}') {
       depth--
-      if (depth === 0) {
-        end = i
-        break
-      }
+      if (depth === 0) return raw.slice(start, i + 1)
     }
   }
-  if (end === -1) return null
-  try {
-    const parsed = JSON.parse(toParse.slice(start, end + 1))
-    if (
-      parsed?.type === 'contract_generation' ||
-      parsed?.type === 'contract_review' ||
-      parsed?.type === 'intake_questionnaire'
-    ) return parsed
-    if (parsed?.type === 'error' && typeof parsed.message === 'string') return parsed
-    return null
-  } catch {
+  return null
+}
+
+const isContractResponseShape = (parsed: unknown): parsed is Record<string, unknown> => {
+  if (!parsed || typeof parsed !== 'object') return false
+  const p = parsed as { type?: unknown }
+  return (
+    p.type === 'contract_generation' ||
+    p.type === 'contract_review' ||
+    p.type === 'intake_questionnaire' ||
+    (p.type === 'error' && typeof (p as { message?: unknown }).message === 'string')
+  )
+}
+
+/** Extract first complete JSON object and parse as contract response */
+function tryParseContractResponse(text: string): unknown {
+  const trimmed = text.trim()
+  const fencedBlocks = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((m) => m[1].trim())
+  const chunks = [...fencedBlocks, trimmed]
+  const tryParseJsonSlice = (raw: string): unknown | null => {
+    const slice = raw.trim()
+    if (!slice.startsWith('{')) return null
+    try {
+      const parsed = JSON.parse(slice) as unknown
+      if (isContractResponseShape(parsed)) return parsed
+    } catch {
+      //
+    }
+    const balanced = sliceFirstBalancedJsonObject(slice, 0)
+    if (!balanced || balanced === slice) return null
+    try {
+      const parsed = JSON.parse(balanced) as unknown
+      if (isContractResponseShape(parsed)) return parsed
+    } catch {
+      //
+    }
     return null
   }
+  for (const chunk of chunks) {
+    if (!chunk) continue
+    const braceIdx = chunk.indexOf('{')
+    if (braceIdx === -1) continue
+    const fromBrace = chunk.slice(braceIdx)
+    const parsed = tryParseJsonSlice(fromBrace)
+    if (parsed) return parsed
+  }
+  return null
 }
 
 export async function POST(req: NextRequest) {

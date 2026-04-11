@@ -529,14 +529,14 @@ export function CanvasEditor({
     <div className="flex flex-col h-full bg-background text-foreground rounded-3xl overflow-hidden border border-border my-2 mr-2">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background z-20 sticky top-0">
-        <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <input
             value={docTitle}
             onChange={(e) => {
               setDocTitle(e.target.value);
               onChangeTitle?.(e.target.value);
             }}
-            className="bg-transparent border-none outline-none font-medium text-sm text-foreground truncate w-[200px] hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+            className="min-w-0 w-full max-w-md bg-transparent border-none outline-none font-medium text-sm text-foreground truncate hover:bg-muted/50 px-2 py-1 rounded transition-colors"
           />
         </div>
 
@@ -1067,9 +1067,11 @@ export function CanvasEditor({
         </Button>
       </div>
 
-      {/* Editor Body — cấu trúc văn bản: heading, paragraph, căn giữa/trái */}
-      <div className="flex-1 overflow-auto relative bg-background">
-        <EditorContent editor={editor} className={cn(CONTRACT_BODY_CLASSES)} />
+      {/* Editor Body — full width của cột; nội dung dùng hết chiều ngang trên màn hình lớn */}
+      <div className="flex-1 overflow-auto relative bg-muted/20">
+        <div className="w-full max-w-[min(100%,96rem)] mx-auto min-h-full [&_.tiptap]:max-w-none [&_.tiptap]:w-full [&_.ProseMirror]:max-w-none [&_.ProseMirror]:w-full">
+          <EditorContent editor={editor} className={cn(CONTRACT_BODY_CLASSES)} />
+        </div>
       </div>
 
       {/* Preview dialog */}
