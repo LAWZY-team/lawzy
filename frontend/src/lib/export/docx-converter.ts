@@ -107,7 +107,7 @@ function convertNode(node: TipTapNode): DocChild[] {
       result.push(
         new Paragraph({
           children: convertInlineContent(node.content || []),
-          alignment,
+          alignment: alignment || AlignmentType.JUSTIFIED,
           indent,
           spacing: { after: 120 },
         })
