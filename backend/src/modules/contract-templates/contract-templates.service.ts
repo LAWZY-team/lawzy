@@ -359,6 +359,7 @@ export class ContractTemplatesService {
     const sanitized = await sanitizeContractTemplateFields({
       text: extracted.text,
       aiSanitizer: this.aiSanitizer,
+      plainTextRedaction: true,
     });
     const structured = buildContractTemplateJson({
       text: sanitized.sanitizedText,
