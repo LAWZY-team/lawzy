@@ -205,9 +205,17 @@ function sanitizeSegments(params: {
     const value = normalizeWhitespace(rawValue);
     if (!isLikelyFieldLabel(label, value)) return segment;
     
+    // Check if the value itself contains more sensitive info (recursive-like check)
+    const { sanitizedLine: deepSanitizedValue } = sanitizeInlineValues({
+      line: value,
+      existingKeys: params.existingKeys,
+      mergeFields: params.mergeFields,
+      valueToFieldMap: params.valueToFieldMap,
+    });
+
     const fieldMatch = createFieldMatch({
       label,
-      value,
+      value: deepSanitizedValue === value ? value : undefined, // If sanitized deep, don't use as cache key for raw value
       existingKeys: params.existingKeys,
       valueToFieldMap: params.valueToFieldMap,
     });
@@ -236,7 +244,6 @@ function sanitizeInlineValues(params: {
   let sanitizedCount = 0;
 
   // 1. Currency parsing (e.g. 34.000.000 VNĐ (Ba mươi bốn triệu đồng))
-  // Improved to capture parenthetical text more reliably
   const moneyRegex = /(?:\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\s*(?:VNĐ|VND|đồng|dong|đ|USD|EUR|[\$€£]))(?![a-zA-ZÀ-ỹ])(?:\s*\([\s\S]+?\))?/gi;
   line = line.replace(moneyRegex, (match) => {
     const value = normalizeWhitespace(match);
@@ -247,11 +254,9 @@ function sanitizeInlineValues(params: {
       existingKeys,
       valueToFieldMap,
     });
-    
     if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
       mergeFields.push(fieldMatch.field);
     }
-    
     sanitizedCount++;
     return fieldMatch.placeholder;
   });
@@ -267,11 +272,63 @@ function sanitizeInlineValues(params: {
       existingKeys,
       valueToFieldMap,
     });
-    
     if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
       mergeFields.push(fieldMatch.field);
     }
-    
+    sanitizedCount++;
+    return fieldMatch.placeholder;
+  });
+
+  // 3. Email parsing
+  const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+  line = line.replace(emailRegex, (match) => {
+    const value = normalizeWhitespace(match);
+    const fieldMatch = createFieldMatch({ 
+      label: 'Email', 
+      value, 
+      dataType: 'string', 
+      existingKeys,
+      valueToFieldMap,
+    });
+    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+      mergeFields.push(fieldMatch.field);
+    }
+    sanitizedCount++;
+    return fieldMatch.placeholder;
+  });
+
+  // 4. Phone number parsing
+  const phoneRegex = /(?:\+84|0)(?:\s*\d){9,10}\b/g;
+  line = line.replace(phoneRegex, (match) => {
+    const value = normalizeWhitespace(match);
+    const fieldMatch = createFieldMatch({ 
+      label: 'Số điện thoại', 
+      value, 
+      dataType: 'string', 
+      existingKeys,
+      valueToFieldMap,
+    });
+    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+      mergeFields.push(fieldMatch.field);
+    }
+    sanitizedCount++;
+    return fieldMatch.placeholder;
+  });
+
+  // 5. Tax ID / MST / ID numbers
+  const idRegex = /(?<!\d)(?:\d{10}|\d{12})(?!\d)/g;
+  line = line.replace(idRegex, (match) => {
+    const value = normalizeWhitespace(match);
+    const fieldMatch = createFieldMatch({ 
+      label: 'Mã số / Định danh', 
+      value, 
+      dataType: 'string', 
+      existingKeys,
+      valueToFieldMap,
+    });
+    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+      mergeFields.push(fieldMatch.field);
+    }
     sanitizedCount++;
     return fieldMatch.placeholder;
   });
