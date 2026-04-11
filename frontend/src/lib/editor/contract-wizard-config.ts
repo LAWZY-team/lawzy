@@ -62,6 +62,7 @@ const LABOR_CONFIG: ContractWizardConfig = {
       fields: [
         { key: 'EMPLOYER_NAME', label: 'Tên công ty / Người sử dụng lao động', type: 'text', required: true, placeholder: 'Ví dụ: Công ty TNHH ABC' },
         { key: 'EMPLOYER_ADDRESS', label: 'Địa chỉ công ty', type: 'text', required: true, placeholder: 'Số nhà, đường, phường, quận, thành phố' },
+        { key: 'EMPLOYER_TAX_CODE', label: 'Mã số thuế (MST)', type: 'text', placeholder: 'Mã số thuế doanh nghiệp' },
         { key: 'EMPLOYER_REPRESENTATIVE', label: 'Người đại diện', type: 'text', required: true, placeholder: 'Họ và tên người đại diện', hint: 'Thường là Giám đốc hoặc người có thẩm quyền ký hợp đồng' },
         { key: 'EMPLOYEE_NAME', label: 'Tên người lao động', type: 'text', required: true, placeholder: 'Họ và tên đầy đủ' },
         { key: 'EMPLOYEE_ID', label: 'Số CMND/CCCD', type: 'text', required: true, placeholder: 'Số căn cước công dân' },

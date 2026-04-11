@@ -177,7 +177,14 @@ export function ChatInputArea({
 
   return (
     <div className="shrink-0 p-4 md:p-3 bg-background z-20 border-t border-border">
-      <div className={cn('relative w-full', isCanvasMode ? 'max-w-none' : 'max-w-3xl mx-auto')}>
+      <div
+        className={cn(
+          'relative w-full',
+          isCanvasMode
+            ? 'max-w-none'
+            : 'max-w-3xl min-[1200px]:max-w-4xl min-[1536px]:max-w-5xl mx-auto',
+        )}
+      >
         <div
           className={cn(
             'relative bg-background rounded-[24px] border transition-all flex flex-col min-h-[56px]',

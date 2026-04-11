@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Building2,
   CheckCircle2,
   Loader2,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,7 +27,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useUserFieldsStore } from '@/stores/user-fields-store'
+import { buildUserFieldPatchFromWizardStep } from '@/lib/editor/wizard-user-field-map'
+import { WizardUserProfileDialog } from './contract-wizard-profile-dialog'
 import {
   findWizardConfig,
   type ContractTypeId,
@@ -204,7 +215,7 @@ function RoleScreen({
           </div>
         </div>
 
-        <div className="w-full max-w-lg space-y-3">
+        <div className="w-full max-w-lg xl:max-w-xl space-y-3">
           {(config.roles ?? []).map((role) => (
             <button
               key={role.id}
@@ -225,7 +236,7 @@ function RoleScreen({
       </div>
 
       <div className="shrink-0 px-6 pb-8">
-        <div className="w-full max-w-lg mx-auto">
+        <div className="w-full max-w-lg xl:max-w-xl mx-auto">
           <Button
             className="w-full h-12 text-base"
             disabled={!selected}
@@ -250,6 +261,7 @@ function RoleScreen({
 
 function FormStepScreen({
   config,
+  roleId,
   step,
   stepIndex,
   totalSteps,
@@ -259,6 +271,7 @@ function FormStepScreen({
   onNext,
 }: {
   config: ContractWizardConfig
+  roleId: string | null
   step: WizardFormStep
   stepIndex: number
   totalSteps: number
@@ -268,7 +281,36 @@ function FormStepScreen({
   onNext: () => void
 }) {
   const [errors, setErrors] = useState<Set<string>>(new Set())
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [saveForNext, setSaveForNext] = useState(true)
+  const customFields = useUserFieldsStore((s) => s.customFields)
+  const updateCustomField = useUserFieldsStore((s) => s.updateCustomField)
+  const addCustomField = useUserFieldsStore((s) => s.addCustomField)
+  const addSampleFields = useUserFieldsStore((s) => s.addSampleFields)
   const progress = Math.round(((stepIndex) / totalSteps) * 100)
+
+  useEffect(() => {
+    setSaveForNext(true)
+  }, [step.id, stepIndex])
+
+  const allRequiredFilled = step.fields.every(
+    (f) => !f.required || f.type === 'toggle' || Boolean(values[f.key]?.trim()),
+  )
+
+  const persistStepToUserFields = useCallback(() => {
+    const patch = buildUserFieldPatchFromWizardStep({
+      contractTypeId: config.typeId,
+      roleId,
+      step,
+      wizardValues: values,
+    })
+    for (const p of patch) {
+      const st = useUserFieldsStore.getState()
+      const exists = st.customFields.some((f) => f.key === p.key)
+      if (exists) st.updateCustomField(p.key, { defaultValue: p.defaultValue })
+      else st.addCustomField({ key: p.key, label: p.label, defaultValue: p.defaultValue })
+    }
+  }, [config.typeId, roleId, step, values])
 
   const handleNext = useCallback(() => {
     const missing = new Set<string>()
@@ -278,8 +320,20 @@ function FormStepScreen({
       }
     }
     setErrors(missing)
-    if (missing.size === 0) onNext()
-  }, [step.fields, values, onNext])
+    if (missing.size === 0) {
+      if (saveForNext && allRequiredFilled) persistStepToUserFields()
+      onNext()
+    }
+  }, [step.fields, values, onNext, saveForNext, allRequiredFilled, persistStepToUserFields])
+
+  const applyProfilePatch = useCallback(
+    (patch: Record<string, string>) => {
+      for (const [k, v] of Object.entries(patch)) {
+        onFieldChange(k, v)
+      }
+    },
+    [onFieldChange],
+  )
 
   const toggleFields = step.fields.filter((f) => f.type === 'toggle')
   const regularFields = step.fields.filter((f) => f.type !== 'toggle')
@@ -288,16 +342,35 @@ function FormStepScreen({
     <div className="h-full flex flex-col overflow-hidden">
       {/* Sticky header */}
       <div className="shrink-0 bg-background border-b border-border">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 px-6 py-4">
+          <div className="flex items-center gap-3 min-w-0">
             <WizardIcon config={config} size="sm" />
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground leading-tight">{config.title}</h2>
               <p className="text-xs text-muted-foreground">
                 Bước {stepIndex + 1} / {totalSteps}
               </p>
             </div>
           </div>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1.5"
+                  onClick={() => setProfileDialogOpen(true)}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Tự động điền
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                Xem hoặc chỉnh thông tin đã lưu trong hồ sơ, rồi áp dụng vào biểu mẫu bước này.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {/* Progress bar */}
         <div className="h-1 bg-muted w-full">
@@ -310,7 +383,7 @@ function FormStepScreen({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 py-6 max-w-2xl mx-auto space-y-6">
+        <div className="px-4 py-6 sm:px-6 w-full max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto space-y-6">
           {/* Step card */}
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
             {/* Card header */}
@@ -331,13 +404,16 @@ function FormStepScreen({
               )}
 
               {/* Regular fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {regularFields.map((field) => {
                   const hasError = errors.has(field.key)
                   return (
                     <div
                       key={field.key}
-                      className={cn('space-y-1.5', field.fullWidth && 'sm:col-span-2')}
+                      className={cn(
+                        'space-y-1.5',
+                        field.fullWidth && 'sm:col-span-2 xl:col-span-3',
+                      )}
                     >
                       <Label className={cn('text-sm font-medium', hasError && 'text-destructive')}>
                         {field.label}
@@ -404,18 +480,43 @@ function FormStepScreen({
       </div>
 
       {/* Sticky bottom nav */}
-      <div className="shrink-0 border-t border-border bg-background px-6 py-4">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          <Button variant="outline" onClick={onBack} className="gap-1.5">
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại
-          </Button>
-          <Button className="flex-1 gap-1.5" onClick={handleNext}>
-            {stepIndex === totalSteps - 1 ? 'Xem lại thông tin' : 'Tiếp tục'}
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+      <div className="shrink-0 border-t border-border bg-background px-4 py-4 sm:px-6">
+        <div className="w-full max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto flex flex-col gap-3">
+          {allRequiredFilled && (
+            <label className="flex items-start gap-2 cursor-pointer text-sm text-muted-foreground">
+              <Checkbox
+                checked={saveForNext}
+                onCheckedChange={(c) => setSaveForNext(c === true)}
+                className="mt-0.5"
+              />
+              <span>Lưu các trường thông tin này cho lần sau</span>
+            </label>
+          )}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onBack} className="gap-1.5">
+              <ArrowLeft className="w-4 h-4" />
+              Quay lại
+            </Button>
+            <Button className="flex-1 gap-1.5" onClick={handleNext}>
+              {stepIndex === totalSteps - 1 ? 'Xem lại thông tin' : 'Tiếp tục'}
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      <WizardUserProfileDialog
+        open={profileDialogOpen}
+        onOpenChange={setProfileDialogOpen}
+        contractTypeId={config.typeId}
+        roleId={roleId}
+        step={step}
+        customFields={customFields}
+        onApplyToForm={applyProfilePatch}
+        addSampleFields={addSampleFields}
+        updateCustomField={updateCustomField}
+        addCustomField={addCustomField}
+      />
     </div>
   )
 }
@@ -464,7 +565,7 @@ function ReviewScreen({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 pb-8 max-w-3xl mx-auto space-y-6">
+        <div className="px-4 pb-8 sm:px-6 w-full max-w-3xl xl:max-w-5xl 2xl:max-w-6xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
             <WizardIcon config={config} size="md" />
@@ -518,13 +619,16 @@ function ReviewScreen({
                 <div className="px-5 py-4 space-y-4">
                   {/* Regular fields grid */}
                   {regularFields.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                       {regularFields.map((field) => {
                         const val = getDisplayValue(field)
                         return (
                           <div
                             key={field.key}
-                            className={cn('space-y-1', field.fullWidth && 'sm:col-span-2')}
+                            className={cn(
+                              'space-y-1',
+                              field.fullWidth && 'sm:col-span-2 xl:col-span-3',
+                            )}
                           >
                             <p className="text-xs text-muted-foreground font-medium">{field.label}</p>
                             <div className="rounded-lg bg-muted/50 border border-border/50 px-3 py-2">
@@ -690,6 +794,7 @@ export function ContractWizard({
           >
             <FormStepScreen
               config={config}
+              roleId={selectedRole}
               step={steps[formStep]}
               stepIndex={formStep}
               totalSteps={totalSteps}
