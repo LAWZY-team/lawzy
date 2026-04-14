@@ -22,7 +22,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { EmailModule } from './modules/email/email.module';
 import { AiModule } from './modules/ai/ai.module';
 import { SourceProcessingModule } from './modules/source-processing/source-processing.module';
-
+import { LlmExperimentModule } from './modules/llm-experiment/llm-experiment.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -46,6 +46,7 @@ import { SourceProcessingModule } from './modules/source-processing/source-proce
     PaymentsModule,
     AiModule,
     SourceProcessingModule,
+    LlmExperimentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

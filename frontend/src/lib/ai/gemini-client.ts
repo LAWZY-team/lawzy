@@ -1,6 +1,31 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { LAWZY_SYSTEM_PROMPT } from './system-prompt'
 
+/**
+ * Helper to retry Gemini API calls automatically on 503 'High Demand' errors.
+ */
+async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const isHighDemand = error.message && error.message.toLowerCase().includes('high demand');
+      const is503 = error.status === 503;
+      
+      if ((isHighDemand || is503) && attempt < maxRetries) {
+        const delayMs = Math.pow(2, attempt) * 1000; // 2s, 4s
+        console.warn(`[Gemini] API high demand. Retrying attempt ${attempt + 1}/${maxRetries} in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 export interface ContractMetadata {
   contractType: string
   parties?: Array<{ role: string; name: string }>
@@ -243,10 +268,10 @@ export class GeminiClient {
     let text: string
     if (history.length > 0) {
       const chat = this.model.startChat({ history })
-      const result = await chat.sendMessage(userContent)
+      const result = await withRetry(() => chat.sendMessage(userContent))
       text = result.response.text()
     } else {
-      const result = await this.model.generateContent(userContent)
+      const result = await withRetry(() => this.model.generateContent(userContent))
       text = result.response.text()
     }
 
@@ -261,7 +286,7 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const result = await this.model.generateContent(prompt)
+    const result = await withRetry(() => this.model.generateContent(prompt))
     const response = await result.response
     const text = response.text()
 
@@ -276,7 +301,7 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const result = await this.model.generateContent(prompt)
+    const result = await withRetry(() => this.model.generateContent(prompt))
     const response = await result.response
     const text = response.text()
 
@@ -290,7 +315,7 @@ export class GeminiClient {
     }
 
     const prompt = JSON.stringify(request)
-    const result = await this.model.generateContent(prompt)
+    const result = await withRetry(() => this.model.generateContent(prompt))
     const response = await result.response
     const text = response.text()
 

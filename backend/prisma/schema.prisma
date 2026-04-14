@@ -473,3 +473,20 @@ model PublicShareSession {
   @@index([shareId, email])
   @@map("public_share_sessions")
 }
+
+model LlmExperimentLog {
+  id            String   @id @default(uuid())
+  promptHash    String   @map("prompt_hash")
+  format        String   // 'json' or 'markdown'
+  inputTokens   Int      @map("input_tokens")
+  outputTokens  Int      @map("output_tokens")
+  latencyMs     Int      @map("latency_ms")
+  isSuccess     Boolean  @map("is_success")
+  rawOutput     String   @db.LongText @map("raw_output")
+  errorMessage  String?  @db.Text @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([promptHash])
+  @@index([format])
+  @@map("llm_experiment_logs")
+}
