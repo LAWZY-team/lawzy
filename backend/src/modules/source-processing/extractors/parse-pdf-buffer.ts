@@ -5,6 +5,26 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 
+function cleanOpenDataLoaderMarkdown(text: string): string {
+  let cleaned = text;
+
+  // We KEEP markdown headings (#, ##) and list bullets (-) 
+  // because build-contract-template-json.ts will now parse them semantically!
+
+  // 1. Remove bold/italic markup (**text**, __text__) to avoid raw asterisks in editor
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/gm, '$1');
+  cleaned = cleaned.replace(/__([^_]+)__/gm, '$1');
+
+  // 2. Fix National Motto formatting
+  // Sometimes it merges into: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM ĐỘC LẬP – TỰ DO –\nHẠNH PHÚC"
+  const mottoRegex = /(cộng hòa xã hội chủ nghĩa việt nam)\s*(độc lập\s*[-–]\s*tự do\s*[-–]\s*hạnh phúc)/gi;
+  cleaned = cleaned.replace(mottoRegex, (match, p1, p2) => {
+    return `${p1.toUpperCase()}\nĐộc lập - Tự do - Hạnh phúc`;
+  });
+
+  return cleaned;
+}
+
 /**
  * Extract plain text and page count from a PDF buffer.
  * Attempts to use high-quality layout-aware @opendataloader/pdf (Java required).
@@ -28,10 +48,13 @@ export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<{
     });
     
     // Convert output from java parser
-    const text = (stdout || '').trim();
+    let text = (stdout || '').trim();
     if (!text) {
       throw new Error('Produced empty text');
     }
+
+    // Clean up markdown artifacts and specific Vietnamese formats
+    text = cleanOpenDataLoaderMarkdown(text);
 
     // Since we use markdown stdout mode, we estimate page count
     return {

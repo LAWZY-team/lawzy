@@ -48,7 +48,9 @@ function isNationalHeader(line: string): boolean {
 }
 
 function isClauseHeading(line: string): boolean {
-  return /^(điều|article|clause)\s+\d+[\s.:)]/i.test(line);
+  // Bỏ qua các dấu '#' của markdown để detect đúng chữ Điều/Article
+  const cleanLine = line.replace(/^#{1,6}\s+/, '').trim();
+  return /^(điều|article|clause)\s+\d+[\s.:)]/i.test(cleanLine);
 }
 
 function parseInlineContent(
@@ -163,29 +165,53 @@ export const buildContractTemplateJson = (params: {
       });
       continue;
     }
+    
+    // Nếu là Điều khoản (có thể chứa ## Điều 1:)
     if (isClauseHeading(line)) {
       pushCurrentClause();
-      currentClause = { title: line, paragraphs: [] };
+      // Bóc tách markdown '#' trước khi lưu tiêu đề, để editor không hiện '# '
+      currentClause = { title: line.replace(/^#{1,6}\s+/, '').trim(), paragraphs: [] };
       continue;
     }
+
     if (currentClause) {
-      currentClause.paragraphs.push(line);
+      // Nếu dòng chứa các tag bold từ Markdown (ví dụ ở giữa clause), bóc bỏ luôn tag để khỏi bị rác UI.
+      const cleanLineInClause = line.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
+      currentClause.paragraphs.push(cleanLineInClause);
       continue;
     }
-    const isHeading = isNationalHeader(line) || isUppercaseHeading(line);
+
+    // Explicit markdown heading block (# Header)
+    const markdownHeadingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    const isHeading = isNationalHeader(line) || isUppercaseHeading(line) || !!markdownHeadingMatch;
+    
     if (isHeading) {
       headingCount += 1;
-      const level = headingCount === 1 ? 1 : headingCount <= 3 ? 2 : 3;
+      let level: 1 | 2 | 3 = headingCount === 1 ? 1 : headingCount <= 3 ? 2 : 3;
+      let cleanTitle = line;
+      
+      // Nếu thực sự là Markdown Heading, ta lấy level theo số `#` và lấy text trong sạch
+      if (markdownHeadingMatch) {
+        level = (markdownHeadingMatch[1].length <= 3 ? markdownHeadingMatch[1].length : 3) as 1 | 2 | 3;
+        cleanTitle = markdownHeadingMatch[2];
+      }
+
+      // Xóa tag bôi đậm markdown để text đẹp hơn
+      cleanTitle = cleanTitle.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
+
       content.push(
         buildHeading({
-          line,
+          line: cleanTitle,
           level,
           align: 'center',
         }),
       );
       continue;
     }
-    content.push(buildParagraph(line));
+    
+    // Xóa nốt bold/italic rác nếu bị nhầm là đoạn văn
+    const cleanParagraph = line.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
+    content.push(buildParagraph(cleanParagraph));
   }
 
   pushCurrentClause();
