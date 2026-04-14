@@ -50,12 +50,24 @@ export interface ContentTextNode {
   marks?: { type: string }[];
 }
 
+export interface ContentListItemNode {
+  type: 'listItem';
+  content: ContentNode[];
+}
+
+export interface ContentBulletListNode {
+  type: 'bulletList';
+  content: ContentListItemNode[];
+}
+
 export type ContentNode =
   | ContentHeadingNode
   | ContentParagraphNode
   | ContentClauseNode
   | ContentTextNode
-  | ContentFieldNode;
+  | ContentFieldNode
+  | ContentListItemNode
+  | ContentBulletListNode;
 
 export interface DocContent {
   type: 'doc';

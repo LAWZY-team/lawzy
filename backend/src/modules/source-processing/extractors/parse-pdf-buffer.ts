@@ -17,7 +17,7 @@ function cleanOpenDataLoaderMarkdown(text: string): string {
 
   // 2. Fix National Motto formatting
   // Sometimes it merges into: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM ĐỘC LẬP – TỰ DO –\nHẠNH PHÚC"
-  const mottoRegex = /(cộng hòa xã hội chủ nghĩa việt nam)\s*(độc lập\s*[-–]\s*tự do\s*[-–]\s*hạnh phúc)/gi;
+  const mottoRegex = /(cộng h[oò]à xã hội chủ nghĩa việt nam)\s*(độc lập\s*[-–]\s*tự do\s*[-–]\s*hạnh phúc)/gi;
   cleaned = cleaned.replace(mottoRegex, (match, p1, p2) => {
     return `${p1.toUpperCase()}\nĐộc lập - Tự do - Hạnh phúc`;
   });

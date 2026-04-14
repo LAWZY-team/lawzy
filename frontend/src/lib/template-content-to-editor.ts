@@ -78,6 +78,24 @@ function mapBlockNode(node: ContentNode): JSONContent[] {
     }
     return result
   }
+  if (node.type === "bulletList") {
+    const n = node as { content?: ContentNode[] }
+    return [
+      {
+        type: "bulletList",
+        content: n.content ? n.content.flatMap(mapBlockNode) : [],
+      },
+    ]
+  }
+  if (node.type === "listItem") {
+    const n = node as { content?: ContentNode[] }
+    return [
+      {
+        type: "listItem",
+        content: n.content ? n.content.flatMap(mapBlockNode) : [],
+      },
+    ]
+  }
   return []
 }
 

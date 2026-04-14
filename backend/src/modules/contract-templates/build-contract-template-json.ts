@@ -40,7 +40,8 @@ function isNationalHeader(line: string): boolean {
   const lower = line.toLowerCase();
   return (
     lower.includes('cộng hòa xã hội chủ nghĩa việt nam') ||
-    lower.includes('độc lập - tự do - hạnh phúc')
+    lower.includes('cộng hoà xã hội chủ nghĩa việt nam') ||
+    lower.includes('độc lập') && lower.includes('tự do') && lower.includes('hạnh phúc')
   );
 }
 
