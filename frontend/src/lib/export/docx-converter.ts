@@ -119,7 +119,7 @@ async function convertNode(
 
       const headingAlignment =
         alignment ??
-        (level === 1 || level === 2 ? AlignmentType.CENTER : undefined)
+        (level === 1 ? AlignmentType.CENTER : undefined)
 
       result.push(
         new Paragraph({

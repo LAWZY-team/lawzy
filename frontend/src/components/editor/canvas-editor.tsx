@@ -444,7 +444,7 @@ export function CanvasEditor({
     if (!editor) return;
 
     try {
-      const exportContent = getFinalExportContent(true);
+      const exportContent = getFinalExportContent(false);
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -515,7 +515,7 @@ export function CanvasEditor({
   const handleOpenGoogleDocs = async () => {
     if (!editor) return;
     try {
-      const exportContent = getFinalExportContent(true);
+      const exportContent = getFinalExportContent(false);
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
