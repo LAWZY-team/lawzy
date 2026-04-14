@@ -1385,10 +1385,41 @@ export default function EditorPage({
       '',
       'Vui lòng soạn thảo hợp đồng đầy đủ và chính xác theo đúng pháp luật Việt Nam dựa trên thông tin trên.',
     ].filter((l) => l !== '').join('\n')
+
+    // Push wizard answers into mergeFieldValues so the right panel tools are
+    // populated immediately — before the AI finishes drafting the contract.
+    const prevMfv = useEditorStore.getState().mergeFieldValues
+    const wizardMergeValues: Record<string, string> = { ...prevMfv }
+    for (const [key, val] of Object.entries(values)) {
+      const trimmed = typeof val === 'string' ? val.trim() : ''
+      if (trimmed) wizardMergeValues[key] = trimmed
+    }
+    setMergeFieldValues(wizardMergeValues)
+
+    // Build templateMergeFields from wizard fields so labels appear correctly
+    // in the right panel (deduped across steps).
+    const seenKeys = new Set<string>()
+    const wizardMergeFields: TemplateMergeField[] = []
+    for (const step of steps) {
+      for (const field of step.fields) {
+        if (seenKeys.has(field.key)) continue
+        seenKeys.add(field.key)
+        wizardMergeFields.push({
+          fieldKey: field.key,
+          label: field.label,
+          sampleValue: wizardMergeValues[field.key] ?? '',
+        })
+      }
+    }
+    setTemplateMergeFields(wizardMergeFields)
+
+    // Open canvas right away so the user sees the tools panel while the AI drafts.
+    setIsCanvasMode(true)
+
     setWizardContractTypeId(null)
     setIsWizardSubmitting(false)
     await handleSendMessage(prompt)
-  }, [handleSendMessage])
+  }, [handleSendMessage, setMergeFieldValues, setTemplateMergeFields])
 
   return (
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
