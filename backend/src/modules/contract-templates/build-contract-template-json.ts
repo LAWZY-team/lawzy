@@ -6,16 +6,13 @@ import type {
   ContentTextNode,
   DocContent,
   MergeFieldDefinition,
+  ContentBulletListNode,
+  ContentListItemNode,
 } from './contract-templates.types';
 
 interface BuildContractTemplateJsonResult {
   contentJSON: DocContent;
   mergeFields: MergeFieldDefinition[];
-}
-
-interface PendingClause {
-  title: string;
-  paragraphs: string[];
 }
 
 function normalizeWhitespace(text: string): string {
@@ -48,7 +45,6 @@ function isNationalHeader(line: string): boolean {
 }
 
 function isClauseHeading(line: string): boolean {
-  // Bỏ qua các dấu '#' của markdown để detect đúng chữ Điều/Article
   const cleanLine = line.replace(/^#{1,6}\s+/, '').trim();
   return /^(điều|article|clause)\s+\d+[\s.:)]/i.test(cleanLine);
 }
@@ -57,35 +53,49 @@ function parseInlineContent(
   line: string,
 ): Array<ContentTextNode | ContentFieldNode> {
   const content: Array<ContentTextNode | ContentFieldNode> = [];
-  const regex = /\{\{([A-Z0-9_]+)\}\}/g;
+  // Tokenize: {{FIELD}}, **bold**, __bold__
+  const regex = /(\{\{[A-Z0-9_]+\}\})|(\*\*)|(__)/g;
   let lastIndex = 0;
-  let match: RegExpExecArray | null = regex.exec(line);
-  while (match) {
+  let match: RegExpExecArray | null;
+  let isBold = false;
+
+  while ((match = regex.exec(line)) !== null) {
     if (match.index > lastIndex) {
-      content.push({
-        type: 'text',
-        text: line.slice(lastIndex, match.index),
-      });
+      const text = line.slice(lastIndex, match.index);
+      const node: ContentTextNode = { type: 'text', text };
+      if (isBold) node.marks = [{ type: 'bold' }];
+      content.push(node);
     }
-    content.push({
-      type: 'field',
-      attrs: {
-        fieldKey: match[1],
-        label: match[1].replace(/_/g, ' '),
-      },
-    });
+
+    if (match[1]) {
+      // {{FIELDKey}}
+      const key = match[1].replace(/[\{\}]/g, '');
+      const node: ContentFieldNode = {
+        type: 'field',
+        attrs: {
+          fieldKey: key,
+          label: key.replace(/_/g, ' '),
+        },
+      };
+      content.push(node);
+    } else if (match[2] || match[3]) {
+      // Toggle bold
+      isBold = !isBold;
+    }
     lastIndex = regex.lastIndex;
-    match = regex.exec(line);
   }
+
   if (lastIndex < line.length) {
-    content.push({
-      type: 'text',
-      text: line.slice(lastIndex),
-    });
+    const text = line.slice(lastIndex);
+    const node: ContentTextNode = { type: 'text', text };
+    if (isBold) node.marks = [{ type: 'bold' }];
+    content.push(node);
   }
+
   if (content.length === 0) {
     content.push({ type: 'text', text: line });
   }
+
   return content;
 }
 
@@ -112,53 +122,50 @@ function buildHeading(params: {
   };
 }
 
-function flushClause(
-  clause: PendingClause | null,
-  clauseIndex: number,
-): ContentClauseNode | null {
-  if (!clause) return null;
-  const content = clause.paragraphs
-    .map((paragraph) => normalizeWhitespace(paragraph))
-    .filter(Boolean)
-    .map((paragraph) => buildParagraph(paragraph));
-  if (content.length === 0) return null;
-  return {
-    type: 'clause',
-    attrs: {
-      clauseId: `clause_${clauseIndex}`,
-      riskLevel: 'low',
-      title: clause.title,
-    },
-    content,
-  };
-}
-
 export const buildContractTemplateJson = (params: {
   text: string;
   mergeFields: MergeFieldDefinition[];
   defaultTitle: string;
 }): BuildContractTemplateJsonResult => {
   const lines = splitNonEmptyLines(params.text);
-  const content: DocContent['content'] = [];
-  let currentClause: PendingClause | null = null;
+  const rootContent: DocContent['content'] = [];
+  
+  let currentClause: ContentClauseNode | null = null;
   let clauseIndex = 1;
   let headingCount = 0;
+  let listItems: ContentListItemNode[] = [];
+
+  const flushList = (targetArr: any[]) => {
+    if (listItems.length > 0) {
+      targetArr.push({
+        type: 'bulletList',
+        content: listItems,
+      });
+      listItems = [];
+    }
+  };
 
   const pushCurrentClause = () => {
-    const clauseNode = flushClause(currentClause, clauseIndex);
-    if (clauseNode) {
-      content.push(clauseNode);
+    if (currentClause) {
+      flushList(currentClause.content);
+      rootContent.push(currentClause);
       clauseIndex += 1;
+      currentClause = null;
+    } else {
+      flushList(rootContent);
     }
-    currentClause = null;
   };
 
   for (const rawLine of lines) {
     const line = normalizeWhitespace(rawLine);
     if (!line) continue;
+    
+    const targetArray = currentClause ? currentClause.content : rootContent;
+
     if (isDividerLine(line)) {
+      flushList(targetArray);
       pushCurrentClause();
-      content.push({
+      rootContent.push({
         type: 'paragraph',
         attrs: { align: 'center', divider: true },
         content: [],
@@ -166,58 +173,70 @@ export const buildContractTemplateJson = (params: {
       continue;
     }
     
-    // Nếu là Điều khoản (có thể chứa ## Điều 1:)
     if (isClauseHeading(line)) {
       pushCurrentClause();
-      // Bóc tách markdown '#' trước khi lưu tiêu đề, để editor không hiện '# '
-      currentClause = { title: line.replace(/^#{1,6}\s+/, '').trim(), paragraphs: [] };
+      const cleanTitle = line.replace(/^#{1,6}\s+/, '').trim();
+      currentClause = {
+        type: 'clause',
+        attrs: {
+          clauseId: `clause_${clauseIndex}`,
+          riskLevel: 'low',
+          title: cleanTitle,
+        },
+        content: [],
+      };
       continue;
     }
 
-    if (currentClause) {
-      // Nếu dòng chứa các tag bold từ Markdown (ví dụ ở giữa clause), bóc bỏ luôn tag để khỏi bị rác UI.
-      const cleanLineInClause = line.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
-      currentClause.paragraphs.push(cleanLineInClause);
-      continue;
-    }
-
-    // Explicit markdown heading block (# Header)
     const markdownHeadingMatch = line.match(/^(#{1,6})\s+(.*)$/);
     const isHeading = isNationalHeader(line) || isUppercaseHeading(line) || !!markdownHeadingMatch;
     
     if (isHeading) {
+      flushList(targetArray);
+      
+      // If it's a global uppercase header, it breaks out of the clause
+      if (!markdownHeadingMatch && isUppercaseHeading(line)) {
+         pushCurrentClause(); 
+      }
+
       headingCount += 1;
       let level: 1 | 2 | 3 = headingCount === 1 ? 1 : headingCount <= 3 ? 2 : 3;
       let cleanTitle = line;
       
-      // Nếu thực sự là Markdown Heading, ta lấy level theo số `#` và lấy text trong sạch
       if (markdownHeadingMatch) {
         level = (markdownHeadingMatch[1].length <= 3 ? markdownHeadingMatch[1].length : 3) as 1 | 2 | 3;
         cleanTitle = markdownHeadingMatch[2];
       }
 
-      // Xóa tag bôi đậm markdown để text đẹp hơn
-      cleanTitle = cleanTitle.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
-
-      content.push(
-        buildHeading({
-          line: cleanTitle,
-          level,
-          align: 'center',
-        }),
-      );
+      const hNode = buildHeading({
+        line: cleanTitle,
+        level,
+        align: level === 1 ? 'center' : 'left',
+      });
+      
+      const insertTarget = currentClause && !isUppercaseHeading(line) ? currentClause.content : rootContent;
+      insertTarget.push(hNode);
       continue;
     }
     
-    // Xóa nốt bold/italic rác nếu bị nhầm là đoạn văn
-    const cleanParagraph = line.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1');
-    content.push(buildParagraph(cleanParagraph));
+    const matchBullet = line.match(/^[-*]+[\s-]*\s+(.*)$/);
+    if (matchBullet) {
+      const cleanText = matchBullet[1]; 
+      listItems.push({
+        type: 'listItem',
+        content: [buildParagraph(cleanText)],
+      });
+      continue;
+    }
+
+    flushList(targetArray);
+    targetArray.push(buildParagraph(line));
   }
 
   pushCurrentClause();
 
-  if (content.length === 0) {
-    content.push(
+  if (rootContent.length === 0) {
+    rootContent.push(
       buildHeading({
         line: params.defaultTitle,
         level: 1,
@@ -229,7 +248,7 @@ export const buildContractTemplateJson = (params: {
   return {
     contentJSON: {
       type: 'doc',
-      content,
+      content: rootContent,
     },
     mergeFields: params.mergeFields,
   };

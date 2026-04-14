@@ -37,6 +37,16 @@ export interface ContentHeadingNode {
   content: Array<ContentTextNode | ContentFieldNode>;
 }
 
+export interface ContentListItemNode {
+  type: 'listItem';
+  content: Array<ContentParagraphNode>;
+}
+
+export interface ContentBulletListNode {
+  type: 'bulletList';
+  content: Array<ContentListItemNode>;
+}
+
 export interface ContentClauseNode {
   type: 'clause';
   attrs: {
@@ -45,7 +55,7 @@ export interface ContentClauseNode {
     title: string;
     lawCitations?: string[];
   };
-  content: Array<ContentParagraphNode | ContentHeadingNode>;
+  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode>;
 }
 
 export type ContentNode =
@@ -53,11 +63,13 @@ export type ContentNode =
   | ContentFieldNode
   | ContentParagraphNode
   | ContentHeadingNode
+  | ContentBulletListNode
+  | ContentListItemNode
   | ContentClauseNode;
 
 export interface DocContent {
   type: 'doc';
-  content: Array<ContentParagraphNode | ContentHeadingNode | ContentClauseNode>;
+  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode | ContentClauseNode>;
 }
 
 export interface ContractTemplateMetadata {
