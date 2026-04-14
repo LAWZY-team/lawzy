@@ -9,11 +9,7 @@ function cleanOpenDataLoaderMarkdown(text: string): string {
   let cleaned = text;
 
   // We KEEP markdown headings (#, ##) and list bullets (-) 
-  // because build-contract-template-json.ts will now parse them semantically!
-
-  // 1. Remove bold/italic markup (**text**, __text__) to avoid raw asterisks in editor
-  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/gm, '$1');
-  cleaned = cleaned.replace(/__([^_]+)__/gm, '$1');
+  // and We ALSO keep bold/italic markup (**text**) since build-contract-template-json.ts now handles it!
 
   // 2. Fix National Motto formatting
   // Sometimes it merges into: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM ĐỘC LẬP – TỰ DO –\nHẠNH PHÚC"

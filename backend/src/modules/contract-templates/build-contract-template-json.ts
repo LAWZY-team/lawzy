@@ -195,24 +195,48 @@ export const buildContractTemplateJson = (params: {
     if (isHeading) {
       flushList(targetArray);
       
-      // If it's a global uppercase header, it breaks out of the clause
-      if (!markdownHeadingMatch && isUppercaseHeading(line)) {
-         pushCurrentClause(); 
+      let level: 1 | 2 | 3 = 2; // Default
+      let cleanTitle = line;
+      let isCenter = false;
+
+      // Handle Title / Motto properly
+      if (isNationalHeader(line)) {
+        level = 1;
+        isCenter = true;
+      } else {
+        if (isUppercaseHeading(line)) {
+          headingCount += 1;
+          // The very first uppercase heading is usually the Document Title "HỢP ĐỒNG..."
+          if (headingCount === 1) {
+            level = 1;
+            isCenter = true;
+          } else {
+            // Further uppercase headers are usually main sections
+            level = 2;
+          }
+        }
+        
+        if (markdownHeadingMatch) {
+          let numHash = markdownHeadingMatch[1].length;
+          // Markdown # headers shouldn't override the global Title text-center unless it IS the Title.
+          // By downgrading them natively to Level 2 (unless Center), we prevent the Canvas Editor's default h1 text-center CSS.
+          if (numHash === 1 && !isCenter && !isUppercaseHeading(line)) {
+            numHash = 2;
+          }
+          level = (numHash <= 3 ? numHash : 3) as 1 | 2 | 3;
+          cleanTitle = markdownHeadingMatch[2];
+        }
       }
 
-      headingCount += 1;
-      let level: 1 | 2 | 3 = headingCount === 1 ? 1 : headingCount <= 3 ? 2 : 3;
-      let cleanTitle = line;
-      
-      if (markdownHeadingMatch) {
-        level = (markdownHeadingMatch[1].length <= 3 ? markdownHeadingMatch[1].length : 3) as 1 | 2 | 3;
-        cleanTitle = markdownHeadingMatch[2];
+      // If it's a global uppercase header, it breaks out of the clause
+      if (isUppercaseHeading(line) && !isNationalHeader(line)) {
+         pushCurrentClause(); 
       }
 
       const hNode = buildHeading({
         line: cleanTitle,
         level,
-        align: level === 1 ? 'center' : 'left',
+        align: isCenter ? 'center' : 'left',
       });
       
       const insertTarget = currentClause && !isUppercaseHeading(line) ? currentClause.content : rootContent;

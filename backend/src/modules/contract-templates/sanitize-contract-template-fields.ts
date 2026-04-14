@@ -154,47 +154,16 @@ function createFieldMatch(params: {
   valueToFieldMap?: Map<string, MergeFieldDefinition>;
   plainTextRedaction?: boolean;
 }): SanitizedFieldMatch {
-  if (params.plainTextRedaction) {
-    return {
-      field: {
-        fieldKey: '_',
-        label: '',
-        dataType: 'string',
-        required: false,
-      },
-      placeholder: '',
-    };
-  }
-  // If we have a value and it was already sanitized, reuse the field
-  if (params.value && params.valueToFieldMap && params.valueToFieldMap.has(params.value)) {
-    const existingField = params.valueToFieldMap.get(params.value)!;
-    return {
-      field: existingField,
-      placeholder: `{{${existingField.fieldKey}}}`,
-    };
-  }
-
-  const cleanedLabel = cleanLabel(params.label);
-  const fieldKey = ensureUniqueFieldKey(
-    buildBaseFieldKey(cleanedLabel),
-    params.existingKeys,
-  );
-  
-  const field: MergeFieldDefinition = {
-    fieldKey,
-    label: cleanedLabel || 'Nhập giá trị',
-    dataType: params.dataType || inferDataType(cleanedLabel),
-    required: false,
-  };
-
-  // Track the new field for deduplication if value is provided
-  if (params.value && params.valueToFieldMap) {
-    params.valueToFieldMap.set(params.value, field);
-  }
-
+  // Theo yêu cầu mới nhất: Không còn sử dụng Merge Field cho Template
+  // Sẽ trực tiếp gạch bỏ tên và thay bằng các dấu chấm để user tự điền hoặc nó sẽ trống
   return {
-    field,
-    placeholder: `{{${fieldKey}}}`,
+    field: {
+      fieldKey: '_',
+      label: '',
+      dataType: 'string',
+      required: false,
+    },
+    placeholder: '',
   };
 }
 
