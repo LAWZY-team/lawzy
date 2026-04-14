@@ -19,6 +19,11 @@ ENV NODE_ENV=production
 ENV LEGAL_CRAWLER_TLS_STRICT=true
 ENV NODE_EXTRA_CA_CERTS=/app/tls/globalsign-rsa-ov-ssl-ca-2018.pem
 
+# Install Java 11 (JRE) for @opendataloader/pdf module
+RUN apk add --no-cache openjdk11-jre
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+ENV PATH="$JAVA_HOME/bin:${PATH}"
+
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./

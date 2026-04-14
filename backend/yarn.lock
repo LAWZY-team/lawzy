@@ -1707,6 +1707,13 @@
   dependencies:
     consola "^3.2.3"
 
+"@opendataloader/pdf@^2.2.1":
+  version "2.2.1"
+  resolved "https://registry.npmjs.org/@opendataloader/pdf/-/pdf-2.2.1.tgz"
+  integrity sha512-nZKfceOuio5Nx8N6bO6VUG07gk3gMPv92n6wb3lCctPiWnGS+7wwFVQr+bw41FM5S6xvgQ1qQG3A1YT0FsT+bw==
+  dependencies:
+    commander "^14.0.3"
+
 "@paralleldrive/cuid2@^2.2.2":
   version "2.3.1"
   resolved "https://registry.npmjs.org/@paralleldrive/cuid2/-/cuid2-2.3.1.tgz"
@@ -3535,6 +3542,11 @@ combined-stream@^1.0.8:
   integrity sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==
   dependencies:
     delayed-stream "~1.0.0"
+
+commander@^14.0.3:
+  version "14.0.3"
+  resolved "https://registry.npmjs.org/commander/-/commander-14.0.3.tgz"
+  integrity sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==
 
 commander@^2.20.0:
   version "2.20.3"
