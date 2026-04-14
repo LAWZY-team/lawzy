@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Plus, Trash2, Building2 } from "lucide-react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { Plus, Trash2, Building2, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -76,11 +76,17 @@ export default function FieldsPage() {
   const [addDialog, setAddDialog] = useState<"user" | "workspace" | null>(null)
   const wsFieldsRef = useRef<WorkspaceFieldItem[]>([])
   const wsPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [newField, setNewField] = useState({ label: "", defaultValue: "" })
+  const [newField, setNewField] = useState({ label: "", defaultValue: "", category: "" })
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "user" | "workspace"
     key: string
   } | null>(null)
+  const [inlineAdd, setInlineAdd] = useState<{
+    groupId: UserFieldSettingsGroupId | null
+    label: string
+    defaultValue: string
+  }>({ groupId: null, label: '', defaultValue: '' })
+  const inlineLabelRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setUserFields(
@@ -162,9 +168,10 @@ export default function FieldsPage() {
       key,
       label: newField.label.trim(),
       defaultValue: newField.defaultValue.trim(),
+      ...(newField.category.trim() ? { category: newField.category.trim() } : {}),
     })
     setAddDialog(null)
-    setNewField({ label: "", defaultValue: "" })
+    setNewField({ label: "", defaultValue: "", category: "" })
   }
 
   const handleAddWsField = async () => {
@@ -185,7 +192,7 @@ export default function FieldsPage() {
       })
       setWsFields(updated)
       setAddDialog(null)
-      setNewField({ label: "", defaultValue: "" })
+      setNewField({ label: "", defaultValue: "", category: "" })
       toast.success(t("common_save") + "!")
     } catch {
       toast.error("Lưu thất bại")
@@ -223,6 +230,28 @@ export default function FieldsPage() {
     }
   }
 
+  useEffect(() => {
+    if (inlineAdd.groupId !== null) {
+      const id = setTimeout(() => inlineLabelRef.current?.focus(), 30)
+      return () => clearTimeout(id)
+    }
+  }, [inlineAdd.groupId])
+
+  const handleInlineAddSave = useCallback(() => {
+    if (!inlineAdd.label.trim()) return
+    const key = slugifyKey(inlineAdd.label) || 'field'
+    addCustomField({
+      key,
+      label: inlineAdd.label.trim(),
+      defaultValue: inlineAdd.defaultValue.trim(),
+    })
+    setInlineAdd({ groupId: null, label: '', defaultValue: '' })
+  }, [inlineAdd, addCustomField])
+
+  const handleInlineAddCancel = useCallback(() => {
+    setInlineAdd({ groupId: null, label: '', defaultValue: '' })
+  }, [])
+
   const myRole = workspaceStore?.workspaces?.find(
     (w) => w.id === currentWorkspace?.id
   )?.role ?? "viewer"
@@ -239,8 +268,31 @@ export default function FieldsPage() {
     "other",
   ]
 
+  const customFieldCategoryMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const f of customFields) {
+      if (f.category) m[f.key] = f.category
+    }
+    return m
+  }, [customFields])
+
   const userFieldsByGroup = (gid: UserFieldSettingsGroupId) =>
-    userFields.filter((item) => getUserFieldGroupForSettings(item.key) === gid)
+    userFields.filter((item) => {
+      if (gid === 'other' && customFieldCategoryMap[item.key]) return false
+      return getUserFieldGroupForSettings(item.key) === gid
+    })
+
+  const customCategoryGroups: Array<{ category: string; items: FieldItem[] }> = useMemo(() => {
+    const map = new Map<string, FieldItem[]>()
+    for (const item of userFields) {
+      const cat = customFieldCategoryMap[item.key]
+      if (cat && getUserFieldGroupForSettings(item.key) === 'other') {
+        if (!map.has(cat)) map.set(cat, [])
+        map.get(cat)!.push(item)
+      }
+    }
+    return Array.from(map.entries()).map(([category, items]) => ({ category, items }))
+  }, [userFields, customFieldCategoryMap])
 
   const renderFieldRow = (type: "user" | "workspace", item: FieldItem) => {
     const canEditRow = type === "user" || canEditWs
@@ -335,11 +387,22 @@ export default function FieldsPage() {
 
   const renderUserGroupTable = (gid: UserFieldSettingsGroupId, title: string) => {
     const items = userFieldsByGroup(gid)
-    if (items.length === 0) return null
+    const isAddingHere = inlineAdd.groupId === gid
+    if (items.length === 0 && !isAddingHere) return null
+    const keyPreview = inlineAdd.label.trim() ? (slugifyKey(inlineAdd.label) || '...') : '...'
     return (
       <div key={gid} className="rounded-md border bg-card overflow-hidden">
-        <div className="border-b border-border bg-muted/40 px-4 py-2">
+        <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground px-2"
+            onClick={() => setInlineAdd({ groupId: gid, label: '', defaultValue: '' })}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Thêm trường
+          </Button>
         </div>
         <Table>
           <TableHeader>
@@ -348,17 +411,75 @@ export default function FieldsPage() {
               <TableHead>{t("settings_fields_key")}</TableHead>
               <TableHead>{t("settings_fields_label")}</TableHead>
               <TableHead>{t("settings_fields_default")}</TableHead>
-              <TableHead className="w-[72px]" />
+              <TableHead className="w-[88px]" />
             </TableRow>
           </TableHeader>
-          <TableBody>{items.map((item) => renderFieldRow("user", item))}</TableBody>
+          <TableBody>
+            {items.map((item) => renderFieldRow("user", item))}
+            {isAddingHere && (
+              <TableRow className="bg-muted/30">
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">{t("settings_fields_user")}</span>
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground/60">
+                  {keyPreview}
+                </TableCell>
+                <TableCell>
+                  <Input
+                    ref={inlineLabelRef}
+                    value={inlineAdd.label}
+                    onChange={(e) => setInlineAdd((p) => ({ ...p, label: e.target.value }))}
+                    placeholder="Nhãn trường"
+                    className="h-8 text-sm max-w-[280px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleInlineAddSave()
+                      if (e.key === 'Escape') handleInlineAddCancel()
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={inlineAdd.defaultValue}
+                    onChange={(e) => setInlineAdd((p) => ({ ...p, defaultValue: e.target.value }))}
+                    placeholder="Giá trị mặc định (tùy chọn)"
+                    className="h-8 text-sm max-w-[320px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleInlineAddSave()
+                      if (e.key === 'Escape') handleInlineAddCancel()
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-primary hover:text-primary"
+                      onClick={handleInlineAddSave}
+                      disabled={!inlineAdd.label.trim()}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={handleInlineAddCancel}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
         </Table>
       </div>
     )
   }
 
   return (
-    <div id="tour-settings-content" className="flex flex-1 flex-col gap-4 p-6">
+    <div id="tour-settings-content" className="flex flex-1 flex-col gap-4 p-6 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">{t("sidebar_profile")}</h2>
@@ -366,7 +487,7 @@ export default function FieldsPage() {
         </div>
         <Button onClick={() => setAddDialog("user")} disabled={wsLoading}>
           <Plus className="mr-2 h-4 w-4" />
-          {t("settings_fields_add")}
+          Thêm trường tùy chỉnh
         </Button>
       </div>
 
@@ -434,6 +555,34 @@ export default function FieldsPage() {
               }
               return renderUserGroupTable(gid, USER_FIELD_GROUP_LABELS[gid])
             })}
+            {customCategoryGroups.map(({ category, items }) => (
+              <div key={`custom-cat-${category}`} className="rounded-md border bg-card overflow-hidden">
+                <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">{category}</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground px-2"
+                    onClick={() => setInlineAdd({ groupId: 'other', label: '', defaultValue: '' })}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Thêm trường
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                      <TableHead>{t("settings_fields_key")}</TableHead>
+                      <TableHead>{t("settings_fields_label")}</TableHead>
+                      <TableHead>{t("settings_fields_default")}</TableHead>
+                      <TableHead className="w-[88px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>{items.map((item) => renderFieldRow("user", item))}</TableBody>
+                </Table>
+              </div>
+            ))}
             {hasWsFields && currentWorkspace && (
               <div className="rounded-md border bg-card overflow-hidden">
                 <div className="border-b border-border bg-muted/40 px-4 py-2">
@@ -468,13 +617,13 @@ export default function FieldsPage() {
         onOpenChange={(o) => {
           if (!o) {
             setAddDialog(null)
-            setNewField({ label: "", defaultValue: "" })
+            setNewField({ label: "", defaultValue: "", category: "" })
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("settings_fields_add")}</DialogTitle>
+            <DialogTitle>Thêm trường tùy chỉnh</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {currentWorkspace && canEditWs && (
@@ -519,13 +668,31 @@ export default function FieldsPage() {
                 placeholder="Giá trị mặc định (tùy chọn)"
               />
             </div>
+            {addDialog === "user" && (
+              <div className="space-y-2">
+                <Label>
+                  Tên danh mục
+                  <span className="ml-1 text-xs text-muted-foreground font-normal">(tùy chọn)</span>
+                </Label>
+                <Input
+                  value={newField.category}
+                  onChange={(e) =>
+                    setNewField((n) => ({ ...n, category: e.target.value }))
+                  }
+                  placeholder="Ví dụ: Thông tin thanh toán"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Trường sẽ được nhóm vào danh mục này trên trang cài đặt.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setAddDialog(null)
-                setNewField({ label: "", defaultValue: "" })
+                setNewField({ label: "", defaultValue: "", category: "" })
               }}
             >
               {t("common_cancel")}

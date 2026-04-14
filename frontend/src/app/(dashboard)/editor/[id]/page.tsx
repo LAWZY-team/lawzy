@@ -12,6 +12,7 @@ import { TextStyleKit } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import { Indent } from '@/lib/tiptap/extensions/indent'
+import { ResizableImageExtension } from '@/lib/tiptap/extensions/resizable-image'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
@@ -487,10 +488,16 @@ export default function EditorPage({
       }),
       TextStyleKit.configure({
         backgroundColor: false,
-        color: false,
+        color: {
+          types: ['textStyle'],
+        },
         lineHeight: false,
         fontFamily: { types: ['textStyle'] },
         fontSize: { types: ['textStyle'] },
+      }),
+      ResizableImageExtension.configure({
+        allowBase64: true,
+        inline: false,
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Table.configure({ resizable: true }),

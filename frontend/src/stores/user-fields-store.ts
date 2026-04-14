@@ -8,6 +8,8 @@ export interface UserCustomField {
   key: string
   label: string
   defaultValue: string
+  /** Optional custom group/category name shown on the fields settings page */
+  category?: string
 }
 
 /** Trường mẫu tiêu chuẩn trong hợp đồng — người dùng có thể chỉnh sửa sau */
@@ -157,6 +159,7 @@ export const useUserFieldsStore = create<UserFieldsState>()(
               key,
               label: field.label,
               defaultValue: field.defaultValue ?? '',
+              ...(field.category ? { category: field.category } : {}),
             },
           ],
         })

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -59,6 +60,8 @@ interface WizardUserProfileDialogProps {
   addCustomField: (field: Omit<UserCustomField, 'key'> & { key?: string }) => string
 }
 
+const GROUP_ORDER: UserFieldGroupId[] = ['basic', 'representative', 'contract_profile']
+
 export function WizardUserProfileDialog({
   open,
   onOpenChange,
@@ -94,9 +97,11 @@ export function WizardUserProfileDialog({
   }, [customFields])
 
   const [draft, setDraft] = useState<Record<string, string>>({})
+  const [expandedGroup, setExpandedGroup] = useState<UserFieldGroupId | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setExpandedGroup(null)
     const base = draftFromCustomFields(customFields)
     for (const k of allKeys) {
       if (base[k] === undefined) base[k] = ''
@@ -108,20 +113,34 @@ export function WizardUserProfileDialog({
     setDraft((prev) => ({ ...prev, [key]: value }))
   }, [])
 
-  const handleSaveProfile = useCallback(() => {
-    for (const key of allKeys) {
+  const keysForGroup = useCallback((gid: UserFieldGroupId): string[] => {
+    const canon = CANONICAL_KEYS_BY_GROUP[gid] as readonly string[]
+    return allKeys.filter((k) => canon.includes(k))
+  }, [allKeys])
+
+  const getGroupSummary = useCallback((gid: UserFieldGroupId) => {
+    const keys = keysForGroup(gid)
+    const filledKeys = keys.filter((k) => (draft[k] ?? '').trim())
+    const firstEntry = filledKeys.length > 0
+      ? { label: labelByKey[filledKeys[0]] ?? filledKeys[0], value: draft[filledKeys[0]] }
+      : null
+    return { filledCount: filledKeys.length, total: keys.length, firstEntry }
+  }, [keysForGroup, draft, labelByKey])
+
+  const handleSaveGroup = useCallback((gid: UserFieldGroupId) => {
+    const keys = keysForGroup(gid)
+    for (const key of keys) {
       const raw = draft[key] ?? ''
-      const val = raw.trim()
       const label = labelByKey[key] ?? DEFAULT_LABEL_BY_KEY[key] ?? key
       const exists = useUserFieldsStore.getState().customFields.some((f) => f.key === key)
       if (exists) {
         updateCustomField(key, { defaultValue: raw })
-      } else if (val) {
-        addCustomField({ key, label, defaultValue: val })
+      } else if (raw.trim()) {
+        addCustomField({ key, label, defaultValue: raw.trim() })
       }
     }
-    onOpenChange(false)
-  }, [allKeys, draft, labelByKey, updateCustomField, addCustomField, onOpenChange])
+    setExpandedGroup(null)
+  }, [keysForGroup, draft, labelByKey, updateCustomField, addCustomField])
 
   const handleApplyToForm = useCallback(() => {
     const synthetic = customFieldsFromDraft(draft, labelByKey)
@@ -138,71 +157,108 @@ export function WizardUserProfileDialog({
   const anySaved = hasAnyProfileValue(customFields)
   const emptyHint = customFields.length === 0 || !anySaved
 
-  const keysByGroup = (gid: UserFieldGroupId) => {
-    const canon = CANONICAL_KEYS_BY_GROUP[gid] as readonly string[]
-    return allKeys.filter((k) => canon.includes(k))
-  }
-
-  const renderGroup = (gid: UserFieldGroupId) => {
-    const keys = keysByGroup(gid)
+  const renderGroupCard = (gid: UserFieldGroupId) => {
+    const keys = keysForGroup(gid)
     if (keys.length === 0) return null
+    const { filledCount, total, firstEntry } = getGroupSummary(gid)
+    const isExpanded = expandedGroup === gid
+
     return (
-      <div key={gid} className="space-y-3">
-        <h4 className="text-sm font-semibold text-foreground border-b border-border pb-2">
-          {USER_FIELD_GROUP_LABELS[gid]}
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {keys.map((key) => (
-            <div key={key} className="space-y-1.5">
-              <Label className="text-xs">{labelByKey[key] ?? key}</Label>
-              <Input
-                value={draft[key] ?? ''}
-                onChange={(e) => setDraftKey(key, e.target.value)}
-                placeholder={DEFAULT_LABEL_BY_KEY[key] ?? key}
-                className="text-sm"
-              />
-            </div>
-          ))}
+      <div key={gid} className="border border-border rounded-lg overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 bg-muted/20">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground leading-tight">
+              {USER_FIELD_GROUP_LABELS[gid]}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {firstEntry
+                ? <>{firstEntry.label}: <span className="text-foreground/70">{firstEntry.value}</span></>
+                : `${filledCount}/${total} trường đã điền`}
+              {firstEntry && filledCount > 1 && (
+                <span className="ml-1 text-muted-foreground/60">
+                  +{filledCount - 1} trường khác
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Chỉnh sửa nhóm"
+            onClick={() => setExpandedGroup(isExpanded ? null : gid)}
+            className="shrink-0 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
         </div>
+
+        {isExpanded && (
+          <div className="px-4 pt-4 pb-3 border-t border-border space-y-4 bg-background">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {keys.map((key) => (
+                <div key={key} className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">{labelByKey[key] ?? key}</Label>
+                  <Input
+                    value={draft[key] ?? ''}
+                    onChange={(e) => setDraftKey(key, e.target.value)}
+                    placeholder={DEFAULT_LABEL_BY_KEY[key] ?? key}
+                    className="text-sm h-8"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => handleSaveGroup(gid)}
+              >
+                Lưu thay đổi
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col gap-0 p-0">
-        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+      <DialogContent className="max-w-lg flex flex-col gap-0 p-0 max-h-[85vh]">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b border-border">
           <DialogTitle>Tự động điền từ hồ sơ</DialogTitle>
-          {emptyHint && (
-            <p className="text-sm text-muted-foreground font-normal pt-1">
-              Hãy điền các thông tin hiện có để lưu cho lần sau. Bạn cũng có thể thêm bộ trường mẫu hoặc quản lý tại{' '}
-              <Link href="/fields" className="text-primary underline underline-offset-2">
-                Trường thông tin
-              </Link>
-              .
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground font-normal pt-1">
+            {emptyHint
+              ? <>Chưa có thông tin nào. Thêm bộ trường mẫu hoặc{' '}
+                  <Link href="/fields" className="text-primary underline underline-offset-2">
+                    quản lý tại đây
+                  </Link>.</>
+              : 'Nhấn "Áp dụng" để điền tất cả thông tin đã lưu vào biểu mẫu. Nhấn biểu tượng cài đặt để chỉnh sửa từng nhóm.'}
+          </p>
         </DialogHeader>
-        <ScrollArea className="max-h-[50vh] px-6">
-          <div className="space-y-6 pr-3 pb-2">
+
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-6 py-4 space-y-3">
             {emptyHint && (
-              <Button type="button" variant="secondary" size="sm" onClick={() => addSampleFields()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSampleFields()}
+                className="w-full"
+              >
                 Thêm bộ trường mẫu
               </Button>
             )}
-            {renderGroup('basic')}
-            {renderGroup('representative')}
-            {renderGroup('contract_profile')}
+            {GROUP_ORDER.map((gid) => renderGroupCard(gid))}
           </div>
         </ScrollArea>
-        <DialogFooter className="px-6 py-4 border-t border-border shrink-0 flex-col sm:flex-row gap-2">
+
+        <DialogFooter className="px-6 py-4 border-t border-border shrink-0 gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Đóng
           </Button>
-          <Button type="button" variant="secondary" onClick={handleSaveProfile}>
-            Lưu vào hồ sơ
-          </Button>
-          <Button type="button" onClick={handleApplyToForm}>
+          <Button type="button" onClick={handleApplyToForm} disabled={emptyHint}>
             Áp dụng vào biểu mẫu
           </Button>
         </DialogFooter>

@@ -7,7 +7,7 @@
  * Nội dung load từ template đã có align/divider; khi cần căn chỉnh trong editor có thể bổ sung
  * extension text-align cho TipTap.
  */
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, Editor } from "@tiptap/react";
 import { useShallow } from 'zustand/react/shallow';
@@ -45,6 +45,9 @@ import {
   ListOrdered,
   Indent,
   Outdent,
+  ImageIcon,
+  Palette,
+  Loader2,
 } from "lucide-react";
 import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -70,6 +73,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { createPublicShareWithAccessCode } from "@/lib/api/public-shares";
 import { sanitizeEditorHtml, sanitizeHtml } from "@/lib/sanitize";
 import { convertTipTapToMarkdown } from "@/lib/export/tiptap-to-markdown";
+import { useUploadEditorImage } from "@/hooks/editor/use-upload-editor-image";
 
 const CONTRACT_BODY_CLASSES = [
   "min-h-full p-8 pb-32 text-foreground max-w-[850px] mx-auto",
@@ -89,6 +93,23 @@ const CONTRACT_BODY_CLASSES = [
   "[&_[data-indent='4']]:pl-32",
   "[&_[data-indent='5']]:pl-40",
 ].join(" ");
+
+const PAGE_HEIGHT_PX = 1122;
+const PAGE_HEADER_HEIGHT_PX = 110;
+const PAGE_FOOTER_HEIGHT_PX = 90;
+
+const TEXT_COLORS = [
+  "#111827",
+  "#374151",
+  "#6B7280",
+  "#EF4444",
+  "#F97316",
+  "#EAB308",
+  "#22C55E",
+  "#06B6D4",
+  "#3B82F6",
+  "#8B5CF6",
+] as const;
 
 const getPublicAppBaseUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -133,6 +154,8 @@ export function CanvasEditor({
 }: CanvasEditorProps) {
   const { t } = useT();
   const [docTitle, setDocTitle] = useState(title);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadEditorImageMutation = useUploadEditorImage();
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? "";
   const params = useParams();
@@ -201,6 +224,50 @@ export function CanvasEditor({
     (currentFontSize && currentFontSize.length > 0
       ? currentFontSize
       : undefined) ?? "Cỡ chữ";
+  const currentTextColor = editor?.getAttributes("textStyle")?.color as
+    | string
+    | undefined;
+
+  const executeInsertImage = useCallback(
+    async (file: File) => {
+      if (!editor) return;
+      if (!workspaceId) {
+        toast.error("Vui lòng chọn workspace để tải ảnh");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        toast.error("Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)");
+        return;
+      }
+      try {
+        const uploadResult = await uploadEditorImageMutation.mutateAsync({
+          file,
+          workspaceId,
+        });
+        const imageSource = `/api/proxy/files/${uploadResult.id}/download`;
+        editor.chain().focus().setImage({ src: imageSource }).run();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Tải ảnh thất bại";
+        toast.error(errorMessage);
+      }
+    },
+    [editor, uploadEditorImageMutation, workspaceId],
+  );
+
+  const handlePickImage = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const handleImageInputChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = event.target.files?.[0];
+      if (!selectedFile) return;
+      await executeInsertImage(selectedFile);
+      event.target.value = "";
+    },
+    [executeInsertImage],
+  );
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !editor.view) return;
@@ -755,6 +822,13 @@ export function CanvasEditor({
           }
         }}
       >
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          className="hidden"
+          onChange={handleImageInputChange}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -880,6 +954,43 @@ export function CanvasEditor({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+              title="Màu chữ"
+            >
+              <Palette className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground w-52">
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().unsetColor().run()}
+              className="hover:bg-accent"
+            >
+              Màu mặc định
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <div className="grid grid-cols-5 gap-2 px-2 py-2">
+              {TEXT_COLORS.map((colorHex) => (
+                <button
+                  key={colorHex}
+                  type="button"
+                  className={cn(
+                    "h-6 w-6 rounded-full border border-border transition-transform hover:scale-105",
+                    currentTextColor === colorHex && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  )}
+                  style={{ backgroundColor: colorHex }}
+                  onClick={() => editor.chain().focus().setColor(colorHex).run()}
+                  title={colorHex}
+                />
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <div className="h-4 w-px bg-border mx-2"></div>
 
         <DropdownMenu>
@@ -994,6 +1105,21 @@ export function CanvasEditor({
           <UnderlineIcon className="w-4 h-4" />
         </Button>
 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePickImage}
+          disabled={uploadEditorImageMutation.isPending}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0 disabled:opacity-30"
+          title="Chèn ảnh"
+        >
+          {uploadEditorImageMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ImageIcon className="w-4 h-4" />
+          )}
+        </Button>
+
         <div className="h-4 w-px bg-border mx-2"></div>
 
         <Button
@@ -1069,8 +1195,31 @@ export function CanvasEditor({
 
       {/* Editor Body — full width của cột; nội dung dùng hết chiều ngang trên màn hình lớn */}
       <div className="flex-1 overflow-auto relative bg-muted/20">
-        <div className="w-full max-w-[min(100%,96rem)] mx-auto min-h-full [&_.tiptap]:max-w-none [&_.tiptap]:w-full [&_.ProseMirror]:max-w-none [&_.ProseMirror]:w-full">
-          <EditorContent editor={editor} className={cn(CONTRACT_BODY_CLASSES)} />
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            backgroundSize: `100% ${PAGE_HEIGHT_PX}px`,
+            backgroundImage: `linear-gradient(
+              to bottom,
+              transparent ${PAGE_HEADER_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEADER_HEIGHT_PX}px,
+              transparent ${PAGE_HEADER_HEIGHT_PX + 1}px,
+              transparent ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX}px,
+              transparent ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX + 1}px,
+              transparent ${PAGE_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEIGHT_PX}px
+            )`,
+          }}
+        />
+        <div className="relative w-full max-w-[min(100%,96rem)] mx-auto min-h-full [&_.tiptap]:max-w-none [&_.tiptap]:w-full [&_.ProseMirror]:max-w-none [&_.ProseMirror]:w-full">
+          <div className="pointer-events-none absolute right-6 top-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Header
+          </div>
+          <div className="pointer-events-none absolute right-6 bottom-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Footer
+          </div>
+          <EditorContent editor={editor} className={cn(CONTRACT_BODY_CLASSES, "relative z-10")} />
         </div>
       </div>
 
