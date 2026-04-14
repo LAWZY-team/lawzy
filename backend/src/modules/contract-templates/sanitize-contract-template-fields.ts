@@ -152,7 +152,19 @@ function createFieldMatch(params: {
   dataType?: MergeFieldDataType;
   existingKeys: Set<string>;
   valueToFieldMap?: Map<string, MergeFieldDefinition>;
+  plainTextRedaction?: boolean;
 }): SanitizedFieldMatch {
+  if (params.plainTextRedaction) {
+    return {
+      field: {
+        fieldKey: '_',
+        label: '',
+        dataType: 'string',
+        required: false,
+      },
+      placeholder: '',
+    };
+  }
   // If we have a value and it was already sanitized, reuse the field
   if (params.value && params.valueToFieldMap && params.valueToFieldMap.has(params.value)) {
     const existingField = params.valueToFieldMap.get(params.value)!;
@@ -191,6 +203,7 @@ function sanitizeSegments(params: {
   existingKeys: Set<string>;
   mergeFields: MergeFieldDefinition[];
   valueToFieldMap: Map<string, MergeFieldDefinition>;
+  plainTextRedaction?: boolean;
 }): { sanitizedLine: string; sanitizedCount: number } {
   const segments = params.line.split(/(?<=;)/);
   let sanitizedCount = 0;
@@ -211,6 +224,7 @@ function sanitizeSegments(params: {
       existingKeys: params.existingKeys,
       mergeFields: params.mergeFields,
       valueToFieldMap: params.valueToFieldMap,
+      plainTextRedaction: params.plainTextRedaction,
     });
 
     const fieldMatch = createFieldMatch({
@@ -218,10 +232,14 @@ function sanitizeSegments(params: {
       value: deepSanitizedValue === value ? value : undefined, // If sanitized deep, don't use as cache key for raw value
       existingKeys: params.existingKeys,
       valueToFieldMap: params.valueToFieldMap,
+      plainTextRedaction: params.plainTextRedaction,
     });
     
     // Only add to mergeFields if it's a new field (deduplication)
-    if (!params.mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !params.plainTextRedaction &&
+      !params.mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       params.mergeFields.push(fieldMatch.field);
     }
     
@@ -239,7 +257,9 @@ function sanitizeInlineValues(params: {
   existingKeys: Set<string>;
   mergeFields: MergeFieldDefinition[];
   valueToFieldMap: Map<string, MergeFieldDefinition>;
+  plainTextRedaction?: boolean;
 }): { sanitizedLine: string; sanitizedCount: number } {
+  const { plainTextRedaction } = params;
   let { line, existingKeys, mergeFields, valueToFieldMap } = params;
   let sanitizedCount = 0;
 
@@ -247,14 +267,18 @@ function sanitizeInlineValues(params: {
   const moneyRegex = /(?:\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\s*(?:VNĐ|VND|đồng|dong|đ|USD|EUR|[\$€£]))(?![a-zA-ZÀ-ỹ])(?:\s*\([\s\S]+?\))?/gi;
   line = line.replace(moneyRegex, (match) => {
     const value = normalizeWhitespace(match);
-    const fieldMatch = createFieldMatch({ 
-      label: 'Số tiền', 
-      value, 
-      dataType: 'currency', 
+    const fieldMatch = createFieldMatch({
+      label: 'Số tiền',
+      value,
+      dataType: 'currency',
       existingKeys,
       valueToFieldMap,
+      plainTextRedaction,
     });
-    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !plainTextRedaction &&
+      !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       mergeFields.push(fieldMatch.field);
     }
     sanitizedCount++;
@@ -265,14 +289,18 @@ function sanitizeInlineValues(params: {
   const dateRegex = /(?:(?:ng[aà]y\s+)?(?:0?[1-9]|[12][0-9]|3[01])\s*[-/.]\s*(?:0?[1-9]|1[012])\s*[-/.]\s*(?:19|20)\d\d|(?:ng[aà]y)\s+(?:0?[1-9]|[12][0-9]|3[01])\s+(?:th[aá]ng)\s+(?:0?[1-9]|1[012])\s+(?:n[aă]m)\s+(?:19|20)\d\d)/gi;
   line = line.replace(dateRegex, (match) => {
     const value = normalizeWhitespace(match);
-    const fieldMatch = createFieldMatch({ 
-      label: 'Ngày tháng năm', 
-      value, 
-      dataType: 'date', 
+    const fieldMatch = createFieldMatch({
+      label: 'Ngày tháng năm',
+      value,
+      dataType: 'date',
       existingKeys,
       valueToFieldMap,
+      plainTextRedaction,
     });
-    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !plainTextRedaction &&
+      !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       mergeFields.push(fieldMatch.field);
     }
     sanitizedCount++;
@@ -283,14 +311,18 @@ function sanitizeInlineValues(params: {
   const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
   line = line.replace(emailRegex, (match) => {
     const value = normalizeWhitespace(match);
-    const fieldMatch = createFieldMatch({ 
-      label: 'Email', 
-      value, 
-      dataType: 'string', 
+    const fieldMatch = createFieldMatch({
+      label: 'Email',
+      value,
+      dataType: 'string',
       existingKeys,
       valueToFieldMap,
+      plainTextRedaction,
     });
-    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !plainTextRedaction &&
+      !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       mergeFields.push(fieldMatch.field);
     }
     sanitizedCount++;
@@ -301,14 +333,18 @@ function sanitizeInlineValues(params: {
   const phoneRegex = /(?:\+84|0)(?:\s*\d){9,10}\b/g;
   line = line.replace(phoneRegex, (match) => {
     const value = normalizeWhitespace(match);
-    const fieldMatch = createFieldMatch({ 
-      label: 'Số điện thoại', 
-      value, 
-      dataType: 'string', 
+    const fieldMatch = createFieldMatch({
+      label: 'Số điện thoại',
+      value,
+      dataType: 'string',
       existingKeys,
       valueToFieldMap,
+      plainTextRedaction,
     });
-    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !plainTextRedaction &&
+      !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       mergeFields.push(fieldMatch.field);
     }
     sanitizedCount++;
@@ -319,14 +355,18 @@ function sanitizeInlineValues(params: {
   const idRegex = /(?<!\d)(?:\d{10}|\d{12})(?!\d)/g;
   line = line.replace(idRegex, (match) => {
     const value = normalizeWhitespace(match);
-    const fieldMatch = createFieldMatch({ 
-      label: 'Mã số / Định danh', 
-      value, 
-      dataType: 'string', 
+    const fieldMatch = createFieldMatch({
+      label: 'Mã số / Định danh',
+      value,
+      dataType: 'string',
       existingKeys,
       valueToFieldMap,
+      plainTextRedaction,
     });
-    if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+    if (
+      !plainTextRedaction &&
+      !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+    ) {
       mergeFields.push(fieldMatch.field);
     }
     sanitizedCount++;
@@ -377,9 +417,12 @@ function mapAiCategoryToLabel(category: string): string {
 export const sanitizeContractTemplateFields = async ({
   text,
   aiSanitizer,
+  plainTextRedaction = false,
 }: {
   text: string;
   aiSanitizer?: AiSanitizerService;
+  /** When true: strip PII to empty text only — no {{MERGE_FIELD}} tokens or mergeFields (community and internal uploads). */
+  plainTextRedaction?: boolean;
 }): Promise<SanitizedContractTemplateText> => {
   const mergeFields: MergeFieldDefinition[] = [];
   const existingKeys = new Set<string>();
@@ -394,12 +437,14 @@ export const sanitizeContractTemplateFields = async ({
       existingKeys,
       mergeFields,
       valueToFieldMap,
+      plainTextRedaction,
     });
     const { sanitizedLine: postInlineLine, sanitizedCount: count2 } = sanitizeInlineValues({
       line: postSegmentLine,
       existingKeys,
       mergeFields,
       valueToFieldMap,
+      plainTextRedaction,
     });
     sanitizedFieldCount += (count1 + count2);
     return postInlineLine;
@@ -430,18 +475,20 @@ export const sanitizeContractTemplateFields = async ({
         const entityRegex = new RegExp(`(?<!\\{\\{)${escapedEntity}(?!\\}\\})`, 'g');
 
         if (entityRegex.test(sanitizedText)) {
-          const fieldMatch = createFieldMatch({ 
-            label, 
-            value: entityText, 
-            dataType, 
+          const fieldMatch = createFieldMatch({
+            label,
+            value: entityText,
+            dataType,
             existingKeys,
             valueToFieldMap,
+            plainTextRedaction,
           });
-          
-          if (!mergeFields.find(f => f.fieldKey === fieldMatch.field.fieldKey)) {
+          if (
+            !plainTextRedaction &&
+            !mergeFields.find((f) => f.fieldKey === fieldMatch.field.fieldKey)
+          ) {
             mergeFields.push(fieldMatch.field);
           }
-          
           sanitizedText = sanitizedText.replace(entityRegex, fieldMatch.placeholder);
           sanitizedFieldCount += 1;
         }
@@ -476,7 +523,7 @@ export const sanitizeContractTemplateFields = async ({
     
   return {
     sanitizedText: finalSanitizedText,
-    mergeFields,
+    mergeFields: plainTextRedaction ? [] : mergeFields,
     sanitizedFieldCount,
   };
 };
