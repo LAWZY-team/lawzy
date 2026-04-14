@@ -252,78 +252,91 @@ async function fetchServerFields(): Promise<{ customFields: UserCustomField[]; h
   }
 }
 
+/**
+ * Hydrate user custom fields for the signed-in user (server + optional guest merge).
+ * Must run when user id changes and also once on load if the auth store already has a user —
+ * otherwise client-side navigation can leave `customFields` empty until a full reload.
+ */
+function runAuthenticatedUserFieldsHydration(): void {
+  void (async () => {
+    try {
+      const server = await fetchServerFields()
+      const guestRaw =
+        sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
+      const guest = parsePersistedState(guestRaw)
+      const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
+      const mergedCustom: UserCustomField[] = [...server.customFields]
+      for (const gf of guest?.customFields ?? []) {
+        if (!serverByKey.has(gf.key)) mergedCustom.push(gf)
+      }
+      const mergedHidden = Array.from(
+        new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])])
+      )
+      suppressNextSync = true
+      useUserFieldsStore.setState({
+        customFields: mergedCustom,
+        hiddenFieldKeys: mergedHidden,
+      })
+      suppressNextSync = false
+      await api.put('/users/me/custom-fields', {
+        fields: mergedCustom.map((f) => ({
+          key: f.key,
+          label: f.label,
+          defaultValue: f.defaultValue ?? '',
+          isHidden: mergedHidden.includes(f.key),
+        })),
+      })
+      try {
+        sessionStorage.removeItem('lawzy-user-fields-guest')
+        localStorage.removeItem('lawzy-user-fields-guest')
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      console.error(e)
+      suppressNextSync = false
+    }
+  })()
+}
+
+function applyGuestUserFieldsFromStorage(): void {
+  const guestRaw =
+    sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
+  const guest = parsePersistedState(guestRaw)
+  const guestFields = guest?.customFields ?? []
+  useUserFieldsStore.setState({
+    customFields: guestFields,
+    hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
+  })
+}
+
 // Subscribe to auth changes to reload fields when user logs in/out.
 // Guest: use localStorage. Auth: hydrate from server and sync changes.
 if (typeof window !== 'undefined') {
   let previousUserId: string | null = useAuthStore.getState().user?.id ?? null
-  
+
   useAuthStore.subscribe((state) => {
     const currentUserId = state.user?.id ?? null
-    // Only reload if the user ID actually changed
     if (currentUserId !== previousUserId) {
       previousUserId = currentUserId
       suppressNextSync = true
       queueMicrotask(() => {
         suppressNextSync = false
       })
-
       if (!currentUserId) {
-        // Guest: load from local persisted key; nếu chưa có gì thì để trống (user thêm mẫu trên /fields)
-        const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
-        const guest = parsePersistedState(guestRaw)
-        const guestFields = guest?.customFields ?? []
-        useUserFieldsStore.setState({
-          customFields: guestFields,
-          hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
-        })
+        applyGuestUserFieldsFromStorage()
         return
       }
-
-      // Authenticated: hydrate from server and merge guest fields once
-      void (async () => {
-        try {
-          const server = await fetchServerFields()
-          const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
-          const guest = parsePersistedState(guestRaw)
-
-          const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
-          const mergedCustom: UserCustomField[] = [...server.customFields]
-
-          for (const gf of guest?.customFields ?? []) {
-            if (!serverByKey.has(gf.key)) mergedCustom.push(gf)
-          }
-
-          const mergedHidden = Array.from(new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])]))
-
-          suppressNextSync = true
-          useUserFieldsStore.setState({
-            customFields: mergedCustom,
-            hiddenFieldKeys: mergedHidden,
-          })
-          suppressNextSync = false
-
-          // Push merged result to server (best-effort)
-          await api.put('/users/me/custom-fields', {
-            fields: mergedCustom.map((f) => ({
-              key: f.key,
-              label: f.label,
-              defaultValue: f.defaultValue ?? '',
-              isHidden: mergedHidden.includes(f.key),
-            })),
-          })
-
-          // Clear guest local fields after merge
-          try {
-            sessionStorage.removeItem('lawzy-user-fields-guest')
-            localStorage.removeItem('lawzy-user-fields-guest')
-          } catch {
-            // ignore
-          }
-        } catch (e) {
-          console.error(e)
-          suppressNextSync = false
-        }
-      })()
+      runAuthenticatedUserFieldsHydration()
     }
   })
+
+  // Auth resolved before this module evaluated (common on client navigations): hydrate once.
+  if (previousUserId) {
+    suppressNextSync = true
+    queueMicrotask(() => {
+      suppressNextSync = false
+    })
+    runAuthenticatedUserFieldsHydration()
+  }
 }

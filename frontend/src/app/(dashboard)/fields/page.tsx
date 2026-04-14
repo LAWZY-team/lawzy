@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Building2 } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Plus, Trash2, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -73,13 +73,9 @@ export default function FieldsPage() {
   const [wsFields, setWsFields] = useState<WorkspaceFieldItem[]>([])
   const [wsLoading, setWsLoading] = useState(false)
   const [wsSaving, setWsSaving] = useState(false)
-  const [editDialog, setEditDialog] = useState<{
-    type: "user" | "workspace"
-    key: string
-    label: string
-    defaultValue: string
-  } | null>(null)
   const [addDialog, setAddDialog] = useState<"user" | "workspace" | null>(null)
+  const wsFieldsRef = useRef<WorkspaceFieldItem[]>([])
+  const wsPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [newField, setNewField] = useState({ label: "", defaultValue: "" })
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "user" | "workspace"
@@ -122,6 +118,43 @@ export default function FieldsPage() {
     }
   }, [currentWorkspace?.id])
 
+  useEffect(() => {
+    wsFieldsRef.current = wsFields
+  }, [wsFields])
+
+  const persistWorkspaceFields = useCallback(async () => {
+    if (!currentWorkspace?.id) return
+    const fields = wsFieldsRef.current
+    setWsSaving(true)
+    try {
+      await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
+        fields: fields.map((f) => ({
+          key: f.key,
+          label: f.label,
+          defaultValue: f.defaultValue || null,
+        })),
+      })
+    } catch {
+      toast.error("Lưu thất bại")
+    } finally {
+      setWsSaving(false)
+    }
+  }, [currentWorkspace?.id])
+
+  const scheduleWorkspacePersist = useCallback(() => {
+    if (wsPersistTimerRef.current) clearTimeout(wsPersistTimerRef.current)
+    wsPersistTimerRef.current = setTimeout(() => {
+      wsPersistTimerRef.current = null
+      void persistWorkspaceFields()
+    }, 450)
+  }, [persistWorkspaceFields])
+
+  useEffect(() => {
+    return () => {
+      if (wsPersistTimerRef.current) clearTimeout(wsPersistTimerRef.current)
+    }
+  }, [])
+
   const handleAddUserField = () => {
     if (!newField.label.trim()) return
     const key = slugifyKey(newField.label) || "field"
@@ -153,44 +186,6 @@ export default function FieldsPage() {
       setWsFields(updated)
       setAddDialog(null)
       setNewField({ label: "", defaultValue: "" })
-      toast.success(t("common_save") + "!")
-    } catch {
-      toast.error("Lưu thất bại")
-    } finally {
-      setWsSaving(false)
-    }
-  }
-
-  const handleEditUserField = () => {
-    if (!editDialog || editDialog.type !== "user") return
-    updateCustomField(editDialog.key, {
-      label: editDialog.label,
-      defaultValue: editDialog.defaultValue,
-    })
-    setEditDialog(null)
-  }
-
-  const handleEditWsField = async () => {
-    if (!editDialog || editDialog.type !== "workspace" || !currentWorkspace?.id) return
-    const idx = wsFields.findIndex((f) => f.key === editDialog.key)
-    if (idx < 0) return
-    const updated = [...wsFields]
-    updated[idx] = {
-      ...updated[idx],
-      label: editDialog.label,
-      defaultValue: editDialog.defaultValue,
-    }
-    setWsSaving(true)
-    try {
-      await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
-        fields: updated.map((f) => ({
-          key: f.key,
-          label: f.label,
-          defaultValue: f.defaultValue || null,
-        })),
-      })
-      setWsFields(updated)
-      setEditDialog(null)
       toast.success(t("common_save") + "!")
     } catch {
       toast.error("Lưu thất bại")
@@ -247,41 +242,83 @@ export default function FieldsPage() {
   const userFieldsByGroup = (gid: UserFieldSettingsGroupId) =>
     userFields.filter((item) => getUserFieldGroupForSettings(item.key) === gid)
 
-  const renderFieldRow = (type: "user" | "workspace", item: FieldItem) => (
-    <TableRow key={`${type}-${item.key}`}>
-      <TableCell>
-        {type === "user" ? (
-          <span className="text-sm">{t("settings_fields_user")}</span>
-        ) : (
-          <span className="flex items-center gap-1.5 text-sm">
-            <Building2 className="h-4 w-4" />
-            {currentWorkspace?.name}
-          </span>
-        )}
-      </TableCell>
-      <TableCell className="font-mono text-sm">{item.key}</TableCell>
-      <TableCell>{item.label}</TableCell>
-      <TableCell className="text-muted-foreground max-w-[200px] truncate">
-        {item.defaultValue || "—"}
-      </TableCell>
-      <TableCell>
-        {(type === "user" || canEditWs) && (
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() =>
-                setEditDialog({
-                  type,
-                  key: item.key,
-                  label: item.label,
-                  defaultValue: item.defaultValue,
-                })
+  const renderFieldRow = (type: "user" | "workspace", item: FieldItem) => {
+    const canEditRow = type === "user" || canEditWs
+    return (
+      <TableRow key={`${type}-${item.key}`}>
+        <TableCell>
+          {type === "user" ? (
+            <span className="text-sm">{t("settings_fields_user")}</span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-sm">
+              <Building2 className="h-4 w-4" />
+              {currentWorkspace?.name}
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="font-mono text-sm align-middle">{item.key}</TableCell>
+        <TableCell className="align-middle">
+          {type === "user" ? (
+            <Input
+              value={item.label}
+              disabled={!canEditRow}
+              className="h-9 max-w-[280px]"
+              onChange={(e) =>
+                updateCustomField(item.key, { label: e.target.value })
               }
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            />
+          ) : (
+            <Input
+              value={item.label}
+              disabled={!canEditRow}
+              className="h-9 max-w-[280px]"
+              onChange={(e) => {
+                const v = e.target.value
+                setWsFields((prev) => {
+                  const next = prev.map((f) =>
+                    f.key === item.key ? { ...f, label: v } : f
+                  )
+                  wsFieldsRef.current = next
+                  return next
+                })
+                scheduleWorkspacePersist()
+              }}
+            />
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {type === "user" ? (
+            <Input
+              value={item.defaultValue}
+              disabled={!canEditRow}
+              className="h-9 max-w-[320px]"
+              placeholder="—"
+              onChange={(e) =>
+                updateCustomField(item.key, { defaultValue: e.target.value })
+              }
+            />
+          ) : (
+            <Input
+              value={item.defaultValue}
+              disabled={!canEditRow}
+              className="h-9 max-w-[320px]"
+              placeholder="—"
+              onChange={(e) => {
+                const v = e.target.value
+                setWsFields((prev) => {
+                  const next = prev.map((f) =>
+                    f.key === item.key ? { ...f, defaultValue: v } : f
+                  )
+                  wsFieldsRef.current = next
+                  return next
+                })
+                scheduleWorkspacePersist()
+              }}
+            />
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {canEditRow && (
             <Button
               variant="ghost"
               size="icon"
@@ -290,11 +327,11 @@ export default function FieldsPage() {
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-          </div>
-        )}
-      </TableCell>
-    </TableRow>
-  )
+          )}
+        </TableCell>
+      </TableRow>
+    )
+  }
 
   const renderUserGroupTable = (gid: UserFieldSettingsGroupId, title: string) => {
     const items = userFieldsByGroup(gid)
@@ -311,7 +348,7 @@ export default function FieldsPage() {
               <TableHead>{t("settings_fields_key")}</TableHead>
               <TableHead>{t("settings_fields_label")}</TableHead>
               <TableHead>{t("settings_fields_default")}</TableHead>
-              <TableHead className="w-[100px]" />
+              <TableHead className="w-[72px]" />
             </TableRow>
           </TableHeader>
           <TableBody>{items.map((item) => renderFieldRow("user", item))}</TableBody>
@@ -343,7 +380,7 @@ export default function FieldsPage() {
                   <TableHead>{t("settings_fields_key")}</TableHead>
                   <TableHead>{t("settings_fields_label")}</TableHead>
                   <TableHead>{t("settings_fields_default")}</TableHead>
-                  <TableHead className="w-[100px]" />
+                  <TableHead className="w-[72px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -412,7 +449,7 @@ export default function FieldsPage() {
                       <TableHead>{t("settings_fields_key")}</TableHead>
                       <TableHead>{t("settings_fields_label")}</TableHead>
                       <TableHead>{t("settings_fields_default")}</TableHead>
-                      <TableHead className="w-[100px]" />
+                      <TableHead className="w-[72px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -503,59 +540,6 @@ export default function FieldsPage() {
               }
             >
               {addDialog === "workspace" && wsSaving ? "..." : t("common_save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog open={!!editDialog} onOpenChange={(o) => !o && setEditDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Sửa trường — {editDialog?.key}
-            </DialogTitle>
-          </DialogHeader>
-          {editDialog && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>{t("settings_fields_label")}</Label>
-                <Input
-                  value={editDialog.label}
-                  onChange={(e) =>
-                    setEditDialog((d) => d && { ...d, label: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings_fields_default")}</Label>
-                <Input
-                  value={editDialog.defaultValue}
-                  onChange={(e) =>
-                    setEditDialog((d) =>
-                      d ? { ...d, defaultValue: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(null)}>
-              {t("common_cancel")}
-            </Button>
-            <Button
-              onClick={() =>
-                editDialog?.type === "user"
-                  ? handleEditUserField()
-                  : handleEditWsField()
-              }
-              disabled={
-                !editDialog?.label.trim() ||
-                (editDialog?.type === "workspace" && wsSaving)
-              }
-            >
-              {editDialog?.type === "workspace" && wsSaving ? "..." : t("common_save")}
             </Button>
           </DialogFooter>
         </DialogContent>
