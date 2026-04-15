@@ -9,14 +9,25 @@ import { Button } from "@/components/ui/button"
 import type { Template } from "@/types/template"
 import type { TemplateViewMode } from "./template-filters"
 import { useT } from "@/components/i18n-provider"
+import { cn } from "@/lib/utils"
 
 interface TemplateGridProps {
   templates: Template[]
   onViewTemplate: (template: Template) => void
   viewMode?: TemplateViewMode
+  onUseTemplate?: (template: Template) => void
+  showUseAction?: boolean
+  compact?: boolean
 }
 
-export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: TemplateGridProps) {
+export function TemplateGrid({
+  templates,
+  onViewTemplate,
+  viewMode = "card",
+  onUseTemplate,
+  showUseAction = true,
+  compact = false,
+}: TemplateGridProps) {
   const { t } = useT()
 
   if (viewMode === "list") {
@@ -25,28 +36,54 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
         {templates.map((template) => {
           const laws = template.metadata?.lawVersions ?? []
           return (
-            <Card key={template.id} className="flex flex-row items-center gap-4 p-4 hover:shadow-md transition-shadow">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
+            <Card
+              key={template.id}
+              className={cn(
+                "hover:shadow-md transition-shadow",
+                compact
+                  ? "flex flex-col gap-3 p-3"
+                  : "flex flex-row items-center gap-4 p-4",
+              )}
+            >
+              <div className={cn(
+                "flex shrink-0 items-center justify-center rounded-lg bg-primary/10",
+                compact ? "h-10 w-10" : "h-12 w-12",
+              )}>
+                <FileText className={cn("text-primary", compact ? "h-5 w-5" : "h-6 w-6")} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-start gap-2">
                   <span className="font-semibold truncate">{template.title}</span>
                   <Badge variant="secondary" className="shrink-0 text-xs">{template.category}</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground truncate mt-0.5">{template.description}</p>
+                <p className={cn("text-muted-foreground mt-0.5", compact ? "text-xs line-clamp-2" : "text-sm truncate")}>
+                  {template.description}
+                </p>
                 {laws.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">{laws.join(", ")}</p>
+                  <p className={cn("text-xs text-muted-foreground mt-1", compact && "line-clamp-2")}>{laws.join(", ")}</p>
                 )}
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button variant="outline" size="sm" onClick={() => onViewTemplate(template)}>
+              <div className={cn("flex shrink-0 gap-2", compact && "w-full")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(compact && "flex-1")}
+                  onClick={() => onViewTemplate(template)}
+                >
                   <Eye className="h-4 w-4 mr-1.5" />
                   {t("tmpl_view")}
                 </Button>
-                <Button size="sm" asChild>
-                  <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
-                </Button>
+                {showUseAction && (
+                  onUseTemplate ? (
+                    <Button size="sm" className={cn(compact && "flex-1")} onClick={() => onUseTemplate(template)}>
+                      {t("tmpl_use")}
+                    </Button>
+                  ) : (
+                    <Button size="sm" className={cn(compact && "flex-1")} asChild>
+                      <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
+                    </Button>
+                  )
+                )}
               </div>
             </Card>
           )
@@ -56,7 +93,7 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className={cn("grid gap-6 md:grid-cols-2 lg:grid-cols-3", compact && "grid-cols-1 gap-3")}>
       {templates.map((template) => {
         const laws = template.metadata?.lawVersions ?? []
         return (
@@ -86,9 +123,17 @@ export function TemplateGrid({ templates, onViewTemplate, viewMode = "card" }: T
                 <Eye className="h-4 w-4 mr-2" />
                 {t("tmpl_view")}
               </Button>
-              <Button asChild className="flex-1">
-                <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
-              </Button>
+              {showUseAction && (
+                onUseTemplate ? (
+                  <Button className="flex-1" onClick={() => onUseTemplate(template)}>
+                    {t("tmpl_use")}
+                  </Button>
+                ) : (
+                  <Button asChild className="flex-1">
+                    <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
+                  </Button>
+                )
+              )}
             </CardFooter>
           </Card>
         )

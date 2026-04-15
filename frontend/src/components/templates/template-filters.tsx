@@ -26,6 +26,8 @@ interface TemplateFiltersProps {
   onSortChange: (sort: string) => void
   viewMode: TemplateViewMode
   onViewModeChange: (mode: TemplateViewMode) => void
+  compact?: boolean
+  showViewModeToggle?: boolean
 }
 
 export function TemplateFilters({
@@ -37,30 +39,32 @@ export function TemplateFilters({
   onSortChange,
   viewMode,
   onViewModeChange,
+  compact = false,
+  showViewModeToggle = true,
 }: TemplateFiltersProps) {
   const { t } = useT()
 
   return (
-    <div className="flex flex-wrap items-end gap-x-3 gap-y-3">
-      <div className="flex-1 min-w-[200px] max-w-[320px] space-y-1.5">
-        <Label htmlFor="search" className="text-xs">{t("tmpl_comm_search")}</Label>
+    <div className={cn("flex flex-wrap items-end gap-x-3 gap-y-3", compact && "flex-col items-stretch gap-2")}>
+      <div className={cn("flex-1 min-w-[200px] max-w-[320px] space-y-1.5", compact && "min-w-0 max-w-none space-y-1")}>
+        <Label htmlFor="search" className="text-xs leading-none">{t("tmpl_comm_search")}</Label>
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className={cn("absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground", compact && "top-2 h-3.5 w-3.5")} />
           <Input
             id="search"
             placeholder={t("tmpl_comm_search_placeholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-9 pl-8"
+            className={cn("h-9 pl-8", compact && "h-8 pl-7")}
           />
         </div>
       </div>
 
-      <div className="flex items-end gap-2">
-        <div className="w-[160px] shrink-0 space-y-1.5">
-          <Label htmlFor="type" className="text-xs">{t("tmpl_system_type")}</Label>
+      <div className={cn("flex items-end gap-2", compact && "grid grid-cols-2 gap-2")}>
+        <div className={cn("w-[160px] shrink-0 space-y-1.5", compact && "w-full min-w-0 space-y-1")}>
+          <Label htmlFor="type" className="text-xs leading-none">{t("tmpl_system_type")}</Label>
           <Select value={selectedType} onValueChange={onTypeChange}>
-            <SelectTrigger id="type" className="h-9">
+            <SelectTrigger id="type" className={cn("h-9", compact && "h-8")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -73,10 +77,10 @@ export function TemplateFilters({
             </SelectContent>
           </Select>
         </div>
-        <div className="w-[160px] shrink-0 space-y-1.5">
-          <Label htmlFor="sort" className="text-xs">{t("tmpl_comm_sort")}</Label>
+        <div className={cn("w-[160px] shrink-0 space-y-1.5", compact && "w-full min-w-0 space-y-1")}>
+          <Label htmlFor="sort" className="text-xs leading-none">{t("tmpl_comm_sort")}</Label>
           <Select value={selectedSort} onValueChange={onSortChange}>
-            <SelectTrigger id="sort" className="h-9">
+            <SelectTrigger id="sort" className={cn("h-9", compact && "h-8")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -87,33 +91,35 @@ export function TemplateFilters({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end gap-0 pb-0.5">
-          <Label className="sr-only">{t("tmpl_comm_display")}</Label>
-          <div className="flex rounded-md border border-input bg-background p-0.5" role="group" aria-label={t("tmpl_comm_display_mode")}>
-            <Button
-              type="button"
-              variant={viewMode === "card" ? "secondary" : "ghost"}
-              size="sm"
-              className={cn("h-8 gap-1 px-2.5", viewMode === "card" && "shadow-sm")}
-              onClick={() => onViewModeChange("card")}
-              aria-pressed={viewMode === "card"}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              {t("tmpl_comm_view_card")}
-            </Button>
-            <Button
-              type="button"
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className={cn("h-8 gap-1 px-2.5", viewMode === "list" && "shadow-sm")}
-              onClick={() => onViewModeChange("list")}
-              aria-pressed={viewMode === "list"}
-            >
-              <List className="h-3.5 w-3.5" />
-              {t("tmpl_comm_view_list")}
-            </Button>
+        {showViewModeToggle && (
+          <div className={cn("flex items-end gap-0 pb-0.5", compact && "col-span-2 justify-end pb-0")}>
+            <Label className="sr-only">{t("tmpl_comm_display")}</Label>
+            <div className="flex rounded-md border border-input bg-background p-0.5" role="group" aria-label={t("tmpl_comm_display_mode")}>
+              <Button
+                type="button"
+                variant={viewMode === "card" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn("h-8 gap-1 px-2.5", compact && "h-7 px-2 text-xs", viewMode === "card" && "shadow-sm")}
+                onClick={() => onViewModeChange("card")}
+                aria-pressed={viewMode === "card"}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {t("tmpl_comm_view_card")}
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn("h-8 gap-1 px-2.5", compact && "h-7 px-2 text-xs", viewMode === "list" && "shadow-sm")}
+                onClick={() => onViewModeChange("list")}
+                aria-pressed={viewMode === "list"}
+              >
+                <List className="h-3.5 w-3.5" />
+                {t("tmpl_comm_view_list")}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

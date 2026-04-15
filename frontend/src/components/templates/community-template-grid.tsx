@@ -10,6 +10,7 @@ import type { ContractTemplateFile, TemplateScope } from "@/lib/api/contract-tem
 import type { TemplateViewMode } from "./template-filters"
 import { useT } from "@/components/i18n-provider"
 import { useAuthStore } from "@/stores/auth-store"
+import { cn } from "@/lib/utils"
 
 function fileExt(name: string): string {
   const idx = name.lastIndexOf(".")
@@ -30,12 +31,18 @@ export function CommunityTemplateGrid({
   onView,
   onDelete,
   viewMode = "card",
+  onUseFile,
+  showUseAction = true,
+  compact = false,
 }: {
   files: ContractTemplateFile[]
   scope: Extract<TemplateScope, "community" | "internal">
   onView: (f: ContractTemplateFile) => void
-  onDelete: (f: ContractTemplateFile) => void
+  onDelete?: (f: ContractTemplateFile) => void
   viewMode?: TemplateViewMode
+  onUseFile?: (f: ContractTemplateFile) => void
+  showUseAction?: boolean
+  compact?: boolean
 }) {
   const { t } = useT()
   const currentUser = useAuthStore((s) => s.user)
@@ -47,38 +54,73 @@ export function CommunityTemplateGrid({
         {files.map((f) => (
           <Card
             key={f.key}
-            className="flex flex-row items-center gap-4 p-4 hover:shadow-md transition-shadow"
+            className={cn(
+              "min-w-0 overflow-hidden hover:shadow-md transition-shadow",
+              compact
+                ? "flex flex-col gap-3 p-3"
+                : "flex flex-row items-center gap-4 p-4",
+            )}
           >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <FileText className="h-6 w-6 text-primary" />
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-center rounded-lg bg-primary/10",
+                compact ? "h-10 w-10" : "h-12 w-12",
+              )}
+            >
+              <FileText className={cn("text-primary", compact ? "h-5 w-5" : "h-6 w-6")} />
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold truncate">{(f.name ?? f.fileName) || f.fileName}</span>
+              <div className={cn("flex items-center gap-2 min-w-0", compact && "items-start")}>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 font-semibold",
+                    compact ? "line-clamp-2 wrap-break-word text-[15px] leading-5" : "truncate",
+                  )}
+                >
+                  {(f.name ?? f.fileName) || f.fileName}
+                </span>
                 <Badge variant="secondary" className="shrink-0 text-xs">
                   {fileExt(f.fileName)}
                 </Badge>
               </div>
               {f.description && (
-                <p className="text-sm text-muted-foreground truncate mt-0.5">{f.description}</p>
+                <p className={cn("text-muted-foreground mt-0.5", compact ? "text-xs line-clamp-2" : "text-sm truncate")}>{f.description}</p>
               )}
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className={cn("text-xs text-muted-foreground mt-1", compact && "line-clamp-1")}>
                 {formatBytes(f.size)} • {f.lastModified ? new Date(f.lastModified).toLocaleString() : "—"}
               </p>
             </div>
 
-            <div className="flex shrink-0 gap-2">
-              <Button variant="outline" size="sm" onClick={() => onView(f)}>
+            <div className={cn("flex shrink-0 gap-2", compact && "w-full min-w-0")}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(compact && "min-w-0 flex-1")}
+                onClick={() => onView(f)}
+              >
                 <Eye className="h-4 w-4 mr-1.5" />
                 {t("tmpl_view")}
               </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
-                  {t("tmpl_use")}
-                </Link>
-              </Button>
-              {(isAdmin || f.createdBy === currentUser?.id) && (
+              {showUseAction && (
+                onUseFile ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(compact && "min-w-0 flex-1")}
+                    onClick={() => onUseFile(f)}
+                  >
+                    {t("tmpl_use")}
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className={cn(compact && "min-w-0 flex-1")} asChild>
+                    <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                      {t("tmpl_use")}
+                    </Link>
+                  </Button>
+                )
+              )}
+              {onDelete && (isAdmin || f.createdBy === currentUser?.id) && (
                 <Button variant="destructive" size="sm" onClick={() => onDelete(f)}>
                   <Trash2 className="h-4 w-4 mr-1.5" />
                   {t("common_delete")}
@@ -92,7 +134,7 @@ export function CommunityTemplateGrid({
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className={cn("grid gap-6 md:grid-cols-2 lg:grid-cols-3", compact && "grid-cols-1 gap-3")}>
       {files.map((f) => (
         <Card key={f.key} className="flex flex-col hover:shadow-lg transition-shadow">
           <CardHeader>
@@ -136,12 +178,20 @@ export function CommunityTemplateGrid({
               <Eye className="h-4 w-4 mr-2" />
               {t("tmpl_view")}
             </Button>
-            <Button variant="outline" className="flex-1" asChild>
-              <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
-                {t("tmpl_use")}
-              </Link>
-            </Button>
-            {(isAdmin || f.createdBy === currentUser?.id) && (
+            {showUseAction && (
+              onUseFile ? (
+                <Button variant="outline" className="flex-1" onClick={() => onUseFile(f)}>
+                  {t("tmpl_use")}
+                </Button>
+              ) : (
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                    {t("tmpl_use")}
+                  </Link>
+                </Button>
+              )
+            )}
+            {onDelete && (isAdmin || f.createdBy === currentUser?.id) && (
               <Button variant="destructive" size="icon" onClick={() => onDelete(f)} aria-label={t("common_delete")}>
                 <Trash2 className="h-4 w-4" />
               </Button>

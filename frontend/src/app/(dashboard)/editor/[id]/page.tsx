@@ -16,6 +16,7 @@ import { ResizableImageExtension } from '@/lib/tiptap/extensions/resizable-image
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
+import { EditorLeftWorkspace } from '@/components/editor/editor-left-workspace'
 import { useSidebar } from '@/components/ui/sidebar'
 import { useEditorStore, type TemplateMergeField } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
@@ -143,12 +144,14 @@ export default function EditorPage({
 
   // Handle document ID locally to avoid Next.js unmounting when navigating from /editor/new
   const [managedId, setManagedId] = useState(resolvedParams.id)
+  const [showLeftWorkspace, setShowLeftWorkspace] = useState(resolvedParams.id === 'new')
 
   // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
   const [isCanvasMode, setIsCanvasMode] = useState(managedId !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
+  const [leftWorkspaceMode, setLeftWorkspaceMode] = useState<'chat' | 'templates'>('chat')
 
   // Chỉ thu gọn sidebar khi vừa chuyển sang canvas (false → true); nếu user tự mở lại sidebar thì không ép đóng
   useEffect(() => {
@@ -201,7 +204,7 @@ export default function EditorPage({
 
   // Restore draft when coming back to /editor/new (guest) OR migrate guest draft into account on login
   useEffect(() => {
-    if (resolvedParams.id !== 'new' || isTemplateEntry) return
+    if (managedId !== 'new' || isTemplateEntry) return
 
     let cancelled = false
 
@@ -231,7 +234,6 @@ export default function EditorPage({
       cancelled = true
     }
   }, [
-    resolvedParams.id, // Keep for URL consistency but we mostly use managedId now
     managedId,
     isTemplateEntry,
     getSession,
@@ -247,7 +249,7 @@ export default function EditorPage({
 
   // Save local session periodically on /editor/new
   useEffect(() => {
-    if (resolvedParams.id === 'new' && isCanvasMode && !isTemplateEntry) {
+    if (managedId === 'new' && isCanvasMode && !isTemplateEntry) {
       const interval = setInterval(() => {
         const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as Window & { __isLoggingOut?: boolean }).__isLoggingOut;
         if (isLoggingOut) return
@@ -337,6 +339,44 @@ export default function EditorPage({
     setIsCanvasMode(true)
   }, [setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
 
+  const resetTemplateEntryState = useCallback(() => {
+    initialLoadRef.current = true
+    setTemplateMergeFields(null)
+    setMergeFieldValues({})
+    setChatMessages([])
+    setEditorContent(getDefaultContent(t("editor_default_title")))
+  }, [setMergeFieldValues, setTemplateMergeFields, t])
+
+  const applyContractTemplateById = useCallback(async (
+    templateIdToLoad: string,
+    scope: 'community' | 'internal',
+  ) => {
+    resetTemplateEntryState()
+    const template = await getStructuredContractTemplate({
+      id: templateIdToLoad,
+      scope,
+    })
+    if (!template?.contentJSON) return
+    applyTemplateState({
+      title: template.title,
+      type: 'contract',
+      contentJSON: template.contentJSON as DocContent,
+      mergeFields: template.mergeFields ?? [],
+    })
+  }, [applyTemplateState, resetTemplateEntryState])
+
+  const applySystemTemplateById = useCallback(async (templateIdToLoad: string) => {
+    resetTemplateEntryState()
+    const template = await api.get<EditorTemplate>(`/templates/${templateIdToLoad}`)
+    if (!template?.contentJSON) return
+    applyTemplateState({
+      title: template.title,
+      type: template.category ?? 'contract',
+      contentJSON: template.contentJSON as DocContent,
+      mergeFields: (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>,
+    })
+  }, [applyTemplateState, resetTemplateEntryState])
+
   useEffect(() => {
     let cancelled = false
     if (managedId !== 'new') {
@@ -405,38 +445,13 @@ export default function EditorPage({
     } else {
       setCurrentDocument(null)
       if (contractTemplateId) {
-        initialLoadRef.current = true
-        setTemplateMergeFields(null)
-        setMergeFieldValues({})
-        setChatMessages([])
-        setEditorContent(getDefaultContent(t("editor_default_title")))
-        getStructuredContractTemplate({
-          id: contractTemplateId,
-          scope: contractTemplateScope,
-        }).then((template) => {
-          if (cancelled || !template?.contentJSON) return
-          applyTemplateState({
-            title: template.title,
-            type: 'contract',
-            contentJSON: template.contentJSON as DocContent,
-            mergeFields: template.mergeFields ?? [],
-          })
-        }).catch(() => {})
+        applyContractTemplateById(contractTemplateId, contractTemplateScope).catch(() => {
+          if (cancelled) return
+        })
       } else if (templateId) {
-        initialLoadRef.current = true
-        setTemplateMergeFields(null)
-        setMergeFieldValues({})
-        setChatMessages([])
-        setEditorContent(getDefaultContent(t("editor_default_title")))
-        api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
-          if (cancelled || !template?.contentJSON) return
-          applyTemplateState({
-            title: template.title,
-            type: template.category ?? 'contract',
-            contentJSON: template.contentJSON as DocContent,
-            mergeFields: (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>,
-          })
-        }).catch(() => {})
+        applySystemTemplateById(templateId).catch(() => {
+          if (cancelled) return
+        })
       } else {
         setTemplateMergeFields(null)
         setMergeFieldValues({})
@@ -451,7 +466,7 @@ export default function EditorPage({
     return () => {
       cancelled = true
     }
-  }, [applyDocumentBootstrap, applyTemplateState, contractTemplateId, contractTemplateScope, managedId, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
+  }, [applyContractTemplateById, applyDocumentBootstrap, applySystemTemplateById, contractTemplateId, contractTemplateScope, managedId, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {
@@ -665,6 +680,7 @@ export default function EditorPage({
 
         setIsDirty(false)
         setManagedId(newId)
+        setShowLeftWorkspace(true)
         setCurrentDocument(newId)
 
         toast.success(t('toast_saved'))
@@ -718,7 +734,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient])
+  }, [isAuthenticated, handleAuthRequired, managedId, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient, setCurrentDocument])
 
   const { isActive: isTourActive } = useOnboardingStore()
 
@@ -732,7 +748,7 @@ export default function EditorPage({
   useEffect(() => {
     if (
       isAuthenticated &&
-      resolvedParams.id === 'new' &&
+      managedId === 'new' &&
       !isTemplateEntry &&
       guestRestoredRef.current &&
       !isTourActive &&
@@ -743,7 +759,7 @@ export default function EditorPage({
         handleSaveDraftToDb('draft')
       }
     }
-  }, [isAuthenticated, resolvedParams.id, isTemplateEntry, isTourActive, editorContent, handleSaveDraftToDb])
+  }, [isAuthenticated, managedId, isTemplateEntry, isTourActive, editorContent, handleSaveDraftToDb])
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
@@ -798,14 +814,14 @@ export default function EditorPage({
   // Autosave authenticated documents (update live document, versions are manual)
   useEffect(() => {
     if (!isAuthenticated) return
-    if (resolvedParams.id === 'new') return
+    if (managedId === 'new') return
     if (initialLoadRef.current) return
 
     const timeoutId = setTimeout(() => {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       api
-        .patch(`/documents/${resolvedParams.id}`, {
+        .patch(`/documents/${managedId}`, {
           title: documentTitle,
           contentJSON: editorContent,
           mergeFieldValues: persistedMergeValues,
@@ -820,7 +836,7 @@ export default function EditorPage({
     }, 800)
 
     return () => clearTimeout(timeoutId)
-  }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
+  }, [isAuthenticated, managedId, editorContent, mergeFieldValues, documentTitle])
 
   const sanitizeFileName = (input: string) =>
     input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
@@ -886,7 +902,7 @@ export default function EditorPage({
     try {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
-      if (resolvedParams.id === 'new') {
+      if (managedId === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || sourceMetadata?.title || t("docs_default_title"),
@@ -940,24 +956,12 @@ export default function EditorPage({
         }
 
         clearSession()
+        setManagedId(newId)
+        setShowLeftWorkspace(true)
+        setCurrentDocument(newId)
+        setIsDirty(false)
         toast.success(t('toast_draft_saved'))
-        pendingEditorBootstrapRef.current = {
-          documentId: newId,
-          editorContent,
-          metadata: {
-            title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
-            type: (sourceMetadata?.type as string | undefined) ?? 'contract',
-            tags: (sourceMetadata?.tags as string[] | undefined) ?? [],
-            riskLevel: (sourceMetadata?.riskLevel as 'low' | 'medium' | 'high' | undefined) ?? 'low',
-            visibility: 'workspace',
-            status: undefined,
-            creator: sourceMetadata?.creator as EditorMetadata['creator'],
-          },
-          mergeFieldValues: persistedMergeValues,
-          templateMergeFields: useEditorStore.getState().templateMergeFields,
-          chatMessages,
-        }
-        router.replace(`/editor/${newId}`)
+        window.history.replaceState(null, '', `/editor/${newId}`)
         return
       }
 
@@ -965,7 +969,7 @@ export default function EditorPage({
       const versionLabel = t("version_save_label", {
         date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US'),
       })
-      const createdVersion = await api.post(`/documents/${resolvedParams.id}/versions`, {
+      const createdVersion = await api.post(`/documents/${managedId}/versions`, {
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
@@ -978,12 +982,12 @@ export default function EditorPage({
       // Persist version snapshot to S3/R2 immediately so storage usage counts now.
       try {
         await persistDraftSnapshotToS3({
-          documentId: resolvedParams.id,
+          documentId: managedId,
           workspaceId: workspaceId ?? null,
-          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${resolvedParams.id}.json`,
+          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${managedId}.json`,
           payload: {
             kind: 'document-version-snapshot',
-            documentId: resolvedParams.id,
+            documentId: managedId,
             versionId: versionId || undefined,
             savedAt: now.toISOString(),
             label: versionLabel,
@@ -1027,8 +1031,8 @@ export default function EditorPage({
     setThinkingProgress([])
 
     // Persist user message (best-effort)
-    if (isAuthenticated && resolvedParams.id !== 'new') {
-      api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+    if (isAuthenticated && managedId !== 'new') {
+      api.post(`/documents/${managedId}/chat-messages`, {
         role: 'user',
         content: effectiveMessage,
         metadata: attachedFile ? { attachedFileName: attachedFile.name } : undefined,
@@ -1117,7 +1121,7 @@ export default function EditorPage({
           userMessage: effectiveMessage,
           locale,
           workspaceId: workspaceId ?? undefined,
-          documentId: resolvedParams.id !== 'new' ? resolvedParams.id : undefined,
+          documentId: managedId !== 'new' ? managedId : undefined,
           mergeFieldValues:
             Object.keys(mergeFieldValuesForRequest).length > 0 ? mergeFieldValuesForRequest : undefined,
           existingContent: existingContentText || undefined,
@@ -1224,10 +1228,10 @@ export default function EditorPage({
         setIsCanvasMode(true)
         setActiveQuestionnaire(null)
 
-        if (isAuthenticated && resolvedParams.id !== 'new') {
+        if (isAuthenticated && managedId !== 'new') {
           flushMergeFieldDrafts()
           try {
-            await api.patch(`/documents/${resolvedParams.id}`, {
+            await api.patch(`/documents/${managedId}`, {
               title: nextTitle,
               contentJSON: newContent,
               mergeFieldValues: mergedForSave,
@@ -1288,8 +1292,8 @@ export default function EditorPage({
 
       setChatMessages((prev) => [...prev, aiMessage])
 
-      if (isAuthenticated && resolvedParams.id !== 'new') {
-        api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+      if (isAuthenticated && managedId !== 'new') {
+        api.post(`/documents/${managedId}/chat-messages`, {
           role: 'assistant',
           content: aiContent,
           metadata: {
@@ -1323,7 +1327,7 @@ export default function EditorPage({
       setIsGenerating(false)
       setThinkingProgress([])
     }
-  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, queryClient, resolvedParams.id, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues, updateMetadata])
+  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, managedId, queryClient, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues, updateMetadata])
 
   const handleQuestionnaireSubmit = useCallback((values: Record<string, string>) => {
     setActiveQuestionnaire(null)
@@ -1428,6 +1432,44 @@ export default function EditorPage({
     await handleSendMessage(prompt)
   }, [handleSendMessage, setMergeFieldValues, setTemplateMergeFields])
 
+  const isNewEditorRoute = showLeftWorkspace
+
+  const chatSurface = wizardContractTypeId ? (
+    <ContractWizard
+      contractTypeId={wizardContractTypeId}
+      onBack={() => setWizardContractTypeId(null)}
+      onSubmit={handleWizardSubmit}
+      isSubmitting={isWizardSubmitting}
+    />
+  ) : (
+    <ChatColumn
+      messages={chatMessages}
+      onSendMessage={handleSendMessage}
+      isLoading={isGenerating}
+      thinkingSteps={thinkingProgress}
+      isCanvasMode={isCanvasMode}
+      onOpenCanvas={() => setIsCanvasMode(true)}
+      userDisplayName={useAuthStore.getState().user?.name}
+      attachedFile={attachedFile ? { name: attachedFile.name } : null}
+      onAttachFile={(file) => {
+        const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+        if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
+          toast.error(t("chat_file_type_error"))
+          return
+        }
+        setAttachedFile(file)
+      }}
+      onRemoveAttachedFile={() => setAttachedFile(null)}
+      activeQuestionnaire={activeQuestionnaire}
+      onQuestionnaireSubmit={handleQuestionnaireSubmit}
+      onQuestionnaireSkip={handleQuestionnaireSkip}
+      onContractTypeSelect={handleContractTypeSelect}
+      mergeFieldValues={mergeFieldValues}
+      userFields={customFields}
+      workspaceFields={workspaceFields}
+    />
+  )
+
   return (
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
       {/* Main Content Area - 3 Column Layout */}
@@ -1452,40 +1494,16 @@ export default function EditorPage({
               ? "max-w-3xl min-[1100px]:max-w-4xl min-[1536px]:max-w-5xl mx-auto w-full"
               : "w-full"
           )}>
-            {wizardContractTypeId ? (
-              <ContractWizard
-                contractTypeId={wizardContractTypeId}
-                onBack={() => setWizardContractTypeId(null)}
-                onSubmit={handleWizardSubmit}
-                isSubmitting={isWizardSubmitting}
+            {isNewEditorRoute ? (
+              <EditorLeftWorkspace
+                activeMode={leftWorkspaceMode}
+                onActiveModeChange={setLeftWorkspaceMode}
+                chatContent={chatSurface}
+                onApplySystemTemplate={applySystemTemplateById}
+                onApplyContractTemplate={applyContractTemplateById}
               />
             ) : (
-              <ChatColumn
-                messages={chatMessages}
-                onSendMessage={handleSendMessage}
-                isLoading={isGenerating}
-                thinkingSteps={thinkingProgress}
-                isCanvasMode={isCanvasMode}
-                onOpenCanvas={() => setIsCanvasMode(true)}
-                userDisplayName={useAuthStore.getState().user?.name}
-                attachedFile={attachedFile ? { name: attachedFile.name } : null}
-                onAttachFile={(file) => {
-                  const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
-                  if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
-                    toast.error(t("chat_file_type_error"))
-                    return
-                  }
-                  setAttachedFile(file)
-                }}
-                onRemoveAttachedFile={() => setAttachedFile(null)}
-                activeQuestionnaire={activeQuestionnaire}
-                onQuestionnaireSubmit={handleQuestionnaireSubmit}
-                onQuestionnaireSkip={handleQuestionnaireSkip}
-                onContractTypeSelect={handleContractTypeSelect}
-                mergeFieldValues={mergeFieldValues}
-                userFields={customFields}
-                workspaceFields={workspaceFields}
-              />
+              chatSurface
             )}
           </div>
         </motion.div>
