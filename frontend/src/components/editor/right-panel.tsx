@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
-import { FileText, Info, Plus, X } from 'lucide-react'
+import { FileText, Info, Plus, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,7 +29,8 @@ interface RightPanelProps {
   workspaceId?: string
 }
 
-type MergeFieldItem = { key: string; label: string; value: string }
+type MergeFieldSource = 'template' | 'workspace' | 'user' | 'document'
+type MergeFieldItem = { key: string; label: string; value: string; source: MergeFieldSource }
 
 export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelProps) {
   const { t, locale } = useT()
@@ -59,6 +60,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
   const [restoring, setRestoring] = useState<string | null>(null)
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const loadVersions = useCallback(() => {
@@ -116,6 +118,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
     key: f.fieldKey,
     label: (f.label || f.fieldKey).toUpperCase(),
     value: mergeFieldValues[f.fieldKey] ?? f.sampleValue ?? '',
+    source: 'template'
   }))
 
   const mergeFields: MergeFieldItem[] = useMemo(() => {
@@ -127,6 +130,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
         key: wf.key,
         label: wf.label.toUpperCase(),
         value: mergeFieldValues[wf.key] ?? wf.defaultValue ?? '',
+        source: 'workspace'
       })
       existing.add(wf.key)
     }
@@ -136,6 +140,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
         key: cf.key,
         label: cf.label.toUpperCase(),
         value: mergeFieldValues[cf.key] ?? cf.defaultValue ?? '',
+        source: 'user'
       })
       existing.add(cf.key)
     }
@@ -145,11 +150,30 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
         key,
         label: humanizeFieldKey(key),
         value: mergeFieldValues[key] ?? '',
+        source: 'document'
       })
       existing.add(key)
     }
-    return list
-  }, [baseMergeFields, workspaceFields, customFields, mergeFieldValues, humanizeFieldKey])
+    const currentOrder: string[] = []
+    if (editor && !editor.isDestroyed && editor.state) {
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'mergeField') {
+          const k = node.attrs.fieldKey
+          if (k && !currentOrder.includes(k)) currentOrder.push(k)
+        }
+      })
+    }
+    const getOrderWeight = (key: string) => {
+      const idx = currentOrder.indexOf(key)
+      return idx === -1 ? 9999 : idx
+    }
+
+    const docFields = list.filter(f => f.source === 'document').sort((a, b) => getOrderWeight(a.key) - getOrderWeight(b.key))
+    const tplFields = list.filter(f => f.source === 'template').sort((a, b) => getOrderWeight(a.key) - getOrderWeight(b.key))
+    const wsFields = list.filter(f => f.source === 'workspace').sort((a, b) => getOrderWeight(a.key) - getOrderWeight(b.key))
+    const userFields = list.filter(f => f.source === 'user').sort((a, b) => getOrderWeight(a.key) - getOrderWeight(b.key))
+    return [...docFields, ...tplFields, ...wsFields, ...userFields]
+  }, [baseMergeFields, workspaceFields, customFields, mergeFieldValues, humanizeFieldKey, editor])
 
   // Khi nhấn vào merge field trong canvas → smooth scroll + focus input tương ứng
   useEffect(() => {
@@ -363,76 +387,114 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                 <p className="text-sm text-gray-500">{t("panel_fields_desc")}</p>
               </div>
 
-              <div className="grid gap-1.5">
-                {mergeFields.map((field, index) => (
-                    <Card
-                      key={field.key}
-                      id={`field-card-${field.key}`}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
-                          id: field.key,
-                          label: field.label,
-                          value: mergeFieldValues[field.key] ?? field.value
-                        }))
-                        e.dataTransfer.effectAllowed = 'copy'
-                      }}
-                      className="p-2 min-w-0 bg-background border-border hover:border-border/80 cursor-grab active:cursor-grabbing transition-colors group flex flex-col gap-1.5"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
-                          onClick={() => insertField(field)}
-                          title={t("panel_insert_tooltip")}
-                        >
-                          {field.label || field.key}
-                        </span>
-                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-white hover:bg-destructive"
-                            onClick={() => handleDeleteField(field.key)}
-                            title={t("panel_delete_field")}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-accent"
-                            onClick={() => insertField(field)}
-                            title={t("panel_insert_field")}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
+              <div className="grid gap-4">
+                {(['document', 'template', 'workspace', 'user'] as MergeFieldSource[]).map((sourceType) => {
+                  const items = mergeFields.filter(f => f.source === sourceType)
+                  if (items.length === 0) return null
+                  
+                  const sectionTitles: Record<MergeFieldSource, string> = {
+                    template: "panel_source_template",
+                    workspace: "panel_source_workspace",
+                    user: "panel_source_user",
+                    document: "panel_source_document"
+                  }
+                  
+                  const isCollapsed = collapsedSections[sourceType]
+                  const toggleCollapse = () => setCollapsedSections(prev => ({ ...prev, [sourceType]: !prev[sourceType] }))
+                  
+                  return (
+                    <div key={sourceType} className="space-y-3 pt-2 first:pt-0">
+                      <div 
+                        className="flex items-center gap-2 cursor-pointer group select-none"
+                        onClick={toggleCollapse}
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        )}
+                        <h5 className="text-sm text-gray-500 font-medium uppercase tracking-wider">{t(sectionTitles[sourceType]) || sectionTitles[sourceType]}</h5>
+                        <div className="h-px flex-1 bg-border"></div>
                       </div>
-                      <p className="text-[10px] text-muted-foreground/70 font-mono truncate" title={`Key: {{${field.key}}}`}>
-                        Key: {`{{${field.key}}}`}
-                      </p>
-                      <Input
-                        value={
-                          pendingMergeFieldDrafts[field.key] ??
-                          mergeFieldValues[field.key] ??
-                          field.value
-                        }
-                        onChange={(e) => handleDraftChange(field.key, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, index)}
-                        onClick={() => {
-                          // Check auth when clicking on input
-                          if (!isAuthenticated && onAuthRequired) {
-                            onAuthRequired()
-                          }
-                        }}
-                        className="field-value-input h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
-                        placeholder={t("panel_field_value")}
-                        readOnly={!isAuthenticated}
-                      />
-                    </Card>
-                ))}
+                      {!isCollapsed && (
+                        <div className="grid gap-1.5 max-h-[320px] overflow-y-auto p-1.5 rounded-lg border border-border/80 bg-muted/40 shadow-inner [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-black/5 dark:[&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-track]:my-1 [&::-webkit-scrollbar-thumb]:bg-black/20 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-black/30 dark:hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+                        {items.map((field) => {
+                          const index = mergeFields.findIndex(f => f.key === field.key)
+                          return (
+                            <Card
+                              key={field.key}
+                              id={`field-card-${field.key}`}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('application/lawzy-merge-field', JSON.stringify({
+                                  id: field.key,
+                                  label: field.label,
+                                  value: mergeFieldValues[field.key] ?? field.value
+                                }))
+                                e.dataTransfer.effectAllowed = 'copy'
+                              }}
+                              className="p-3 min-w-0 bg-background border-border hover:border-primary/40 hover:shadow-sm cursor-grab active:cursor-grabbing transition-all group flex flex-col gap-2 rounded-md shadow-sm"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="text-xs font-medium text-blue-500 group-hover:text-blue-700 cursor-pointer truncate flex-1 min-w-0"
+                                  onClick={() => insertField(field)}
+                                  title={t("panel_insert_tooltip")}
+                                >
+                                  {field.label || field.key}
+                                </span>
+                                <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-destructive hover:text-white hover:bg-destructive"
+                                    onClick={() => handleDeleteField(field.key)}
+                                    title={t("panel_delete_field")}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-accent"
+                                    onClick={() => insertField(field)}
+                                    title={t("panel_insert_field")}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/70 font-mono truncate" title={`Key: {{${field.key}}}`}>
+                                Key: {`{{${field.key}}}`}
+                              </p>
+                              <Input
+                                value={
+                                  pendingMergeFieldDrafts[field.key] ??
+                                  mergeFieldValues[field.key] ??
+                                  field.value
+                                }
+                                onChange={(e) => handleDraftChange(field.key, e.target.value)}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                onClick={() => {
+                                  // Check auth when clicking on input
+                                  if (!isAuthenticated && onAuthRequired) {
+                                    onAuthRequired()
+                                  }
+                                }}
+                                className="field-value-input h-7 bg-background border-border text-foreground text-xs placeholder:text-muted-foreground"
+                                placeholder={t("panel_field_value")}
+                                readOnly={!isAuthenticated}
+                              />
+                            </Card>
+                          )
+                        })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               <Separator className="bg-border my-2" />
