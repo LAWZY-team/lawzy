@@ -18,7 +18,7 @@ export function ExpandableMessage({ content, isStreaming, role, isError }: Expan
 
   if (content.length <= maxLength || isStreaming) {
     return (
-      <div className={cn('whitespace-pre-wrap markdown-content', isError && 'text-destructive')}>
+      <div className={cn('whitespace-pre-wrap break-words markdown-content', isError && 'text-destructive')}>
         {useMarkdown ? renderSimpleMarkdown(content) : content}
         {isStreaming && (
           <span className="inline-block w-2 h-4 ml-2 align-middle bg-blue-400 animate-pulse" />
@@ -29,8 +29,8 @@ export function ExpandableMessage({ content, isStreaming, role, isError }: Expan
 
   const displayContent = isExpanded ? content : `${content.slice(0, maxLength)}...`
   return (
-    <div className="flex flex-col items-start">
-      <div className={cn('whitespace-pre-wrap markdown-content', isError && 'text-destructive')}>
+    <div className="flex flex-col items-start min-w-0 w-full">
+      <div className={cn('whitespace-pre-wrap break-words markdown-content w-full', isError && 'text-destructive')}>
         {useMarkdown ? renderSimpleMarkdown(displayContent) : displayContent}
       </div>
       <button

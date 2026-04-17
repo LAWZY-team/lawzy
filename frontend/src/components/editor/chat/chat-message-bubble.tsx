@@ -60,7 +60,7 @@ export function ChatMessageBubble({
 
       <div
         className={cn(
-          'flex flex-col max-w-[85%] md:max-w-[75%]',
+          'flex flex-col min-w-0 max-w-[85%] md:max-w-[75%]',
           message.role === 'user' ? 'items-end' : 'items-start pl-2'
         )}
       >
@@ -70,7 +70,7 @@ export function ChatMessageBubble({
 
         <div
           className={cn(
-            'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm',
+            'px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm break-words w-full min-w-0',
             message.role === 'user'
               ? 'bg-muted text-foreground rounded-tr-sm'
               : 'bg-transparent text-foreground',
