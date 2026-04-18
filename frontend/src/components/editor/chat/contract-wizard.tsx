@@ -45,6 +45,10 @@ import {
   type WizardFormStep,
   type ContractWizardConfig,
 } from '@/lib/editor/contract-wizard-config'
+import type { Locale } from '@/lib/i18n'
+import type { OutputLanguage } from '@/lib/ai/output-language-instruction'
+
+export type WizardOutputLanguage = OutputLanguage
 
 // ─── Icon & Color maps ────────────────────────────────────────────────────────
 
@@ -68,12 +72,14 @@ const ICON_BG: Record<string, string> = {
 
 interface ContractWizardProps {
   contractTypeId: ContractTypeId
+  locale: Locale
   onBack: () => void
   onSubmit: (
     contractTypeId: ContractTypeId,
     roleId: string | null,
     values: Record<string, string>,
     steps: WizardFormStep[],
+    outputLanguage: WizardOutputLanguage,
   ) => void
   isSubmitting?: boolean
 }
@@ -532,6 +538,8 @@ function ReviewScreen({
   onGoToStep,
   onSubmit,
   isSubmitting,
+  outputLanguage,
+  onOutputLanguageChange,
 }: {
   config: ContractWizardConfig
   roleId: string | null
@@ -541,6 +549,8 @@ function ReviewScreen({
   onGoToStep: (stepIndex: number) => void
   onSubmit: () => void
   isSubmitting: boolean
+  outputLanguage: WizardOutputLanguage
+  onOutputLanguageChange: (next: WizardOutputLanguage) => void
 }) {
   const roleLabel = roleId ? config.roles?.find((r) => r.id === roleId)?.title : null
 
@@ -670,6 +680,22 @@ function ReviewScreen({
           })}
 
           {/* Submit button */}
+          <div className="space-y-2">
+            <Label htmlFor="wizard-output-language" className="text-sm font-medium">
+              Ngôn ngữ hợp đồng đầu ra
+            </Label>
+            <Select value={outputLanguage} onValueChange={(v) => onOutputLanguageChange(v as WizardOutputLanguage)}>
+              <SelectTrigger id="wizard-output-language">
+                <SelectValue placeholder="Chọn ngôn ngữ hợp đồng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vi">Tiếng Việt</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh">中文 (Chinese)</SelectItem>
+                <SelectItem value="bilingual">Song ngữ Việt - Anh</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             className="w-full h-12 text-base gap-2"
             onClick={onSubmit}
@@ -697,6 +723,7 @@ function ReviewScreen({
 
 export function ContractWizard({
   contractTypeId,
+  locale,
   onBack,
   onSubmit,
   isSubmitting = false,
@@ -709,6 +736,13 @@ export function ContractWizard({
   const [formStep, setFormStep] = useState(0)
   const [editingFromReview, setEditingFromReview] = useState(false)
   const [values, setValues] = useState<Record<string, string>>({})
+  const [outputLanguage, setOutputLanguage] = useState<WizardOutputLanguage>(
+    locale === 'en' ? 'en' : 'vi'
+  )
+
+  useEffect(() => {
+    setOutputLanguage(locale === 'en' ? 'en' : 'vi')
+  }, [locale, contractTypeId])
 
   if (!config) return null
 
@@ -756,7 +790,7 @@ export function ContractWizard({
   }
 
   const handleSubmit = () => {
-    onSubmit(contractTypeId, selectedRole, values, steps)
+    onSubmit(contractTypeId, selectedRole, values, steps, outputLanguage)
   }
 
   const slideVariants = {
@@ -828,6 +862,8 @@ export function ContractWizard({
               onGoToStep={handleGoToStep}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
+              outputLanguage={outputLanguage}
+              onOutputLanguageChange={setOutputLanguage}
             />
           </motion.div>
         )}

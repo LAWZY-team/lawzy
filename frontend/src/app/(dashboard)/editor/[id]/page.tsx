@@ -45,6 +45,7 @@ import type { QuestionnaireSchema, IntakeQuestionnaireResult } from '@/types/que
 import { findContractType, type ContractTypeId } from '@/lib/editor/contract-questionnaires'
 import { type WizardFormStep } from '@/lib/editor/contract-wizard-config'
 import { ContractWizard } from '@/components/editor/chat/contract-wizard'
+import type { WizardOutputLanguage } from '@/components/editor/chat/contract-wizard'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { resolveMergeFieldValue } from '@/lib/editor/merge-field-aliases'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
@@ -1014,7 +1015,10 @@ export default function EditorPage({
   }
 
   // Handle chat messages
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = useCallback(async (
+    message: string,
+    options?: { preferredOutputLanguage?: WizardOutputLanguage }
+  ) => {
     const hasFile = !!attachedFile
     const effectiveMessage = message.trim() || (hasFile ? (t('chat_file_only_prompt') || 'Xử lý file đính kèm') : '')
     if (!effectiveMessage) return
@@ -1120,6 +1124,7 @@ export default function EditorPage({
         body: JSON.stringify({
           userMessage: effectiveMessage,
           locale,
+          preferredOutputLanguage: options?.preferredOutputLanguage,
           workspaceId: workspaceId ?? undefined,
           documentId: managedId !== 'new' ? managedId : undefined,
           mergeFieldValues:
@@ -1364,6 +1369,7 @@ export default function EditorPage({
     roleId: string | null,
     values: Record<string, string>,
     steps: WizardFormStep[],
+    outputLanguage: WizardOutputLanguage,
   ) => {
     setIsWizardSubmitting(true)
     const contractType = findContractType(contractTypeId)
@@ -1387,8 +1393,16 @@ export default function EditorPage({
         .join('\n')
       return lines ? `${step.title}:\n${lines}` : null
     }).filter(Boolean).join('\n\n')
+    const WIZARD_LANG_PROMPT: Record<WizardOutputLanguage, string> = {
+      vi: 'Ngôn ngữ hợp đồng đầu ra: Tiếng Việt.',
+      en: 'Output contract language: English only.',
+      zh: '输出合同语言：中文（简体）。',
+      bilingual: 'Ngôn ngữ hợp đồng đầu ra: Song ngữ Việt - Anh.',
+    }
     const prompt = [
       '[CONTRACT_WIZARD_SUBMISSION]',
+      `[WIZARD_OUTPUT_LANGUAGE=${outputLanguage}]`,
+      WIZARD_LANG_PROMPT[outputLanguage],
       `Loại hợp đồng: ${typeLabel}`,
       roleId ? `Vai trò người dùng: ${roleId}` : '',
       '',
@@ -1429,7 +1443,7 @@ export default function EditorPage({
 
     setWizardContractTypeId(null)
     setIsWizardSubmitting(false)
-    await handleSendMessage(prompt)
+    await handleSendMessage(prompt, { preferredOutputLanguage: outputLanguage })
   }, [handleSendMessage, setMergeFieldValues, setTemplateMergeFields])
 
   const isNewEditorRoute = showLeftWorkspace
@@ -1437,6 +1451,7 @@ export default function EditorPage({
   const chatSurface = wizardContractTypeId ? (
     <ContractWizard
       contractTypeId={wizardContractTypeId}
+      locale={locale}
       onBack={() => setWizardContractTypeId(null)}
       onSubmit={handleWizardSubmit}
       isSubmitting={isWizardSubmitting}
