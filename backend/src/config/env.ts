@@ -33,6 +33,20 @@ export function isR2Configured(): boolean {
   );
 }
 
+export interface GeminiSanitizerEnv {
+  apiKey: string;
+  model: string;
+}
+
+// only use gemini-2.5-flash
+// key from HMQ
+export function getGeminiSanitizerEnv(): GeminiSanitizerEnv {
+  return {
+    apiKey: requireEnv('GEMINI_API_KEY_SANITIZER'),
+    model: 'gemini-2.5-flash',
+  };
+}
+
 export interface LlmConfig {
   provider: 'VERTEX_AI' | 'AI_STUDIO';
   apiKey?: string;
@@ -43,8 +57,9 @@ export interface LlmConfig {
 }
 
 export function getLlmConfig(): LlmConfig {
+  const provider = process.env.LLM_PROVIDER?.toUpperCase() === 'VERTEX_AI' ? 'VERTEX_AI' : 'AI_STUDIO';
+  
   let credentials;
-  const hasCredsJson = !!process.env.GOOGLE_CREDS_JSON;
   if (process.env.GOOGLE_CREDS_JSON) {
     try {
       credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
@@ -53,20 +68,9 @@ export function getLlmConfig(): LlmConfig {
     }
   }
 
-  const providerEnv = process.env.LLM_PROVIDER?.toUpperCase();
-  const provider: 'VERTEX_AI' | 'AI_STUDIO' =
-    providerEnv === 'VERTEX_AI'
-      ? 'VERTEX_AI'
-      : providerEnv === 'AI_STUDIO'
-        ? 'AI_STUDIO'
-        : hasCredsJson
-          ? 'VERTEX_AI'
-          : 'AI_STUDIO';
-
   return {
     provider,
-    // Sanitizer no longer uses a dedicated API key env. Prefer JSON credentials flow.
-    apiKey: process.env.GEMINI_API_KEY,
+    apiKey: process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SANITIZER,
     project: process.env.GCP_PROJECT_ID || 'gen-lang-client-0520939714',
     location: process.env.GCP_LOCATION || 'us-central1',
     credentials,

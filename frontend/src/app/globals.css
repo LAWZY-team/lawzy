@@ -80,6 +80,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --editor-table-border: oklch(0.62 0 0);
 }
 
 .dark {
@@ -114,6 +115,7 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --editor-table-border: oklch(0.78 0 0 / 0.65);
 }
 
 @layer base {
@@ -133,12 +135,13 @@
   min-width: 100%;
   margin: 0;
   overflow: hidden;
+  border: 1px solid var(--editor-table-border);
 }
 
 .ProseMirror table td,
 .ProseMirror table th {
   min-width: 80px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--editor-table-border);
   padding: 8px;
   vertical-align: top;
   box-sizing: border-box;
