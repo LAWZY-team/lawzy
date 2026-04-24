@@ -525,7 +525,11 @@ export default function EditorPage({
         inline: false,
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: true }),
+      Table.configure({
+        resizable: true,
+        lastColumnResizable: false,
+        cellMinWidth: 80,
+      }),
       TableRow, TableCell, TableHeader,
       Placeholder.configure({
         placeholder: t("editor_placeholder"),
