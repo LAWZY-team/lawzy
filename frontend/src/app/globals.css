@@ -145,9 +145,9 @@
 }
 
 .ProseMirror table th {
-  font-weight: bold;
-  text-align: left;
-  background-color: var(--muted);
+  font-weight: inherit;
+  text-align: inherit;
+  background-color: transparent;
 }
 
 .ProseMirror table .selectedCell:after {

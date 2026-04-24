@@ -164,7 +164,7 @@ function mapBlockNode(node: ContentNode): JSONContent[] {
     }
     return [
       {
-        type: n.type,
+        type: "tableCell",
         ...(n.attrs ? { attrs: n.attrs } : {}),
         content: ensureParagraphCellContent(n.content),
       },

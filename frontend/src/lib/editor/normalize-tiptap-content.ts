@@ -98,6 +98,9 @@ function normalizeNode(node: unknown): JSONContent {
         type: "tableRow",
         content: cells.map((cell) => {
           const normalizedCell = normalizeNode(cell)
+          if (normalizedCell.type === "tableHeader") {
+            normalizedCell.type = "tableCell"
+          }
           if (!Array.isArray(normalizedCell.content) || normalizedCell.content.length === 0) {
             normalizedCell.content = [{ type: "paragraph", content: [] }]
           }
@@ -139,7 +142,13 @@ function normalizeNode(node: unknown): JSONContent {
     )
     base.content =
       cells.length > 0
-        ? cells.map((cell) => normalizeNode(cell))
+        ? cells.map((cell) => {
+            const normalizedCell = normalizeNode(cell)
+            if (normalizedCell.type === "tableHeader") {
+              normalizedCell.type = "tableCell"
+            }
+            return normalizedCell
+          })
         : [{ type: "tableCell", content: [{ type: "paragraph", content: [] }] }]
   }
 

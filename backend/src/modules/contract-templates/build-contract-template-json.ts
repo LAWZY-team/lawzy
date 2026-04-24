@@ -232,11 +232,7 @@ export const buildContractTemplateJson = (params: {
       }
 
       if (isMarkdownTableSeparator(line)) {
-        if (currentTable.content.length > 0) {
-          currentTable.content[0].content.forEach(cell => {
-            cell.type = 'tableHeader';
-          });
-        }
+        // Skip markdown separator row, but keep all cells as normal tableCell.
         continue;
       }
 

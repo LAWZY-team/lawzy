@@ -1185,7 +1185,7 @@ export function CanvasEditor({
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-popover border-border text-popover-foreground w-56">
             <DropdownMenuItem
-              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run()}
               className="hover:bg-accent"
             >
               {t("editor_table_insert")}
@@ -1248,28 +1248,6 @@ export function CanvasEditor({
               className="hover:bg-accent"
             >
               {t("editor_table_split_cell")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleHeaderRow().run()}
-              disabled={!editor.can().toggleHeaderRow()}
-              className="hover:bg-accent"
-            >
-              {t("editor_table_toggle_header_row")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleHeaderColumn().run()}
-              disabled={!editor.can().toggleHeaderColumn()}
-              className="hover:bg-accent"
-            >
-              {t("editor_table_toggle_header_column")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => editor.chain().focus().toggleHeaderCell().run()}
-              disabled={!editor.can().toggleHeaderCell()}
-              className="hover:bg-accent"
-            >
-              {t("editor_table_toggle_header_cell")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem
