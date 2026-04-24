@@ -30,6 +30,7 @@ import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
 import { getStructuredContractTemplate } from '@/lib/api/contract-templates'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
+import { normalizeTipTapDocContent } from '@/lib/editor/normalize-tiptap-content'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
 import type { DocContent } from '@/types/template'
 import { toast } from 'sonner'
@@ -178,6 +179,7 @@ export default function EditorPage({
   const [activeQuestionnaire, setActiveQuestionnaire] = useState<QuestionnaireSchema | null>(null)
   const [wizardContractTypeId, setWizardContractTypeId] = useState<ContractTypeId | null>(null)
   const [isWizardSubmitting, setIsWizardSubmitting] = useState(false)
+  const contentErrorRecoveryRef = useRef(false)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -304,7 +306,9 @@ export default function EditorPage({
     initialLoadRef.current = true
     setCurrentDocument(null)
     setChatMessages([])
-    const tipTapContent = templateContentToEditorContent(params.contentJSON)
+    const tipTapContent = normalizeTipTapDocContent(
+      templateContentToEditorContent(params.contentJSON),
+    )
     setEditorContent(tipTapContent)
     updateMetadata({
       title: params.title,
@@ -413,7 +417,11 @@ export default function EditorPage({
             typeof rawContent === 'string'
               ? (() => { try { return JSON.parse(rawContent) } catch { return rawContent } })()
               : rawContent
-          const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
+          const content = normalizeTipTapDocContent(
+            isTemplateFormat(raw)
+              ? templateContentToEditorContent(raw as DocContent)
+              : raw,
+          )
           if (content) setEditorContent(content)
           // Use updateMetadata below to set both title and other metadata
           const meta = (doc.metadata as Record<string, unknown>) ?? {}
@@ -498,6 +506,7 @@ export default function EditorPage({
 
   const editor = useEditor({
     immediatelyRender: false,
+    enableContentCheck: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
@@ -516,7 +525,11 @@ export default function EditorPage({
         inline: false,
       }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: true }),
+      Table.configure({
+        resizable: true,
+        lastColumnResizable: false,
+        cellMinWidth: 80,
+      }),
       TableRow, TableCell, TableHeader,
       Placeholder.configure({
         placeholder: t("editor_placeholder"),
@@ -525,7 +538,28 @@ export default function EditorPage({
       MergeFieldExtension,
       Indent,
     ],
-    content: editorContent,
+    // Always initialize with a known-safe doc; actual data is synchronized in a guarded effect.
+    content: getDefaultContent(t("editor_default_title")),
+    onContentError: ({ error, editor }) => {
+      console.error("Tiptap content schema error", error)
+      if (contentErrorRecoveryRef.current) return
+      contentErrorRecoveryRef.current = true
+      const recovered = normalizeTipTapDocContent(editorContent)
+      try {
+        editor.commands.setContent(recovered)
+        setEditorContent(recovered)
+        toast.error(t("toast_generate_error"))
+      } catch (recoveryError) {
+        console.error("Tiptap content recovery failed", recoveryError)
+        const fallback = getDefaultContent(t("editor_default_title"))
+        editor.commands.setContent(fallback)
+        setEditorContent(fallback)
+      } finally {
+        setTimeout(() => {
+          contentErrorRecoveryRef.current = false
+        }, 0)
+      }
+    },
       editorProps: {
       attributes: {
          class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-300 selection:text-black',
@@ -770,7 +804,13 @@ export default function EditorPage({
     const id = setTimeout(() => {
       if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
-        editor.commands.setContent(pending)
+        const normalized = normalizeTipTapDocContent(pending)
+        try {
+          editor.commands.setContent(normalized)
+        } catch (error) {
+          console.error('Failed to set editor content safely', error)
+          // Keep current editor state instead of clearing canvas to avoid blank screen.
+        }
       }
       // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
       // so the first content sync never marks the document as dirty.

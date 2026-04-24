@@ -88,6 +88,10 @@ interface TipTapNode {
   text?: string
 }
 
+interface TableSizingResult {
+  columnPercents: number[]
+}
+
 async function convertNode(
   node: TipTapNode,
   runtimeContext?: ExportRuntimeContext,
@@ -226,8 +230,9 @@ async function convertNode(
         const normalizedRows = node.content
           .filter((row) => row.type === 'tableRow')
           .map((row) =>
-            (row.content || [])
-              .filter((cell) => cell.type === 'tableCell' || cell.type === 'tableHeader')
+            (row.content || []).filter(
+              (cell) => cell.type === 'tableCell' || cell.type === 'tableHeader',
+            ),
           )
           .filter((cells) => cells.length > 0)
 
@@ -236,15 +241,25 @@ async function convertNode(
           break
         }
 
-        const maxColumns = Math.max(
-          1,
-          ...normalizedRows.map((cells) => cells.length),
-        )
-        const columnWidthPercent = Math.max(1, Math.floor(100 / maxColumns))
+        const maxColumns = Math.max(1, ...normalizedRows.map((cells) => cells.length))
+        const tableSizing = deriveTableSizing(normalizedRows, maxColumns)
         const tableRows: TableRow[] = []
         for (const cells of normalizedRows) {
           const tableCells: TableCell[] = []
+          let columnCursor = 0
           for (const cell of cells) {
+            const colspanRaw = cell.attrs?.colspan
+            const colspan =
+              typeof colspanRaw === 'number' &&
+              Number.isFinite(colspanRaw) &&
+              colspanRaw > 1
+                ? Math.floor(colspanRaw)
+                : 1
+            const percentSize = tableSizing.columnPercents
+              .slice(columnCursor, columnCursor + colspan)
+              .reduce((sum, value) => sum + value, 0)
+            columnCursor += colspan
+
             const cellParagraphs: Paragraph[] = []
             for (const cellChild of cell.content || []) {
               if (cellChild.type === 'paragraph') {
@@ -267,14 +282,16 @@ async function convertNode(
                 ...nestedBlocks.filter((c): c is Paragraph => c instanceof Paragraph),
               )
             }
+
             tableCells.push(
               new TableCell({
                 children:
                   cellParagraphs.length > 0
                     ? cellParagraphs
                     : [new Paragraph({ children: [new TextRun({ text: '' })] })],
+                columnSpan: colspan > 1 ? colspan : undefined,
                 width: {
-                  size: columnWidthPercent,
+                  size: Math.max(1, Math.round(percentSize)),
                   type: WidthType.PERCENTAGE,
                 },
               }),
@@ -287,7 +304,7 @@ async function convertNode(
             new Table({
               rows: tableRows,
               width: { size: 100, type: WidthType.PERCENTAGE },
-              layout: TableLayoutType.AUTOFIT,
+              layout: TableLayoutType.FIXED,
             }),
           )
         }
@@ -316,6 +333,68 @@ async function convertNode(
   }
 
   return result
+}
+
+function deriveTableSizing(rows: TipTapNode[][], maxColumns: number): TableSizingResult {
+  const defaultPx = 120
+  const columnPixels = Array.from({ length: maxColumns }, () => defaultPx)
+
+  for (const row of rows) {
+    let columnCursor = 0
+    for (const cell of row) {
+      const colspanRaw = cell.attrs?.colspan
+      const colspan =
+        typeof colspanRaw === 'number' &&
+        Number.isFinite(colspanRaw) &&
+        colspanRaw > 1
+          ? Math.floor(colspanRaw)
+          : 1
+      const colwidthRaw = cell.attrs?.colwidth
+      const colwidth = Array.isArray(colwidthRaw)
+        ? colwidthRaw.map((value) =>
+            typeof value === 'number' && Number.isFinite(value) && value > 0
+              ? value
+              : null,
+          )
+        : []
+
+      for (let spanIndex = 0; spanIndex < colspan; spanIndex += 1) {
+        const targetIndex = columnCursor + spanIndex
+        if (targetIndex >= maxColumns) break
+        const widthCandidate = colwidth[spanIndex]
+        if (typeof widthCandidate === 'number') {
+          columnPixels[targetIndex] = Math.max(columnPixels[targetIndex], widthCandidate)
+        }
+      }
+
+      columnCursor += colspan
+      if (columnCursor >= maxColumns) break
+    }
+  }
+
+  const total = columnPixels.reduce((sum, px) => sum + px, 0)
+  if (total <= 0) {
+    return {
+      columnPercents: Array.from(
+        { length: maxColumns },
+        () => Math.max(1, Math.floor(100 / maxColumns)),
+      ),
+    }
+  }
+
+  const rawPercents = columnPixels.map((px) => (px / total) * 100)
+  const rounded = rawPercents.map((value) => Math.max(1, Math.round(value)))
+  const roundedTotal = rounded.reduce((sum, value) => sum + value, 0)
+  if (roundedTotal !== 100) {
+    const diff = 100 - roundedTotal
+    const maxIndex = rounded.reduce(
+      (bestIdx, value, idx, arr) => (value > arr[bestIdx] ? idx : bestIdx),
+      0,
+    )
+    rounded[maxIndex] = Math.max(1, rounded[maxIndex] + diff)
+  }
+
+  return { columnPercents: rounded }
 }
 
 function isKeyValueTableLayout(rows: TipTapNode[][]): boolean {
