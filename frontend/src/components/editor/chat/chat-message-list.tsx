@@ -119,7 +119,7 @@ export function ChatMessageList({
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  hoặc thử nhanh với AI
+                  {t("chat_quick_action_separator")}
                 </span>
                 <div className="flex-1 h-px bg-border" />
               </div>

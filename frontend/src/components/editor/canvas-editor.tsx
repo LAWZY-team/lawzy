@@ -219,11 +219,11 @@ export function CanvasEditor({
   const fontFamilyLabel =
     (currentFontFamily && currentFontFamily.length > 0
       ? currentFontFamily
-      : undefined) ?? "Font";
+      : undefined) ?? t("editor_font_default");
   const fontSizeLabel =
     (currentFontSize && currentFontSize.length > 0
       ? currentFontSize
-      : undefined) ?? "Cỡ chữ";
+      : undefined) ?? t("editor_font_size");
   const currentTextColor = editor?.getAttributes("textStyle")?.color as
     | string
     | undefined;
@@ -232,11 +232,11 @@ export function CanvasEditor({
     async (file: File) => {
       if (!editor) return;
       if (!workspaceId) {
-        toast.error("Vui lòng chọn workspace để tải ảnh");
+        toast.error(t("editor_image_workspace_required"));
         return;
       }
       if (!file.type.startsWith("image/")) {
-        toast.error("Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)");
+        toast.error(t("editor_image_type_error"));
         return;
       }
       try {
@@ -248,7 +248,7 @@ export function CanvasEditor({
         editor.chain().focus().setImage({ src: imageSource }).run();
       } catch (error) {
         const errorMessage =
-          error instanceof Error ? error.message : "Tải ảnh thất bại";
+          error instanceof Error ? error.message : t("editor_image_upload_failed");
         toast.error(errorMessage);
       }
     },
@@ -484,7 +484,7 @@ export function CanvasEditor({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
-      toast.error("Xuất Word thất bại");
+      toast.error(t("editor_export_word_failed"));
     }
   };
 
@@ -494,9 +494,9 @@ export function CanvasEditor({
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Đã sao chép nội dung");
+      toast.success(t("editor_copy_content_success"));
     } catch {
-      toast.error("Không thể sao chép");
+      toast.error(t("editor_copy_content_failed"));
     }
   };
 
@@ -506,9 +506,9 @@ export function CanvasEditor({
       const exportContent = getFinalExportContent(false);
       const md = convertTipTapToMarkdown(exportContent);
       await navigator.clipboard.writeText(md);
-      toast.success("Đã sao chép Markdown");
+      toast.success(t("editor_copy_markdown_success"));
     } catch {
-      toast.error("Không thể sao chép Markdown");
+      toast.error(t("editor_copy_markdown_failed"));
     }
   };
 
@@ -560,7 +560,7 @@ export function CanvasEditor({
 
       const email = shareRecipientEmail.trim();
       if (!email) {
-        toast.error("Vui lòng nhập email người nhận trước khi tạo link");
+        toast.error(t("editor_share_email_required"));
         return;
       }
 
@@ -573,10 +573,10 @@ export function CanvasEditor({
       const url = `${baseUrl}/share/${data.token}`;
       setShareUrl(url);
       setShareAccessCode(data.accessCode);
-      toast.success("Đã tạo link chia sẻ");
+      toast.success(t("editor_share_success"));
     } catch (e) {
       console.error(e);
-      toast.error("Không tạo được link chia sẻ");
+      toast.error(t("editor_share_failed"));
     } finally {
       setShareLoading(false);
     }
@@ -586,9 +586,9 @@ export function CanvasEditor({
     if (!shareUrl) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Đã sao chép link");
+      toast.success(t("editor_share_copy_success"));
     } catch {
-      toast.error("Không thể sao chép link");
+      toast.error(t("editor_share_copy_failed"));
     }
   };
 
@@ -616,7 +616,7 @@ export function CanvasEditor({
               className="text-foreground hover:bg-accent gap-2 h-8 px-3 rounded-full mr-2"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span className="text-xs font-medium">Kiểm tra</span>
+              <span className="text-xs font-medium">{t("editor_btn_check")}</span>
             </Button>
           )}
 
@@ -626,7 +626,7 @@ export function CanvasEditor({
               size="icon"
               onClick={onSave}
               className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-              title="Lưu bản nháp"
+              title={t("editor_btn_save_draft")}
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -638,7 +638,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Xuất văn bản"
+                title={t("editor_btn_export")}
               >
                 <Download className="w-4 h-4" />
               </Button>
@@ -663,7 +663,7 @@ export function CanvasEditor({
                 onClick={handleExportWord}
                 className="hover:bg-accent cursor-pointer"
               >
-                <FileText className="w-4 h-4 mr-2" /> Xuất Word (.docx)
+                <FileText className="w-4 h-4 mr-2" /> {t("editor_btn_export_word")}
               </DropdownMenuItem>
               {/* <DropdownMenuItem
                 onClick={handleOpenGoogleDocs}
@@ -676,7 +676,7 @@ export function CanvasEditor({
                 onClick={handleCopyMarkdown}
                 className="hover:bg-accent cursor-pointer"
               >
-                <Copy className="w-4 h-4 mr-2" /> Sao chép Markdown
+                <Copy className="w-4 h-4 mr-2" /> {t("editor_btn_copy_markdown")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -685,7 +685,7 @@ export function CanvasEditor({
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-            title="Xem bản hoàn thiện"
+            title={t("editor_btn_preview")}
             onClick={() => setPreviewOpen(true)}
           >
             <FileSearch className="w-4 h-4" />
@@ -695,7 +695,7 @@ export function CanvasEditor({
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-            title="Chia sẻ link công khai (chỉ xem)"
+            title={t("editor_btn_share")}
             onClick={() => {
               setShareOpen(true);
               setShareUrl(null);
@@ -710,7 +710,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Ẩn/hiện trường dữ liệu"
+                title={t("editor_btn_toggle_fields")}
               >
                 {hiddenFieldKeys.length > 0 ? (
                   <EyeOff className="w-4 h-4" />
@@ -724,24 +724,24 @@ export function CanvasEditor({
               className="bg-popover border-border text-popover-foreground w-[280px]"
             >
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Ẩn/hiện thông tin trường
+                {t("editor_menu_fields_visibility")}
               </DropdownMenuLabel>
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer text-sm"
                 onClick={() => hideAll(fieldsForToggles.map((f) => f.key))}
               >
-                <EyeOff className="w-4 h-4 mr-2" /> Ẩn tất cả
+                <EyeOff className="w-4 h-4 mr-2" /> {t("editor_menu_hide_all")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer text-sm"
                 onClick={() => showAll()}
               >
-                <Eye className="w-4 h-4 mr-2" /> Hiện tất cả
+                <Eye className="w-4 h-4 mr-2" /> {t("editor_menu_show_all")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border" />
               {fieldsForToggles.length === 0 ? (
                 <DropdownMenuItem className="text-muted-foreground" disabled>
-                  Chưa có trường dữ liệu
+                  {t("editor_menu_no_fields")}
                 </DropdownMenuItem>
               ) : (
                 fieldsForToggles.map((f) => (
@@ -765,7 +765,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Thêm"
+                title={t("editor_btn_more")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -778,14 +778,14 @@ export function CanvasEditor({
                 onClick={handleCopyContent}
                 className="hover:bg-accent cursor-pointer"
               >
-                <Copy className="w-4 h-4 mr-2" /> Sao chép nội dung
+                <Copy className="w-4 h-4 mr-2" /> {t("editor_btn_copy_content")}
               </DropdownMenuItem>
               {/* <DropdownMenuSeparator className="bg-border" /> */}
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer"
                 onClick={() => toast.info("Trợ giúp: Liên hệ contact@lawzy.vn")}
               >
-                <HelpCircle className="w-4 h-4 mr-2" /> Trợ giúp
+                <HelpCircle className="w-4 h-4 mr-2" /> {t("editor_btn_help")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -800,7 +800,7 @@ export function CanvasEditor({
                   ? "text-foreground bg-accent"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
-              title={toolsPanelOpen ? "Đóng công cụ" : "Mở công cụ"}
+              title={toolsPanelOpen ? t("editor_panel_close") : t("editor_panel_open")}
             >
               {toolsPanelOpen ? (
                 <PanelRightClose className="w-4 h-4" />
@@ -892,7 +892,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().unsetFontFamily().run()}
               className="hover:bg-accent"
             >
-              Mặc định
+              {t("editor_font_default")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             {["Times New Roman", "Arial", "Inter", "Courier New"].map((ff) => (
@@ -923,7 +923,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().unsetFontSize().run()}
               className="hover:bg-accent"
             >
-              Mặc định
+              {t("editor_font_default")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             {[
@@ -960,7 +960,7 @@ export function CanvasEditor({
               variant="ghost"
               size="icon"
               className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
-              title="Màu chữ"
+              title={t("editor_text_color")}
             >
               <Palette className="w-4 h-4" />
             </Button>
@@ -970,7 +970,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().unsetColor().run()}
               className="hover:bg-accent"
             >
-              Màu mặc định
+              {t("editor_text_color_default")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <div className="grid grid-cols-5 gap-2 px-2 py-2">
@@ -1111,7 +1111,7 @@ export function CanvasEditor({
           onClick={handlePickImage}
           disabled={uploadEditorImageMutation.isPending}
           className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0 disabled:opacity-30"
-          title="Chèn ảnh"
+          title={t("editor_insert_image")}
         >
           {uploadEditorImageMutation.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1227,10 +1227,9 @@ export function CanvasEditor({
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Xem bản hoàn thiện</DialogTitle>
+            <DialogTitle>{t("editor_preview_title")}</DialogTitle>
             <DialogDescription>
-              Bản xem trước (read-only) với dữ liệu đã được trộn và áp dụng quy
-              tắc ẩn/hiện.
+              {t("editor_preview_desc")}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pr-4">
@@ -1246,15 +1245,14 @@ export function CanvasEditor({
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Chia sẻ link công khai</DialogTitle>
+            <DialogTitle>{t("editor_share_title")}</DialogTitle>
             <DialogDescription>
-              Tạo link snapshot chỉ đọc. Người nhận không cần đăng nhập và chỉ
-              có thể xem. Nhập email người nhận để hệ thống gửi mã truy cập.
+              {t("editor_share_desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Email người nhận</label>
+              <label className="text-sm font-medium">{t("editor_share_recipient_email")}</label>
               <input
                 type="email"
                 value={shareRecipientEmail}
@@ -1268,11 +1266,11 @@ export function CanvasEditor({
               onClick={handleCreateShareLink}
               disabled={shareLoading}
             >
-              {shareLoading ? "Đang tạo link..." : "Tạo link"}
+              {shareLoading ? t("editor_share_creating") : t("editor_share_create_btn")}
             </Button>
             {shareUrl && (
               <div className="space-y-2">
-                <div className="text-sm font-medium">Link chia sẻ</div>
+                <div className="text-sm font-medium">{t("editor_share_link_label")}</div>
                 <div className="flex items-center gap-2">
                   <input
                     value={shareUrl}
@@ -1284,13 +1282,13 @@ export function CanvasEditor({
                     variant="outline"
                     onClick={handleCopyShareLink}
                   >
-                    Sao chép
+                    {t("editor_share_copy_btn")}
                   </Button>
                 </div>
                 {shareAccessCode && (
                   <div className="space-y-1">
                     <div className="text-sm font-medium">
-                      Mã truy cập (mã hợp đồng)
+                      {t("editor_share_access_code_label")}
                     </div>
                     <input
                       value={shareAccessCode}
@@ -1298,8 +1296,7 @@ export function CanvasEditor({
                       className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm font-mono tracking-[0.3em]"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mã này cũng đã được gửi tới email người nhận. Người nhận
-                      cần nhập email và mã này để yêu cầu OTP truy cập.
+                      {t("editor_share_access_code_hint")}
                     </p>
                   </div>
                 )}

@@ -584,12 +584,12 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                       />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs text-white uppercase">
-                        {(metadata.creator?.name || currentUser?.name || (locale === 'en' ? 'G' : 'K')).charAt(0)}
+                        {(metadata.creator?.name || currentUser?.name || t("common_guest")).charAt(0)}
                       </div>
                     )}
                     <div className="flex flex-col min-w-0">
                       <span className="text-sm text-foreground truncate">
-                        {metadata.creator?.name || currentUser?.name || (locale === 'en' ? 'Guest' : 'Khách')}
+                        {metadata.creator?.name || currentUser?.name || t("common_guest")}
                       </span>
                       {(metadata.creator?.email || currentUser?.email) && (
                         <span className="text-[10px] text-muted-foreground truncate">
@@ -672,7 +672,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                             </div>
                           )}
                           <div className="text-[11px] text-muted-foreground">
-                            {new Date(v.createdAt).toLocaleString('vi-VN')}
+                            {new Date(v.createdAt).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US')}
                           </div>
                         </div>
                         <Button

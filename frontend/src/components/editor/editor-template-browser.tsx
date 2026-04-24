@@ -338,10 +338,10 @@ export function EditorTemplateBrowser({
             onClick={() => setSelectedPreview(null)}
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            {t("common_back")}
           </Button>
           <Badge variant="secondary" className="capitalize">
-            {previewMetaLabel}
+            {selectedPreview.kind === 'system' ? t("tmpl_system") : t(`tmpl_${selectedPreview.scope}`)}
           </Badge>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
