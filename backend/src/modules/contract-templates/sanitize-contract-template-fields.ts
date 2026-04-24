@@ -16,27 +16,113 @@ export interface SanitizedContractTemplateText {
 }
 
 const LABEL_HINTS = [
-  'ten', 'ho ten', 'full name', 'legal name', 'company name', 'party name', 'name',
-  'cong ty', 'doanh nghiep', 'company', 'enterprise', 'organization',
-  'dia chi', 'address', 'registered address', 'business address',
-  'email', 'dien thoai', 'so dien thoai', 'phone', 'telephone', 'mobile',
-  'contact number', 'mst', 'ma so thue', 'ma so doanh nghiep', 'tax',
-  'tax code', 'tax id', 'tax identification number', 'business registration number',
-  'registration number', 'fax', 'website', 'ngay sinh', 'date of birth',
-  'birthday', 'cccd', 'cmnd', 'ho chieu', 'passport', 'passport number',
-  'id number', 'identity card', 'quoc tich', 'nationality', 'chuc vu',
-  'dai dien', 'nguoi dai dien', 'title', 'position', 'job title',
-  'representative', 'legal representative', 'authorized representative',
-  'tai khoan', 'ngan hang', 'chi nhanh', 'account', 'account number', 'bank',
-  'bank account', 'bank name', 'branch', 'noi cap', 'ngay cap', 'issued by',
-  'issue date', 'issued date', 'ben a', 'ben b', 'nguoi lao dong',
-  'nguoi su dung lao dong', 'seller', 'buyer', 'provider', 'customer',
-  'employee', 'employer', 'contractor', 'client', 'service provider',
-  'signing', 'ngay ky', 'dia diem ky', 'signing date', 'signing place',
-  'signing location', 'effective date', 'commencement date',
-  'gia thue', 'tien thue', 'gia tri', 'thanh toan', 'dat coc', 'tien coc',
-  'so tien', 'tien nha', 'chu tai khoan', 'so tai khoan', 'ngay thanh toan',
-  'thoi han', 'ngay het han', 'ngay bat dau', 'ngay ket thuc', 'phi', 'stk'
+  'ten',
+  'ho ten',
+  'full name',
+  'legal name',
+  'company name',
+  'party name',
+  'name',
+  'cong ty',
+  'doanh nghiep',
+  'company',
+  'enterprise',
+  'organization',
+  'dia chi',
+  'address',
+  'registered address',
+  'business address',
+  'email',
+  'dien thoai',
+  'so dien thoai',
+  'phone',
+  'telephone',
+  'mobile',
+  'contact number',
+  'mst',
+  'ma so thue',
+  'ma so doanh nghiep',
+  'tax',
+  'tax code',
+  'tax id',
+  'tax identification number',
+  'business registration number',
+  'registration number',
+  'fax',
+  'website',
+  'ngay sinh',
+  'date of birth',
+  'birthday',
+  'cccd',
+  'cmnd',
+  'ho chieu',
+  'passport',
+  'passport number',
+  'id number',
+  'identity card',
+  'quoc tich',
+  'nationality',
+  'chuc vu',
+  'dai dien',
+  'nguoi dai dien',
+  'title',
+  'position',
+  'job title',
+  'representative',
+  'legal representative',
+  'authorized representative',
+  'tai khoan',
+  'ngan hang',
+  'chi nhanh',
+  'account',
+  'account number',
+  'bank',
+  'bank account',
+  'bank name',
+  'branch',
+  'noi cap',
+  'ngay cap',
+  'issued by',
+  'issue date',
+  'issued date',
+  'ben a',
+  'ben b',
+  'nguoi lao dong',
+  'nguoi su dung lao dong',
+  'seller',
+  'buyer',
+  'provider',
+  'customer',
+  'employee',
+  'employer',
+  'contractor',
+  'client',
+  'service provider',
+  'signing',
+  'ngay ky',
+  'dia diem ky',
+  'signing date',
+  'signing place',
+  'signing location',
+  'effective date',
+  'commencement date',
+  'gia thue',
+  'tien thue',
+  'gia tri',
+  'thanh toan',
+  'dat coc',
+  'tien coc',
+  'so tien',
+  'tien nha',
+  'chu tai khoan',
+  'so tai khoan',
+  'ngay thanh toan',
+  'thoi han',
+  'ngay het han',
+  'ngay bat dau',
+  'ngay ket thuc',
+  'phi',
+  'stk',
 ];
 
 const FIELD_TYPE_RULES: Array<{
@@ -44,19 +130,23 @@ const FIELD_TYPE_RULES: Array<{
   dataType: MergeFieldDataType;
 }> = [
   {
-    pattern: /(ngay|date|sinh|ky|cap|birthday|effective date|commencement date|issue date|issued date|thoi han)/i,
+    pattern:
+      /(ngay|date|sinh|ky|cap|birthday|effective date|commencement date|issue date|issued date|thoi han)/i,
     dataType: 'date',
   },
   {
-    pattern: /(gia|tong|phi|tien|amount|price|salary|luong|fee|payment|compensation|remuneration|deposit|dat coc)/i,
+    pattern:
+      /(gia|tong|phi|tien|amount|price|salary|luong|fee|payment|compensation|remuneration|deposit|dat coc)/i,
     dataType: 'currency',
   },
   {
-    pattern: /(so luong|quantity|number|serial number|registration number|passport number|id number|tax id|phone number|account number|so|stk)/i,
+    pattern:
+      /(so luong|quantity|number|serial number|registration number|passport number|id number|tax id|phone number|account number|so|stk)/i,
     dataType: 'number',
   },
   {
-    pattern: /(noi dung|mo ta|description|pham vi|address|scope|details|content|service description|goods description|dia chi)/i,
+    pattern:
+      /(noi dung|mo ta|description|pham vi|address|scope|details|content|service description|goods description|dia chi)/i,
     dataType: 'text',
   },
 ];
@@ -71,6 +161,45 @@ function foldVi(text: string): string {
 
 function normalizeWhitespace(text: string): string {
   return text.replace(/[ \t]+/g, ' ').trim();
+}
+
+function isMarkdownTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return (
+    trimmed.startsWith('|') &&
+    trimmed.endsWith('|') &&
+    trimmed.split('|').length > 2
+  );
+}
+
+function sanitizeMarkdownTableRow(params: {
+  line: string;
+  existingKeys: Set<string>;
+  mergeFields: MergeFieldDefinition[];
+  valueToFieldMap: Map<string, MergeFieldDefinition>;
+  plainTextRedaction?: boolean;
+}): { sanitizedLine: string; sanitizedCount: number } {
+  const trimmed = params.line.trim();
+  const inner = trimmed.slice(1, -1);
+  const cells = inner.split('|');
+  let sanitizedCount = 0;
+
+  const sanitizedCells = cells.map((cell) => {
+    const { sanitizedLine, sanitizedCount: count } = sanitizeInlineValues({
+      line: normalizeWhitespace(cell),
+      existingKeys: params.existingKeys,
+      mergeFields: params.mergeFields,
+      valueToFieldMap: params.valueToFieldMap,
+      plainTextRedaction: params.plainTextRedaction,
+    });
+    sanitizedCount += count;
+    return sanitizedLine;
+  });
+
+  return {
+    sanitizedLine: `| ${sanitizedCells.join(' | ')} |`,
+    sanitizedCount,
+  };
 }
 
 function cleanLabel(label: string): string {
@@ -90,17 +219,21 @@ function isLikelyFieldLabel(label: string, value: string): boolean {
   }
   if (label.length < 2 || label.length > 120) return false;
   if (!value.trim()) return false;
-  
+
   if (LABEL_HINTS.some((hint) => foldedLabel.includes(hint))) return true;
-  
+
   const labelWordCount = foldedLabel.split(/\s+/).filter(Boolean).length;
   if (labelWordCount > 15) return false;
-  
+
   // Reject common sentence endings or paragraph lead-in
-  if (/(\bnhư sau\b|\bgồm\b|\bcác bước\b|\bquy định\b|\bsau đây\b)$/i.test(label.trim())) {
+  if (
+    /(\bnhư sau\b|\bgồm\b|\bcác bước\b|\bquy định\b|\bsau đây\b)$/i.test(
+      label.trim(),
+    )
+  ) {
     return false;
   }
-  
+
   if (value.length <= 100 && labelWordCount <= 15) {
     if (labelWordCount <= 6) return true;
     if (value.length <= 60) return true;
@@ -154,16 +287,34 @@ function createFieldMatch(params: {
   valueToFieldMap?: Map<string, MergeFieldDefinition>;
   plainTextRedaction?: boolean;
 }): SanitizedFieldMatch {
-  // Theo yêu cầu mới nhất: Không còn sử dụng Merge Field cho Template
-  // Sẽ trực tiếp gạch bỏ tên và thay bằng các dấu chấm để user tự điền hoặc nó sẽ trống
+  // Keep redacted content visible in templates instead of blanking values.
+  if (params.plainTextRedaction) {
+    return {
+      field: {
+        fieldKey: '_',
+        label: '',
+        dataType: 'string',
+        required: false,
+      },
+      // Keep table/document structure visible while leaving value blank for manual filling.
+      placeholder: '',
+    };
+  }
+
+  const normalizedLabel = cleanLabel(params.label);
+  const baseKey = buildBaseFieldKey(normalizedLabel);
+  const fieldKey = ensureUniqueFieldKey(baseKey, params.existingKeys);
+  const inferredDataType = params.dataType ?? inferDataType(normalizedLabel);
+  const field: MergeFieldDefinition = {
+    fieldKey,
+    label: normalizedLabel,
+    dataType: inferredDataType,
+    required: false,
+  };
+
   return {
-    field: {
-      fieldKey: '_',
-      label: '',
-      dataType: 'string',
-      required: false,
-    },
-    placeholder: '',
+    field,
+    placeholder: `{{${fieldKey}}}`,
   };
 }
 
@@ -179,14 +330,14 @@ function sanitizeSegments(params: {
   const sanitizedSegments = segments.map((segment) => {
     // Allows matching up to 120 chars for labels
     const match = segment.match(
-      /^(\s*[-*]?\s*)([^:;\n]{2,120}?)(\s*:\s*)([^;\n]+?)(\s*;?\s*)$/
+      /^(\s*[-*]?\s*)([^:;\n]{2,120}?)(\s*:\s*)([^;\n]+?)(\s*;?\s*)$/,
     );
     if (!match) return segment;
     const [, prefix, rawLabel, separator, rawValue, suffix] = match;
     const label = cleanLabel(rawLabel);
     const value = normalizeWhitespace(rawValue);
     if (!isLikelyFieldLabel(label, value)) return segment;
-    
+
     // Check if the value itself contains more sensitive info (recursive-like check)
     const { sanitizedLine: deepSanitizedValue } = sanitizeInlineValues({
       line: value,
@@ -203,7 +354,7 @@ function sanitizeSegments(params: {
       valueToFieldMap: params.valueToFieldMap,
       plainTextRedaction: params.plainTextRedaction,
     });
-    
+
     // Only add to mergeFields if it's a new field (deduplication)
     if (
       !params.plainTextRedaction &&
@@ -211,7 +362,7 @@ function sanitizeSegments(params: {
     ) {
       params.mergeFields.push(fieldMatch.field);
     }
-    
+
     sanitizedCount += 1;
     return `${prefix}${label}${separator}${fieldMatch.placeholder}${suffix}`;
   });
@@ -233,7 +384,8 @@ function sanitizeInlineValues(params: {
   let sanitizedCount = 0;
 
   // 1. Currency parsing (e.g. 34.000.000 VNĐ (Ba mươi bốn triệu đồng))
-  const moneyRegex = /(?:\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\s*(?:VNĐ|VND|đồng|dong|đ|USD|EUR|[\$€£]))(?![a-zA-ZÀ-ỹ])(?:\s*\([\s\S]+?\))?/gi;
+  const moneyRegex =
+    /(?:\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\s*(?:VNĐ|VND|đồng|dong|đ|USD|EUR|[\$€£]))(?![a-zA-ZÀ-ỹ])(?:\s*\([\s\S]+?\))?/gi;
   line = line.replace(moneyRegex, (match) => {
     const value = normalizeWhitespace(match);
     const fieldMatch = createFieldMatch({
@@ -255,7 +407,8 @@ function sanitizeInlineValues(params: {
   });
 
   // 2. Date parsing (e.g. ngày 01 tháng 03 năm 2025, or 01/03/2025)
-  const dateRegex = /(?:(?:ng[aà]y\s+)?(?:0?[1-9]|[12][0-9]|3[01])\s*[-/.]\s*(?:0?[1-9]|1[012])\s*[-/.]\s*(?:19|20)\d\d|(?:ng[aà]y)\s+(?:0?[1-9]|[12][0-9]|3[01])\s+(?:th[aá]ng)\s+(?:0?[1-9]|1[012])\s+(?:n[aă]m)\s+(?:19|20)\d\d)/gi;
+  const dateRegex =
+    /(?:(?:ng[aà]y\s+)?(?:0?[1-9]|[12][0-9]|3[01])\s*[-/.]\s*(?:0?[1-9]|1[012])\s*[-/.]\s*(?:19|20)\d\d|(?:ng[aà]y)\s+(?:0?[1-9]|[12][0-9]|3[01])\s+(?:th[aá]ng)\s+(?:0?[1-9]|1[012])\s+(?:n[aă]m)\s+(?:19|20)\d\d)/gi;
   line = line.replace(dateRegex, (match) => {
     const value = normalizeWhitespace(match);
     const fieldMatch = createFieldMatch({
@@ -401,21 +554,35 @@ export const sanitizeContractTemplateFields = async ({
   // 1. PHASE 1: Structural Label Sanitization (Regex based)
   const lines = text.split(/\r?\n/);
   const regexSanitizedLines = lines.map((line) => {
-    const { sanitizedLine: postSegmentLine, sanitizedCount: count1 } = sanitizeSegments({
-      line,
-      existingKeys,
-      mergeFields,
-      valueToFieldMap,
-      plainTextRedaction,
-    });
-    const { sanitizedLine: postInlineLine, sanitizedCount: count2 } = sanitizeInlineValues({
-      line: postSegmentLine,
-      existingKeys,
-      mergeFields,
-      valueToFieldMap,
-      plainTextRedaction,
-    });
-    sanitizedFieldCount += (count1 + count2);
+    if (isMarkdownTableLine(line)) {
+      const tableResult = sanitizeMarkdownTableRow({
+        line,
+        existingKeys,
+        mergeFields,
+        valueToFieldMap,
+        plainTextRedaction,
+      });
+      sanitizedFieldCount += tableResult.sanitizedCount;
+      return tableResult.sanitizedLine;
+    }
+
+    const { sanitizedLine: postSegmentLine, sanitizedCount: count1 } =
+      sanitizeSegments({
+        line,
+        existingKeys,
+        mergeFields,
+        valueToFieldMap,
+        plainTextRedaction,
+      });
+    const { sanitizedLine: postInlineLine, sanitizedCount: count2 } =
+      sanitizeInlineValues({
+        line: postSegmentLine,
+        existingKeys,
+        mergeFields,
+        valueToFieldMap,
+        plainTextRedaction,
+      });
+    sanitizedFieldCount += count1 + count2;
     return postInlineLine;
   });
   let sanitizedText = regexSanitizedLines.join('\n');
@@ -425,13 +592,15 @@ export const sanitizeContractTemplateFields = async ({
     try {
       // Use original text for identification to avoid confusion with already replaced placeholders
       const entities = await aiSanitizer.identifySensitiveEntities(text);
-      
+
       // Sort keys by length descending to replace longest matches first (prevents partial replacement)
-      const sortedKeys = Object.keys(entities).sort((a, b) => b.length - a.length);
+      const sortedKeys = Object.keys(entities).sort(
+        (a, b) => b.length - a.length,
+      );
 
       for (const entityText of sortedKeys) {
         if (!entityText || entityText.length < 2) continue;
-        
+
         // Skip if this entity looks like it could be a placeholder prefix or was already replaced
         if (entityText.includes('{{') || entityText.includes('}}')) continue;
 
@@ -441,7 +610,10 @@ export const sanitizeContractTemplateFields = async ({
 
         // Before global replacement, check if it's already in the text
         const escapedEntity = escapeRegExp(entityText);
-        const entityRegex = new RegExp(`(?<!\\{\\{)${escapedEntity}(?!\\}\\})`, 'g');
+        const entityRegex = new RegExp(
+          `(?<!\\{\\{)${escapedEntity}(?!\\}\\})`,
+          'g',
+        );
 
         if (entityRegex.test(sanitizedText)) {
           const fieldMatch = createFieldMatch({
@@ -458,7 +630,10 @@ export const sanitizeContractTemplateFields = async ({
           ) {
             mergeFields.push(fieldMatch.field);
           }
-          sanitizedText = sanitizedText.replace(entityRegex, fieldMatch.placeholder);
+          sanitizedText = sanitizedText.replace(
+            entityRegex,
+            fieldMatch.placeholder,
+          );
           sanitizedFieldCount += 1;
         }
       }
@@ -472,24 +647,30 @@ export const sanitizeContractTemplateFields = async ({
   // that might have been missed due to line breaks or regex limitations.
   // Example: {{SO_TIEN}} (Ba mươi bốn triệu đồng) -> {{SO_TIEN}}
   const explanationRegex = /({{[A-Z0-9_]+}})\s*(\([\s\S]+?\))/g;
-  sanitizedText = sanitizedText.replace(explanationRegex, (match, placeholder, explanation) => {
-    // Only collapse if the explanation contains "triệu", "tỷ", "ngàn", "đồng" or looks like a numeric expansion
-    const foldedExp = foldVi(explanation);
-    const isFinancialExp = /(trieu|ty|ngan|dong|tram|vnd|usd|ba muoi|bon muoi|nam muoi|linh|le)/i.test(foldedExp);
-    if (isFinancialExp || explanation.length < 100) {
-      return placeholder;
-    }
-    return match;
-  });
+  sanitizedText = sanitizedText.replace(
+    explanationRegex,
+    (match, placeholder, explanation) => {
+      // Only collapse if the explanation contains "triệu", "tỷ", "ngàn", "đồng" or looks like a numeric expansion
+      const foldedExp = foldVi(explanation);
+      const isFinancialExp =
+        /(trieu|ty|ngan|dong|tram|vnd|usd|ba muoi|bon muoi|nam muoi|linh|le)/i.test(
+          foldedExp,
+        );
+      if (isFinancialExp || explanation.length < 100) {
+        return placeholder;
+      }
+      return match;
+    },
+  );
 
   // 4. FINAL CLEANUP
   const finalSanitizedText = sanitizedText
-    .replace(/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/gmi, '')
+    .replace(/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/gim, '')
     .replace(/^\s*-\s*\d+\s+-\s*$/gm, '')
-    .replace(/^\s*Page\s+\d+\s+of\s+\d+\s*$/gmi, '')
+    .replace(/^\s*Page\s+\d+\s+of\s+\d+\s*$/gim, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-    
+
   return {
     sanitizedText: finalSanitizedText,
     mergeFields: plainTextRedaction ? [] : mergeFields,

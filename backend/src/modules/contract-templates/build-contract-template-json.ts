@@ -109,12 +109,14 @@ function parseInlineContent(
 
   if (lastIndex < line.length) {
     const text = line.slice(lastIndex);
-    const node: ContentTextNode = { type: 'text', text };
-    if (isBold) node.marks = [{ type: 'bold' }];
-    content.push(node);
+    if (text.length > 0) {
+      const node: ContentTextNode = { type: 'text', text };
+      if (isBold) node.marks = [{ type: 'bold' }];
+      content.push(node);
+    }
   }
 
-  if (content.length === 0) {
+  if (content.length === 0 && line.length > 0) {
     content.push({ type: 'text', text: line });
   }
 
@@ -157,6 +159,7 @@ export const buildContractTemplateJson = (params: {
   let headingCount = 0;
   let listItems: ContentListItemNode[] = [];
   let currentTable: ContentTableNode | null = null;
+  let currentTableColumnCount = 0;
 
   const flushList = (targetArr: any[]) => {
     if (listItems.length > 0) {
@@ -172,6 +175,20 @@ export const buildContractTemplateJson = (params: {
     if (currentTable) {
       targetArr.push(currentTable);
       currentTable = null;
+      currentTableColumnCount = 0;
+    }
+  };
+
+  const padExistingTableRows = (table: ContentTableNode, targetCols: number) => {
+    for (const row of table.content) {
+      if (row.content.length >= targetCols) continue;
+      const missing = targetCols - row.content.length;
+      row.content.push(
+        ...Array.from({ length: missing }, () => ({
+          type: 'tableCell' as const,
+          content: [buildParagraph('')],
+        })),
+      );
     }
   };
 
@@ -211,6 +228,7 @@ export const buildContractTemplateJson = (params: {
 
       if (!currentTable) {
         currentTable = { type: 'table', content: [] };
+        currentTableColumnCount = 0;
       }
 
       if (isMarkdownTableSeparator(line)) {
@@ -223,9 +241,19 @@ export const buildContractTemplateJson = (params: {
       }
 
       const cells = parseMarkdownTableLine(line);
+      if (cells.length > currentTableColumnCount) {
+        currentTableColumnCount = cells.length;
+        if (currentTable.content.length > 0) {
+          padExistingTableRows(currentTable, currentTableColumnCount);
+        }
+      }
+      const normalizedCells = [
+        ...cells,
+        ...Array.from({ length: Math.max(0, currentTableColumnCount - cells.length) }, () => ''),
+      ];
       const rowNode: ContentTableRowNode = {
         type: 'tableRow',
-        content: cells.map(cellText => ({
+        content: normalizedCells.map(cellText => ({
           type: 'tableCell',
           content: [buildParagraph(cellText)]
         }))
