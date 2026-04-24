@@ -1,4 +1,5 @@
 import type {
+  ContentBlockAlign,
   ContentClauseNode,
   ContentFieldNode,
   ContentHeadingNode,
@@ -8,6 +9,9 @@ import type {
   MergeFieldDefinition,
   ContentBulletListNode,
   ContentListItemNode,
+  ContentTableNode,
+  ContentTableRowNode,
+  ContentTableCellNode,
 } from './contract-templates.types';
 
 interface BuildContractTemplateJsonResult {
@@ -48,6 +52,23 @@ function isNationalHeader(line: string): boolean {
 function isClauseHeading(line: string): boolean {
   const cleanLine = line.replace(/^#{1,6}\s+/, '').trim();
   return /^(điều|article|clause)\s+\d+[\s.:)]/i.test(cleanLine);
+}
+
+function isMarkdownTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.split('|').length > 2;
+}
+
+function parseMarkdownTableLine(line: string): string[] {
+  const trimmed = line.trim();
+  const inner = trimmed.slice(1, -1);
+  return inner.split('|').map(c => c.trim());
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  if (!isMarkdownTableLine(line)) return false;
+  const cells = parseMarkdownTableLine(line);
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
 }
 
 function parseInlineContent(
@@ -111,7 +132,7 @@ function buildParagraph(line: string): ContentParagraphNode {
 function buildHeading(params: {
   line: string;
   level: 1 | 2 | 3;
-  align?: 'left' | 'center';
+  align?: ContentBlockAlign;
 }): ContentHeadingNode {
   return {
     type: 'heading',
@@ -135,6 +156,7 @@ export const buildContractTemplateJson = (params: {
   let clauseIndex = 1;
   let headingCount = 0;
   let listItems: ContentListItemNode[] = [];
+  let currentTable: ContentTableNode | null = null;
 
   const flushList = (targetArr: any[]) => {
     if (listItems.length > 0) {
@@ -146,14 +168,23 @@ export const buildContractTemplateJson = (params: {
     }
   };
 
+  const flushTable = (targetArr: any[]) => {
+    if (currentTable) {
+      targetArr.push(currentTable);
+      currentTable = null;
+    }
+  };
+
   const pushCurrentClause = () => {
     if (currentClause) {
       flushList(currentClause.content);
+      flushTable(currentClause.content);
       rootContent.push(currentClause);
       clauseIndex += 1;
       currentClause = null;
     } else {
       flushList(rootContent);
+      flushTable(rootContent);
     }
   };
 
@@ -165,6 +196,7 @@ export const buildContractTemplateJson = (params: {
 
     if (isDividerLine(line)) {
       flushList(targetArray);
+      flushTable(targetArray);
       pushCurrentClause();
       rootContent.push({
         type: 'paragraph',
@@ -172,6 +204,37 @@ export const buildContractTemplateJson = (params: {
         content: [],
       });
       continue;
+    }
+    
+    if (isMarkdownTableLine(line)) {
+      flushList(targetArray);
+
+      if (!currentTable) {
+        currentTable = { type: 'table', content: [] };
+      }
+
+      if (isMarkdownTableSeparator(line)) {
+        if (currentTable.content.length > 0) {
+          currentTable.content[0].content.forEach(cell => {
+            cell.type = 'tableHeader';
+          });
+        }
+        continue;
+      }
+
+      const cells = parseMarkdownTableLine(line);
+      const rowNode: ContentTableRowNode = {
+        type: 'tableRow',
+        content: cells.map(cellText => ({
+          type: 'tableCell',
+          content: [buildParagraph(cellText)]
+        }))
+      };
+      
+      currentTable.content.push(rowNode);
+      continue;
+    } else {
+      flushTable(targetArray);
     }
     
     if (isClauseHeading(line)) {
@@ -194,6 +257,7 @@ export const buildContractTemplateJson = (params: {
     
     if (isHeading) {
       flushList(targetArray);
+      flushTable(targetArray);
       
       let level: 1 | 2 | 3 = 2; // Default
       let cleanTitle = line;
@@ -246,6 +310,7 @@ export const buildContractTemplateJson = (params: {
     
     const matchBullet = line.match(/^[-*]+[\s-]*\s+(.*)$/);
     if (matchBullet) {
+      flushTable(targetArray);
       const cleanText = matchBullet[1]; 
       listItems.push({
         type: 'listItem',
@@ -255,6 +320,7 @@ export const buildContractTemplateJson = (params: {
     }
 
     flushList(targetArray);
+    flushTable(targetArray);
     targetArray.push(buildParagraph(line));
   }
 

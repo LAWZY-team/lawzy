@@ -1,6 +1,15 @@
 import type { JSONContent } from "@tiptap/core"
 import type { DocContent, ContentNode } from "@/types/template"
 
+const VALID_TEXT_ALIGN = new Set(["left", "center", "right", "justify"] as const)
+
+function toTextAlign(value: unknown): "left" | "center" | "right" | "justify" | undefined {
+  if (typeof value !== "string") return undefined
+  return VALID_TEXT_ALIGN.has(value as "left" | "center" | "right" | "justify")
+    ? (value as "left" | "center" | "right" | "justify")
+    : undefined
+}
+
 /** Chuyển node 'field' (template) sang 'mergeField' (TipTap); giữ marks (italic, bold) cho text */
 function mapInlineNode(node: ContentNode): JSONContent | JSONContent[] | null {
   if (node.type === "text") {
@@ -31,30 +40,38 @@ function mapInlineContent(nodes: ContentNode[]): JSONContent[] {
   return out
 }
 
+function ensureParagraphCellContent(content?: ContentNode[]): JSONContent[] {
+  const mapped = content ? content.flatMap(mapBlockNode) : []
+  if (mapped.length > 0) return mapped
+  return [{ type: "paragraph", content: [] }]
+}
+
 /** Map một block node template sang một hoặc nhiều node TipTap (clause thành heading + content). Giữ align/divider nếu có. */
 function mapBlockNode(node: ContentNode): JSONContent[] {
   if (node.type === "heading") {
-    const n = node as { attrs: { level: 1 | 2 | 3; align?: "left" | "center" }; content?: ContentNode[] }
+    const n = node as { attrs: { level: 1 | 2 | 3; align?: "left" | "center" | "right" | "justify" }; content?: ContentNode[] }
+    const textAlign = toTextAlign(n.attrs.align)
     return [
       {
         type: "heading",
         attrs: {
           level: n.attrs.level,
-          ...(n.attrs.align && { textAlign: n.attrs.align }),
+          ...(textAlign && { textAlign }),
         },
         content: n.content ? mapInlineContent(n.content) : [],
       },
     ]
   }
   if (node.type === "paragraph") {
-    const n = node as { attrs?: { align?: "left" | "center"; divider?: boolean }; content?: ContentNode[] }
+    const n = node as { attrs?: { align?: "left" | "center" | "right" | "justify"; divider?: boolean }; content?: ContentNode[] }
     if (n.attrs?.divider) {
       return [{ type: "paragraph", content: [{ type: "text", text: "—".repeat(20) }], attrs: { textAlign: "center" } }]
     }
+    const textAlign = toTextAlign(n.attrs?.align)
     return [
       {
         type: "paragraph",
-        attrs: n.attrs?.align ? { textAlign: n.attrs.align } : undefined,
+        attrs: textAlign ? { textAlign } : undefined,
         content: n.content ? mapInlineContent(n.content) : [],
       },
     ]
@@ -93,6 +110,38 @@ function mapBlockNode(node: ContentNode): JSONContent[] {
       {
         type: "listItem",
         content: n.content ? n.content.flatMap(mapBlockNode) : [],
+      },
+    ]
+  }
+  if (node.type === "table") {
+    const n = node as { content?: ContentNode[] }
+    return [
+      {
+        type: "table",
+        content: n.content ? n.content.flatMap(mapBlockNode) : [],
+      },
+    ]
+  }
+  if (node.type === "tableRow") {
+    const n = node as { content?: ContentNode[] }
+    return [
+      {
+        type: "tableRow",
+        content: n.content ? n.content.flatMap(mapBlockNode) : [],
+      },
+    ]
+  }
+  if (node.type === "tableCell" || node.type === "tableHeader") {
+    const n = node as {
+      type: "tableCell" | "tableHeader"
+      attrs?: { colspan?: number; rowspan?: number; colwidth?: number[] }
+      content?: ContentNode[]
+    }
+    return [
+      {
+        type: n.type,
+        ...(n.attrs ? { attrs: n.attrs } : {}),
+        content: ensureParagraphCellContent(n.content),
       },
     ]
   }

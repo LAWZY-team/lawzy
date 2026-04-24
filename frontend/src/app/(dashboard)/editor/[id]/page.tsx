@@ -30,6 +30,7 @@ import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
 import { getStructuredContractTemplate } from '@/lib/api/contract-templates'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
+import { normalizeTipTapDocContent } from '@/lib/editor/normalize-tiptap-content'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
 import type { DocContent } from '@/types/template'
 import { toast } from 'sonner'
@@ -413,7 +414,9 @@ export default function EditorPage({
             typeof rawContent === 'string'
               ? (() => { try { return JSON.parse(rawContent) } catch { return rawContent } })()
               : rawContent
-          const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
+          const content = isTemplateFormat(raw)
+            ? templateContentToEditorContent(raw as DocContent)
+            : normalizeTipTapDocContent(raw)
           if (content) setEditorContent(content)
           // Use updateMetadata below to set both title and other metadata
           const meta = (doc.metadata as Record<string, unknown>) ?? {}
@@ -770,7 +773,13 @@ export default function EditorPage({
     const id = setTimeout(() => {
       if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
-        editor.commands.setContent(pending)
+        const normalized = normalizeTipTapDocContent(pending)
+        try {
+          editor.commands.setContent(normalized)
+        } catch (error) {
+          console.error('Failed to set editor content safely', error)
+          editor.commands.setContent({ type: 'doc', content: [] })
+        }
       }
       // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
       // so the first content sync never marks the document as dirty.

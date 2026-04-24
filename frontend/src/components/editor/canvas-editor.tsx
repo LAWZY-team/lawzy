@@ -48,6 +48,7 @@ import {
   ImageIcon,
   Palette,
   Loader2,
+  Table as TableIcon,
 } from "lucide-react";
 import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
@@ -1167,6 +1168,119 @@ export function CanvasEditor({
         >
           <Outdent className="w-4 h-4" />
         </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
+                editor.isActive("table") && "bg-accent text-foreground",
+              )}
+              title={t("editor_table_menu")}
+            >
+              <TableIcon className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground w-56">
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_insert")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              disabled={!editor.can().addRowBefore()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_row_before")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              disabled={!editor.can().addRowAfter()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_row_after")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              disabled={!editor.can().deleteRow()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_delete_row")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              disabled={!editor.can().addColumnBefore()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_column_before")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              disabled={!editor.can().addColumnAfter()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_column_after")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              disabled={!editor.can().deleteColumn()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_delete_column")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().mergeCells().run()}
+              disabled={!editor.can().mergeCells()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_merge_cells")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().splitCell().run()}
+              disabled={!editor.can().splitCell()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_split_cell")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+              disabled={!editor.can().toggleHeaderRow()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_toggle_header_row")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().toggleHeaderColumn().run()}
+              disabled={!editor.can().toggleHeaderColumn()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_toggle_header_column")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().toggleHeaderCell().run()}
+              disabled={!editor.can().toggleHeaderCell()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_toggle_header_cell")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              disabled={!editor.can().deleteTable()}
+              className="hover:bg-accent text-destructive focus:text-destructive"
+            >
+              {t("editor_table_delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="h-4 w-px bg-border mx-2 shrink-0"></div>
 
