@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useArticles } from "@/hooks/articles/use-articles"
@@ -49,7 +50,20 @@ export default function NewsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             {articles.map((art) => (
               <Link key={art.id} href={getArticleUrl(art.slug, art.type)}>
-                <Card className="h-full transition-colors hover:bg-muted/50">
+                <Card className="h-full overflow-hidden transition-colors hover:bg-muted/50">
+                  {art.coverImage ? (
+                    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                      <Image
+                        src={art.coverImage}
+                        alt={art.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-video w-full bg-gradient-to-br from-orange-100 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20" />
+                  )}
                   <CardHeader>
                     <CardDescription>
                       {art.publishedAt

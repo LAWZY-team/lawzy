@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    localPatterns: [
+      {
+        pathname: "/**",
+      },
+      {
+        pathname: "/api/proxy/articles/serve-image",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",

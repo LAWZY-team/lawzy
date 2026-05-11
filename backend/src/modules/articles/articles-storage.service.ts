@@ -8,7 +8,6 @@ import { randomUUID } from 'node:crypto';
 import { R2_S3_CLIENT } from '../../integrations/r2/r2.constants';
 import { getR2Env, isR2Configured } from '../../config/env';
 
-const ARTICLES_IMAGE_PREFIX = 'articles/images/';
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -25,6 +24,10 @@ export class ArticlesStorageService {
 
   private getBucket(): string {
     return getR2Env().bucket;
+  }
+
+  private getBlogImagePrefix(): string {
+    return getR2Env().blogImagePrefix;
   }
 
   async uploadImage(
@@ -45,7 +48,7 @@ export class ArticlesStorageService {
     }
 
     const ext = (file.mimetype?.split('/')[1] || 'jpg').replace(/jpeg/, 'jpg');
-    const key = `${ARTICLES_IMAGE_PREFIX}${randomUUID()}.${ext}`;
+    const key = `${this.getBlogImagePrefix()}${randomUUID()}.${ext}`;
     const client = this.ensureClient();
     const bucket = this.getBucket();
 
@@ -70,8 +73,9 @@ export class ArticlesStorageService {
   }> {
     const client = this.ensureClient();
     const bucket = this.getBucket();
+    const blogImagePrefix = this.getBlogImagePrefix();
 
-    if (!key.startsWith(ARTICLES_IMAGE_PREFIX)) {
+    if (!key.startsWith(blogImagePrefix)) {
       throw new BadRequestException('Invalid image key');
     }
 

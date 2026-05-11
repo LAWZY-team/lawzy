@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -111,6 +112,18 @@ export default function NewsDetailClient({
         </Button>
 
         <article>
+          {display.coverImage && (
+            <div className="relative mb-6 aspect-video w-full overflow-hidden rounded-lg bg-muted">
+              <Image
+                src={display.coverImage}
+                alt={display.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 768px"
+                priority
+              />
+            </div>
+          )}
           <p className="text-sm text-muted-foreground mb-2">
             {display.publishedAt
               ? format(new Date(display.publishedAt), "d MMMM yyyy", { locale: dateLocale })

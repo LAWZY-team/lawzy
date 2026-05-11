@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { api } from "@/lib/api/client"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,6 +38,7 @@ export interface ArticleFormData {
   slug: string
   excerpt: string
   contentText: string
+  coverImage: string
   status: string
 }
 
@@ -71,12 +73,14 @@ export function ArticleForm({
   formId = "article-form",
 }: ArticleFormProps) {
   const { t } = useT()
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false)
   const [form, setForm] = useState<ArticleFormData>({
     type: article?.type ?? "news",
     title: article?.title ?? "",
     slug: article?.slug ?? "",
     excerpt: article?.excerpt ?? "",
     contentText: getContentForForm(article),
+    coverImage: article?.coverImage ?? "",
     status: article?.status ?? "draft",
   })
   const slugLocked = !!article?.slug
@@ -89,6 +93,7 @@ export function ArticleForm({
         slug: article?.slug ?? "",
         excerpt: article?.excerpt ?? "",
         contentText: getContentForForm(article),
+        coverImage: article?.coverImage ?? "",
         status: article?.status ?? "draft",
       })
     })
@@ -109,6 +114,32 @@ export function ArticleForm({
       toast.success(article ? t("admin_articles_saved") : t("admin_articles_created"))
     } catch (err) {
       toast.error((err as Error).message)
+    }
+  }
+
+  const handleUploadCoverImage = async (file: File | null) => {
+    if (!file) return
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    const maxBytes = 5 * 1024 * 1024
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF, WEBP files are allowed")
+      return
+    }
+    if (file.size > maxBytes) {
+      toast.error("Image size must be 5MB or less")
+      return
+    }
+    try {
+      setIsUploadingImage(true)
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await api.upload<{ url: string }>("/articles/upload-image", formData)
+      setForm((prev) => ({ ...prev, coverImage: response.url }))
+      toast.success("Thumbnail uploaded")
+    } catch (err) {
+      toast.error((err as Error).message || t("editor_image_upload_failed"))
+    } finally {
+      setIsUploadingImage(false)
     }
   }
 
@@ -167,6 +198,42 @@ export function ArticleForm({
           placeholder={t("admin_articles_form_excerpt_placeholder")}
           className="resize-none text-sm"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Thumbnail</Label>
+        <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted/30">
+          {form.coverImage ? (
+            <img src={form.coverImage} alt="Article thumbnail" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+              No thumbnail selected
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null
+              void handleUploadCoverImage(file)
+              e.currentTarget.value = ""
+            }}
+            disabled={isUploadingImage || isPending}
+            className="max-w-xs"
+          />
+          {form.coverImage && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setForm((prev) => ({ ...prev, coverImage: "" }))}
+              disabled={isUploadingImage || isPending}
+            >
+              {t("common_delete")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1.5">
