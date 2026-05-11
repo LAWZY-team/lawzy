@@ -2,22 +2,13 @@
 
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { useI18n } from "./language-provider";
-import { Building2, Scale, CheckCircle2 } from "lucide-react";
+import { Scale, CheckCircle2 } from "lucide-react";
 import { Section, SectionHeader, sectionContainer } from "./landing-section";
 import { SectionCta } from "./section-cta";
 
 export default function TargetSection() {
   const { t } = useI18n();
   const targets = [
-    {
-      icon: Building2,
-      titleKey: "target_sme_title",
-      descKey: "target_sme_desc",
-      featuresKey: ["target_sme_feat1", "target_sme_feat2", "target_sme_feat3"],
-      color: "text-blue-600",
-      bg: "bg-blue-50 dark:bg-blue-900/30",
-      border: "hover:border-blue-200 dark:hover:border-blue-800",
-    },
     {
       icon: Scale,
       titleKey: "target_legal_title",
@@ -35,7 +26,7 @@ export default function TargetSection() {
         <FadeInOnScroll>
           <SectionHeader title={t("target_title")} subtitle={t("target_subtitle")} margin="default" />
         </FadeInOnScroll>
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
+        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8">
           {targets.map((target, index) => {
             const Icon = target.icon;
             return (

@@ -173,3 +173,64 @@
 .dark .scrollbar-thin-autohide::-webkit-scrollbar-thumb:hover {
   background: oklch(0.9 0 0 / 0.4);
 }
+
+@keyframes lawzy-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.lawzy-marquee {
+  --marquee-duration: 28s;
+  --marquee-direction: normal;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.lawzy-marquee::before,
+.lawzy-marquee::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.lawzy-marquee::before {
+  left: 0;
+  background: linear-gradient(to right, oklch(var(--background) / 1), oklch(var(--background) / 0));
+}
+
+.lawzy-marquee::after {
+  right: 0;
+  background: linear-gradient(to left, oklch(var(--background) / 1), oklch(var(--background) / 0));
+}
+
+.lawzy-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: lawzy-marquee-scroll var(--marquee-duration) linear infinite;
+  animation-direction: var(--marquee-direction);
+  will-change: transform;
+}
+
+.lawzy-marquee--pause-on-hover:hover .lawzy-marquee__track {
+  animation-play-state: paused;
+}
+
+.lawzy-marquee__item {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lawzy-marquee__track {
+    animation: none;
+    transform: none;
+  }
+}

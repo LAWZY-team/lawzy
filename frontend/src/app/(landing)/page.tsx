@@ -10,8 +10,7 @@ import FeaturesSection from "@/components/landing/features-section";
 import CostSection from "@/components/landing/cost-section";
 import LandingPricingSection from "@/components/landing/landing-pricing-section";
 import TargetSection from "@/components/landing/target-section";
-import Achievement from "@/components/landing/achievement";
-import { Incubation } from "@/components/landing/incubation";
+import { Investors } from "@/components/landing/investors";
 import SurveySection from "@/components/landing/survey-section";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { FloatingActions } from "@/components/landing/floating-actions";
@@ -36,8 +35,7 @@ function LandingPageContent() {
       <CostSection />
       <LandingPricingSection />
       <TargetSection />
-      <Achievement />
-      <Incubation />
+      <Investors />
       <BlogCardsSection />
       <Newspaper />
 
