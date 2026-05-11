@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useI18n } from "./language-provider";
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { sectionContainer } from "./landing-section";
-import { SectionCta } from "./section-cta";
 import Image from "next/image";
 import { Gift } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 function HeroRotatingText({ options, fallback }: { options: string[]; fallback: string }) {
   const [idx, setIdx] = useState(0);
@@ -69,7 +70,7 @@ export default function HeroSection() {
                 </Badge>
               </motion.div>
             </motion.div>
-            <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:leading-[1.15] xl:text-5xl">
+            <h1 className="max-w-4xl text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:leading-[1.15] xl:text-5xl">
               <span className="block">{t("hero_title_1").trim()}</span>
               <span className="block">
                 <HeroRotatingText options={(t("hero_title_2_options") || "").split("|").map((s) => s.trim()).filter(Boolean)} fallback={t("hero_title_2")} />
@@ -80,25 +81,15 @@ export default function HeroSection() {
               {t("hero_subtitle")}
             </p>
 
-            <div className="mt-8">
-              <SectionCta hint={t("hero_cta_hint")} />
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link href="/products/clm">{t("hero_cta_clm")}</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                <Link href="/products/lpms">{t("hero_cta_lpms")}</Link>
+              </Button>
             </div>
-
-            <div className="relative mx-auto mt-14 w-full max-w-4xl">
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-100 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.2)] ring-1 ring-black/5 sm:rounded-3xl">
-                <Image
-                  src="/hero.gif"
-                  alt="Lawzy contract management platform"
-                  fill
-                  priority
-                  sizes="(min-width: 640px) 90vw, 100vw"
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-              <div className="pointer-events-none absolute -bottom-8 -right-4 h-40 w-40 rounded-full bg-orange-200/35 blur-3xl sm:-right-8" aria-hidden />
-              <div className="pointer-events-none absolute -left-6 -top-8 h-44 w-44 rounded-full bg-sky-200/30 blur-3xl" aria-hidden />
-            </div>
+            <p className="mt-3 text-sm text-muted-foreground">{t("hero_cta_hint")}</p>
 
             <div className="mt-12 flex flex-wrap items-center justify-center gap-6">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("hero_trust")}</p>
