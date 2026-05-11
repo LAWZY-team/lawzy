@@ -287,7 +287,7 @@ export function QuestionnaireForm({
   const handleSubmit = useCallback(() => {
     const allFields = schema.sections.flatMap((s) => s.fields)
     const missingRequired = allFields.filter(
-      (f) => f.required && !values[f.key]?.trim()
+      (f) => f.required && !String(values[f.key] || '').trim()
     )
     if (missingRequired.length > 0) {
       const labels = missingRequired.map((f) => f.label).join(', ')

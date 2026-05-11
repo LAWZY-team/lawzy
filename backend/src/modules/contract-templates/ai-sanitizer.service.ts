@@ -1,22 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { getGeminiSanitizerEnv } from '../../config/env';
+import { Injectable, Logger } from '@nestjs/common';
+import { AiProviderService } from '../ai/ai-provider.service';
 
 @Injectable()
 export class AiSanitizerService {
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private readonly logger = new Logger(AiSanitizerService.name);
 
-  constructor() {
-    const env = getGeminiSanitizerEnv();
-    this.genAI = new GoogleGenerativeAI(env.apiKey);
-    this.model = this.genAI.getGenerativeModel({
-      model: env.model,
-      generationConfig: {
-        responseMimeType: 'application/json',
-      },
-    });
-  }
+  constructor(private readonly aiProvider: AiProviderService) {}
+
 
   /**
    * Identifies sensitive entities in the provided text using AI.
@@ -56,12 +46,16 @@ ${text}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      const jsonStr = response.text();
+      const result = await this.aiProvider.generateContentWithRetry({
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
+      const jsonStr = result.text || '{}';
       return JSON.parse(jsonStr);
     } catch (error) {
-      console.error('AI Sanitization Identification failed:', error);
+      this.logger.error('AI Sanitization Identification failed:', error);
       return {}; // Fallback to empty map
     }
   }

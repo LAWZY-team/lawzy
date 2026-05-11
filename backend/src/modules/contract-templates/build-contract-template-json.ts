@@ -1,4 +1,5 @@
 import type {
+  ContentBlockAlign,
   ContentClauseNode,
   ContentFieldNode,
   ContentHeadingNode,
@@ -8,6 +9,9 @@ import type {
   MergeFieldDefinition,
   ContentBulletListNode,
   ContentListItemNode,
+  ContentTableNode,
+  ContentTableRowNode,
+  ContentTableCellNode,
 } from './contract-templates.types';
 
 interface BuildContractTemplateJsonResult {
@@ -50,6 +54,23 @@ function isClauseHeading(line: string): boolean {
   return /^(điều|article|clause)\s+\d+[\s.:)]/i.test(cleanLine);
 }
 
+function isMarkdownTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.split('|').length > 2;
+}
+
+function parseMarkdownTableLine(line: string): string[] {
+  const trimmed = line.trim();
+  const inner = trimmed.slice(1, -1);
+  return inner.split('|').map(c => c.trim());
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  if (!isMarkdownTableLine(line)) return false;
+  const cells = parseMarkdownTableLine(line);
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+}
+
 function parseInlineContent(
   line: string,
 ): Array<ContentTextNode | ContentFieldNode> {
@@ -88,12 +109,14 @@ function parseInlineContent(
 
   if (lastIndex < line.length) {
     const text = line.slice(lastIndex);
-    const node: ContentTextNode = { type: 'text', text };
-    if (isBold) node.marks = [{ type: 'bold' }];
-    content.push(node);
+    if (text.length > 0) {
+      const node: ContentTextNode = { type: 'text', text };
+      if (isBold) node.marks = [{ type: 'bold' }];
+      content.push(node);
+    }
   }
 
-  if (content.length === 0) {
+  if (content.length === 0 && line.length > 0) {
     content.push({ type: 'text', text: line });
   }
 
@@ -111,7 +134,7 @@ function buildParagraph(line: string): ContentParagraphNode {
 function buildHeading(params: {
   line: string;
   level: 1 | 2 | 3;
-  align?: 'left' | 'center';
+  align?: ContentBlockAlign;
 }): ContentHeadingNode {
   return {
     type: 'heading',
@@ -135,6 +158,8 @@ export const buildContractTemplateJson = (params: {
   let clauseIndex = 1;
   let headingCount = 0;
   let listItems: ContentListItemNode[] = [];
+  let currentTable: ContentTableNode | null = null;
+  let currentTableColumnCount = 0;
 
   const flushList = (targetArr: any[]) => {
     if (listItems.length > 0) {
@@ -146,14 +171,37 @@ export const buildContractTemplateJson = (params: {
     }
   };
 
+  const flushTable = (targetArr: any[]) => {
+    if (currentTable) {
+      targetArr.push(currentTable);
+      currentTable = null;
+      currentTableColumnCount = 0;
+    }
+  };
+
+  const padExistingTableRows = (table: ContentTableNode, targetCols: number) => {
+    for (const row of table.content) {
+      if (row.content.length >= targetCols) continue;
+      const missing = targetCols - row.content.length;
+      row.content.push(
+        ...Array.from({ length: missing }, () => ({
+          type: 'tableCell' as const,
+          content: [buildParagraph('')],
+        })),
+      );
+    }
+  };
+
   const pushCurrentClause = () => {
     if (currentClause) {
       flushList(currentClause.content);
+      flushTable(currentClause.content);
       rootContent.push(currentClause);
       clauseIndex += 1;
       currentClause = null;
     } else {
       flushList(rootContent);
+      flushTable(rootContent);
     }
   };
 
@@ -165,6 +213,7 @@ export const buildContractTemplateJson = (params: {
 
     if (isDividerLine(line)) {
       flushList(targetArray);
+      flushTable(targetArray);
       pushCurrentClause();
       rootContent.push({
         type: 'paragraph',
@@ -172,6 +221,44 @@ export const buildContractTemplateJson = (params: {
         content: [],
       });
       continue;
+    }
+    
+    if (isMarkdownTableLine(line)) {
+      flushList(targetArray);
+
+      if (!currentTable) {
+        currentTable = { type: 'table', content: [] };
+        currentTableColumnCount = 0;
+      }
+
+      if (isMarkdownTableSeparator(line)) {
+        // Skip markdown separator row, but keep all cells as normal tableCell.
+        continue;
+      }
+
+      const cells = parseMarkdownTableLine(line);
+      if (cells.length > currentTableColumnCount) {
+        currentTableColumnCount = cells.length;
+        if (currentTable.content.length > 0) {
+          padExistingTableRows(currentTable, currentTableColumnCount);
+        }
+      }
+      const normalizedCells = [
+        ...cells,
+        ...Array.from({ length: Math.max(0, currentTableColumnCount - cells.length) }, () => ''),
+      ];
+      const rowNode: ContentTableRowNode = {
+        type: 'tableRow',
+        content: normalizedCells.map(cellText => ({
+          type: 'tableCell',
+          content: [buildParagraph(cellText)]
+        }))
+      };
+      
+      currentTable.content.push(rowNode);
+      continue;
+    } else {
+      flushTable(targetArray);
     }
     
     if (isClauseHeading(line)) {
@@ -194,6 +281,7 @@ export const buildContractTemplateJson = (params: {
     
     if (isHeading) {
       flushList(targetArray);
+      flushTable(targetArray);
       
       let level: 1 | 2 | 3 = 2; // Default
       let cleanTitle = line;
@@ -246,6 +334,7 @@ export const buildContractTemplateJson = (params: {
     
     const matchBullet = line.match(/^[-*]+[\s-]*\s+(.*)$/);
     if (matchBullet) {
+      flushTable(targetArray);
       const cleanText = matchBullet[1]; 
       listItems.push({
         type: 'listItem',
@@ -255,6 +344,7 @@ export const buildContractTemplateJson = (params: {
     }
 
     flushList(targetArray);
+    flushTable(targetArray);
     targetArray.push(buildParagraph(line));
   }
 

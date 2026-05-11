@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n'
+export type OutputLanguage = 'vi' | 'en' | 'zh' | 'bilingual'
 
 /**
  * Appends to Gemini system instruction so contract, questionnaire labels,
@@ -6,27 +7,49 @@ import type { Locale } from '@/lib/i18n'
  * JSON keys / mergeFieldKey snake_case stay unchanged.
  */
 export function buildOutputLanguageInstruction(locale: Locale): string {
-  if (locale === 'en') {
-    return `
-
-**OUTPUT LANGUAGE (MANDATORY):** The user's selected app language is English.
-- Write all user-visible prose in English: contract title, section headings, clause bodies, party blocks, and the "message" field in every JSON response.
-- For intake_questionnaire: questionnaire title, description, every field "label", "placeholder", and select/radio/checkbox option strings must be in English. Keep "key" and "mergeFieldKey" as technical snake_case identifiers (unchanged).
-- For contract_generation: draft the full contract in English while still applying Vietnamese law. When citing statutes, use the official Vietnamese name and you may add a short English gloss in parentheses on first mention if helpful.
-- For contract_review: "clause", "reason", "suggestion", overall summary, and "message" in English. Risk "level" must remain one of: low, medium, high.
-- Do not switch the user's language unless they explicitly ask for another language in their message.
-`
-  }
-
+  const localeName = locale === 'en' ? 'English' : 'Vietnamese'
   return `
 
-**NGÔN NGỮ ĐẦU RA (BẮT BUỘC):** Người dùng đang chọn giao diện tiếng Việt.
-- Viết toàn bộ văn bản hiển thị cho người dùng bằng tiếng Việt: tiêu đề hợp đồng, tiêu đề điều khoản, nội dung điều khoản, phần thông tin các bên, và trường "message" trong mọi JSON.
-- Với intake_questionnaire: title, description, mọi "label", "placeholder" và chuỗi lựa chọn (select/radio/checkbox) bằng tiếng Việt. "key" và "mergeFieldKey" giữ dạng định danh kỹ thuật (snake_case), không đổi.
-- Với contract_generation: soạn toàn văn hợp đồng bằng tiếng Việt, căn cứ pháp luật Việt Nam.
-- Với contract_review: "clause", "reason", "suggestion", phần tóm tắt và "message" bằng tiếng Việt. "level" chỉ dùng: low, medium, high.
-- Không đổi ngôn ngữ đầu ra trừ khi người dùng yêu cầu rõ ràng ngôn ngữ khác trong tin nhắn.
-`
+**SYSTEM LOCALE CONTEXT (INFORMATION ONLY):**
+- Current frontend locale: ${localeName}.
+- This locale is for UI/system naming context only.
+- Do NOT use system locale as the main rule to choose response language.`
+}
+
+export function buildResolvedOutputLanguageInstruction(language: OutputLanguage, reason: string): string {
+  if (language === 'en') {
+    return `
+
+**RESOLVED OUTPUT LANGUAGE (MANDATORY): ENGLISH**
+- Reason: ${reason}
+- Return all user-visible prose in English.
+- Keep JSON keys/technical identifiers unchanged.
+- Do not mix other languages unless the user explicitly asks bilingual in this turn.`
+  }
+  if (language === 'zh') {
+    return `
+
+**RESOLVED OUTPUT LANGUAGE (MANDATORY): CHINESE (SIMPLIFIED)**
+- Reason: ${reason}
+- Return all user-visible prose in Simplified Chinese.
+- Keep JSON keys/technical identifiers unchanged.
+- Do not mix other languages unless the user explicitly asks bilingual in this turn.`
+  }
+  if (language === 'bilingual') {
+    return `
+
+**RESOLVED OUTPUT LANGUAGE (MANDATORY): BILINGUAL VIETNAMESE-ENGLISH**
+- Reason: ${reason}
+- Return bilingual Vietnamese-English content for user-visible prose.
+- Keep JSON keys/technical identifiers unchanged.`
+  }
+  return `
+
+**RESOLVED OUTPUT LANGUAGE (BẮT BUỘC): TIẾNG VIỆT**
+- Lý do: ${reason}
+- Toàn bộ nội dung hiển thị cho người dùng bằng tiếng Việt.
+- Giữ nguyên key JSON/định danh kỹ thuật.
+- Không trộn ngôn ngữ khác trừ khi người dùng yêu cầu song ngữ rõ ràng ở lượt này.`
 }
 
 export function mergeFieldsContextHeader(locale: Locale): string {
@@ -38,7 +61,7 @@ export function mergeFieldsContextHeader(locale: Locale): string {
 
 export function userMessageLocalePrefix(locale: Locale): string {
   if (locale === 'en') {
-    return '[Context: User app language is English — follow OUTPUT LANGUAGE rules above.]\n\n'
+    return '[System context: frontend locale = English (UI naming context only).]\n\n'
   }
-  return '[Ngữ cảnh: Ngôn ngữ ứng dụng là tiếng Việt — tuân thủ quy tắc NGÔN NGỮ ĐẦU RA ở trên.]\n\n'
+  return '[Ngữ cảnh hệ thống: locale frontend = tiếng Việt (chỉ là ngữ cảnh hiển thị hệ thống).]\n\n'
 }

@@ -1,6 +1,7 @@
 export type TemplateScope = 'system' | 'community' | 'internal';
 
 export type MergeFieldDataType = 'string' | 'date' | 'number' | 'currency' | 'text';
+export type ContentBlockAlign = 'left' | 'center' | 'right' | 'justify';
 
 export interface MergeFieldDefinition {
   fieldKey: string;
@@ -27,13 +28,13 @@ export interface ContentFieldNode {
 
 export interface ContentParagraphNode {
   type: 'paragraph';
-  attrs?: { align?: 'left' | 'center'; divider?: boolean };
+  attrs?: { align?: ContentBlockAlign; divider?: boolean };
   content: Array<ContentTextNode | ContentFieldNode>;
 }
 
 export interface ContentHeadingNode {
   type: 'heading';
-  attrs: { level: 1 | 2 | 3; align?: 'left' | 'center' };
+  attrs: { level: 1 | 2 | 3; align?: ContentBlockAlign };
   content: Array<ContentTextNode | ContentFieldNode>;
 }
 
@@ -55,7 +56,23 @@ export interface ContentClauseNode {
     title: string;
     lawCitations?: string[];
   };
+  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode | ContentTableNode>;
+}
+
+export interface ContentTableCellNode {
+  type: 'tableCell' | 'tableHeader';
+  attrs?: { colspan?: number; rowspan?: number; colwidth?: number[] };
   content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode>;
+}
+
+export interface ContentTableRowNode {
+  type: 'tableRow';
+  content: Array<ContentTableCellNode>;
+}
+
+export interface ContentTableNode {
+  type: 'table';
+  content: Array<ContentTableRowNode>;
 }
 
 export type ContentNode =
@@ -65,11 +82,14 @@ export type ContentNode =
   | ContentHeadingNode
   | ContentBulletListNode
   | ContentListItemNode
-  | ContentClauseNode;
+  | ContentClauseNode
+  | ContentTableNode
+  | ContentTableRowNode
+  | ContentTableCellNode;
 
 export interface DocContent {
   type: 'doc';
-  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode | ContentClauseNode>;
+  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode | ContentClauseNode | ContentTableNode>;
 }
 
 export interface ContractTemplateMetadata {
