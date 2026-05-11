@@ -1,0 +1,20 @@
+-- Insert 13 FDI templates with placeholder mappings
+INSERT INTO templates (code, name, file_path, field_mappings, is_required) VALUES
+('M01', 'Đơn đề nghị cấp Giấy chứng nhận đăng ký đầu tư', 'vi/M01_don_de_nghi.docx',
+  '{"{{company_name_vi}}": "companyNameVi", "{{company_name_en}}": "companyNameEn", "{{address}}": "address", "{{capital_amount}}": "capitalAmount", "{{registration_date}}": "registrationDate"}'::jsonb,
+  true),
+('M02', 'Điều lệ công ty', 'vi/M02_dieu_le.docx',
+  '{"{{company_name_vi}}": "companyNameVi", "{{address}}": "address", "{{capital_amount}}": "capitalAmount", "{{legal_rep_name}}": "legalRepName"}'::jsonb,
+  true),
+('M03', 'Danh sách thành viên góp vốn', 'vi/M03_danh_sach_thanh_vien.docx',
+  '{"{{members}}": "members", "{{company_name_vi}}": "companyNameVi"}'::jsonb,
+  true),
+('M04', 'Giấy tờ chứng minh nhà đầu tư', 'vi/M04_giay_to_nha_dau_tu.docx',
+  '{"{{members}}": "members"}'::jsonb,
+  true),
+('M05', 'Hợp đồng thuê trụ sở', 'vi/M05_hop_dong_thue.docx',
+  '{"{{company_name_vi}}": "companyNameVi", "{{address}}": "address"}'::jsonb,
+  true),
+('M06', 'Báo cáo nghiên cứu khả thi', 'vi/M06_bao_cao_kha_thi.docx',
+  '{"{{company_name_vi}}": "companyNameVi", "{{industries}}": "industries", "{{capital_amount}}": "capitalAmount"}'::jsonb,
+  false);
