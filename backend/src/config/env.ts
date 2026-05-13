@@ -4,6 +4,7 @@ export interface R2Env {
   secretAccessKey: string;
   bucket: string;
   region: string;
+  blogImagePrefix: string;
 }
 
 function requireEnv(name: string): string {
@@ -15,12 +16,17 @@ function requireEnv(name: string): string {
 }
 
 export function getR2Env(): R2Env {
+  const blogImagePrefixRaw = process.env.BLOG_IMAGE_PREFIX?.trim() || 'blog/';
+  const blogImagePrefix = blogImagePrefixRaw.endsWith('/')
+    ? blogImagePrefixRaw
+    : `${blogImagePrefixRaw}/`;
   return {
     endpointUrl: requireEnv('R2_ENDPOINT_URL'),
     accessKeyId: requireEnv('R2_ACCESS_KEY'),
     secretAccessKey: requireEnv('R2_SECRET_KEY'),
     bucket: requireEnv('R2_BUCKET'),
     region: requireEnv('R2_REGION'),
+    blogImagePrefix,
   };
 }
 
