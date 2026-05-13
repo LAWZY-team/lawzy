@@ -5,7 +5,6 @@ import { useI18n } from "./language-provider";
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { sectionContainer } from "./landing-section";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ function HeroRotatingText({ options, fallback }: { options: string[]; fallback: 
     const id = setInterval(() => setIdx((i) => (i + 1) % list.length), 3000);
     return () => clearInterval(id);
   }, [list.length]);
-  return <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">{list[idx]}</span>;
+  return <span className="text-orange-600">{list[idx]}</span>;
 }
 
 const HERO_TRUST_LOGOS = [
@@ -29,21 +28,7 @@ export default function HeroSection() {
   const { t } = useI18n();
 
   return (
-    <section className="relative overflow-x-clip pb-16 pt-[5.5rem] sm:pb-20 sm:pt-28 md:pb-24 md:pt-32 lg:pb-28">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_70%_at_50%_-15%,rgba(234,88,12,0.14),transparent_58%)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_45%_at_100%_0%,rgba(14,165,233,0.06),transparent_50%)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/70 to-transparent"
-        aria-hidden
-      />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#faf9f5] to-transparent sm:h-40" aria-hidden />
-
+    <section className="relative overflow-x-clip border-b border-orange-100/40 pb-16 pt-[5.5rem] sm:pb-20 sm:pt-28 md:pb-24 md:pt-32 lg:pb-28">
       <FadeInOnScroll>
         <div className={cn(sectionContainer, "relative")}>
           <div className="flex flex-col items-center text-center">

@@ -48,7 +48,7 @@ const NEWSPAPERS = [
 export function Newspaper() {
   const { t } = useI18n();
   return (
-    <Section id="newspaper" spacing="relaxed" className="border-t border-gray-100/80 bg-gradient-to-b from-white/50 to-[#faf9f5]/80">
+    <Section id="newspaper" spacing="relaxed" className="border-t border-gray-100/80 bg-white/50 dark:border-gray-800/80">
       <div className={sectionContainer}>
         <SectionHeader title={t("newspaper_title")} margin="default" highlightWord={t("newspaper_title_highlight")} />
         <div className="mx-auto mt-4 max-w-7xl">

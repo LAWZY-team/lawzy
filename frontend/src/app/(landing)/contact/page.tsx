@@ -45,7 +45,7 @@ export default function ContactPage() {
         <LandingHeader />
         <main className={sectionContainer}>
           <div className="relative grid gap-12 pb-16 pt-[5.75rem] sm:grid-cols-[1fr_340px] sm:gap-16 sm:pb-20 sm:pt-28 md:pt-32 lg:grid-cols-[1fr_380px] lg:gap-20 lg:pb-24 lg:pt-36">
-            <div className="pointer-events-none absolute left-0 top-[5.5rem] h-1 w-16 rounded-full bg-gradient-to-r from-orange-400 to-amber-400 opacity-90 sm:top-24 md:top-28" aria-hidden />
+            <div className="pointer-events-none absolute left-0 top-[5.5rem] h-1 w-16 rounded-full bg-orange-600 opacity-90 sm:top-24 md:top-28" aria-hidden />
             <div>
               <h1 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
                 {t("contact_page_title")}

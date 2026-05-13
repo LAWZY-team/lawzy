@@ -60,7 +60,7 @@ export function BlogCardsSection() {
                     />
                   </div>
                 ) : (
-                  <div className="aspect-video w-full bg-gradient-to-br from-orange-100 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20" />
+                  <div className="aspect-video w-full bg-orange-50 dark:bg-orange-950/25" />
                 )}
                 <CardHeader>
                   <CardDescription>

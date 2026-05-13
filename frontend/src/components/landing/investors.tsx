@@ -47,7 +47,7 @@ export function Investors() {
   const items = [...INVESTORS, ...INCUBATED_BY];
 
   return (
-    <Section id="investors" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-white/30 to-transparent dark:border-gray-800/80">
+    <Section id="investors" spacing="compact" className="border-t border-gray-100/80 bg-white/40 dark:border-gray-800/80">
       <div className={sectionContainer}>
         <FadeInOnScroll>
           <SectionHeader

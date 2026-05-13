@@ -40,7 +40,7 @@ export function FloatingActions() {
         onClick={open}
         aria-label={t("floating_book_demo")}
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-900/25 transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-xl hover:shadow-orange-900/30",
+          "flex h-12 w-12 items-center justify-center rounded-full bg-orange-600 text-white shadow-lg shadow-orange-900/25 transition-all hover:bg-orange-700 hover:shadow-xl hover:shadow-orange-900/30",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
         )}
       >

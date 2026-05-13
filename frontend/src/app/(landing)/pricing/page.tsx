@@ -26,7 +26,7 @@ function PricingPageContent() {
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
       <main className={`${sectionContainer} pb-20 pt-28 sm:pb-24 sm:pt-32 md:pt-36`}>
-        <div className="pointer-events-none mb-10 h-px w-full max-w-md bg-gradient-to-r from-transparent via-orange-200/80 to-transparent sm:mb-12" aria-hidden />
+        <div className="pointer-events-none mb-10 h-px w-full max-w-md bg-orange-200/90 sm:mb-12" aria-hidden />
         <PricingSection onSelectPlan={handleSelectPlan} />
       </main>
       <LandingFooter />

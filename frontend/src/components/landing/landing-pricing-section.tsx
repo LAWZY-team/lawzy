@@ -33,7 +33,7 @@ export default function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-transparent via-orange-50/15 to-transparent dark:border-gray-800/80 dark:via-orange-950/10">
+      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
         <div className={sectionContainer}>
           <SectionHeader title={t("pricing_section_title")} subtitle={t("pricing_section_subtitle")} margin="tight" />
           <div className="mt-10 grid gap-8 md:grid-cols-3">
@@ -50,7 +50,7 @@ export default function LandingPricingSection() {
 
   if (!displayedPlans.length) {
     return (
-      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-transparent via-orange-50/15 to-transparent dark:border-gray-800/80 dark:via-orange-950/10">
+      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
         <div className={sectionContainer}>
           <SectionHeader
             title={t("pricing_section_title")}
@@ -79,7 +79,7 @@ export default function LandingPricingSection() {
   }
 
   return (
-    <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-transparent via-orange-50/15 to-transparent dark:border-gray-800/80 dark:via-orange-950/10">
+    <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
       <div className={sectionContainer}>
         <SectionHeader
           title={t("pricing_section_title")}

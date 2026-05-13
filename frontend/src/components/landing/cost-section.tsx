@@ -74,7 +74,7 @@ export default function CostSection() {
   }, []);
 
   return (
-    <Section id="cost" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-orange-50/25 via-transparent to-transparent dark:border-gray-800/80 dark:from-orange-950/20 dark:bg-gray-900/20">
+    <Section id="cost" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/20 dark:border-gray-800/80 dark:bg-gray-900/25">
       <div ref={sectionRef} className={sectionContainer}>
         <FadeInOnScroll>
           <SectionHeader
