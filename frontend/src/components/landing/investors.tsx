@@ -47,7 +47,7 @@ export function Investors() {
   const items = [...INVESTORS, ...INCUBATED_BY];
 
   return (
-    <Section id="investors" spacing="compact" className="border-t border-gray-100/80 bg-white/40 dark:border-gray-800/80">
+    <Section id="investors" spacing="compact" className="border-t border-gray-100/80 bg-gradient-to-b from-white/30 to-transparent dark:border-gray-800/80">
       <div className={sectionContainer}>
         <FadeInOnScroll>
           <SectionHeader
@@ -56,7 +56,7 @@ export function Investors() {
             margin="tight"
             highlightWord={t("investors_title_highlight")}
           />
-          <div className="mx-auto mt-8 max-w-6xl sm:mt-10">
+          <div className="mx-auto mt-10 max-w-6xl sm:mt-12">
             <InfiniteMarquee
               durationSeconds={26}
               trackClassName="gap-6 pr-6 sm:gap-8 sm:pr-8"

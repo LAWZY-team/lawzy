@@ -18,22 +18,26 @@ export default function ClmProductPage() {
   return (
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <section className="pt-[6.5rem] pb-10 sm:pt-28 sm:pb-14 md:pt-32">
+      <section className="relative overflow-hidden pt-[6.5rem] pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_-10%,rgba(234,88,12,0.1),transparent_55%)]" aria-hidden />
         <div className={sectionContainer}>
-          <Badge variant="outline" className="border-orange-300 text-orange-600">
+          <Badge variant="outline" className="border-orange-200/90 bg-white/60 text-orange-600 shadow-sm backdrop-blur-sm">
             {t("product_badge")}
           </Badge>
-          <h1 className="mt-4 max-w-4xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          <h1 className="mt-5 max-w-4xl text-balance text-3xl font-bold tracking-tight text-foreground sm:mt-6 sm:text-4xl md:text-5xl lg:text-[3.25rem] lg:leading-[1.08]">
             {t("product_clm_title")}
           </h1>
-          <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          <p className="mt-5 max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg md:text-xl">
             {t("product_clm_page_subtitle")}
           </p>
-          <Link href="/" className="mt-6 inline-flex text-sm font-medium text-orange-600 hover:text-orange-700">
+          <Link
+            href="/"
+            className="mt-7 inline-flex items-center gap-1 text-sm font-semibold text-orange-600 transition-colors hover:gap-1.5 hover:text-orange-700"
+          >
             {t("product_back_home")}
           </Link>
-          <div className="relative mx-auto mt-10 w-full max-w-5xl">
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-100 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.2)] ring-1 ring-black/5 sm:rounded-3xl">
+          <div className="relative mx-auto mt-12 w-full max-w-5xl sm:mt-14">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-gray-200/90 bg-gray-100 shadow-[0_28px_70px_-24px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] sm:rounded-3xl">
               <Image
                 src="/hero.gif"
                 alt="Lawzy CLM platform demo"

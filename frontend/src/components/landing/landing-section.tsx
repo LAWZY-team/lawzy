@@ -2,18 +2,18 @@ import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 export const sectionContainer =
-  "container mx-auto w-full max-w-7xl px-4 sm:px-5 md:px-6 lg:px-8";
+  "container mx-auto w-full max-w-7xl px-4 sm:px-5 md:px-6 lg:px-8 xl:px-10";
 
 const spacingMap = {
-  relaxed: "py-16 sm:py-20 md:py-24 lg:py-28",
-  compact: "py-12 sm:py-16 md:py-20",
+  relaxed: "py-20 sm:py-24 md:py-28 lg:py-32",
+  compact: "py-14 sm:py-16 md:py-20 lg:py-24",
   none: "",
 } as const;
 
 const marginMap = {
-  default: "mb-10 sm:mb-12 md:mb-16",
-  tight: "mb-8 sm:mb-10",
-  loose: "mb-12 sm:mb-16 md:mb-20",
+  default: "mb-12 sm:mb-14 md:mb-16 lg:mb-20",
+  tight: "mb-8 sm:mb-10 md:mb-11",
+  loose: "mb-14 sm:mb-16 md:mb-20",
 } as const;
 
 type SectionProps = {
@@ -47,7 +47,8 @@ type SectionHeaderProps = {
 };
 
 function renderTitleWithHighlight(title: string, highlightWord?: string, Tag: "h1" | "h2" | "h3" = "h2", titleClassName?: string) {
-  const baseCls = "text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground";
+  const baseCls =
+    "text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-bold tracking-tight text-foreground text-balance";
   if (!highlightWord || !title.includes(highlightWord)) {
     return <Tag className={cn(baseCls, titleClassName)}>{title}</Tag>;
   }
@@ -76,10 +77,15 @@ export function SectionHeader({
   const alignCls = align === "center" ? "text-center mx-auto" : "text-left mr-auto";
 
   return (
-    <header className={cn("max-w-3xl space-y-3 sm:space-y-4", marginMap[margin], alignCls, className)}>
+    <header className={cn("max-w-3xl space-y-4 sm:space-y-5", marginMap[margin], alignCls, className)}>
       {title ? (
         accent ? (
-          <Tag className={cn("text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-orange-600", titleClassName)}>
+          <Tag
+            className={cn(
+              "text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-bold tracking-tight text-orange-600 text-balance",
+              titleClassName
+            )}
+          >
             {title}
           </Tag>
         ) : (
@@ -89,8 +95,8 @@ export function SectionHeader({
       {subtitle ? (
         <p
           className={cn(
-            "text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed",
-            align === "center" && "max-w-3xl mx-auto",
+            "text-pretty text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed",
+            align === "center" && "max-w-2xl mx-auto sm:max-w-3xl",
             subtitleClassName
           )}
         >
@@ -110,7 +116,7 @@ export function SectionEyebrow({ title, className }: SectionEyebrowProps) {
   return (
     <h3
       className={cn(
-        "text-center text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground sm:text-base md:text-lg md:tracking-[0.25em]",
+        "text-center text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:text-sm md:tracking-[0.26em]",
         className
       )}
     >

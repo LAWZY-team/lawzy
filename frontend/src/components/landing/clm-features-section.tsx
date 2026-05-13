@@ -24,12 +24,12 @@ const FeatureCard = ({ title, description, videoSrc, videoAlt, reverse = false }
   return (
     <div
       className={cn(
-        "group flex min-w-0 max-w-full flex-col items-stretch gap-8 rounded-3xl border border-gray-100 bg-white p-5 shadow-lg transition-all duration-300 hover:shadow-2xl dark:border-gray-800 dark:bg-gray-900 sm:p-8 md:p-10 lg:flex-row lg:items-center lg:gap-10 lg:p-10 xl:gap-12 xl:p-12",
+        "group flex min-w-0 max-w-full flex-col items-stretch gap-8 rounded-3xl border border-gray-100/90 bg-white/90 p-5 shadow-sm shadow-black/[0.03] ring-1 ring-black/[0.04] backdrop-blur-sm transition-all duration-300 hover:border-orange-100/80 hover:shadow-xl hover:shadow-orange-900/[0.05] dark:border-gray-800 dark:bg-gray-900/90 dark:ring-white/[0.06] sm:p-8 md:p-10 lg:flex-row lg:items-center lg:gap-10 lg:p-10 xl:gap-12 xl:p-12",
         reverse && "lg:flex-row-reverse"
       )}
     >
       <div className="w-full min-w-0 lg:flex-1 lg:max-w-[min(100%,38rem)] xl:max-w-[min(100%,42rem)]">
-        <div className="relative mx-auto aspect-video w-full max-w-full overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-md transition-shadow duration-300 group-hover:shadow-lg dark:from-gray-800 dark:to-gray-900 lg:aspect-square">
+        <div className="relative mx-auto aspect-video w-full max-w-full overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-md ring-1 ring-black/[0.05] transition-shadow duration-300 group-hover:shadow-lg dark:from-gray-800 dark:to-gray-900 lg:aspect-square">
           <video autoPlay loop muted playsInline aria-label={videoAlt} className="h-full w-full object-cover">
             <source src={sources.webm} type="video/webm" />
             <source src={sources.mp4} type="video/mp4" />

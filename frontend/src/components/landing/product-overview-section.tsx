@@ -19,17 +19,17 @@ type ProductCardProps = {
 
 const ProductCard = ({ icon: Icon, title, description, audience, href, ctaLabel }: ProductCardProps) => {
   return (
-    <div className="flex h-full flex-col rounded-3xl border border-gray-100 bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900 sm:p-8">
-      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-900/30">
+    <div className="group flex h-full flex-col rounded-3xl border border-gray-100/90 bg-white/90 p-6 shadow-sm shadow-black/[0.03] ring-1 ring-black/[0.04] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-100/80 hover:shadow-xl hover:shadow-orange-900/[0.06] hover:ring-orange-200/30 dark:border-gray-800 dark:bg-gray-900/90 dark:ring-white/[0.06] sm:p-8">
+      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-orange-600 shadow-inner shadow-orange-100/50 dark:bg-orange-900/30">
         <Icon className="h-6 w-6" />
       </div>
-      <h3 className="text-xl font-bold text-foreground sm:text-2xl">{title}</h3>
+      <h3 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h3>
       <p className="mt-3 text-base leading-relaxed text-muted-foreground">{description}</p>
-      <p className="mt-3 text-sm font-medium text-foreground/80">{audience}</p>
-      <Button asChild className="mt-6 w-fit gap-2">
+      <p className="mt-3 text-sm font-medium text-foreground/85">{audience}</p>
+      <Button asChild className="mt-7 w-fit gap-2 shadow-sm shadow-orange-900/10 transition-transform group-hover:translate-x-0.5">
         <Link href={href}>
           {ctaLabel}
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </Button>
     </div>
@@ -62,7 +62,7 @@ export default function ProductOverviewSection() {
         <FadeInOnScroll>
           <SectionHeader title={t("products_title")} subtitle={t("products_subtitle")} margin="tight" />
         </FadeInOnScroll>
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="mt-10 grid grid-cols-1 gap-8 md:mt-12 md:grid-cols-2 md:gap-8 lg:gap-10">
           {products.map((product, index) => (
             <FadeInOnScroll key={product.href} delay={index * 0.08}>
               <ProductCard

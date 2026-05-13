@@ -290,3 +290,14 @@
     transform: none;
   }
 }
+
+/* Marketing landing: warm canvas + crisp type (palette unchanged) */
+.landing-light {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.landing-light ::selection {
+  background: oklch(0.82 0.12 55 / 0.45);
+}
