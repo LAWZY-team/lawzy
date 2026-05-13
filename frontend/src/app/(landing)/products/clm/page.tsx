@@ -18,9 +18,9 @@ export default function ClmProductPage() {
   return (
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <section className="relative overflow-hidden pb-12 sm:pt-28 sm:pb-16  md:pb-20">
+      <section className="relative overflow-hidden pt-[6.5rem] pb-12 sm:pt-28 sm:pb-16 md:pt-32 md:pb-20">
         <div className={sectionContainer}>
-        <Link
+          <Link
             href="/"
             className="mt-7 inline-flex items-center gap-1 text-sm font-semibold text-orange-600 transition-colors hover:gap-1.5 hover:text-orange-700"
           >
