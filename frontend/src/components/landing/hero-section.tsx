@@ -25,7 +25,8 @@ function HeroRotatingText({ options, fallback }: { options: string[]; fallback: 
 const HERO_TRUST_LOGOS = [
   { src: "/partners_logo/newpaper/businesstimess.svg", alt: "Business Times" },
   { src: "/partners_logo/newpaper/vneconomy.svg", alt: "VnEconomy" },
-  { src: "/partners_logo/newpaper/ulaw.png", alt: "HCMU Law", scale: true },
+  // remove ulaw logo as it appears in other section
+  // { src: "/partners_logo/newpaper/ulaw.png", alt: "HCMU Law" }, 
 ];
 
 export default function HeroSection() {
@@ -56,7 +57,7 @@ export default function HeroSection() {
                 transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                 className="w-fit rounded-full"
               >
-                <Badge
+                {/* <Badge
                   variant="outline"
                   className="inline-flex items-center gap-2 rounded-full border border-orange-300 px-4 py-1.5 text-xs font-medium text-orange-600"
                 >
@@ -67,7 +68,7 @@ export default function HeroSection() {
                     <Gift className="h-3.5 w-3.5 shrink-0" />
                   </motion.span>
                   {t("hero_badge")}
-                </Badge>
+                </Badge> */}
               </motion.div>
             </motion.div>
             <h1 className="max-w-4xl text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl lg:leading-[1.15] xl:text-5xl">
@@ -95,7 +96,7 @@ export default function HeroSection() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("hero_trust")}</p>
               <div className="flex items-center gap-5">
                 {HERO_TRUST_LOGOS.map((logo, i) => (
-                  <div key={i} className={cn("relative h-8 w-auto grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all", logo.scale && "scale-125")}>
+                  <div key={i} className={cn("relative h-8 w-auto grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all")}>
                     <Image src={logo.src} alt={logo.alt} width={80} height={32} className="h-8 w-auto object-contain" />
                   </div>
                 ))}
