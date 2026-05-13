@@ -29,9 +29,9 @@ export function BlogCardsSection() {
       <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 dark:border-gray-800/80">
         <div className={sectionContainer}>
           <SectionHeader title={t("blog_section_title")} subtitle={t("blog_section_subtitle")} margin="default" />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-64 rounded-lg" />
+              <Skeleton key={i} className="h-72 rounded-2xl" />
             ))}
           </div>
         </div>
@@ -45,10 +45,10 @@ export function BlogCardsSection() {
     <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 dark:border-gray-800/80">
       <div className={sectionContainer}>
         <SectionHeader title={t("blog_section_title")} subtitle={t("blog_section_subtitle")} margin="default" />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
           {articles.map((art) => (
             <Link key={art.id} href={getArticleUrl(art.slug, art.type)} className="group block">
-              <Card className="h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/20">
+              <Card className="h-full overflow-hidden rounded-2xl border-0 bg-white/90 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.05] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-orange-900/[0.06] hover:ring-orange-200/40 dark:bg-gray-900/90 dark:ring-white/[0.08]">
                 {art.coverImage ? (
                   <div className="relative aspect-video w-full overflow-hidden bg-muted">
                     <Image
@@ -60,7 +60,7 @@ export function BlogCardsSection() {
                     />
                   </div>
                 ) : (
-                  <div className="aspect-video w-full bg-gradient-to-br from-orange-100 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20" />
+                  <div className="aspect-video w-full bg-orange-50 dark:bg-orange-950/25" />
                 )}
                 <CardHeader>
                   <CardDescription>
@@ -81,10 +81,10 @@ export function BlogCardsSection() {
             </Link>
           ))}
         </div>
-        <div className="mt-8 flex justify-center">
+        <div className="mt-10 flex justify-center sm:mt-12">
           <Link
             href="/news"
-            className="inline-flex items-center gap-2 rounded-full border border-orange-300 px-5 py-2.5 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50 dark:hover:bg-orange-950/20"
+            className="inline-flex items-center gap-2 rounded-full border border-orange-200/90 bg-white/90 px-6 py-2.5 text-sm font-semibold text-orange-600 shadow-sm shadow-orange-900/5 transition-all hover:border-orange-300 hover:bg-orange-50/90 hover:shadow-md dark:bg-gray-900/80 dark:hover:bg-orange-950/25"
           >
             {t("blog_view_all")}
             <ArrowRight className="h-4 w-4" />

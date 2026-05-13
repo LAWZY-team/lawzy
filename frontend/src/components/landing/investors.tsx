@@ -56,7 +56,7 @@ export function Investors() {
             margin="tight"
             highlightWord={t("investors_title_highlight")}
           />
-          <div className="mx-auto mt-8 max-w-6xl sm:mt-10">
+          <div className="mx-auto mt-10 max-w-6xl sm:mt-12">
             <InfiniteMarquee
               durationSeconds={26}
               trackClassName="gap-6 pr-6 sm:gap-8 sm:pr-8"
