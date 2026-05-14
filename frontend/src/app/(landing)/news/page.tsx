@@ -34,7 +34,7 @@ export default function NewsPage() {
   return (
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <main className={sectionContainer}>
+      <main id="main-content" className={sectionContainer}>
         <div className="mx-auto max-w-5xl pb-16 pt-[5.75rem] sm:pb-20 sm:pt-28 md:pt-32 lg:pb-24 lg:pt-36">
           <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">{t("news_title")}</h1>
           <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">{t("news_subtitle")}</p>

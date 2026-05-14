@@ -34,7 +34,7 @@ cp .env.local.example .env.local   # Thêm GEMINI_API_KEY
 npm run dev
 ```
 
-**Biến môi trường:** `GEMINI_API_KEY` (bắt buộc cho AI), `NEXT_PUBLIC_APP_URL` (tùy chọn).
+**Biến môi trường:** `GEMINI_API_KEY` (bắt buộc cho AI), `NEXT_PUBLIC_APP_URL` (tùy chọn — nên đặt URL công khai của site, ví dụ `https://lawzy.vn`, để canonical, Open Graph và JSON-LD resolve đúng).
 
 ---
 

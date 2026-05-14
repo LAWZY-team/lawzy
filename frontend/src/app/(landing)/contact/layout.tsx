@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import { toAbsoluteUrl } from "@/lib/seo/site-url";
 
-const title = "Tin tức";
+const title = "Liên hệ";
 const description =
-  "Cập nhật tin tức, thông báo và kiến thức pháp lý từ Lawzy — nền tảng quản lý hợp đồng và legal practice.";
+  "Liên hệ Lawzy để được tư vấn về Contract Lifecycle Management và Legal Practice Management System cho doanh nghiệp và law firm.";
 
 export const metadata: Metadata = {
   title,
   description,
-  alternates: { canonical: "/news" },
+  alternates: { canonical: "/contact" },
   openGraph: {
     title: `${title} | LAWZY`,
     description,
-    url: "/news",
+    url: "/contact",
     type: "website",
-    images: [{ url: toAbsoluteUrl("/logo/lawzy-logo-whitebg.png"), alt: "LAWZY tin tức" }],
+    images: [{ url: toAbsoluteUrl("/logo/lawzy-logo-whitebg.png"), alt: "LAWZY — liên hệ" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -24,10 +24,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function NewsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ContactLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

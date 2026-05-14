@@ -2,9 +2,8 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useArticleBySlug } from "@/hooks/articles/use-articles"
@@ -69,7 +68,7 @@ export default function NewsDetailClient({
     return (
       <div className="landing-light min-h-screen bg-[#faf9f5]">
         <LandingHeader />
-        <main className={sectionContainer}>
+        <main id="main-content" className={sectionContainer}>
           <div className={articleShell}>
           <p className="text-center text-muted-foreground">{t("news_not_found")}</p>
           <div className="mt-8 flex justify-center">
@@ -91,7 +90,7 @@ export default function NewsDetailClient({
     return (
       <div className="landing-light min-h-screen bg-[#faf9f5]">
         <LandingHeader />
-        <main className={sectionContainer}>
+        <main id="main-content" className={sectionContainer}>
           <div className={articleShell}>
           <Skeleton className="mb-4 h-9 w-3/4 rounded-lg" />
           <Skeleton className="mb-8 h-4 w-32 rounded-md" />
@@ -110,8 +109,19 @@ export default function NewsDetailClient({
   return (
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <main className={sectionContainer}>
+      <main id="main-content" className={sectionContainer}>
         <div className={articleShell}>
+        <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+          <Link href="/" className="font-medium hover:text-orange-600">
+            Trang chủ
+          </Link>
+          <ChevronRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+          <Link href="/news" className="font-medium hover:text-orange-600">
+            {t("news_title")}
+          </Link>
+          <ChevronRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+          <span className="line-clamp-1 text-foreground/80">{display.title}</span>
+        </nav>
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-6 rounded-full text-muted-foreground hover:bg-white/80 hover:text-foreground">
           <Link href="/news">
             <ArrowLeft className="mr-2 h-4 w-4" />

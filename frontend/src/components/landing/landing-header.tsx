@@ -62,7 +62,7 @@ export default function LandingHeader() {
         <div className="container mx-auto max-w-7xl px-3 sm:px-4 md:px-5 lg:px-8">
           <div className="flex min-h-[48px] w-full items-center gap-2 py-1 sm:min-h-[52px] md:min-h-[60px] md:gap-3 md:py-0.5">
             <Link href="/" className="shrink-0 flex items-center min-w-0" aria-label="Lawzy home">
-              <Image src="/lawzy-logo.png" alt="" width={88} height={88} className="h-11 w-auto sm:h-12 md:h-14 object-contain object-left" priority />
+              <Image src="/lawzy-logo.png" alt="LAWZY — trang chủ" width={88} height={88} className="h-11 w-auto sm:h-12 md:h-14 object-contain object-left" priority />
             </Link>
 
             <nav className="hidden min-w-0 flex-1 items-center justify-center gap-2 md:flex lg:gap-10" aria-label="Main">

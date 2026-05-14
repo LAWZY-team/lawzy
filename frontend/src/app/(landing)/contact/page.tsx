@@ -43,7 +43,7 @@ export default function ContactPage() {
     <ContactModalProvider>
       <div className="landing-light min-h-screen bg-[#faf9f5]">
         <LandingHeader />
-        <main className={sectionContainer}>
+        <main id="main-content" className={sectionContainer}>
           <div className="relative grid gap-12 pb-16 pt-[5.75rem] sm:grid-cols-[1fr_340px] sm:gap-16 sm:pb-20 sm:pt-28 md:pt-32 lg:grid-cols-[1fr_380px] lg:gap-20 lg:pb-24 lg:pt-36">
             <div className="pointer-events-none absolute left-0 top-[5.5rem] h-1 w-16 rounded-full bg-orange-600 opacity-90 sm:top-24 md:top-28" aria-hidden />
             <div>

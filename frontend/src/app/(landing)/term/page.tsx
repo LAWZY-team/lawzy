@@ -31,7 +31,7 @@ export default function TermPage() {
   return (
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <main className={sectionContainer}>
+      <main id="main-content" className={sectionContainer}>
         <div className="mx-auto max-w-4xl pb-16 pt-[5.75rem] sm:pb-20 sm:pt-28 md:pt-32 lg:pb-24 lg:pt-36">
           <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("term_title")}</h1>
           {isLoading ? (
