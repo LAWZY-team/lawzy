@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/components/i18n-provider"
 import onboardingData from "@/lib/i18n/onboarding.json"
 import { useAuthStore } from "@/stores/auth-store"
-import { useWorkspaceStore } from "@/stores/workspace-store"
 
 import { useOnboardingStore } from "@/stores/onboarding-store"
 
@@ -95,9 +94,8 @@ const STEPS: Step[] = [
 export function OnboardingTour() {
   const pathname = usePathname()
   const router = useRouter()
-  const { locale, setLocale, t } = useT()
+  const { locale, setLocale } = useT()
   const { isAuthenticated, authResolved, user } = useAuthStore()
-  const workspaces = useWorkspaceStore((s) => s.workspaces)
   const { isActive, currentStepIndex, isCompleted, startTour, stopTour, setStepIndex, completeTour } = useOnboardingStore()
   
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
@@ -139,7 +137,7 @@ export function OnboardingTour() {
     if (!authResolved || !isAuthenticated || !user) return
     
     // Chỉ khởi chạy tour nếu đang ở trong khu vực ứng dụng (Dashboard)
-    const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor)/.test(pathname)
+    const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor|usage|payment|workspace|settings|admin)/.test(pathname)
     if (!isAppRoute) return
     
     const storageKey = `lawzy_onboarding_completed_${user.id}`
@@ -216,7 +214,7 @@ export function OnboardingTour() {
 
   if (!isActive) return null
 
-  const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor)/.test(pathname)
+  const isAppRoute = /^\/(dashboard|documents|fields|templates|sources|editor|usage|payment|workspace|settings|admin)/.test(pathname)
   if (!isAppRoute) return null
 
   return (
