@@ -3,6 +3,8 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,6 +14,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { WorkspacesService } from '../workspaces/workspaces.service';
 import { validatePassword } from '../../utils/password-validator';
 import type { Response } from 'express';
 
@@ -29,6 +32,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    @Inject(forwardRef(() => WorkspacesService))
+    private readonly workspacesService: WorkspacesService,
   ) {}
 
   async register(
@@ -116,6 +121,17 @@ export class AuthService {
       },
     });
 
+    try {
+      const userWorkspaces = await this.workspacesService.findByUser(user.id);
+      if (userWorkspaces.length === 0) {
+        await this.workspacesService.create(user.id, {
+          name: `Workspace của ${user.name}`,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to create workspace for user', e);
+    }
+
     return this.usersService.sanitize(user);
   }
 
@@ -201,6 +217,15 @@ export class AuthService {
       avatar: picture ?? undefined,
       isVerified: true,
     });
+
+    try {
+      await this.workspacesService.create(user.id, {
+        name: `Workspace của ${user.name}`,
+      });
+    } catch (e) {
+      console.error('Failed to create workspace for user', e);
+    }
+
     return this.usersService.sanitize(user);
   }
 

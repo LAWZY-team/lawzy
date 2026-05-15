@@ -106,14 +106,13 @@ export default function LandingHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                null /*
+
                 <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
                   <Link href="/login">
                     <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
                     <span>{t("login")}</span>
                   </Link>
                 </Button>
-                */
               )}
 
               <div className="hidden sm:block">
@@ -191,7 +190,7 @@ export default function LandingHeader() {
                     </button>
                   </div>
                 ) : (
-                  null /*
+
                   <Link
                     href="/login"
                     className="pt-3 mt-2 border-t border-gray-100 text-lg font-semibold text-orange-600 hover:text-orange-700 py-3 px-2 rounded-lg hover:bg-orange-50 flex items-center gap-2"
@@ -200,7 +199,6 @@ export default function LandingHeader() {
                     <LogIn className="h-5 w-5" />
                     {t("login")}
                   </Link>
-                  */
                 )}
                 <div className="pt-3 mt-2 border-t border-gray-100 sm:hidden">
                   <div onClick={() => setIsMobileMenuOpen(false)} className="px-2">

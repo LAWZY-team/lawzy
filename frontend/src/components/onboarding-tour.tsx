@@ -35,14 +35,6 @@ const STEPS: Step[] = [
     descriptionKey: "welcome.description",
   },
   {
-    id: "workspace",
-    targetId: "",
-    sidebarId: "tour-workspace-create",
-    route: "",
-    titleKey: "workspace.title",
-    descriptionKey: "workspace.description",
-  },
-  {
     id: "dashboard",
     targetId: "",
     sidebarId: "sidebar--dashboard",
@@ -120,7 +112,6 @@ export function OnboardingTour() {
   }
 
   const currentStep = STEPS[currentStepIndex]
-  const isWorkspaceRequired = currentStep.id === "workspace" && workspaces.length === 0;
 
   // Update target rect for spotlight
   const updateTargetRect = useCallback(() => {
@@ -324,20 +315,18 @@ export function OnboardingTour() {
             </CardContent>
             <CardFooter className="flex justify-between pt-4">
               <div className="flex-1">
-                {!isWorkspaceRequired && (
                   <Button variant="ghost" size="sm" onClick={handleSkip} className="text-sm font-medium">
                     {tOnboarding("buttons.skip")}
                   </Button>
-                )}
               </div>
               <div className="flex gap-2">
                 {currentStepIndex > 0 && currentStepIndex < STEPS.length - 1 && (
-                  <Button variant="outline" size="sm" onClick={handlePrev} disabled={isWorkspaceRequired}>
+                  <Button variant="outline" size="sm" onClick={handlePrev}>
                     <ChevronLeft className="mr-1 h-4 w-4" />
                     {tOnboarding("buttons.prev")}
                   </Button>
                 )}
-                <Button size="sm" onClick={handleNext} className="min-w-[100px]" disabled={isWorkspaceRequired}>
+                <Button size="sm" onClick={handleNext} className="min-w-[100px]">
                   {currentStepIndex === STEPS.length - 1 ? (
                     <>
                       {tOnboarding("buttons.finish")}

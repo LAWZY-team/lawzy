@@ -41,7 +41,6 @@ export function WorkspaceNav() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              id="tour-workspace-create"
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
               onClick={() => setCreateOpen(true)}
