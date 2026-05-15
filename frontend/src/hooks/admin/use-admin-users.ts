@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api/client"
 
 export interface AdminUserWorkspace {
@@ -57,5 +57,15 @@ export function useAdminUsers(opts?: {
     queryKey: ["admin", "users", opts],
     queryFn: () => api.get(`/admin/users?${params.toString()}`),
     enabled,
+  })
+}
+
+export function useDeleteAdminUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/users/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+    },
   })
 }

@@ -69,21 +69,37 @@ export function GoogleSignInButton({
     };
   }, [clientId]);
 
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
+
+  useEffect(() => {
+    if (!clientId || !scriptLoaded) return;
+
+    if (!initializedRef.current) {
+      window.google?.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          try {
+            await onSuccessRef.current(response.credential);
+          } catch (err) {
+            onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+      });
+      initializedRef.current = true;
+    }
+  }, [clientId, scriptLoaded]);
+
   useEffect(() => {
     if (!clientId || !scriptLoaded || !containerRef.current || disabled) return;
 
-    window.google?.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response) => {
-        try {
-          await onSuccess(response.credential);
-        } catch (err) {
-          onError?.(err instanceof Error ? err : new Error(String(err)));
-        }
-      },
-    });
-
-    if (containerRef.current && containerRef.current.children.length === 0) {
+    if (containerRef.current.children.length === 0) {
       window.google?.accounts.id.renderButton(containerRef.current, {
         type: "standard",
         theme: "outline",
@@ -92,7 +108,7 @@ export function GoogleSignInButton({
         width: containerRef.current.offsetWidth || 320,
       });
     }
-  }, [clientId, scriptLoaded, onSuccess, onError, disabled, label]);
+  }, [clientId, scriptLoaded, disabled, label]);
 
   const handleFallbackClick = () => {
     toast.error("Cần cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong frontend/.env.local");

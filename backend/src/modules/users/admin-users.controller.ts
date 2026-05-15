@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Delete, Param, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -27,5 +27,11 @@ export class AdminUsersController {
       scope: scope === 'workspace' ? 'workspace' : 'all',
       workspaceId: scope === 'workspace' ? workspaceId : undefined,
     });
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    await this.usersService.deleteForAdmin(id);
+    return { success: true };
   }
 }

@@ -75,6 +75,7 @@ export const adminNavGroup: NavGroup = {
       titleKey: "sidebar_admin_relations",
       icon: Users,
       items: [
+        { titleKey: "sidebar_admin_users", href: "/admin/users", icon: Users },
         { titleKey: "sidebar_admin_inbox", href: "/admin/inbox", icon: Inbox },
         { titleKey: "sidebar_admin_workspaces", href: "/admin/workspaces", icon: Building2 },
       ],

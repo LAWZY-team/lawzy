@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import type { User } from '@prisma/client';
 
@@ -333,5 +333,16 @@ export class UsersService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async deleteForAdmin(id: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (e: any) {
+      if (e.code === 'P2003') {
+        throw new BadRequestException('Không thể xóa tài khoản này vì đang có dữ liệu (tài liệu, bản lưu) liên kết ràng buộc.');
+      }
+      throw e;
+    }
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Users } from "lucide-react"
+import { ChevronLeft, ChevronRight, Users, Trash2, MoreVertical } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,22 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -24,12 +40,13 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAdminUsers } from "@/hooks/admin/use-admin-users"
+import { useAdminUsers, useDeleteAdminUser } from "@/hooks/admin/use-admin-users"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 const ALL_VALUE = "__all__"
 
@@ -59,8 +76,46 @@ function UsersTable({
   onPageChange: (p: number) => void
   t: (k: string, params?: Record<string, string | number>) => string
 }) {
+  const { mutateAsync: deleteUser } = useDeleteAdminUser()
+  const [userToDelete, setUserToDelete] = useState<string | null>(null)
+
+  const handleDelete = async () => {
+    if (!userToDelete) return
+    try {
+      await deleteUser(userToDelete)
+      toast.success(t("admin_users_deleted") || "Xóa người dùng thành công")
+    } catch (e: any) {
+      toast.error(
+        e.response?.data?.message ||
+        t("admin_users_delete_failed") || "Không thể xóa người dùng"
+      )
+    } finally {
+      setUserToDelete(null)
+    }
+  }
+
   return (
     <>
+      <AlertDialog open={!!userToDelete} onOpenChange={(o) => !o && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin_users_delete_title") || "Xóa người dùng?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin_users_delete_desc") || "Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa người dùng này khỏi hệ thống không?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common_cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              {t("common_delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
@@ -73,6 +128,7 @@ function UsersTable({
               )}
               <TableHead>{t("admin_users_verified_label")}</TableHead>
               <TableHead>{t("admin_users_joined")}</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -85,12 +141,13 @@ function UsersTable({
                   {showWorkspacesColumn && <TableCell><Skeleton className="h-4 w-24" /></TableCell>}
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                 </TableRow>
               ))
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={showWorkspacesColumn ? 6 : 5}
+                  colSpan={showWorkspacesColumn ? 7 : 6}
                   className="h-32 text-center text-muted-foreground"
                 >
                   {t("admin_users_empty")}
@@ -149,6 +206,24 @@ function UsersTable({
                       addSuffix: true,
                       locale: vi,
                     })}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setUserToDelete(user.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t("common_delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
