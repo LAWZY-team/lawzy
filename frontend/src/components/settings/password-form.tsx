@@ -38,7 +38,7 @@ export function PasswordForm() {
 
     const validation = validatePassword(newPassword)
     if (!validation.valid) {
-      setPasswordError(validation.message || t("auth_error_password_invalid"))
+      setPasswordError(validation.message ? t(validation.message as any) : t("auth_error_password_invalid"))
       return
     }
 

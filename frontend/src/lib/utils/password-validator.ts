@@ -7,35 +7,35 @@ export function validatePassword(password: string): PasswordValidationResult {
   if (!password) {
     return {
       valid: false,
-      message: 'Mật khẩu không được để trống',
+      message: 'auth_error_password_empty',
     };
   }
 
   if (password.length < 8) {
     return {
       valid: false,
-      message: 'Mật khẩu phải có ít nhất 8 ký tự',
+      message: 'auth_error_password_min_length',
     };
   }
 
   if (!/[A-Z]/.test(password)) {
     return {
       valid: false,
-      message: 'Mật khẩu phải có ít nhất 1 chữ in hoa',
+      message: 'auth_error_password_uppercase',
     };
   }
 
   if (!/[0-9]/.test(password)) {
     return {
       valid: false,
-      message: 'Mật khẩu phải có ít nhất 1 số',
+      message: 'auth_error_password_number',
     };
   }
 
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
     return {
       valid: false,
-      message: 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt',
+      message: 'auth_error_password_special',
     };
   }
 

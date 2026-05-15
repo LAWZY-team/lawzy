@@ -8,6 +8,7 @@ import {
   PopoverAnchor,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/i18n-provider";
 
 interface PasswordRequirementsProps {
   password: string;
@@ -22,26 +23,28 @@ export function PasswordRequirements({
   onOpenChange,
   children,
 }: PasswordRequirementsProps) {
+  const { t } = useT();
+
   const requirements = useMemo(() => {
     return [
       {
-        label: "Tối thiểu 8 ký tự",
+        label: t("auth_password_req_length"),
         met: password.length >= 8,
       },
       {
-        label: "Ít nhất 1 chữ in hoa",
+        label: t("auth_password_req_uppercase"),
         met: /[A-Z]/.test(password),
       },
       {
-        label: "Ít nhất 1 số",
+        label: t("auth_password_req_number"),
         met: /[0-9]/.test(password),
       },
       {
-        label: "Ít nhất 1 ký tự đặc biệt",
+        label: t("auth_password_req_special"),
         met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
       },
     ];
-  }, [password]);
+  }, [password, t]);
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -51,10 +54,9 @@ export function PasswordRequirements({
         side="bottom"
         sideOffset={8}
         className="w-64 p-3"
-        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="space-y-2">
-          <p className="text-sm font-medium">Yêu cầu mật khẩu:</p>
+          <p className="text-sm font-medium">{t("auth_password_requirements_title")}</p>
           <ul className="space-y-1.5">
             {requirements.map((req, index) => (
               <li

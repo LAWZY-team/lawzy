@@ -204,7 +204,7 @@ export class ArticlesService {
       metadata?: unknown;
     },
   ) {
-    await this.findById(id);
+    const article = await this.findById(id);
 
     const updateData: Record<string, unknown> = {};
     if (data.type !== undefined)
@@ -226,8 +226,13 @@ export class ArticlesService {
       )
         ? data.status
         : undefined;
-    if (data.publishedAt !== undefined)
+    
+    if (data.publishedAt !== undefined) {
       updateData.publishedAt = data.publishedAt;
+    } else if (updateData.status === 'published' && !article.publishedAt) {
+      updateData.publishedAt = new Date();
+    }
+      
     if (data.metadata !== undefined)
       updateData.metadata = JSON.parse(JSON.stringify(data.metadata));
 
