@@ -43,7 +43,7 @@ npm run dev
 | `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING` | `true` | `false` | (bỏ trống → không index) |
 
 - **`robots.ts` / `sitemap.ts`:** Production cho phép crawl và submit `https://lawzy.vn/sitemap.xml`; UAT `Disallow: /` và sitemap rỗng.
-- **UAT:** Root metadata `noindex` + middleware `X-Robots-Tag` khi `Host` chứa `uat.`.
+- **UAT:** Root metadata `noindex` + `src/proxy.ts` header `X-Robots-Tag` khi `Host` chứa `uat.`.
 
 ### Search Console (sau deploy)
 
