@@ -125,7 +125,7 @@ export class AuthService {
       const userWorkspaces = await this.workspacesService.findByUser(user.id);
       if (userWorkspaces.length === 0) {
         await this.workspacesService.create(user.id, {
-          name: `Workspace của ${user.name}`,
+          name: `${user.name}'s Workspace`,
         });
       }
     } catch (e) {
@@ -220,7 +220,7 @@ export class AuthService {
 
     try {
       await this.workspacesService.create(user.id, {
-        name: `Workspace của ${user.name}`,
+        name: `Workspace ${user.name}`,
       });
     } catch (e) {
       console.error('Failed to create workspace for user', e);

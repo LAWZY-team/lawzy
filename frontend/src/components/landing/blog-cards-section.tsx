@@ -27,7 +27,7 @@ export function BlogCardsSection() {
 
   const scrollLeft = () => {
     if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+      const { scrollLeft, scrollWidth } = scrollRef.current
       if (scrollLeft <= 10) {
         scrollRef.current.scrollTo({ left: scrollWidth, behavior: "smooth" })
       } else {

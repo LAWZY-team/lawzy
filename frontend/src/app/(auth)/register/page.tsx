@@ -91,7 +91,7 @@ export default function RegisterPage() {
     }
     const pv = validatePassword(password);
     if (!pv.valid) {
-      setError(pv.message ? t(pv.message as any) : t("auth_error_password_invalid"));
+      setError(pv.message ? t(pv.message) : t("auth_error_password_invalid"));
       return false;
     }
     return true;

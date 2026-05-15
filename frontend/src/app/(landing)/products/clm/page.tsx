@@ -11,7 +11,6 @@ import ClmFeaturesSection from "@/components/landing/clm-features-section";
 import CostSection from "@/components/landing/cost-section";
 import LandingPricingSection from "@/components/landing/landing-pricing-section";
 import TargetSection from "@/components/landing/target-section";
-import { Badge } from "@/components/ui/badge";
 
 export default function ClmProductPage() {
   const { t } = useI18n();

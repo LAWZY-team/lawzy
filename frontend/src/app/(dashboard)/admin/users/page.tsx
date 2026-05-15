@@ -47,6 +47,7 @@ import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const ALL_VALUE = "__all__"
 
@@ -84,9 +85,10 @@ function UsersTable({
     try {
       await deleteUser(userToDelete)
       toast.success(t("admin_users_deleted") || "Xóa người dùng thành công")
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
       toast.error(
-        e.response?.data?.message ||
+        err.response?.data?.message ||
         t("admin_users_delete_failed") || "Không thể xóa người dùng"
       )
     } finally {
@@ -293,6 +295,7 @@ export default function AdminUsersPage() {
     : (usersData?.totalPages ?? 1)
 
   return (
+    <ScrollArea>
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -443,5 +446,6 @@ export default function AdminUsersPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </ScrollArea>
   )
 }

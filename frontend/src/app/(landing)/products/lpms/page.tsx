@@ -8,7 +8,7 @@ import { FloatingActions } from "@/components/landing/floating-actions";
 import { useI18n } from "@/components/landing/language-provider";
 import { Section, SectionHeader, sectionContainer } from "@/components/landing/landing-section";
 import FadeInOnScroll from "@/components/landing/fade-in-on-scroll";
-import { Badge } from "@/components/ui/badge";
+import {} from "@/components/ui/badge";
 
 export default function LpmsProductPage() {
   const { t } = useI18n();
