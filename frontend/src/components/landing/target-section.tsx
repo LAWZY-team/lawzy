@@ -32,7 +32,7 @@ export default function TargetSection() {
             return (
               <FadeInOnScroll key={index} delay={index * 0.2}>
                 <div
-                  className={`group h-full transform rounded-3xl border border-gray-100 bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900 sm:p-8 ${target.border}`}
+                  className={`group h-full rounded-3xl border border-gray-100/90 bg-white/90 p-6 shadow-sm shadow-black/[0.03] ring-1 ring-black/[0.04] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-100/90 hover:shadow-xl hover:shadow-orange-900/[0.05] dark:border-gray-800 dark:bg-gray-900/90 dark:ring-white/[0.06] sm:p-8 ${target.border}`}
                 >
                   <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl sm:mb-8 sm:h-16 sm:w-16 ${target.bg} ${target.color}`}>
                     <Icon className="h-7 w-7 sm:h-8 sm:w-8" />

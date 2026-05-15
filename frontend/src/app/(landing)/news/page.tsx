@@ -1,111 +1,102 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useArticles } from "@/hooks/articles/use-articles"
-import { getArticleUrl } from "@/lib/articles"
-import { useT } from "@/components/i18n-provider"
-import { useI18n } from "@/components/landing/language-provider"
-import LandingHeader from "@/components/landing/landing-header"
-import { LandingFooter } from "@/components/landing/landing-footer"
-import { format } from "date-fns"
-import { vi } from "date-fns/locale"
+import { useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useArticles } from "@/hooks/articles/use-articles";
+import { getArticleUrl } from "@/lib/articles";
+import { useT } from "@/components/i18n-provider";
+import { useI18n } from "@/components/landing/language-provider";
+import LandingHeader from "@/components/landing/landing-header";
+import { LandingFooter } from "@/components/landing/landing-footer";
+import { sectionContainer } from "@/components/landing/landing-section";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 export default function NewsPage() {
-  const { t } = useT()
-  const { locale } = useI18n()
-  const [page, setPage] = useState(1)
+  const { t } = useT();
+  const { locale } = useI18n();
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useArticles({
     type: "news",
     status: "published",
     page,
     limit: 12,
-  })
+  });
 
-  const articles = data?.data ?? []
-  const totalPages = data?.totalPages ?? 1
+  const articles = data?.data ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
-  const dateLocale = locale === "vi" ? vi : undefined
+  const dateLocale = locale === "vi" ? vi : undefined;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <main className="container mx-auto px-4 pt-20 pb-10 max-w-4xl md:pt-24 md:pb-12">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">{t("news_title")}</h1>
-        <p className="text-muted-foreground mb-8">{t("news_subtitle")}</p>
+      <main className={sectionContainer}>
+        <div className="mx-auto max-w-5xl pb-16 pt-[5.75rem] sm:pb-20 sm:pt-28 md:pt-32 lg:pb-24 lg:pt-36">
+          <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">{t("news_title")}</h1>
+          <p className="mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">{t("news_subtitle")}</p>
 
-        {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 rounded-lg" />
-            ))}
-          </div>
-        ) : articles.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">{t("news_empty")}</p>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
-            {articles.map((art) => (
-              <Link key={art.id} href={getArticleUrl(art.slug, art.type)}>
-                <Card className="h-full overflow-hidden transition-colors hover:bg-muted/50">
-                  {art.coverImage ? (
-                    <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                      <Image
-                        src={art.coverImage}
-                        alt={art.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                      />
-                    </div>
-                  ) : (
-                    <div className="aspect-video w-full bg-gradient-to-br from-orange-100 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20" />
-                  )}
-                  <CardHeader>
-                    <CardDescription>
-                      {art.publishedAt
-                        ? format(new Date(art.publishedAt), "d MMMM yyyy", { locale: dateLocale })
-                        : ""}
-                    </CardDescription>
-                    <h2 className="text-lg font-semibold line-clamp-2">{art.title}</h2>
-                  </CardHeader>
-                  {art.excerpt && (
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{art.excerpt}</p>
-                    </CardContent>
-                  )}
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+          {isLoading ? (
+            <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:gap-10">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-52 rounded-2xl" />
+              ))}
+            </div>
+          ) : articles.length === 0 ? (
+            <p className="py-16 text-center text-muted-foreground">{t("news_empty")}</p>
+          ) : (
+            <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:gap-10">
+              {articles.map((art) => (
+                <Link key={art.id} href={getArticleUrl(art.slug, art.type)} className="group block">
+                  <Card className="h-full overflow-hidden rounded-2xl border-0 bg-white/90 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.05] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-orange-900/[0.06] hover:ring-orange-200/40 dark:bg-gray-900/90 dark:ring-white/[0.08]">
+                    <CardHeader className="pb-2">
+                      <CardDescription className="text-xs font-medium uppercase tracking-wider">
+                        {art.publishedAt ? format(new Date(art.publishedAt), "d MMMM yyyy", { locale: dateLocale }) : ""}
+                      </CardDescription>
+                      <h2 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight transition-colors group-hover:text-orange-600">
+                        {art.title}
+                      </h2>
+                    </CardHeader>
+                    {art.excerpt && (
+                      <CardContent className="pt-0">
+                        <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{art.excerpt}</p>
+                      </CardContent>
+                    )}
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
 
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-12">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-4 py-2 text-sm border rounded-md hover:bg-muted/50 disabled:opacity-50 transition-colors"
-            >
-              {t("pagination_prev")}
-            </button>
-            <span className="px-4 py-2 text-sm text-muted-foreground">
-              {t("pagination_page")} {page} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-4 py-2 text-sm border rounded-md hover:bg-muted/50 disabled:opacity-50 transition-colors"
-            >
-              {t("pagination_next")}
-            </button>
-          </div>
-        )}
+          {totalPages > 1 && (
+            <div className="mt-14 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded-full border border-gray-200/90 bg-white/90 px-5 py-2.5 text-sm font-medium shadow-sm transition-all hover:border-orange-200 hover:bg-orange-50/80 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {t("pagination_prev")}
+              </button>
+              <span className="px-4 py-2 text-sm tabular-nums text-muted-foreground">
+                {t("pagination_page")} {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded-full border border-gray-200/90 bg-white/90 px-5 py-2.5 text-sm font-medium shadow-sm transition-all hover:border-orange-200 hover:bg-orange-50/80 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {t("pagination_next")}
+              </button>
+            </div>
+          )}
+        </div>
       </main>
       <LandingFooter />
     </div>
-  )
+  );
 }

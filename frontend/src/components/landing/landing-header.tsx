@@ -54,25 +54,26 @@ export default function LandingHeader() {
     <>
       <header
         className={`fixed z-50 transition-all duration-300
-          left-3 right-3 top-3 max-w-[100vw] rounded-2xl bg-white/95 backdrop-blur-md border border-gray-100/80 shadow-sm
+          left-3 right-3 top-3 max-w-[100vw] rounded-2xl border border-gray-100/90 bg-white/90 shadow-sm shadow-black/[0.03] backdrop-blur-xl backdrop-saturate-150
           sm:left-4 sm:right-4 sm:top-4 sm:rounded-3xl
           md:left-0 md:right-0 md:top-0 md:max-w-none md:w-full md:rounded-none md:border-x-0 md:border-t-0
-          ${isScrolled ? "md:bg-white/95 md:backdrop-blur-md md:border-b md:border-gray-100 md:shadow-sm" : "md:bg-transparent md:border-transparent md:shadow-none"}`}
+          ${isScrolled ? "md:border-b md:border-gray-100/95 md:bg-white/95 md:shadow-sm md:shadow-black/[0.04] md:backdrop-blur-xl" : "md:border-transparent md:bg-transparent md:shadow-none"}`}
       >
-        <div className="container mx-auto px-3 sm:px-4 md:px-4 lg:px-6">
-          <div className="flex w-full items-center min-h-[48px] sm:min-h-[52px] md:min-h-[60px] py-1 md:py-0.5 gap-2">
+        <div className="container mx-auto max-w-7xl px-3 sm:px-4 md:px-5 lg:px-8">
+          <div className="flex min-h-[48px] w-full items-center gap-2 py-1 sm:min-h-[52px] md:min-h-[60px] md:gap-3 md:py-0.5">
             <Link href="/" className="shrink-0 flex items-center min-w-0" aria-label="Lawzy home">
               <Image src="/lawzy-logo.png" alt="" width={88} height={88} className="h-11 w-auto sm:h-12 md:h-14 object-contain object-left" priority />
             </Link>
 
-            <nav className="hidden md:flex flex-1 justify-center items-center gap-4 lg:gap-8 min-w-0" aria-label="Main">
+            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-2 md:flex lg:gap-10" aria-label="Main">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-gray-600 hover:text-foreground hover:font-semibold transition-all font-medium text-sm lg:text-base whitespace-nowrap"
+                  className="group relative whitespace-nowrap px-1 py-1 text-sm font-medium text-gray-600 transition-colors hover:text-foreground lg:text-[0.9375rem]"
                 >
                   {link.label}
+                  <span className="absolute bottom-0 left-1/2 h-[2px] w-0 max-w-[calc(100%-4px)] -translate-x-1/2 rounded-full bg-orange-500 transition-all duration-300 ease-out group-hover:w-full" />
                 </Link>
               ))}
             </nav>
@@ -105,12 +106,14 @@ export default function LandingHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
+                null /*
                 <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
                   <Link href="/login">
                     <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
                     <span>{t("login")}</span>
                   </Link>
                 </Button>
+                */
               )}
 
               <div className="hidden sm:block">
@@ -188,6 +191,7 @@ export default function LandingHeader() {
                     </button>
                   </div>
                 ) : (
+                  null /*
                   <Link
                     href="/login"
                     className="pt-3 mt-2 border-t border-gray-100 text-lg font-semibold text-orange-600 hover:text-orange-700 py-3 px-2 rounded-lg hover:bg-orange-50 flex items-center gap-2"
@@ -196,6 +200,7 @@ export default function LandingHeader() {
                     <LogIn className="h-5 w-5" />
                     {t("login")}
                   </Link>
+                  */
                 )}
                 <div className="pt-3 mt-2 border-t border-gray-100 sm:hidden">
                   <div onClick={() => setIsMobileMenuOpen(false)} className="px-2">

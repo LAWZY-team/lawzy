@@ -22,9 +22,9 @@ export function LandingFooter() {
   ] as const;
 
   return (
-    <footer id="contact" className="border-t border-zinc-800 bg-zinc-950 text-zinc-100">
+    <footer id="contact" className="border-t border-zinc-800/95 bg-zinc-950 text-zinc-100">
       <div className={sectionContainer}>
-        <div className="grid gap-8 py-10 sm:gap-10 sm:py-12 lg:grid-cols-12 lg:gap-8 lg:py-14">
+        <div className="grid gap-10 py-12 sm:gap-12 sm:py-14 lg:grid-cols-12 lg:gap-10 lg:py-16">
           <div className="lg:col-span-4">
             <Link href="/" className="inline-block">
               <Image src="/lawzy-logo-white.png" alt="Lawzy" width={132} height={132} className="h-10 w-auto object-contain sm:h-11 md:h-12" loading="lazy" />
@@ -124,7 +124,7 @@ export function LandingFooter() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-zinc-800 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-5">
+        <div className="flex flex-col gap-4 border-t border-zinc-800/90 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-6">
           <p className="text-center text-xs text-zinc-500 sm:text-left">
             © {year} Lawzy. {t("footer_rights")}
           </p>

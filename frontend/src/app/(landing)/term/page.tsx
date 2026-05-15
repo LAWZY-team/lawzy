@@ -6,6 +6,7 @@ import { useArticleBySlug } from "@/hooks/articles/use-articles";
 import { sanitizeHtml } from "@/lib/sanitize";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
+import { sectionContainer } from "@/components/landing/landing-section";
 
 function getContentByLocale(content: unknown, locale: "vi" | "en"): string {
   if (!content || typeof content !== "object") return "";
@@ -28,24 +29,26 @@ export default function TermPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
-      <main className="container mx-auto px-4 pt-20 pb-12 max-w-4xl md:pt-24">
-        <h1 className="text-3xl font-bold mb-8">{t("term_title")}</h1>
-        {isLoading ? (
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-1/2" />
-            <div className="h-4 bg-gray-200 rounded w-5/6" />
-          </div>
-        ) : error || !htmlContent ? (
-          <p className="text-muted-foreground">Nội dung chưa có sẵn. Vui lòng thử lại sau.</p>
-        ) : (
-          <article
-            className="lawzy-terms prose prose-lg max-w-none text-foreground [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-10 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:font-semibold"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
-          />
-        )}
+      <main className={sectionContainer}>
+        <div className="mx-auto max-w-4xl pb-16 pt-[5.75rem] sm:pb-20 sm:pt-28 md:pt-32 lg:pb-24 lg:pt-36">
+          <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("term_title")}</h1>
+          {isLoading ? (
+            <div className="mt-10 animate-pulse space-y-4">
+              <div className="h-4 w-3/4 rounded-md bg-gray-200/90" />
+              <div className="h-4 w-1/2 rounded-md bg-gray-200/90" />
+              <div className="h-4 w-5/6 rounded-md bg-gray-200/90" />
+            </div>
+          ) : error || !htmlContent ? (
+            <p className="mt-8 text-muted-foreground">Nội dung chưa có sẵn. Vui lòng thử lại sau.</p>
+          ) : (
+            <article
+              className="lawzy-terms prose prose-lg mt-10 max-w-none rounded-2xl border border-gray-100/90 bg-white/90 p-6 text-foreground shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.04] sm:p-10 [&_h1]:mb-4 [&_h1]:mt-10 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:font-semibold"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
+            />
+          )}
+        </div>
       </main>
       <LandingFooter />
     </div>
