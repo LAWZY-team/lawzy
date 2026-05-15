@@ -37,6 +37,8 @@ jobs:
           build-args: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             NEXT_PUBLIC_APP_URL=https://uat.lawzy.vn
+            NEXT_PUBLIC_SITE_ENV=uat
+            NEXT_PUBLIC_ALLOW_ROBOT_INDEXING=false
             NEXT_PUBLIC_API_URL=http://backend-uat:5000
             BACKEND_URL=http://backend-uat:5000
 

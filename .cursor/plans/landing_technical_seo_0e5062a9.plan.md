@@ -1,138 +1,182 @@
 ---
 name: Landing Technical SEO
-overview: Chặn index UAT bằng env + robots/sitemap/metadata, cố định canonical/OG về https://lawzy.vn trên production, bổ sung sitemap/JSON-LD/semantic và lộ trình chuyển nội dung landing sang Server Components để bot đọc được copy chính.
+overview: "Giai đoạn 1 (ưu tiên commit ngay): metadata theo route, JSON-LD, semantic/heading, ảnh/Link — không thêm biến môi trường mới. Giai đoạn cuối (sau khi có env): robots/sitemap/noindex UAT, tài liệu VPS, Search Console. Giai đoạn trì hoãn (ưu tiên thấp nhất): SEO đa ngôn ngữ / quốc tế (hreflang, URL riêng theo locale, metadata EN)."
 todos:
-  - id: env-robots
-    content: Thêm biến env (SITE_ENV / ALLOW_ROBOT_INDEXING), cập nhật README + Dockerfile/VPS UAT; triển khai src/app/robots.ts + sitemap.ts (URL production tuyệt đối).
-    status: pending
-  - id: noindex-uat
-    content: "Root layout: robots noindex khi UAT; tuỳ chọn middleware X-Robots-Tag theo Host uat.*"
-    status: pending
   - id: metadata-routes
-    content: Metadata/generateMetadata từng route trong (landing) + mở rộng news/[slug] OG/twitter/canonical.
-    status: pending
-  - id: server-shell-home
-    content: "Refactor (landing)/page.tsx: Server shell + client nhỏ; H1/subtitle vi render server từ i18n file."
+    content: Giai đoạn 1 — Metadata/generateMetadata từng route trong (landing) + mở rộng news/[slug] OG/twitter/canonical (dùng metadataBase hiện có).
     status: pending
   - id: jsonld-semantic
-    content: JSON-LD Organization/WebSite/Article/BreadcrumbList; semantic main/section và một H1 mỗi trang.
+    content: Giai đoạn 1 — JSON-LD Organization/WebSite/Article/BreadcrumbList; semantic main/section và một H1 mỗi trang.
     status: pending
   - id: images-cwv
-    content: "Audit next/image: alt mô tả, priority hero, sizes/aspect-ratio; kiểm tra remotePatterns nếu ảnh tin từ CDN."
+    content: Giai đoạn 1 — Audit next/image, alt, priority hero, sizes/aspect-ratio; remotePatterns nếu cần.
+    status: pending
+  - id: internal-breadcrumbs
+    content: Giai đoạn 1 — Rà soát <a> nội bộ → Link; breadcrumb UI + JSON-LD cho news/products tuỳ UX.
+    status: pending
+  - id: server-shell-home
+    content: Giai đoạn 1 (lớn, có thể tách PR) — Refactor (landing)/page.tsx server shell + client nhỏ; H1/subtitle mặc định render server.
+    status: pending
+  - id: env-robots
+    content: Giai đoạn CUỐI — Thêm env (SITE_ENV / ALLOW_ROBOT_INDEXING), README + Dockerfile; robots.ts + sitemap.ts URL production; chỉ làm khi đã có biến trên VPS.
+    status: pending
+  - id: noindex-uat
+    content: Giai đoạn CUỐI — Root metadata robots noindex theo env UAT; tuỳ chọn middleware X-Robots-Tag theo Host uat.*
     status: pending
   - id: gsc-followup
-    content: "Hướng dẫn Search Console: loại URL uat, kiểm tra robots/sitemap sau deploy."
+    content: "Giai đoạn CUỐI — Search Console: loại URL uat, validate robots/sitemap sau deploy."
+    status: pending
+  - id: intl-url-strategy
+    content: Ưu tiên THẤP — Chọn & triển khai URL đa ngôn ngữ (vd. /en/* trong App Router hoặc subdomain en.); tránh chỉ i18n client trên cùng URL nếu muốn Google index song song VI/EN.
+    status: pending
+  - id: intl-hreflang-metadata
+    content: "Ưu tiên THẤP — Mỗi cặp trang VI/EN: alternates.languages (vi, en, x-default) + title/description/openGraph/twitter bản EN trên route EN; canonical đúng từng URL."
+    status: pending
+  - id: intl-sitemap-alternates
+    content: "Ưu tiên THẤP — Khi có sitemap.ts: liệt kê URL theo locale + (tuỳ chọn) alternate entries; không chỉ một ngôn ngữ."
+    status: pending
+  - id: intl-content-jsonld
+    content: Ưu tiên THẤP — Nội dung landing/blog EN chất lượng; JSON-LD inLanguage / WebPage (hoặc duplicate @graph) theo locale; kiểm tra không trùng h1/metadata sai ngôn ngữ.
+    status: pending
+  - id: intl-gsc-validate
+    content: "Ưu tiên THẤP — Search Console: báo cáo hreflang, International targeting, thử query EN + VPN; sửa lỗi mismatch URL ↔ hreflang."
     status: pending
 isProject: false
 ---
 
-# Technical SEO cho Next.js (landing + chặn UAT index)
+# Technical SEO — Lawzy landing (đã chỉnh theo ưu tiên của bạn)
 
-## Bối cảnh từ codebase
+## Quyết định ưu tiên (theo yêu cầu)
 
-- [frontend/src/app/layout.tsx](frontend/src/app/layout.tsx) đã dùng **Metadata API** với `metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')`, `alternates.canonical: "/"`, `openGraph`, `twitter`, `robots: { index: true }`.
-- **Không có** [`robots.ts`](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/robots) / [`sitemap.ts`](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap) trong `src/app/`.
-- Trang chủ marketing [frontend/src/app/(landing)/page.tsx](frontend/src/app/(landing)/page.tsx) là **`"use client"`** toàn phần; các section (hero, blog, …) cũng client — bot vẫn thấy HTML ban đầu nhưng **nội dung chữ chính phụ thuộc client** (qua `language-provider`), dễ không nhất quán với snippet / đa ngôn ngữ so với metadata tĩnh.
-- Có sẵn fetch server cho tin: [frontend/src/lib/articles-server.ts](frontend/src/lib/articles-server.ts) (`fetchNewsList`, `fetchArticleBySlug`) — dùng được cho **sitemap tin** và/hoặc **generateMetadata** cho `/news/[slug]`.
+- **Giai đoạn 1 — Làm và commit trước:** mọi thứ **không cần** thêm biến môi trường mới (`SITE_ENV`, `ALLOW_ROBOT_INDEXING`, …). Dùng được `metadataBase` / `NEXT_PUBLIC_APP_URL` **đã có** trong [frontend/src/app/layout.tsx](frontend/src/app/layout.tsx) và [frontend/README.md](frontend/README.md) nếu cần URL tuyệt đối cho OG/canonical trong từng route.
+- **Giai đoạn cuối — Chưa thực hiện cho đến khi có env:** toàn bộ nhánh **phân tách Prod vs UAT** (tài liệu env mới, `robots.ts` / `sitemap.ts` phụ thuộc env, `noindex` root theo UAT, cập nhật Dockerfile/VPS). Đây là bước bạn xác nhận sẽ làm **sau**.
+- **Giai đoạn trì hoãn — Ưu tiên thấp nhất:** SEO **đa ngôn ngữ / quốc tế** (URL theo locale, `hreflang`, metadata & nội dung EN, sitemap đa locale). Chi tiết checklist ở cuối file.
 
-## Nguyên nhân khả dĩ UAT lên Google (theo ảnh + cấu hình hiện tại)
+---
 
-1. **`NEXT_PUBLIC_APP_URL` trên VPS UAT** trỏ `https://uat.lawzy.vn` → `metadataBase` và URL OG/relative resolve theo **origin UAT**, Google coi là site hợp lệ để index.
-2. **Không có** `robots.txt` động / `noindex` theo môi trường → crawler được phép index toàn bộ route public (register, term, …).
-3. Trang **register / term** có thể là Server Component hoặc metadata rõ → sitelink tiếng Anh (ảnh 2) khớp với route dashboard/auth dùng metadata khác ngôn ngữ landing.
+## Bối cảnh codebase (không đổi)
 
-## Chiến lược tách Production vs UAT (branch deploy VPS)
+- Root đã có **Metadata API**: [frontend/src/app/layout.tsx](frontend/src/app/layout.tsx).
+- Chưa có `src/app/robots.ts` / `src/app/sitemap.ts`.
+- [frontend/src/app/(landing)/page.tsx](frontend/src/app/(landing)/page.tsx): server `metadata` + `LandingHomeClient` (survey hash); nội dung hero vẫn chủ yếu client qua i18n — **đa ngôn ngữ SEO** cần URL locale (mục “ưu tiên thấp nhất”).
+- Server fetch tin: [frontend/src/lib/articles-server.ts](frontend/src/lib/articles-server.ts).
 
-Vì **production và UAT là hai VPS / hai bộ env** (không phải Vercel Preview), cách ổn định nhất là **biến môi trường rõ ràng**, không chỉ dựa vào URL:
+---
 
-- Thêm ví dụ: `NEXT_PUBLIC_SITE_ENV=production` trên prod, `NEXT_PUBLIC_SITE_ENV=uat` (hoặc `staging`) trên UAT.
-- Trên **UAT only**: `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING=false` (hoặc tương đương).
+## Giai đoạn 1 — Triển khai ngay (không thêm env)
 
-Hành vi mong muốn:
+### 1. Metadata theo route
 
-| Môi trường | `robots.ts` | Meta `robots` / OG canonical |
-|-----------|-------------|------------------------------|
-| UAT | `Disallow: /` (hoặc disallow toàn site) | `noindex, nofollow` |
-| Production | `Allow` + `Sitemap: https://lawzy.vn/sitemap.xml` | `index, follow` + canonical luôn `https://lawzy.vn` + path |
+- Thêm `export const metadata` hoặc `generateMetadata` cho từng page trong [frontend/src/app/(landing)/](frontend/src/app/(landing)/) (home nếu tách server layout, pricing, contact, products clm/lpms, term, privacy).
+- [frontend/src/app/(landing)/layout.tsx](frontend/src/app/(landing)/layout.tsx): có thể `metadata` mặc định cho nhóm route.
+- [frontend/src/app/(landing)/news/[slug]/page.tsx](frontend/src/app/(landing)/news/[slug]/page.tsx): mở rộng `generateMetadata` (OG image từ `coverImage`, twitter, canonical path).
 
-**Lưu ý triển khai:** `robots.ts` / `sitemap.ts` trong App Router có thể `export default async function` và đọc `process.env` (build/runtime tùy deploy). Với Docker/VPS, đảm bảo env được inject **lúc build** nếu dùng static optimization, hoặc dùng runtime config nhất quán với cách deploy hiện tại ([frontend/Dockerfile](frontend/Dockerfile) đã truyền `NEXT_PUBLIC_APP_URL`).
+### 2. JSON-LD (Schema.org)
 
-**Tuỳ chọn bổ sung (defense in depth):** thêm [Next.js Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware) ở [frontend/src/middleware.ts](frontend/src/middleware.ts) (file mới): nếu `Host` chứa `uat.` thì set header `X-Robots-Tag: noindex, nofollow` cho mọi response — hỗ trợ khi env bị cấu hình sai.
+- Component server inject `<script type="application/ld+json">`: ví dụ `frontend/src/components/seo/organization-json-ld.tsx`.
+- **Base URL `@id` / `url`:** dùng `new URL(path, process.env.NEXT_PUBLIC_APP_URL ?? 'https://lawzy.vn')` (chỉ biến **đã có**), hoặc hằng fallback production cho local — ghi chú trong code để Phase cuối siết chặt UAT.
+- Tin: **Article** / **NewsArticle** + **BreadcrumbList** trên `news/[slug]`.
 
-## Phần 1 — Chặn index UAT + canonical production (ưu tiên cao)
+### 3. Semantic HTML + heading
 
-1. **Tài liệu env** ([frontend/README.md](frontend/README.md)): bảng biến cho Prod vs UAT (`NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SITE_ENV`, `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING`).
-2. **`src/app/robots.ts`**:  
-   - Nếu `ALLOW_ROBOT_INDEXING === false` hoặc `SITE_ENV !== production` → `disallow: ["/"]`.  
-   - Ngược lại → `allow: "/"`, `sitemap: "https://lawzy.vn/sitemap.xml"` (URL tuyệt đối production, không phụ thuộc `NEXT_PUBLIC_APP_URL` của UAT).
-3. **`src/app/sitemap.ts`**:  
-   - Chỉ trả về URL **production** (`https://lawzy.vn`) khi build cho prod; trên UAT có thể trả `[]` hoặc cùng logic nhưng robots đã chặn.  
-   - Liệt kê route tĩnh: `/`, `/pricing`, `/contact`, `/news`, `/products/clm`, `/products/lpms`, `/term`, `/privacy-policy`, …  
-   - Tin động: gọi `fetchNewsList` (paginate theo `totalPages` hoặc limit an toàn) → `/news/[slug]`.
-4. **Root metadata** ([frontend/src/app/layout.tsx](frontend/src/app/layout.tsx)):  
-   - Tách hoặc bổ sung `generateMetadata` async (nếu cần) để khi UAT: `robots: { index: false, follow: false }`.  
-   - Trên production: đặt `metadataBase` và `alternates.canonical` nhất quán với `https://lawzy.vn` (có thể tách `NEXT_PUBLIC_CANONICAL_ORIGIN` nếu muốn tách “URL app” vs “URL SEO” — chỉ khi thật sự cần).
+- Một **`h1`** mỗi trang; bọc `<main>`, `<section>`, `<article>` hợp lý; header/footer component dùng `<header>` / `<footer>` nếu chưa.
 
-## Phần 2 — Metadata theo route (landing + news)
+### 4. Ảnh & CWV
 
-1. **`(landing)/layout.tsx`**: hiện chỉ bọc `LandingLanguageProvider` — có thể thêm **`export const metadata`** chung (default title/description cho nhóm landing) hoặc để từng `page.tsx` override.
-2. **Từng trang** trong [frontend/src/app/(landing)/](frontend/src/app/(landing)/): bổ sung `export const metadata` hoặc `generateMetadata` (contact, pricing, products, term, privacy) với **title/description/OG/twitter** tiếng Việt (và sau này `alternates.languages` nếu có locale URL).
-3. **`news/[slug]/page.tsx`**: đã có `generateMetadata` server — mở rộng **OG image** (nếu có `coverImage`), `twitter`, `canonical` đúng path `/news/slug`.
+- Rà [frontend/src/components/landing/](frontend/src/components/landing/) và `(landing)/`: `next/image`, `alt` mô tả, `priority` hero, `sizes` / `aspect-*`; [frontend/next.config.ts](frontend/next.config.ts) `remotePatterns` nếu ảnh tin từ CDN.
 
-## Phần 3 — SSR/SSG cho nội dung SEO quan trọng
+### 5. Internal linking & breadcrumbs
 
-1. **Trang chủ** [frontend/src/app/(landing)/page.tsx](frontend/src/app/(landing)/page.tsx):  
-   - Refactor theo hướng: **Server Component** làm shell (`<main>`, sections tĩnh, JSON-LD); tách phần cần hook (survey hash, modal) vào một client component nhỏ (`LandingHomeClient.tsx`).  
-   - Copy hero/subtitle cho **locale mặc định** (vi) render server (đọc từ file JSON i18n hoặc duplicate tối thiểu) để H1/p không phụ thuộc hydration; client chỉ đổi ngôn ngữ khi user switch.
-2. **Các section marketing** nặng client: lộ trình từng bước (blog cards có thể server-fetch list 3 bài + pass props xuống client nhẹ).
+- `<a href="/...">` nội bộ → `next/link`.
+- Breadcrumb (UI + JSON-LD) cho `/news/[slug]`, tuỳ chọn `/products/*`.
 
-## Phần 4 — Image, CWV, font
+### 6. SSR shell trang chủ (PR riêng nếu lớn)
 
-1. Rà soát [frontend/src/components/landing/](frontend/src/components/landing/) và `(landing)/`: thay `<img>` (nếu có) bằng `next/image`; hero: `priority`, kích thước/`sizes` cố định; placeholder blur chỉ khi có `blurDataURL` hoặc static import — không bắt buộc mọi ảnh.
-2. **CLS**: các khối media dùng `aspect-*` + width/height đã có thì giữ.
-3. **Font**: đã dùng `next/font` (Geist) trong root layout — ghi chú trong checklist: subset/latin-ext nếu cần tiếng Việt đầy đủ.
+- Tách [frontend/src/app/(landing)/page.tsx](frontend/src/app/(landing)/page.tsx): Server Component bọc `<main>` + JSON-LD; client nhỏ cho survey hash / modal.
+- Hero copy **locale mặc định (vi)** render trên server (đọc từ nguồn i18n tĩnh) để bot thấy H1/p không phụ thuộc hydration.
 
-## Phần 5 — Semantic HTML + heading
+**Cố ý không làm trong Giai đoạn 1:** `robots.ts` / `sitemap.ts` phân nhánh theo **env mới** (tránh UAT vô tình publish sitemap sai hoặc cần env chưa có). Có thể bổ sung sau bằng Phase cuối hoặc — nếu sau này muốn không cần env — cân nhắc `robots.ts` đọc `Host` (chỉ khi team đồng ý vì vẫn là “logic môi trường”).
 
-1. Chuẩn hoá: mỗi trang **một `h1`**; landing home: `h1` trong hero (server sau refactor).  
-2. Thay bọc `div` vô nghĩa bằng `<main>`, `<section>`, `<article>`, `<header>`, `<footer>` trong layout landing và các page tương ứng (header/footer component có thể render `<header>` / `<footer>`).
+---
 
-## Phần 6 — JSON-LD (Schema.org)
+## Giai đoạn cuối — Sau khi có biến môi trường / cấu hình VPS
 
-1. Thêm component ví dụ `frontend/src/components/seo/organization-json-ld.tsx` (server): inject `<script type="application/ld+json">` với **Organization** + **WebSite** (`url: https://lawzy.vn`, `potentialAction` SearchAction nếu có search).  
-2. Trang tin: **Article** / **NewsArticle** + **BreadcrumbList** (đường dẫn Home → News → Bài viết).  
-3. Gắn vào `(landing)/layout.tsx` hoặc từng page để tránh trùng schema.
+*(Giữ nguyên nội dung kỹ thuật đã thống nhất trước đó; chỉ thực hiện khi đã có env trên Prod và UAT.)*
 
-## Phần 7 — Internal linking & breadcrumbs
+1. **README + Dockerfile / VPS:** bảng `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SITE_ENV`, `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING` (hoặc tên team chọn).
+2. **`src/app/robots.ts`:** disallow toàn site khi UAT / `ALLOW_ROBOT_INDEXING=false`; production allow + `Sitemap: https://lawzy.vn/sitemap.xml`.
+3. **`src/app/sitemap.ts`:** URL tuyệt đối production cho route tĩnh + tin từ `fetchNewsList`.
+4. **Root `layout` / `generateMetadata`:** `robots: noindex` khi UAT.
+5. **Tuỳ chọn:** [frontend/src/middleware.ts](frontend/src/middleware.ts) — `Host` chứa `uat.` → header `X-Robots-Tag: noindex, nofollow`.
+6. **Search Console:** gỡ URL UAT, validate robots/sitemap.
 
-1. Rà soát `<a href="/...">` trong landing → `next/link` (đã phần lớn dùng `Link`).  
-2. Breadcrumb UI + JSON-LD cho `/news/[slug]`, `/products/clm`, `/products/lpms` (tuỳ UX).
+---
 
-## Phần 8 — Hậu kiểm (ngoài code)
+## Giai đoạn trì hoãn — Ưu tiên **thấp nhất**: SEO đa ngôn ngữ / quốc tế (chuẩn Google)
 
-- Google Search Console: **Remove URLs** cho `uat.lawzy.vn` (tạm), sau đó **Validate** robots/noindex.  
-- Đảm bảo DNS UAT không trỏ nhầm sang prod và ngược lại.
+> Mục tiêu: người dùng **ngoài VN** / tìm **tiếng Anh** vẫn thấy bản đúng ngôn ngữ; Google hiểu **quan hệ giữa các phiên bản** (không duplicate mù quáng, không chỉ index một bản client).  
+> **Tiền đề:** i18n **chỉ đổi chữ trên client + cùng URL** là **đủ cho UX**, nhưng **không đủ** cho SEO đa ngôn ngữ “đúng chuẩn” nếu chưa có **URL riêng + hreflang + metadata theo URL**.
 
-## Rủi ro / phạm vi
+### Checklist (làm sau các giai đoạn trên)
 
-- Refactor home từ full client sang server shell là **thay đổi kiến trúc** — nên làm theo phase sau khi chặn index UAT đã lên production.  
-- `sitemap.ts` gọi API nhiều trang: cần giới hạn số URL mỗi lần hoặc `revalidate` hợp lý để tránh timeout build.
+1. **Chiến lược URL (bắt buộc chọn một)**
+   - [ ] **Khuyến nghị App Router:** segment locale `app/(landing)/[locale]/...` với `locale ∈ { vi, en }` hoặc nhóm route `app/en/(landing)/...` — mỗi trang marketing có **hai URL thật** (vd. `/pricing` vs `/en/pricing` hoặc `/vi/pricing`).
+   - [ ] Hoặc **subdomain** `en.lawzy.vn` (phức tạp hơn về cookie, Search Console, DNS) — ghi rõ quyết định trong ADR/README.
+
+2. **`hreflang` + `x-default`**
+   - [ ] Trên **mỗi** URL: `metadata.alternates.languages` trỏ đúng cặp `vi` ↔ `en` và **`x-default`** (thường trỏ bản ưu tiên toàn cầu hoặc tiếng Anh — thống nhất một lần).
+   - [ ] Đảm bảo **mỗi URL trong hreflang đều trả 200** và nội dung **đúng ngôn ngữ** (không trỏ EN nhưng HTML vẫn VI).
+
+3. **Metadata & OG theo locale**
+   - [ ] `title`, `description`, `openGraph` (title, description, `locale`), `twitter` — **bản dịch EN** trên route EN (không copy-paste metadata VI).
+   - [ ] Điều chỉnh `og:locale:alternate` nếu dùng song song nhiều locale trên cùng domain.
+
+4. **Nội dung & heading**
+   - [ ] Landing + (sau này) blog: đoạn văn **EN chất lượng** (không chỉ dictionary ngắn).
+   - [ ] Một **`h1`** mỗi URL; không trộn hai ngôn ngữ trong cùng một H1.
+
+5. **Sitemap (sau khi có `sitemap.ts`)**
+   - [ ] Liệt kê **cả hai** (hoặc mọi) locale; tuỳ stack có thể dùng `alternates` trong sitemap hoặc URL entries tách — tránh chỉ submit `/vi` mà quên `/en`.
+
+6. **JSON-LD**
+   - [ ] `inLanguage` trên `WebSite` / `WebPage` / `Article` khớp URL (vd. `en` vs `vi-VN`).
+   - [ ] Tránh inject **hai bản Organization** trùng `@id` khác ngôn ngữ — một graph chung + `WebPage` theo URL là đủ.
+
+7. **Search Console & kiểm thử**
+   - [ ] Property / URL Inspection cho vài URL EN; báo cáo **International** / hreflang errors.
+   - [ ] Thử tìm kiếm từ khóa EN với **VPN / ngôn ngữ giao diện EN** để không chỉ dựa vào kết quả tại VN.
+
+8. **Giữ đồng bộ với i18n hiện tại**
+   - [ ] Locale switcher chuyển sang **`router.push` sang URL locale** thay vì chỉ set state client (sau khi có route locale).
+
+---
+
+## Sơ đồ trình tự (đã cập nhật)
 
 ```mermaid
 flowchart LR
-  subgraph prod [Production VPS]
-    EnvP["SITE_ENV=production\nALLOW_INDEXING=true"]
-    RobotsP["robots.ts allow"]
-    SiteP["sitemap lawzy.vn"]
-    MetaP["metadata index + canonical"]
-  end
-  subgraph uat [UAT VPS]
-    EnvU["SITE_ENV=uat\nALLOW_INDEXING=false"]
-    RobotsU["robots.ts disallow"]
-    MetaU["metadata noindex"]
-    MidU["Optional middleware\nX-Robots-Tag"]
-  end
-  EnvP --> RobotsP --> SiteP
-  EnvU --> RobotsU --> MetaU
-  EnvU --> MidU
+  phase1[Phase1_NoNewEnv]
+  phase1 --> metadata
+  phase1 --> jsonld
+  phase1 --> semantic
+  phase1 --> images
+  phase1 --> links
+  phase1 --> serverShell
+  phaseEnd[PhaseFinal_EnvAndUAT]
+  phaseEnd --> envDocs
+  phaseEnd --> robotsSitemap
+  phaseEnd --> noindex
+  phaseEnd --> gsc
+  phaseEnd --> phaseIntl
+  phaseIntl[PhaseLowest_IntlSEO]
+  phaseIntl --> hreflang
+  phaseIntl --> localeUrls
+  phaseIntl --> sitemapAlt
 ```
+
+---
+
+## Rủi ro còn lại
+
+- Cho đến Phase cuối, **UAT vẫn có thể bị index** nếu Google tiếp tục crawl — đây là trade-off có chủ đích theo yêu cầu “chưa đụng env”.
+- JSON-LD dùng `NEXT_PUBLIC_APP_URL`: trên build UAT hiện tại vẫn có thể trỏ `uat.lawzy.vn` trong schema; khi cần snippet thống nhất “chỉ lawzy.vn”, hoàn tất Phase cuối hoặc hardcode origin schema chỉ cho production build (tùy policy).

@@ -34,9 +34,25 @@ cp .env.local.example .env.local   # Thêm GEMINI_API_KEY
 npm run dev
 ```
 
-**Biến môi trường:** `GEMINI_API_KEY` (bắt buộc cho AI), `NEXT_PUBLIC_APP_URL` (tùy chọn).
+**Biến môi trường:** `GEMINI_API_KEY` (bắt buộc cho AI). Các biến public cho URL và SEO:
+
+| Biến | Production | UAT | Local dev |
+|------|------------|-----|-----------|
+| `NEXT_PUBLIC_APP_URL` | `https://lawzy.vn` | `https://uat.lawzy.vn` | `http://localhost:3000` |
+| `NEXT_PUBLIC_SITE_ENV` | `production` | `uat` | (bỏ trống → `development`) |
+| `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING` | `true` | `false` | (bỏ trống → không index) |
+
+- **`robots.ts` / `sitemap.ts`:** Production cho phép crawl và submit `https://lawzy.vn/sitemap.xml`; UAT `Disallow: /` và sitemap rỗng.
+- **UAT:** Root metadata `noindex` + middleware `X-Robots-Tag` khi `Host` chứa `uat.`.
+
+### Search Console (sau deploy)
+
+1. Property production: thêm sitemap `https://lawzy.vn/sitemap.xml`, kiểm tra URL Inspection vài trang landing.
+2. UAT: Removals hoặc prefix `https://uat.lawzy.vn/` nếu đã lỡ index; xác nhận `https://uat.lawzy.vn/robots.txt` trả `Disallow: /`.
+3. Validate `robots.txt` và vài URL trong sitemap trả 200.
 
 ---
+
 
 ## Tài liệu dự án
 
