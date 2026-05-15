@@ -222,7 +222,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       setUser(data.user)
       await fetchUser()
       clearSession()
-      toast.success("Đăng nhập thành công!")
+      toast.success(t("auth_toast_login_success"))
       onOpenChange(false)
       onSuccess?.()
     } catch {
@@ -249,7 +249,7 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
       setUser(data.user)
       await fetchUser()
       clearSession()
-      toast.success("Đăng nhập thành công!")
+      toast.success(t("auth_toast_login_success"))
       onOpenChange(false)
       onSuccess?.()
     } catch {
@@ -353,11 +353,11 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="otp">Mã OTP</Label>
+                    <Label htmlFor="otp">{t("auth_otp_label")}</Label>
                     <Input
                       id="otp"
                       type="text"
-                      placeholder="Nhập 6 chữ số"
+                      placeholder={t("auth_otp_placeholder")}
                       value={otp}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, "").slice(0, 6)

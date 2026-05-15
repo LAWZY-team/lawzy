@@ -1,3 +1,5 @@
+import type { DocContent, MergeFieldDefinition } from '@/types/template';
+
 export type TemplateScope = 'system' | 'community' | 'internal';
 
 export interface ContractTemplateFile {
@@ -12,6 +14,20 @@ export interface ContractTemplateFile {
   workspaceId?: string | null;
   createdBy?: string | null;
   creatorName?: string | null;
+  mimeType?: string | null;
+  hasStructuredContent?: boolean;
+  processingStatus?: string | null;
+  publishStatus?: string | null;
+}
+
+export interface ContractTemplateStructured {
+  id: string;
+  title: string;
+  description: string | null;
+  scope: Extract<TemplateScope, 'community' | 'internal'>;
+  contentJSON: DocContent;
+  mergeFields: MergeFieldDefinition[];
+  metadata: Record<string, unknown> | null;
 }
 
 export interface ListContractTemplatesResponse {
@@ -140,4 +156,25 @@ export async function saveTemplateToWorkspace(params: {
     mimeType: string;
     s3Key: string;
   };
+}
+
+export async function getStructuredContractTemplate(params: {
+  scope: Extract<TemplateScope, 'community' | 'internal'>;
+  id: string;
+}): Promise<ContractTemplateStructured> {
+  const res = await fetch(
+    getProxyUrl(
+      `/contract-templates/${params.scope}/${encodeURIComponent(params.id)}/structured`,
+    ),
+    {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-store',
+        Accept: 'application/json',
+      },
+    },
+  )
+  if (!res.ok) throw new Error('Failed to load structured template')
+  return (await res.json()) as ContractTemplateStructured
 }

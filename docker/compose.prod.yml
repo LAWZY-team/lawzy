@@ -47,6 +47,8 @@ services:
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}
         NEXT_PUBLIC_APP_URL: https://lawzy.vn
+        NEXT_PUBLIC_SITE_ENV: production
+        NEXT_PUBLIC_ALLOW_ROBOT_INDEXING: "true"
         NEXT_PUBLIC_BACKEND_URL: https://lawzy.vn/api
         BACKEND_URL: http://backend:5000
     container_name: lawzy-frontend-prod

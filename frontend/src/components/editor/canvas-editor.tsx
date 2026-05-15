@@ -7,10 +7,10 @@
  * Nội dung load từ template đã có align/divider; khi cần căn chỉnh trong editor có thể bổ sung
  * extension text-align cho TipTap.
  */
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, Editor } from "@tiptap/react";
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from "zustand/react/shallow";
 import { useEditorStore } from "@/stores/editor-store";
 import { useUserFieldsStore } from "@/stores/user-fields-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
@@ -41,7 +41,16 @@ import {
   AlignJustify,
   Share2,
   FileSearch,
+  List,
+  ListOrdered,
+  Indent,
+  Outdent,
+  ImageIcon,
+  Palette,
+  Loader2,
+  Table as TableIcon,
 } from "lucide-react";
+import { useT } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -65,17 +74,43 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { createPublicShareWithAccessCode } from "@/lib/api/public-shares";
 import { sanitizeEditorHtml, sanitizeHtml } from "@/lib/sanitize";
 import { convertTipTapToMarkdown } from "@/lib/export/tiptap-to-markdown";
+import { useUploadEditorImage } from "@/hooks/editor/use-upload-editor-image";
 
 const CONTRACT_BODY_CLASSES = [
-  "min-h-full p-6 pb-24 text-foreground",
+  "min-h-full p-8 pb-32 text-foreground max-w-[850px] mx-auto",
   "[&_.ProseMirror]:min-h-[calc(100%-48px)] [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-foreground",
-  "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-2 [&_h1]:first:mt-0",
-  "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2",
-  "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1",
-  "[&_p]:text-[15px] [&_p]:leading-relaxed [&_p]:mb-3",
+  "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:first:mt-0 [&_h1]:text-center",
+  "[&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3",
+  "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2",
+  "[&_p]:text-[15px] [&_p]:leading-relaxed [&_p]:mb-4 [&_p]:text-justify",
+  "[&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4",
+  "[&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4",
+  "[&_li]:mb-1",
   "[&_.ProseMirror]:font-['Times_New_Roman',_serif]",
   "[&_.merge-field]:inline-flex [&_.merge-field]:align-baseline",
+  "[&_[data-indent='1']]:pl-8",
+  "[&_[data-indent='2']]:pl-16",
+  "[&_[data-indent='3']]:pl-24",
+  "[&_[data-indent='4']]:pl-32",
+  "[&_[data-indent='5']]:pl-40",
 ].join(" ");
+
+const PAGE_HEIGHT_PX = 1122;
+const PAGE_HEADER_HEIGHT_PX = 110;
+const PAGE_FOOTER_HEIGHT_PX = 90;
+
+const TEXT_COLORS = [
+  "#111827",
+  "#374151",
+  "#6B7280",
+  "#EF4444",
+  "#F97316",
+  "#EAB308",
+  "#22C55E",
+  "#06B6D4",
+  "#3B82F6",
+  "#8B5CF6",
+] as const;
 
 const getPublicAppBaseUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -102,6 +137,8 @@ interface CanvasEditorProps {
   onToggleTools?: () => void;
   /** Gọi khi chọn "Lưu bản nháp" trong menu */
   onSave?: () => void;
+  /** Document ID for seamless transitions */
+  documentId?: string | null;
 }
 
 export function CanvasEditor({
@@ -114,26 +151,37 @@ export function CanvasEditor({
   onToggleTools,
   onSave,
   onChangeTitle,
+  documentId: propDocumentId,
 }: CanvasEditorProps) {
+  const { t } = useT();
   const [docTitle, setDocTitle] = useState(title);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadEditorImageMutation = useUploadEditorImage();
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id) ?? "";
   const params = useParams();
   const documentId =
-    params && typeof (params as { id?: unknown }).id === "string"
+    propDocumentId ||
+    (params && typeof (params as { id?: unknown }).id === "string"
       ? String((params as { id?: unknown }).id)
-      : "";
+      : "");
 
   useEffect(() => {
     if (title && title !== docTitle) {
       setDocTitle(title);
     }
   }, [title, docTitle]);
-  
+
   // Track ONLY the keys of merge fields to build the toggle list, preventing re-renders on every keystroke
   // `useShallow` prevents the infinite loop from returning a new Array reference on every check
-  const mergeFieldKeys = useEditorStore(useShallow((state: { mergeFieldValues: Record<string, string> }) => Object.keys(state.mergeFieldValues)));
-  const templateMergeFields = useEditorStore((state) => state.templateMergeFields);
+  const mergeFieldKeys = useEditorStore(
+    useShallow((state: { mergeFieldValues: Record<string, string> }) =>
+      Object.keys(state.mergeFieldValues),
+    ),
+  );
+  const templateMergeFields = useEditorStore(
+    (state) => state.templateMergeFields,
+  );
   const {
     customFields,
     hiddenFieldKeys,
@@ -147,6 +195,11 @@ export function CanvasEditor({
   const [shareLoading, setShareLoading] = useState(false);
   const [shareRecipientEmail, setShareRecipientEmail] = useState<string>("");
   const [shareAccessCode, setShareAccessCode] = useState<string | null>(null);
+  const [tableContextMenu, setTableContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const tableContextMenuRef = useRef<HTMLDivElement | null>(null);
 
   const fieldsForToggles = useMemo(() => {
     // Only re-check lists when the keys change or custom/template fields are added
@@ -178,34 +231,148 @@ export function CanvasEditor({
   const fontFamilyLabel =
     (currentFontFamily && currentFontFamily.length > 0
       ? currentFontFamily
-      : undefined) ?? "Font";
+      : undefined) ?? t("editor_font_default");
   const fontSizeLabel =
     (currentFontSize && currentFontSize.length > 0
       ? currentFontSize
-      : undefined) ?? "Cỡ chữ";
+      : undefined) ?? t("editor_font_size");
+  const currentTextColor = editor?.getAttributes("textStyle")?.color as
+    | string
+    | undefined;
+
+  const executeInsertImage = useCallback(
+    async (file: File) => {
+      if (!editor) return;
+      if (!workspaceId) {
+        toast.error(t("editor_image_workspace_required"));
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        toast.error(t("editor_image_type_error"));
+        return;
+      }
+      try {
+        const uploadResult = await uploadEditorImageMutation.mutateAsync({
+          file,
+          workspaceId,
+        });
+        const imageSource = `/api/proxy/files/${uploadResult.id}/download`;
+        editor.chain().focus().setImage({ src: imageSource }).run();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : t("editor_image_upload_failed");
+        toast.error(errorMessage);
+      }
+    },
+    [editor, uploadEditorImageMutation, workspaceId],
+  );
+
+  const handlePickImage = useCallback(() => {
+    imageInputRef.current?.click();
+  }, []);
+
+  const handleImageInputChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = event.target.files?.[0];
+      if (!selectedFile) return;
+      await executeInsertImage(selectedFile);
+      event.target.value = "";
+    },
+    [executeInsertImage],
+  );
+
+  const closeTableContextMenu = useCallback(() => {
+    setTableContextMenu(null);
+  }, []);
+
+  const runTableCommand = useCallback(
+    (command: () => boolean) => {
+      const ok = command();
+      if (!ok) {
+        toast.info(t("editor_table_menu"));
+      }
+      closeTableContextMenu();
+    },
+    [closeTableContextMenu, t],
+  );
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !editor.view) return;
+    const dom = editor.view.dom;
+
+    const handleContextMenu = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const inTableCell = target.closest("td,th");
+      if (!inTableCell || !dom.contains(inTableCell)) {
+        closeTableContextMenu();
+        return;
+      }
+      event.preventDefault();
+      const coords = editor.view.posAtCoords({
+        left: event.clientX,
+        top: event.clientY,
+      });
+      if (coords?.pos !== undefined) {
+        editor.chain().focus().setTextSelection(coords.pos).run();
+      }
+      setTableContextMenu({ x: event.clientX, y: event.clientY });
+    };
+
+    dom.addEventListener("contextmenu", handleContextMenu);
+    return () => dom.removeEventListener("contextmenu", handleContextMenu);
+  }, [closeTableContextMenu, editor]);
+
+  useEffect(() => {
+    if (!tableContextMenu) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (tableContextMenuRef.current?.contains(target)) return;
+      closeTableContextMenu();
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeTableContextMenu();
+    };
+    const handleViewportChange = () => closeTableContextMenu();
+
+    window.addEventListener("mousedown", handlePointerDown, true);
+    window.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [closeTableContextMenu, tableContextMenu]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !editor.view) return;
     const handleEditorClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       // Find the closest ancestor or the target itself that has data-field-key
-      const fieldEl = target.closest('[data-field-key]');
+      const fieldEl = target.closest("[data-field-key]");
       if (fieldEl) {
-        const fieldKey = fieldEl.getAttribute('data-field-key');
+        const fieldKey = fieldEl.getAttribute("data-field-key");
         if (fieldKey) {
           // Dispatch a custom event to focus the field in the RightPanel
           if (!toolsPanelOpen && onToggleTools) {
             // Defer the state update to avoid interfering with TipTap's native event loop
             setTimeout(() => onToggleTools(), 0);
           }
-          window.dispatchEvent(new CustomEvent('lawzy:focus-field', { detail: { fieldKey } }));
+          window.dispatchEvent(
+            new CustomEvent("lawzy:focus-field", { detail: { fieldKey } }),
+          );
         }
       }
     };
-    
+
     const dom = editor.view.dom;
-    dom.addEventListener('click', handleEditorClick);
-    return () => dom.removeEventListener('click', handleEditorClick);
+    dom.addEventListener("click", handleEditorClick);
+    return () => dom.removeEventListener("click", handleEditorClick);
   }, [editor, toolsPanelOpen, onToggleTools]);
 
   // Sync canvas view when a field is focused from the RightPanel (e.g., via Enter key)
@@ -219,20 +386,30 @@ export function CanvasEditor({
       // Find the element in the editor DOM
       const dom = editor.view.dom;
       const fieldEl = dom.querySelector(`[data-field-key="${fieldKey}"]`);
-      
+
       if (fieldEl) {
-        fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+        fieldEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
         // Add a temporary highlight effect (styled to match common UI patterns)
-        fieldEl.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'transition-all', 'duration-300');
+        fieldEl.classList.add(
+          "ring-2",
+          "ring-blue-500",
+          "ring-offset-2",
+          "transition-all",
+          "duration-300",
+        );
         setTimeout(() => {
-          fieldEl.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+          fieldEl.classList.remove("ring-2", "ring-blue-500", "ring-offset-2");
         }, 1500);
       }
     };
 
-    window.addEventListener('lawzy:canvas-show-field', handleCanvasShowField);
-    return () => window.removeEventListener('lawzy:canvas-show-field', handleCanvasShowField);
+    window.addEventListener("lawzy:canvas-show-field", handleCanvasShowField);
+    return () =>
+      window.removeEventListener(
+        "lawzy:canvas-show-field",
+        handleCanvasShowField,
+      );
   }, [editor]);
 
   if (!editor) return null;
@@ -282,9 +459,11 @@ export function CanvasEditor({
         const attrs = (node as { attrs?: { fieldKey?: string } }).attrs;
         const fieldKey = attrs?.fieldKey;
         const isHidden = fieldKey ? hiddenFieldKeys.includes(fieldKey) : false;
-        
+
         // Lookup dynamic value without reactive binding
-        const value = fieldKey ? useEditorStore.getState().mergeFieldValues[fieldKey] : undefined;
+        const value = fieldKey
+          ? useEditorStore.getState().mergeFieldValues[fieldKey]
+          : undefined;
 
         if (isHidden) {
           return { type: "text", text: "\u00A0" };
@@ -309,14 +488,23 @@ export function CanvasEditor({
       return node;
     };
 
-    let finalContent = (json.content ?? []).map((node) => transformNode(node as JSONContent));
-    
+    let finalContent = (json.content ?? []).map((node) =>
+      transformNode(node as JSONContent),
+    );
+
     if (excludeFirstHeading && finalContent.length > 0) {
       // Find the first heading level 1 and skip it
-      if (finalContent[0].type === "heading" && finalContent[0].attrs?.level === 1) {
+      if (
+        finalContent[0].type === "heading" &&
+        finalContent[0].attrs?.level === 1
+      ) {
         finalContent = finalContent.slice(1);
         // Also skip empty paragraph immediately after title if exists
-        if (finalContent.length > 0 && finalContent[0].type === "paragraph" && (!finalContent[0].content || finalContent[0].content.length === 0)) {
+        if (
+          finalContent.length > 0 &&
+          finalContent[0].type === "paragraph" &&
+          (!finalContent[0].content || finalContent[0].content.length === 0)
+        ) {
           finalContent = finalContent.slice(1);
         }
       }
@@ -338,8 +526,16 @@ export function CanvasEditor({
     }
     printWindow.document.write(`
       <!DOCTYPE html><html><head><meta charset="utf-8"><title>${docTitle || "Hợp đồng"}</title>
-      <style>body{font-family:system-ui,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
-      h1{font-size:1.5rem;margin:0.5em 0}h2{font-size:1.25rem;margin:0.5em 0}p{margin:0.4em 0}</style></head>
+      <style>
+        body{font-family:system-ui,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
+        h1{font-size:1.5rem;margin:0.5em 0}h2{font-size:1.25rem;margin:0.5em 0}p{margin:0.4em 0}
+        ul,ol{padding-left:20px;margin-bottom:10px}
+        [data-indent="1"]{padding-left:30px}
+        [data-indent="2"]{padding-left:60px}
+        [data-indent="3"]{padding-left:90px}
+        [data-indent="4"]{padding-left:120px}
+        [data-indent="5"]{padding-left:150px}
+      </style></head>
       <body>${html}</body></html>`);
     printWindow.document.close();
     printWindow.focus();
@@ -351,7 +547,7 @@ export function CanvasEditor({
     if (!editor) return;
 
     try {
-      const exportContent = getFinalExportContent(true);
+      const exportContent = getFinalExportContent(false);
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -371,13 +567,22 @@ export function CanvasEditor({
       try {
         if (workspaceId) {
           const form = new FormData();
-          form.append("file", new File([blob], `${docTitle || "Hợp đồng"}.docx`, { type: blob.type }));
+          form.append(
+            "file",
+            new File([blob], `${docTitle || "Hợp đồng"}.docx`, {
+              type: blob.type,
+            }),
+          );
           form.append("workspaceId", workspaceId);
           if (documentId) form.append("documentId", documentId);
           await api.upload("/files/upload-export", form);
           queryClient.invalidateQueries({ queryKey: ["files"] });
-          queryClient.invalidateQueries({ queryKey: ["files", "storage", workspaceId] });
-          queryClient.invalidateQueries({ queryKey: ["dashboard", "quota", workspaceId] });
+          queryClient.invalidateQueries({
+            queryKey: ["files", "storage", workspaceId],
+          });
+          queryClient.invalidateQueries({
+            queryKey: ["dashboard", "quota", workspaceId],
+          });
         }
       } catch (e) {
         console.error("Persist export failed", e);
@@ -391,19 +596,18 @@ export function CanvasEditor({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
-      toast.error("Xuất Word thất bại");
+      toast.error(t("editor_export_word_failed"));
     }
   };
-
 
   const handleCopyContent = async () => {
     if (!editor) return;
     const text = editor.getText();
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Đã sao chép nội dung");
+      toast.success(t("editor_copy_content_success"));
     } catch {
-      toast.error("Không thể sao chép");
+      toast.error(t("editor_copy_content_failed"));
     }
   };
 
@@ -413,16 +617,16 @@ export function CanvasEditor({
       const exportContent = getFinalExportContent(false);
       const md = convertTipTapToMarkdown(exportContent);
       await navigator.clipboard.writeText(md);
-      toast.success("Đã sao chép Markdown");
+      toast.success(t("editor_copy_markdown_success"));
     } catch {
-      toast.error("Không thể sao chép Markdown");
+      toast.error(t("editor_copy_markdown_failed"));
     }
   };
 
   const handleOpenGoogleDocs = async () => {
     if (!editor) return;
     try {
-      const exportContent = getFinalExportContent(true);
+      const exportContent = getFinalExportContent(false);
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -440,11 +644,14 @@ export function CanvasEditor({
       formData.append("file", file);
       const uploadRes = await fetch(
         "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&convert=true",
-        { method: "POST", body: formData }
+        { method: "POST", body: formData },
       ).catch(() => null);
       if (uploadRes?.ok) {
         const data = await uploadRes.json();
-        window.open(`https://docs.google.com/document/d/${data.id}/edit`, "_blank");
+        window.open(
+          `https://docs.google.com/document/d/${data.id}/edit`,
+          "_blank",
+        );
       } else {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -452,7 +659,9 @@ export function CanvasEditor({
         link.download = `${docTitle || "Hợp đồng"}.docx`;
         link.click();
         URL.revokeObjectURL(url);
-        toast.success("Đã tải file DOCX — mở bằng Google Docs để chỉnh sửa tiếp");
+        toast.success(
+          "Đã tải file DOCX — mở bằng Google Docs để chỉnh sửa tiếp",
+        );
       }
     } catch {
       toast.error("Không thể xuất Google Docs");
@@ -467,7 +676,7 @@ export function CanvasEditor({
 
       const email = shareRecipientEmail.trim();
       if (!email) {
-        toast.error("Vui lòng nhập email người nhận trước khi tạo link");
+        toast.error(t("editor_share_email_required"));
         return;
       }
 
@@ -480,10 +689,10 @@ export function CanvasEditor({
       const url = `${baseUrl}/share/${data.token}`;
       setShareUrl(url);
       setShareAccessCode(data.accessCode);
-      toast.success("Đã tạo link chia sẻ");
+      toast.success(t("editor_share_success"));
     } catch (e) {
       console.error(e);
-      toast.error("Không tạo được link chia sẻ");
+      toast.error(t("editor_share_failed"));
     } finally {
       setShareLoading(false);
     }
@@ -493,9 +702,9 @@ export function CanvasEditor({
     if (!shareUrl) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Đã sao chép link");
+      toast.success(t("editor_share_copy_success"));
     } catch {
-      toast.error("Không thể sao chép link");
+      toast.error(t("editor_share_copy_failed"));
     }
   };
 
@@ -503,14 +712,14 @@ export function CanvasEditor({
     <div className="flex flex-col h-full bg-background text-foreground rounded-3xl overflow-hidden border border-border my-2 mr-2">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background z-20 sticky top-0">
-        <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <input
             value={docTitle}
             onChange={(e) => {
               setDocTitle(e.target.value);
               onChangeTitle?.(e.target.value);
             }}
-            className="bg-transparent border-none outline-none font-medium text-sm text-foreground truncate w-[200px] hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+            className="min-w-0 w-full max-w-md bg-transparent border-none outline-none font-medium text-sm text-foreground truncate hover:bg-muted/50 px-2 py-1 rounded transition-colors"
           />
         </div>
 
@@ -523,7 +732,9 @@ export function CanvasEditor({
               className="text-foreground hover:bg-accent gap-2 h-8 px-3 rounded-full mr-2"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span className="text-xs font-medium">Kiểm tra</span>
+              <span className="text-xs font-medium">
+                {t("editor_btn_check")}
+              </span>
             </Button>
           )}
 
@@ -533,7 +744,7 @@ export function CanvasEditor({
               size="icon"
               onClick={onSave}
               className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-              title="Lưu bản nháp"
+              title={t("editor_btn_save_draft")}
             >
               <Save className="w-4 h-4" />
             </Button>
@@ -545,7 +756,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Xuất văn bản"
+                title={t("editor_btn_export")}
               >
                 <Download className="w-4 h-4" />
               </Button>
@@ -570,20 +781,22 @@ export function CanvasEditor({
                 onClick={handleExportWord}
                 className="hover:bg-accent cursor-pointer"
               >
-                <FileText className="w-4 h-4 mr-2" /> Xuất Word (.docx)
+                <FileText className="w-4 h-4 mr-2" />{" "}
+                {t("editor_btn_export_word")}
               </DropdownMenuItem>
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={handleOpenGoogleDocs}
                 className="hover:bg-accent cursor-pointer"
               >
                 <FileText className="w-4 h-4 mr-2" /> Mở trong Google Docs
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleCopyMarkdown}
                 className="hover:bg-accent cursor-pointer"
               >
-                <Copy className="w-4 h-4 mr-2" /> Sao chép Markdown
+                <Copy className="w-4 h-4 mr-2" />{" "}
+                {t("editor_btn_copy_markdown")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -592,7 +805,7 @@ export function CanvasEditor({
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-            title="Xem bản hoàn thiện"
+            title={t("editor_btn_preview")}
             onClick={() => setPreviewOpen(true)}
           >
             <FileSearch className="w-4 h-4" />
@@ -602,7 +815,7 @@ export function CanvasEditor({
             variant="ghost"
             size="icon"
             className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-            title="Chia sẻ link công khai (chỉ xem)"
+            title={t("editor_btn_share")}
             onClick={() => {
               setShareOpen(true);
               setShareUrl(null);
@@ -617,7 +830,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Ẩn/hiện trường dữ liệu"
+                title={t("editor_btn_toggle_fields")}
               >
                 {hiddenFieldKeys.length > 0 ? (
                   <EyeOff className="w-4 h-4" />
@@ -631,24 +844,24 @@ export function CanvasEditor({
               className="bg-popover border-border text-popover-foreground w-[280px]"
             >
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Ẩn/hiện thông tin trường
+                {t("editor_menu_fields_visibility")}
               </DropdownMenuLabel>
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer text-sm"
                 onClick={() => hideAll(fieldsForToggles.map((f) => f.key))}
               >
-                <EyeOff className="w-4 h-4 mr-2" /> Ẩn tất cả
+                <EyeOff className="w-4 h-4 mr-2" /> {t("editor_menu_hide_all")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer text-sm"
                 onClick={() => showAll()}
               >
-                <Eye className="w-4 h-4 mr-2" /> Hiện tất cả
+                <Eye className="w-4 h-4 mr-2" /> {t("editor_menu_show_all")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border" />
               {fieldsForToggles.length === 0 ? (
                 <DropdownMenuItem className="text-muted-foreground" disabled>
-                  Chưa có trường dữ liệu
+                  {t("editor_menu_no_fields")}
                 </DropdownMenuItem>
               ) : (
                 fieldsForToggles.map((f) => (
@@ -672,7 +885,7 @@ export function CanvasEditor({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-full"
-                title="Thêm"
+                title={t("editor_btn_more")}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
@@ -685,14 +898,14 @@ export function CanvasEditor({
                 onClick={handleCopyContent}
                 className="hover:bg-accent cursor-pointer"
               >
-                <Copy className="w-4 h-4 mr-2" /> Sao chép nội dung
+                <Copy className="w-4 h-4 mr-2" /> {t("editor_btn_copy_content")}
               </DropdownMenuItem>
               {/* <DropdownMenuSeparator className="bg-border" /> */}
               <DropdownMenuItem
                 className="hover:bg-accent cursor-pointer"
                 onClick={() => toast.info("Trợ giúp: Liên hệ contact@lawzy.vn")}
               >
-                <HelpCircle className="w-4 h-4 mr-2" /> Trợ giúp
+                <HelpCircle className="w-4 h-4 mr-2" /> {t("editor_btn_help")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -705,9 +918,13 @@ export function CanvasEditor({
                 "h-8 w-8 rounded-full",
                 toolsPanelOpen
                   ? "text-foreground bg-accent"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent",
               )}
-              title={toolsPanelOpen ? "Đóng công cụ" : "Mở công cụ"}
+              title={
+                toolsPanelOpen
+                  ? t("editor_panel_close")
+                  : t("editor_panel_open")
+              }
             >
               {toolsPanelOpen ? (
                 <PanelRightClose className="w-4 h-4" />
@@ -720,15 +937,32 @@ export function CanvasEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="px-4 py-2 border-b border-border bg-background flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div
+        className="px-4 py-2 border-b border-border bg-background flex items-center flex-nowrap gap-1 overflow-x-auto min-w-0 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/40"
+        onWheel={(e) => {
+          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            e.currentTarget.scrollLeft += e.deltaY;
+            e.preventDefault();
+          }
+        }}
+      >
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          className="hidden"
+          onChange={handleImageInputChange}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
-              <span className="text-xs">Kiểu văn bản</span>
+              <span className="text-xs">
+                {t("editor_text_style") || "Kiểu văn bản"}
+              </span>
               <ChevronDown className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
@@ -737,7 +971,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().setParagraph().run()}
               className="hover:bg-accent"
             >
-              Văn bản thường
+              {t("editor_paragraph") || "Văn bản thường"}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -745,7 +979,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 1
+              {t("editor_heading_1") || "Tiêu đề 1"}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -753,7 +987,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 2
+              {t("editor_heading_2") || "Tiêu đề 2"}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
@@ -761,7 +995,7 @@ export function CanvasEditor({
               }
               className="hover:bg-accent"
             >
-              Tiêu đề 3
+              {t("editor_heading_3") || "Tiêu đề 3"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -771,7 +1005,7 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
               <span className="text-xs truncate max-w-[120px]">
                 {fontFamilyLabel}
@@ -784,7 +1018,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().unsetFontFamily().run()}
               className="hover:bg-accent"
             >
-              Mặc định
+              {t("editor_font_default")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             {["Times New Roman", "Arial", "Inter", "Courier New"].map((ff) => (
@@ -804,7 +1038,7 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
+              className="h-8 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
             >
               <span className="text-xs">{fontSizeLabel}</span>
               <ChevronDown className="w-3 h-3" />
@@ -815,7 +1049,7 @@ export function CanvasEditor({
               onClick={() => editor.chain().focus().unsetFontSize().run()}
               className="hover:bg-accent"
             >
-              Mặc định
+              {t("editor_font_default")}
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             {[
@@ -846,6 +1080,46 @@ export function CanvasEditor({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+              title={t("editor_text_color")}
+            >
+              <Palette className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground w-52">
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().unsetColor().run()}
+              className="hover:bg-accent"
+            >
+              {t("editor_text_color_default")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <div className="grid grid-cols-5 gap-2 px-2 py-2">
+              {TEXT_COLORS.map((colorHex) => (
+                <button
+                  key={colorHex}
+                  type="button"
+                  className={cn(
+                    "h-6 w-6 rounded-full border border-border transition-transform hover:scale-105",
+                    currentTextColor === colorHex &&
+                      "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  )}
+                  style={{ backgroundColor: colorHex }}
+                  onClick={() =>
+                    editor.chain().focus().setColor(colorHex).run()
+                  }
+                  title={colorHex}
+                />
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <div className="h-4 w-px bg-border mx-2"></div>
 
         <DropdownMenu>
@@ -853,8 +1127,8 @@ export function CanvasEditor({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent"
-              title="Căn chỉnh"
+              className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+              title={t("editor_align_left") || "Căn chỉnh"}
             >
               {editor.isActive({ textAlign: "center" }) ? (
                 <AlignCenter className="w-4 h-4" />
@@ -872,48 +1146,63 @@ export function CanvasEditor({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("left").run()
+                }
                 className={cn(
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-                  (editor.isActive({ textAlign: "left" }) || (!editor.isActive({ textAlign: "center" }) && !editor.isActive({ textAlign: "right" }) && !editor.isActive({ textAlign: "justify" }))) && "bg-accent text-foreground"
+                  (editor.isActive({ textAlign: "left" }) ||
+                    (!editor.isActive({ textAlign: "center" }) &&
+                      !editor.isActive({ textAlign: "right" }) &&
+                      !editor.isActive({ textAlign: "justify" }))) &&
+                    "bg-accent text-foreground",
                 )}
-                title="Căn trái"
+                title={t("editor_align_left")}
               >
                 <AlignLeft className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("center").run()
+                }
                 className={cn(
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-                  editor.isActive({ textAlign: "center" }) && "bg-accent text-foreground"
+                  editor.isActive({ textAlign: "center" }) &&
+                    "bg-accent text-foreground",
                 )}
-                title="Căn giữa"
+                title={t("editor_align_center")}
               >
                 <AlignCenter className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("right").run()
+                }
                 className={cn(
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-                  editor.isActive({ textAlign: "right" }) && "bg-accent text-foreground"
+                  editor.isActive({ textAlign: "right" }) &&
+                    "bg-accent text-foreground",
                 )}
-                title="Căn phải"
+                title={t("editor_align_right")}
               >
                 <AlignRight className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("justify").run()
+                }
                 className={cn(
                   "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
-                  editor.isActive({ textAlign: "justify" }) && "bg-accent text-foreground"
+                  editor.isActive({ textAlign: "justify" }) &&
+                    "bg-accent text-foreground",
                 )}
-                title="Căn đều"
+                title={t("editor_align_justify")}
               >
                 <AlignJustify className="w-4 h-4" />
               </Button>
@@ -926,10 +1215,10 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("bold") && "bg-accent text-foreground",
           )}
-          title="In đậm"
+          title={t("editor_bold")}
         >
           <Bold className="w-4 h-4" />
         </Button>
@@ -939,10 +1228,10 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("italic") && "bg-accent text-foreground",
           )}
-          title="In nghiêng"
+          title={t("editor_italic")}
         >
           <Italic className="w-4 h-4" />
         </Button>
@@ -952,25 +1241,137 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("underline") && "bg-accent text-foreground",
           )}
-          title="Gạch chân"
+          title={t("editor_underline")}
         >
           <UnderlineIcon className="w-4 h-4" />
         </Button>
 
-        <div className="h-4 w-px bg-border mx-2"></div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePickImage}
+          disabled={uploadEditorImageMutation.isPending}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0 disabled:opacity-30"
+          title={t("editor_insert_image")}
+        >
+          {uploadEditorImageMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ImageIcon className="w-4 h-4" />
+          )}
+        </Button>
 
-        {/* <Button
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
+                editor.isActive("table") && "bg-accent text-foreground",
+              )}
+              title={t("editor_table_menu")}
+            >
+              <TableIcon className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-popover border-border text-popover-foreground w-56">
+            <DropdownMenuItem
+              onClick={() =>
+                editor
+                  .chain()
+                  .focus()
+                  .insertTable({ rows: 3, cols: 3, withHeaderRow: false })
+                  .run()
+              }
+              className="hover:bg-accent"
+            >
+              {t("editor_table_insert")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              disabled={!editor.can().addRowBefore()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_row_before")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              disabled={!editor.can().addRowAfter()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_row_after")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              disabled={!editor.can().deleteRow()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_delete_row")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              disabled={!editor.can().addColumnBefore()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_column_before")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              disabled={!editor.can().addColumnAfter()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_add_column_after")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              disabled={!editor.can().deleteColumn()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_delete_column")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().mergeCells().run()}
+              disabled={!editor.can().mergeCells()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_merge_cells")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().splitCell().run()}
+              disabled={!editor.can().splitCell()}
+              className="hover:bg-accent"
+            >
+              {t("editor_table_split_cell")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              disabled={!editor.can().deleteTable()}
+              className="hover:bg-accent text-destructive focus:text-destructive"
+            >
+              {t("editor_table_delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="h-4 w-px bg-border mx-2 shrink-0"></div>
+
+        <Button
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("bulletList") && "bg-accent text-foreground",
           )}
-          title="Danh sách"
+          title={t("editor_bullet_list")}
         >
           <List className="w-4 h-4" />
         </Button>
@@ -980,23 +1381,43 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={cn(
-            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent",
+            "h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0",
             editor.isActive("orderedList") && "bg-accent text-foreground",
           )}
-          title="Danh sách số"
+          title={t("editor_ordered_list")}
         >
           <ListOrdered className="w-4 h-4" />
-        </Button> */}
+        </Button>
 
-        <div className="flex-1"></div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().indent().run()}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+          title={t("editor_indent_increase")}
+        >
+          <Indent className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => editor.chain().focus().outdent().run()}
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent shrink-0"
+          title={t("editor_indent_decrease")}
+        >
+          <Outdent className="w-4 h-4" />
+        </Button>
+
+        <div className="h-4 w-px bg-border mx-2 shrink-0"></div>
 
         <Button
           variant="ghost"
           size="icon"
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
-          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
-          title="Hoàn tác"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 shrink-0"
+          title={t("editor_undo")}
         >
           <Undo className="w-4 h-4" />
         </Button>
@@ -1006,27 +1427,139 @@ export function CanvasEditor({
           size="icon"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
-          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30"
-          title="Làm lại"
+          className="h-8 w-8 rounded text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 shrink-0"
+          title={t("editor_redo")}
         >
           <Redo className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Editor Body — cấu trúc văn bản: heading, paragraph, căn giữa/trái */}
-      <div className="flex-1 overflow-auto relative bg-background">
-        <EditorContent editor={editor} className={cn(CONTRACT_BODY_CLASSES)} />
+      {/* Editor Body — full width của cột; nội dung dùng hết chiều ngang trên màn hình lớn */}
+      <div className="flex-1 overflow-auto relative bg-muted/20">
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            backgroundSize: `100% ${PAGE_HEIGHT_PX}px`,
+            backgroundImage: `linear-gradient(
+              to bottom,
+              transparent ${PAGE_HEADER_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEADER_HEIGHT_PX}px,
+              transparent ${PAGE_HEADER_HEIGHT_PX + 1}px,
+              transparent ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX}px,
+              transparent ${PAGE_HEIGHT_PX - PAGE_FOOTER_HEIGHT_PX + 1}px,
+              transparent ${PAGE_HEIGHT_PX - 1}px,
+              hsl(var(--border)) ${PAGE_HEIGHT_PX}px
+            )`,
+          }}
+        />
+        <div className="relative w-full max-w-[min(100%,96rem)] mx-auto min-h-full [&_.tiptap]:max-w-none [&_.tiptap]:w-full [&_.ProseMirror]:max-w-none [&_.ProseMirror]:w-full">
+          <div className="pointer-events-none absolute right-6 top-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Header
+          </div>
+          <div className="pointer-events-none absolute right-6 bottom-3 z-10 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            Footer
+          </div>
+          <EditorContent
+            editor={editor}
+            className={cn(CONTRACT_BODY_CLASSES, "relative z-10")}
+          />
+        </div>
       </div>
+
+      {tableContextMenu && (
+        <div
+          ref={tableContextMenuRef}
+          className="fixed z-[120] min-w-[220px] rounded-md border border-border bg-popover p-1 shadow-lg"
+          style={{
+            left: Math.max(8, Math.min(tableContextMenu.x, window.innerWidth - 228)),
+            top: Math.max(8, Math.min(tableContextMenu.y, window.innerHeight - 280)),
+          }}
+        >
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().addRowBefore().run())}
+            disabled={!editor.can().addRowBefore()}
+          >
+            {t("editor_table_add_row_before")}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().addRowAfter().run())}
+            disabled={!editor.can().addRowAfter()}
+          >
+            {t("editor_table_add_row_after")}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().deleteRow().run())}
+            disabled={!editor.can().deleteRow()}
+          >
+            {t("editor_table_delete_row")}
+          </button>
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().addColumnBefore().run())}
+            disabled={!editor.can().addColumnBefore()}
+          >
+            {t("editor_table_add_column_before")}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().addColumnAfter().run())}
+            disabled={!editor.can().addColumnAfter()}
+          >
+            {t("editor_table_add_column_after")}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().deleteColumn().run())}
+            disabled={!editor.can().deleteColumn()}
+          >
+            {t("editor_table_delete_column")}
+          </button>
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().mergeCells().run())}
+            disabled={!editor.can().mergeCells()}
+          >
+            {t("editor_table_merge_cells")}
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().splitCell().run())}
+            disabled={!editor.can().splitCell()}
+          >
+            {t("editor_table_split_cell")}
+          </button>
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm text-destructive hover:bg-accent"
+            onClick={() => runTableCommand(() => editor.chain().focus().deleteTable().run())}
+            disabled={!editor.can().deleteTable()}
+          >
+            {t("editor_table_delete")}
+          </button>
+        </div>
+      )}
 
       {/* Preview dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Xem bản hoàn thiện</DialogTitle>
-            <DialogDescription>
-              Bản xem trước (read-only) với dữ liệu đã được trộn và áp dụng quy
-              tắc ẩn/hiện.
-            </DialogDescription>
+            <DialogTitle>{t("editor_preview_title")}</DialogTitle>
+            <DialogDescription>{t("editor_preview_desc")}</DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pr-4">
             <div
@@ -1041,15 +1574,14 @@ export function CanvasEditor({
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Chia sẻ link công khai</DialogTitle>
-            <DialogDescription>
-              Tạo link snapshot chỉ đọc. Người nhận không cần đăng nhập và chỉ
-              có thể xem. Nhập email người nhận để hệ thống gửi mã truy cập.
-            </DialogDescription>
+            <DialogTitle>{t("editor_share_title")}</DialogTitle>
+            <DialogDescription>{t("editor_share_desc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Email người nhận</label>
+              <label className="text-sm font-medium">
+                {t("editor_share_recipient_email")}
+              </label>
               <input
                 type="email"
                 value={shareRecipientEmail}
@@ -1063,11 +1595,15 @@ export function CanvasEditor({
               onClick={handleCreateShareLink}
               disabled={shareLoading}
             >
-              {shareLoading ? "Đang tạo link..." : "Tạo link"}
+              {shareLoading
+                ? t("editor_share_creating")
+                : t("editor_share_create_btn")}
             </Button>
             {shareUrl && (
               <div className="space-y-2">
-                <div className="text-sm font-medium">Link chia sẻ</div>
+                <div className="text-sm font-medium">
+                  {t("editor_share_link_label")}
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     value={shareUrl}
@@ -1079,13 +1615,13 @@ export function CanvasEditor({
                     variant="outline"
                     onClick={handleCopyShareLink}
                   >
-                    Sao chép
+                    {t("editor_share_copy_btn")}
                   </Button>
                 </div>
                 {shareAccessCode && (
                   <div className="space-y-1">
                     <div className="text-sm font-medium">
-                      Mã truy cập (mã hợp đồng)
+                      {t("editor_share_access_code_label")}
                     </div>
                     <input
                       value={shareAccessCode}
@@ -1093,8 +1629,7 @@ export function CanvasEditor({
                       className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm font-mono tracking-[0.3em]"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mã này cũng đã được gửi tới email người nhận. Người nhận
-                      cần nhập email và mã này để yêu cầu OTP truy cập.
+                      {t("editor_share_access_code_hint")}
                     </p>
                   </div>
                 )}

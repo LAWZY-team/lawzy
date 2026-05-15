@@ -10,7 +10,9 @@ import { AGENT_SYSTEM_PROMPT } from '@/lib/ai/agent-system-prompt'
 import { GeminiClient } from '@/lib/ai/gemini-client'
 import {
   buildOutputLanguageInstruction,
+  buildResolvedOutputLanguageInstruction,
   mergeFieldsContextHeader,
+  type OutputLanguage,
   userMessageLocalePrefix,
 } from '@/lib/ai/output-language-instruction'
 import type { Locale } from '@/lib/i18n'
@@ -27,6 +29,19 @@ const GEMINI_RETRY_BASE_MS = 900
 const MAX_HISTORY_MESSAGES = 20
 const GEMINI_TIMEOUT_MS = 60_000
 const MAX_INPUT_LENGTH = 4000
+const EXPLICIT_BILINGUAL_REQUEST_RE =
+  /\b(song ngữ|song-ngu|bilingual|dual language|tiếng anh và tiếng việt|anh việt|việt anh|english and vietnamese|việt[-\s]?anh)\b/i
+const EXPLICIT_CHINESE_REQUEST_RE =
+  /\b(tiếng trung|tiếng hoa|chinese|中文|简体|繁體|zh[-_]?cn|zh[-_]?tw)\b/i
+const VIETNAMESE_DIACRITICS_RE = /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i
+const CHINESE_CHAR_RE = /[\u3400-\u9fff]/
+
+const normalizePreferredOutputLanguage = (raw: unknown): OutputLanguage | null => {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim().toLowerCase()
+  if (value === 'vi' || value === 'en' || value === 'zh' || value === 'bilingual') return value
+  return null
+}
 
 interface GeminiPart {
   text?: string
@@ -44,6 +59,11 @@ function buildGeminiApiUrl(): string {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new Error('GEMINI_API_KEY is required')
   return `${GEMINI_API_BASE}/models/${AI_MODEL_NAME}:generateContent?key=${key}`
+}
+
+const isThinkingSupported = (modelName: string): boolean => {
+  const normalized = modelName.toLowerCase()
+  return !normalized.includes('tts')
 }
 
 const SESSION_WORKSPACE_UUID_RE =
@@ -72,6 +92,16 @@ const buildAgentSessionContextBlock = (
   }
   if (lines.length === 0) return ''
   return `\n\n**NGỮ CẢNH PHIÊN (SERVER):**\n${lines.join('\n')}\n`
+}
+
+const detectOutputLanguageFromMessage = (userMessage: string): OutputLanguage => {
+  const msg = userMessage.trim()
+  if (!msg) return 'vi'
+  if (EXPLICIT_BILINGUAL_REQUEST_RE.test(msg)) return 'bilingual'
+  if (EXPLICIT_CHINESE_REQUEST_RE.test(msg) || CHINESE_CHAR_RE.test(msg)) return 'zh'
+  if (VIETNAMESE_DIACRITICS_RE.test(msg)) return 'vi'
+  // English fallback for latin-only prompts without Vietnamese signals.
+  return 'en'
 }
 
 const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -143,39 +173,104 @@ function messagesToGeminiFormat(
   return result
 }
 
-/** Extract first complete JSON object and parse as contract response */
-function tryParseContractResponse(text: string): unknown {
-  const trimmed = text.trim()
-  const blockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  const toParse = blockMatch ? blockMatch[1].trim() : trimmed
-  const start = toParse.indexOf('{')
-  if (start === -1) return null
+/**
+ * First balanced `{...}` slice from start, respecting JSON strings so `{{merge}}`
+ * inside string values does not break depth counting.
+ */
+const sliceFirstBalancedJsonObject = (raw: string, start: number): string | null => {
+  if (raw[start] !== '{') return null
   let depth = 0
-  let end = -1
-  for (let i = start; i < toParse.length; i++) {
-    const c = toParse[i]
+  let inString: '"' | "'" | null = null
+  let escape = false
+  for (let i = start; i < raw.length; i++) {
+    const c = raw[i]
+    if (inString) {
+      if (escape) {
+        escape = false
+        continue
+      }
+      if (c === '\\') {
+        escape = true
+        continue
+      }
+      if (c === inString) inString = null
+      continue
+    }
+    if (c === '"' || c === "'") {
+      inString = c
+      continue
+    }
     if (c === '{') depth++
     else if (c === '}') {
       depth--
-      if (depth === 0) {
-        end = i
-        break
-      }
+      if (depth === 0) return raw.slice(start, i + 1)
     }
   }
-  if (end === -1) return null
-  try {
-    const parsed = JSON.parse(toParse.slice(start, end + 1))
-    if (
-      parsed?.type === 'contract_generation' ||
-      parsed?.type === 'contract_review' ||
-      parsed?.type === 'intake_questionnaire'
-    ) return parsed
-    if (parsed?.type === 'error' && typeof parsed.message === 'string') return parsed
-    return null
-  } catch {
+  return null
+}
+
+const isContractResponseShape = (parsed: unknown): parsed is Record<string, unknown> => {
+  if (!parsed || typeof parsed !== 'object') return false
+  const p = parsed as { type?: unknown }
+  return (
+    p.type === 'contract_generation' ||
+    p.type === 'contract_review' ||
+    p.type === 'intake_questionnaire' ||
+    (p.type === 'error' && typeof (p as { message?: unknown }).message === 'string')
+  )
+}
+
+/** Extract first complete JSON object and parse as contract response */
+function tryParseContractResponse(text: string): unknown {
+  const trimmed = text.trim()
+  const fencedBlocks = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((m) => m[1].trim())
+  const chunks = [...fencedBlocks, trimmed]
+  const normalizeLikelyJson = (raw: string): string => {
+    // Common LLM defects:
+    // - stray backslash before newline inside JSON strings
+    // - trailing commas before } or ]
+    // - BOM / CRLF noise
+    return raw
+      .replace(/^\uFEFF/, '')
+      .replace(/\r/g, '')
+      .replace(/\\\n/g, '\\n')
+      .replace(/,\s*([}\]])/g, '$1')
+      .trim()
+  }
+  const tryParseJsonSlice = (raw: string): unknown | null => {
+    const slice = normalizeLikelyJson(raw)
+    if (!slice.startsWith('{')) return null
+    try {
+      const parsed = JSON.parse(slice) as unknown
+      if (isContractResponseShape(parsed)) return parsed
+    } catch {
+      //
+    }
+    const balanced = sliceFirstBalancedJsonObject(slice, 0)
+    if (!balanced || balanced === slice) return null
+    try {
+      const parsed = JSON.parse(normalizeLikelyJson(balanced)) as unknown
+      if (isContractResponseShape(parsed)) return parsed
+    } catch {
+      //
+    }
     return null
   }
+  for (const chunk of chunks) {
+    if (!chunk) continue
+    const braceIdx = chunk.indexOf('{')
+    if (braceIdx === -1) continue
+    const fromBrace = chunk.slice(braceIdx)
+    const parsed = tryParseJsonSlice(fromBrace)
+    if (parsed) return parsed
+    const lastBraceIdx = fromBrace.lastIndexOf('}')
+    if (lastBraceIdx > 0) {
+      const narrowed = fromBrace.slice(0, lastBraceIdx + 1)
+      const parsedNarrowed = tryParseJsonSlice(narrowed)
+      if (parsedNarrowed) return parsedNarrowed
+    }
+  }
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -196,6 +291,7 @@ export async function POST(req: NextRequest) {
       chatHistory = [],
       stream: useStream = false,
       locale: localeRaw,
+      preferredOutputLanguage: preferredOutputLanguageRaw,
     } = body as {
       userMessage?: string
       workspaceId?: string | null
@@ -206,12 +302,19 @@ export async function POST(req: NextRequest) {
       chatHistory?: Array<{ role: string; content: string; toolCalls?: Array<{ name: string; args: Record<string, unknown>; result: unknown }> }>
       stream?: boolean
       locale?: string
+      preferredOutputLanguage?: string
     }
 
     const locale: Locale = localeRaw === 'en' ? 'en' : 'vi'
+    const preferredOutputLanguage = normalizePreferredOutputLanguage(preferredOutputLanguageRaw)
+    const resolvedOutputLanguage = preferredOutputLanguage ?? detectOutputLanguageFromMessage(userMessage ?? '')
+    const outputLanguageReason = preferredOutputLanguage
+      ? `frontend preferredOutputLanguage=${preferredOutputLanguage}`
+      : 'detected from current user message language'
     const systemPromptWithLocale =
       AGENT_SYSTEM_PROMPT +
       buildOutputLanguageInstruction(locale) +
+      buildResolvedOutputLanguageInstruction(resolvedOutputLanguage, outputLanguageReason) +
       buildAgentSessionContextBlock(workspaceId, documentId)
 
     if (!userMessage || typeof userMessage !== 'string') {
@@ -283,7 +386,8 @@ export async function POST(req: NextRequest) {
             maxOutputTokens: 8192,
             topP: 0.95,
             topK: 40,
-            ...(process.env.GEMINI_INCLUDE_THOUGHTS !== 'false'
+            ...(process.env.GEMINI_INCLUDE_THOUGHTS !== 'false' &&
+            isThinkingSupported(AI_MODEL_NAME)
               ? {
                   thinkingConfig: {
                     thinkingBudget: 8192,
@@ -360,6 +464,11 @@ export async function POST(req: NextRequest) {
 
         if (lastText) {
           const parsedContract = tryParseContractResponse(lastText)
+          if (!parsedContract && (lastText.includes('```json') || lastText.trim().startsWith('{'))) {
+            console.warn('[POST /api/ai/ask] Failed to parse contract-like JSON output', {
+              preview: lastText.slice(0, 500),
+            })
+          }
           const basePayload = {
             ...(toolCallsCollected.length > 0 ? { toolCalls: toolCallsCollected } : {}),
             ...(geminiThinkingAccumulated.length > 0 ? { geminiThinking: geminiThinkingAccumulated.join('\n\n') } : {}),

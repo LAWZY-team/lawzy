@@ -33,7 +33,7 @@ function FeatureCard({
       )}
     >
       <div className="w-full min-w-0 lg:flex-1 lg:max-w-[min(100%,38rem)] xl:max-w-[min(100%,42rem)]">
-        <div className="relative mx-auto aspect-video w-full max-w-full overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 shadow-md transition-shadow duration-300 group-hover:shadow-lg dark:from-gray-800 dark:to-gray-900 lg:aspect-square">
+        <div className="relative mx-auto aspect-video w-full max-w-full overflow-hidden rounded-2xl bg-gray-50 shadow-md transition-shadow duration-300 group-hover:shadow-lg dark:bg-gray-800 lg:aspect-square">
           <video autoPlay loop muted playsInline aria-label={videoAlt} className="h-full w-full object-cover">
             <source src={sources.webm} type="video/webm" />
             <source src={sources.mp4} type="video/mp4" />

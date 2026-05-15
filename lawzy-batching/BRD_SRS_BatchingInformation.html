@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRD & SRS — Batching Information</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0D1F3C;
+    --navy-mid: #1A3660;
+    --accent: #2563EB;
+    --accent-light: #DBEAFE;
+    --gold: #B45309;
+    --gold-light: #FEF3C7;
+    --teal: #0F766E;
+    --teal-light: #CCFBF1;
+    --red: #B91C1C;
+    --red-light: #FEE2E2;
+    --gray-50: #F8FAFC;
+    --gray-100: #F1F5F9;
+    --gray-200: #E2E8F0;
+    --gray-400: #94A3B8;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --gray-900: #0F172A;
+    --border: 1px solid var(--gray-200);
+    --radius: 6px;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--gray-900);
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 0 80px;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: var(--navy);
+    color: #fff;
+    padding: 56px 56px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    border: 40px solid rgba(255,255,255,0.04);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    border: 30px solid rgba(255,255,255,0.04);
+  }
+  .cover-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 24px;
+  }
+  .cover h1 {
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+  .cover-sub {
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 40px;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    padding-top: 28px;
+  }
+  .cover-meta-item label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+  }
+  .cover-meta-item span {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+
+  /* ── NAV TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 2px solid var(--gray-200);
+    background: var(--gray-50);
+    padding: 0 40px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-600);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    font-family: var(--font);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-btn:hover:not(.active) { color: var(--gray-900); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── BODY ── */
+  .doc-body {
+    padding: 40px 56px;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    margin-bottom: 44px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: var(--border);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 3px 8px;
+    border-radius: 3px;
+    min-width: 36px;
+    text-align: center;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid;
+    padding: 14px 16px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 16px;
+    font-size: 13.5px;
+  }
+  .callout.info { border-color: var(--accent); background: var(--accent-light); color: #1E40AF; }
+  .callout.warn { border-color: var(--gold); background: var(--gold-light); color: var(--gold); }
+  .callout.danger { border-color: var(--red); background: var(--red-light); color: var(--red); }
+  .callout.success { border-color: var(--teal); background: var(--teal-light); color: var(--teal); }
+  .callout strong { font-weight: 600; }
+
+  /* ── TABLE ── */
+  .tbl-wrap { overflow-x: auto; margin: 12px 0 20px; border-radius: var(--radius); border: var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--gray-100); }
+  th { padding: 10px 14px; text-align: left; font-weight: 600; color: var(--gray-700); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); vertical-align: top; line-height: 1.6; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--gray-50); }
+
+  /* ── TAG / BADGE ── */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .badge.high { background: #FEE2E2; color: #991B1B; }
+  .badge.med { background: #FEF3C7; color: #92400E; }
+  .badge.low { background: #D1FAE5; color: #065F46; }
+  .badge.must { background: #DBEAFE; color: #1E40AF; }
+  .badge.should { background: #EDE9FE; color: #5B21B6; }
+  .badge.could { background: #D1FAE5; color: #065F46; }
+  .badge.fr { background: var(--accent-light); color: #1E40AF; }
+  .badge.nfr { background: var(--teal-light); color: var(--teal); }
+
+  /* ── LIST ── */
+  ul.doc-list { list-style: none; padding: 0; }
+  ul.doc-list li {
+    padding: 7px 0 7px 20px;
+    position: relative;
+    font-size: 13.5px;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-100);
+  }
+  ul.doc-list li:last-child { border-bottom: none; }
+  ul.doc-list li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 16px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  ol.doc-list { padding-left: 20px; }
+  ol.doc-list li {
+    padding: 6px 0;
+    font-size: 13.5px;
+    color: var(--gray-700);
+  }
+
+  /* ── USE CASE ── */
+  .use-case {
+    border: var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .use-case-header {
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .use-case-body { padding: 14px 16px; }
+  .use-case-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 13px;
+  }
+  .use-case-row:last-child { border-bottom: none; }
+  .use-case-label { color: var(--gray-600); font-weight: 500; }
+  .use-case-val { color: var(--gray-900); }
+
+  /* ── REQ BLOCK ── */
+  .req-block {
+    border: var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .req-block-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--gray-50);
+    border-bottom: var(--border);
+  }
+  .req-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--navy);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .req-name { font-size: 13px; font-weight: 600; color: var(--gray-900); }
+  .req-body { padding: 12px 14px; font-size: 13px; color: var(--gray-700); }
+  .req-body p { margin-bottom: 8px; }
+  .req-body p:last-child { margin-bottom: 0; }
+
+  /* ── DIVIDER ── */
+  .doc-divider {
+    margin: 48px -56px;
+    border: none;
+    border-top: 8px solid var(--navy);
+    opacity: 0.06;
+  }
+
+  /* ── FLOW STEP ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 16px 0;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+  }
+  .flow-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .flow-step:not(:last-child) .flow-dot-wrap::after {
+    content: '';
+    display: block;
+    width: 2px;
+    height: 20px;
+    background: var(--gray-200);
+    margin: 4px auto 0;
+  }
+  .flow-text strong { display: block; font-size: 13px; font-weight: 600; color: var(--gray-900); margin-bottom: 4px; }
+  .flow-text span { font-size: 12.5px; color: var(--gray-600); }
+
+  /* ── KPI ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .kpi-card {
+    border: var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .kpi-num { font-size: 28px; font-weight: 600; color: var(--accent); letter-spacing: -0.03em; }
+  .kpi-label { font-size: 12px; color: var(--gray-600); margin-top: 4px; line-height: 1.4; }
+
+  p.prose { font-size: 13.5px; color: var(--gray-700); margin-bottom: 12px; line-height: 1.75; }
+
+  .highlight-box {
+    background: var(--gray-50);
+    border: var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+
+  .toc { background: var(--gray-50); border: var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 32px; }
+  .toc h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-600); margin-bottom: 12px; font-weight: 600; }
+  .toc ol { padding-left: 20px; }
+  .toc li { font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+  .toc li a { color: var(--accent); text-decoration: none; }
+  .toc li a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-tag">Tài liệu dự án · Law Tech</div>
+  <h1>Batching Information</h1>
+  <div class="cover-sub">Tự động điền thông tin hàng loạt vào bộ hồ sơ pháp lý</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <label>Phiên bản</label>
+      <span>v1.0 — Draft</span>
+    </div>
+    <div class="cover-meta-item">
+      <label>Ngày lập</label>
+      <span>05/2025</span>
+    </div>
+    <div class="cover-meta-item">
+      <label>Người dùng mục tiêu</label>
+      <span>Intern & Paralegal — Law Firm</span>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('brd')">BRD — Business Requirements</button>
+  <button class="tab-btn" onclick="switchTab('srs')">SRS — Software Requirements</button>
+</div>
+
+<!-- ══════════════ BRD ══════════════ -->
+<div id="brd" class="tab-content active">
+<div class="doc-body">
+
+  <div class="toc">
+    <h3>Mục lục</h3>
+    <ol>
+      <li><a href="#b1">Tóm tắt điều hành</a></li>
+      <li><a href="#b2">Bối cảnh & Vấn đề kinh doanh</a></li>
+      <li><a href="#b3">Mục tiêu kinh doanh</a></li>
+      <li><a href="#b4">Stakeholders</a></li>
+      <li><a href="#b5">Phân tích trạng thái hiện tại (As-Is)</a></li>
+      <li><a href="#b6">Giải pháp đề xuất (To-Be)</a></li>
+      <li><a href="#b7">Yêu cầu kinh doanh</a></li>
+      <li><a href="#b8">Chỉ số thành công (KPIs)</a></li>
+      <li><a href="#b9">Rủi ro & Giả định</a></li>
+    </ol>
+  </div>
+
+  <!-- B1 -->
+  <div class="section" id="b1">
+    <div class="section-header">
+      <span class="section-num">B.01</span>
+      <span class="section-title">Tóm tắt điều hành</span>
+    </div>
+    <div class="callout info">
+      <strong>Mục đích tài liệu:</strong> BRD này mô tả yêu cầu kinh doanh cho tính năng <em>Batching Information</em> — một chức năng cho phép nhân sự tại law firm nhập thông tin chung (General Information) một lần duy nhất và tự động điền vào toàn bộ bộ hồ sơ pháp lý, thay vì thực hiện thủ công trên từng file.
+    </div>
+    <p class="prose">
+      Qua phỏng vấn người dùng (Đông An — thực tập sinh tại công ty Luật, quy mô ~20 người), nhóm phát triển ghi nhận một điểm đau nghiêm trọng: mỗi bộ hồ sơ đăng ký doanh nghiệp có vốn đầu tư nước ngoài bao gồm tối đa <strong>13 file tài liệu</strong>, và nhân sự phải điền lặp đi lặp lại cùng một tập thông tin trên mỗi file — tiêu tốn trung bình <strong>1,5 ngày làm việc</strong> chỉ cho bước này. Ngoài ra, khi tài liệu yêu cầu song ngữ (Anh-Việt), bước dịch thuật còn kéo theo việc chỉnh lại format thủ công.
+    </p>
+    <p class="prose">
+      Tính năng Batching Information hướng tới giải quyết căn bản bài toán này bằng cách xây dựng một form nhập liệu trung tâm, ánh xạ dữ liệu vào từng template tài liệu, và hỗ trợ sinh phiên bản song ngữ giữ nguyên định dạng.
+    </p>
+  </div>
+
+  <!-- B2 -->
+  <div class="section" id="b2">
+    <div class="section-header">
+      <span class="section-num">B.02</span>
+      <span class="section-title">Bối cảnh & Vấn đề kinh doanh</span>
+    </div>
+
+    <p class="prose"><strong>Bối cảnh tổ chức:</strong> Law firm ~20 nhân sự gồm 1 Giám đốc, 1 Phó giám đốc, 4 Leaders, còn lại là Intern và Paralegal. Một trong các mảng hoạt động trọng tâm là tư vấn <em>Giấy phép kinh doanh cho Doanh nghiệp mở công ty có vốn đầu tư nước ngoài</em>.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Vấn đề</th>
+            <th>Biểu hiện</th>
+            <th>Tác động</th>
+            <th>Mức độ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nhập liệu lặp lại</strong></td>
+            <td>Cùng tập General Information phải điền thủ công vào 13 file tài liệu riêng biệt</td>
+            <td>Tốn 1,5 ngày/hồ sơ; dễ sai sót dữ liệu không đồng nhất giữa các file</td>
+            <td><span class="badge high">Cao</span></td>
+          </tr>
+          <tr>
+            <td><strong>Lỗi không nhất quán</strong></td>
+            <td>Dữ liệu nhập tay lặp lại → xác suất sai tên, ngày tháng, số vốn tăng cao</td>
+            <td>Rủi ro pháp lý, phải nộp lại hồ sơ, mất thời gian sửa</td>
+            <td><span class="badge high">Cao</span></td>
+          </tr>
+          <tr>
+            <td><strong>Dịch thuật & format</strong></td>
+            <td>Tài liệu song ngữ Anh-Việt; sau dịch, định dạng bị vỡ, cần chỉnh tay</td>
+            <td>Thêm 0,5–1 ngày mỗi bộ hồ sơ song ngữ</td>
+            <td><span class="badge med">Trung bình</span></td>
+          </tr>
+          <tr>
+            <td><strong>Năng lực không mở rộng được</strong></td>
+            <td>Intern/Paralegal dành phần lớn thời gian cho công việc thủ công</td>
+            <td>Không tăng số hồ sơ xử lý song song; chi phí nhân sự tăng khi mở rộng</td>
+            <td><span class="badge med">Trung bình</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- B3 -->
+  <div class="section" id="b3">
+    <div class="section-header">
+      <span class="section-num">B.03</span>
+      <span class="section-title">Mục tiêu kinh doanh</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Mục tiêu</th><th>Kết quả kỳ vọng</th><th>Ưu tiên</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family: var(--mono); font-size:12px;">BO-01</td>
+            <td>Giảm thời gian điền General Information</td>
+            <td>Từ 1,5 ngày → dưới 30 phút/hồ sơ (giảm ≥ 90%)</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--mono); font-size:12px;">BO-02</td>
+            <td>Đảm bảo tính nhất quán dữ liệu</td>
+            <td>Thông tin được điền từ một nguồn duy nhất → giảm lỗi sai sót về dữ liệu xuống 0%</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--mono); font-size:12px;">BO-03</td>
+            <td>Hỗ trợ song ngữ không vỡ format</td>
+            <td>Sinh bản dịch Anh-Việt giữ đúng cấu trúc template gốc</td>
+            <td><span class="badge should">Should</span></td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--mono); font-size:12px;">BO-04</td>
+            <td>Tăng throughput xử lý hồ sơ</td>
+            <td>Cho phép Intern/Paralegal xử lý song song nhiều hồ sơ hơn</td>
+            <td><span class="badge could">Could</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- B4 -->
+  <div class="section" id="b4">
+    <div class="section-header">
+      <span class="section-num">B.04</span>
+      <span class="section-title">Stakeholders</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Vai trò</th><th>Chức danh</th><th>Mức độ ảnh hưởng</th><th>Kỳ vọng chính</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Primary User</strong></td>
+            <td>Intern, Paralegal</td>
+            <td><span class="badge high">Trực tiếp</span></td>
+            <td>Tiết kiệm thời gian nhập liệu, giảm công việc lặp lại</td>
+          </tr>
+          <tr>
+            <td><strong>Secondary User</strong></td>
+            <td>Leader (4 người)</td>
+            <td><span class="badge med">Gián tiếp</span></td>
+            <td>Hồ sơ đầu ra chính xác, nhanh, ít phải review lại</td>
+          </tr>
+          <tr>
+            <td><strong>Sponsor</strong></td>
+            <td>Giám đốc / Phó giám đốc</td>
+            <td><span class="badge med">Gián tiếp</span></td>
+            <td>Tăng năng lực tiếp nhận hồ sơ, giảm chi phí vận hành</td>
+          </tr>
+          <tr>
+            <td><strong>Product Owner</strong></td>
+            <td>BA / Product team</td>
+            <td><span class="badge high">Trực tiếp</span></td>
+            <td>Đảm bảo scope, timeline, acceptance criteria</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- B5 -->
+  <div class="section" id="b5">
+    <div class="section-header">
+      <span class="section-num">B.05</span>
+      <span class="section-title">Phân tích trạng thái hiện tại (As-Is)</span>
+    </div>
+    <p class="prose"><strong>Quy trình hiện tại khi xử lý một bộ hồ sơ thành lập công ty FDI:</strong></p>
+    <div class="flow">
+      <div class="flow-step">
+        <div><div class="flow-dot">1</div></div>
+        <div class="flow-text">
+          <strong>Thu thập thông tin khách hàng</strong>
+          <span>Intern nhận dữ liệu thô từ khách hàng (tên, địa chỉ, vốn điều lệ, thành viên góp vốn, người đại diện…) qua email / Zalo</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div><div class="flow-dot">2</div></div>
+        <div class="flow-text">
+          <strong>Mở từng file tài liệu (13 files)</strong>
+          <span>Mỗi file là một biểu mẫu riêng biệt (Điều lệ, Giấy đề nghị, Danh sách thành viên, Hợp đồng thuê trụ sở…). Intern mở từng file và điền thủ công.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div><div class="flow-dot">3</div></div>
+        <div class="flow-text">
+          <strong>Nhập lặp General Information vào từng file</strong>
+          <span>Cùng một block thông tin (tên công ty, địa chỉ, vốn, ngành nghề…) phải gõ lại hoặc copy-paste nhiều lần → dễ sai, tốn thời gian. Trung bình: 1,5 ngày làm việc.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div><div class="flow-dot">4</div></div>
+        <div class="flow-text">
+          <strong>Dịch thuật sang tiếng Anh (nếu cần)</strong>
+          <span>Một số biểu mẫu cần phiên bản tiếng Anh. Sau khi dịch, format bị vỡ (font, căn lề, bảng) → phải chỉnh tay lại.</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div><div class="flow-dot">5</div></div>
+        <div class="flow-text">
+          <strong>Review & nộp cho Leader</strong>
+          <span>Leader kiểm tra từng file, yêu cầu sửa nếu có sai sót → vòng lặp sửa bổ sung.</span>
+        </div>
+      </div>
+    </div>
+    <div class="callout danger">
+      <strong>Pain point cốt lõi:</strong> Bước 3 chiếm ~70% tổng thời gian xử lý hồ sơ nhưng không tạo ra giá trị pháp lý hay tư vấn — đây là công việc thuần thủ công, lặp lại, có thể tự động hóa.
+    </div>
+  </div>
+
+  <!-- B6 -->
+  <div class="section" id="b6">
+    <div class="section-header">
+      <span class="section-num">B.06</span>
+      <span class="section-title">Giải pháp đề xuất (To-Be)</span>
+    </div>
+    <p class="prose">Tính năng <strong>Batching Information</strong> tạo ra một điểm nhập liệu trung tâm (Central Data Entry), từ đó hệ thống tự động phân phối (batch) thông tin vào tất cả template tài liệu liên quan:</p>
+    <div class="highlight-box">
+      <div class="flow">
+        <div class="flow-step">
+          <div><div class="flow-dot">1</div></div>
+          <div class="flow-text">
+            <strong>Người dùng điền một lần vào Master Form</strong>
+            <span>Form tập trung gồm tất cả General Information fields: tên công ty, địa chỉ, vốn điều lệ, cổ đông, người đại diện, ngành nghề…</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div><div class="flow-dot">2</div></div>
+          <div class="flow-text">
+            <strong>Hệ thống ánh xạ & điền vào 13 templates</strong>
+            <span>Mỗi field được map với vị trí tương ứng trong từng template. Hệ thống điền tự động đồng loạt.</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div><div class="flow-dot">3</div></div>
+          <div class="flow-text">
+            <strong>Preview & chỉnh sửa từng tài liệu nếu cần</strong>
+            <span>Người dùng xem trước, can thiệp nội dung đặc thù nếu cần trước khi export.</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div><div class="flow-dot">4</div></div>
+          <div class="flow-text">
+            <strong>Export toàn bộ bộ hồ sơ</strong>
+            <span>Tải về dạng .docx / .pdf, có thể chọn ngôn ngữ (Việt / Anh / Song ngữ).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B7 -->
+  <div class="section" id="b7">
+    <div class="section-header">
+      <span class="section-num">B.07</span>
+      <span class="section-title">Yêu cầu kinh doanh</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Yêu cầu</th><th>Mô tả</th><th>Ưu tiên</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-01</td>
+            <td>Nhập liệu một lần</td>
+            <td>Hệ thống phải cho phép người dùng nhập General Information vào một form duy nhất và áp dụng cho toàn bộ bộ hồ sơ</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-02</td>
+            <td>Hỗ trợ ≥ 13 loại biểu mẫu</td>
+            <td>Hệ thống phải mapping được với tất cả các mẫu tài liệu trong bộ hồ sơ FDI hiện tại</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-03</td>
+            <td>Nhất quán dữ liệu</td>
+            <td>Thông tin trong tất cả 13 tài liệu phải đồng nhất từ một nguồn duy nhất, không cho phép sai lệch giữa các file</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-04</td>
+            <td>Hỗ trợ song ngữ</td>
+            <td>Sinh phiên bản tiếng Anh giữ nguyên format của template gốc tiếng Việt</td>
+            <td><span class="badge should">Should</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-05</td>
+            <td>Preview trước khi export</td>
+            <td>Người dùng có thể xem trước và can thiệp nội dung từng tài liệu trước khi export</td>
+            <td><span class="badge should">Should</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-06</td>
+            <td>Export linh hoạt</td>
+            <td>Cho phép export toàn bộ hoặc chọn lọc file, định dạng .docx và .pdf</td>
+            <td><span class="badge should">Should</span></td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">BR-07</td>
+            <td>Lưu & tái sử dụng template dữ liệu</td>
+            <td>Lưu lại thông tin hồ sơ để tái sử dụng khi cần sửa đổi, bổ sung sau này</td>
+            <td><span class="badge could">Could</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- B8 -->
+  <div class="section" id="b8">
+    <div class="section-header">
+      <span class="section-num">B.08</span>
+      <span class="section-title">Chỉ số thành công (KPIs)</span>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-num">≤30'</div>
+        <div class="kpi-label">Thời gian điền General Information cho toàn bộ hồ sơ (từ 1,5 ngày)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num">0%</div>
+        <div class="kpi-label">Lỗi không nhất quán dữ liệu giữa các tài liệu trong cùng bộ hồ sơ</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num">≥90%</div>
+        <div class="kpi-label">Người dùng đánh giá tính năng dễ sử dụng (user satisfaction score)</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>KPI</th><th>Baseline (hiện tại)</th><th>Target (sau 3 tháng)</th><th>Cách đo</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Thời gian xử lý General Info</td>
+            <td>~1,5 ngày làm việc</td>
+            <td>≤ 30 phút</td>
+            <td>Đo thời gian session sử dụng tính năng</td>
+          </tr>
+          <tr>
+            <td>Tỷ lệ lỗi dữ liệu giữa các file</td>
+            <td>Chưa đo (ước tính cao)</td>
+            <td>= 0</td>
+            <td>QA review hồ sơ mẫu trước/sau khi dùng tính năng</td>
+          </tr>
+          <tr>
+            <td>Tỷ lệ export thành công lần đầu</td>
+            <td>N/A</td>
+            <td>≥ 95%</td>
+            <td>Tỷ lệ session export không cần re-process</td>
+          </tr>
+          <tr>
+            <td>User adoption</td>
+            <td>N/A</td>
+            <td>≥ 80% intern/paralegal dùng tính năng trong 1 tháng</td>
+            <td>Active user tracking</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- B9 -->
+  <div class="section" id="b9">
+    <div class="section-header">
+      <span class="section-num">B.09</span>
+      <span class="section-title">Rủi ro & Giả định</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Loại</th><th>Nội dung</th><th>Mức độ</th><th>Biện pháp</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Rủi ro</strong></td>
+            <td>Biểu mẫu pháp lý thay đổi theo quy định mới → mapping cũ lỗi thời</td>
+            <td><span class="badge high">Cao</span></td>
+            <td>Thiết kế mapping linh hoạt, cho phép admin cập nhật template mà không cần deploy lại</td>
+          </tr>
+          <tr>
+            <td><strong>Rủi ro</strong></td>
+            <td>Dữ liệu nhạy cảm (thông tin cá nhân nhà đầu tư, vốn) bị lộ</td>
+            <td><span class="badge high">Cao</span></td>
+            <td>Mã hóa dữ liệu tại rest và in-transit; phân quyền truy cập theo hồ sơ</td>
+          </tr>
+          <tr>
+            <td><strong>Rủi ro</strong></td>
+            <td>Người dùng không tin tưởng tính năng auto-fill, vẫn tự kiểm tra lại từng file</td>
+            <td><span class="badge med">Trung bình</span></td>
+            <td>Cung cấp màn hình preview rõ ràng + highlight các field được tự động điền</td>
+          </tr>
+          <tr>
+            <td><strong>Giả định</strong></td>
+            <td>Các template tài liệu hiện tại tương đối ổn định và có thể được digitized</td>
+            <td>—</td>
+            <td>Cần workshop với Leader để verify danh sách template và mapping fields</td>
+          </tr>
+          <tr>
+            <td><strong>Giả định</strong></td>
+            <td>Người dùng chấp nhận sử dụng công cụ web/app thay vì xử lý bằng Word</td>
+            <td>—</td>
+            <td>Cần onboarding và change management nhẹ</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════ SRS ══════════════ -->
+<div id="srs" class="tab-content">
+<div class="doc-body">
+
+  <div class="toc">
+    <h3>Mục lục</h3>
+    <ol>
+      <li><a href="#s1">Tổng quan hệ thống</a></li>
+      <li><a href="#s2">Yêu cầu chức năng (Functional Requirements)</a></li>
+      <li><a href="#s3">Yêu cầu phi chức năng (Non-Functional Requirements)</a></li>
+      <li><a href="#s4">Use Cases</a></li>
+      <li><a href="#s5">Mô hình dữ liệu</a></li>
+      <li><a href="#s6">Yêu cầu giao diện (UI/UX)</a></li>
+      <li><a href="#s7">Yêu cầu tích hợp</a></li>
+      <li><a href="#s8">Acceptance Criteria</a></li>
+    </ol>
+  </div>
+
+  <!-- S1 -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <span class="section-num">S.01</span>
+      <span class="section-title">Tổng quan hệ thống</span>
+    </div>
+    <div class="callout info">
+      <strong>Phạm vi:</strong> Tài liệu này mô tả các yêu cầu phần mềm cho module <em>Batching Information</em> trong hệ thống quản lý hồ sơ pháp lý tại law firm. Module này là một tính năng độc lập hoặc tích hợp vào hệ thống LMS (Legal Management System) hiện có.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Thuộc tính</th><th>Giá trị</th></tr></thead>
+        <tbody>
+          <tr><td>Tên module</td><td>Batching Information</td></tr>
+          <tr><td>Platform</td><td>Web application (responsive)</td></tr>
+          <tr><td>Người dùng</td><td>Intern, Paralegal, Leader</td></tr>
+          <tr><td>Ngôn ngữ giao diện</td><td>Tiếng Việt (primary), Tiếng Anh (secondary)</td></tr>
+          <tr><td>Tích hợp đầu ra</td><td>.docx (Microsoft Word), .pdf</td></tr>
+          <tr><td>Số template ban đầu</td><td>13 biểu mẫu pháp lý FDI</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- S2 -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <span class="section-num">S.02</span>
+      <span class="section-title">Yêu cầu chức năng (Functional Requirements)</span>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px;"><strong>FR-01 — Master Information Form</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-01.1</span>
+        <span class="req-name">Form nhập General Information</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <p>Hệ thống phải cung cấp một form tập trung để nhập các trường thông tin chung của hồ sơ, bao gồm nhưng không giới hạn:</p>
+        <ul class="doc-list">
+          <li><strong>Thông tin công ty:</strong> Tên tiếng Việt, tên tiếng Anh, tên viết tắt, địa chỉ trụ sở, điện thoại, email</li>
+          <li><strong>Vốn điều lệ:</strong> Tổng vốn, vốn pháp định, cơ cấu vốn góp theo từng thành viên</li>
+          <li><strong>Ngành nghề kinh doanh:</strong> Mã ngành, tên ngành, ngành chính</li>
+          <li><strong>Người đại diện theo pháp luật:</strong> Họ tên, quốc tịch, số hộ chiếu/CCCD, địa chỉ, chức danh</li>
+          <li><strong>Danh sách thành viên/cổ đông:</strong> Tên, quốc tịch, số giấy tờ, tỷ lệ vốn góp</li>
+          <li><strong>Thông tin đăng ký:</strong> Ngày thành lập, thời hạn hoạt động, cơ quan đăng ký</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-01.2</span>
+        <span class="req-name">Validation dữ liệu đầu vào</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <p>Hệ thống phải validate dữ liệu trước khi cho phép batch:</p>
+        <ul class="doc-list">
+          <li>Trường bắt buộc không được để trống (hiển thị lỗi inline)</li>
+          <li>Định dạng ngày tháng theo dd/mm/yyyy</li>
+          <li>Số vốn phải là số dương, hỗ trợ đơn vị VND / USD</li>
+          <li>Tổng tỷ lệ vốn góp của các thành viên phải = 100%</li>
+          <li>Cảnh báo (warning, không block) nếu trường optional chưa điền</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px; margin-top:24px;"><strong>FR-02 — Template Management & Mapping Engine</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-02.1</span>
+        <span class="req-name">Quản lý danh sách template</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <p>Hệ thống lưu trữ danh sách các template tài liệu với metadata:</p>
+        <ul class="doc-list">
+          <li>Tên biểu mẫu, mã biểu mẫu, loại (bắt buộc / tùy chọn)</li>
+          <li>Danh sách field placeholders và mapping tới General Information fields</li>
+          <li>Ngôn ngữ (Việt / Anh / Song ngữ)</li>
+          <li>Phiên bản template (version control cơ bản)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-02.2</span>
+        <span class="req-name">Auto-fill engine</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <p>Khi người dùng kích hoạt "Batch Fill", hệ thống phải:</p>
+        <ul class="doc-list">
+          <li>Iterate qua toàn bộ danh sách template được chọn</li>
+          <li>Thay thế tất cả placeholder bằng giá trị tương ứng từ Master Form</li>
+          <li>Xử lý các trường hợp đặc biệt: placeholder xuất hiện nhiều lần trong cùng file, giá trị số cần format (ví dụ: 10.000.000.000 đồng, viết bằng chữ), tên cần viết hoa toàn bộ</li>
+          <li>Thực hiện xử lý đồng thời (concurrent processing) để giảm thời gian chờ</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px; margin-top:24px;"><strong>FR-03 — Multilingual Support</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-03.1</span>
+        <span class="req-name">Sinh bản dịch tiếng Anh</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <p>Với các template có phiên bản tiếng Anh, hệ thống:</p>
+        <ul class="doc-list">
+          <li>Sử dụng bản dịch có sẵn của các giá trị cố định trong template</li>
+          <li>Transliterate / dịch các trường dữ liệu do người dùng nhập (tên công ty bằng tiếng Anh, ngành nghề bằng tiếng Anh) từ Master Form</li>
+          <li>Giữ nguyên 100% cấu trúc, font, bảng biểu của template gốc — không cho phép format bị thay đổi sau khi điền</li>
+          <li>Không dịch tự động các trường dữ liệu (tên người, địa chỉ) — người dùng phải nhập sẵn bản tiếng Anh trong Master Form</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px; margin-top:24px;"><strong>FR-04 — Preview & Edit</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-04.1</span>
+        <span class="req-name">Màn hình preview từng tài liệu</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <ul class="doc-list">
+          <li>Sau khi batch fill, người dùng có thể xem trước từng tài liệu trong giao diện</li>
+          <li>Các field được tự động điền phải được highlight (màu nền khác biệt) để dễ review</li>
+          <li>Cho phép người dùng chỉnh sửa trực tiếp nội dung specific của từng tài liệu (những nội dung không lấy từ General Information)</li>
+          <li>Thay đổi trong Master Form sẽ cập nhật đồng bộ toàn bộ tài liệu (real-time hoặc khi người dùng kích hoạt "Re-sync")</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px; margin-top:24px;"><strong>FR-05 — Export</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-05.1</span>
+        <span class="req-name">Export bộ hồ sơ</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <ul class="doc-list">
+          <li>Export toàn bộ hoặc chọn lọc từng tài liệu</li>
+          <li>Định dạng: .docx (chỉnh sửa tiếp được), .pdf (chỉ đọc, dùng để nộp)</li>
+          <li>Nén thành .zip khi export nhiều file cùng lúc</li>
+          <li>Đặt tên file tự động theo quy tắc: <code>[Mã biểu mẫu]_[Tên công ty]_[Ngày]</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-bottom:16px; margin-top:24px;"><strong>FR-06 — Hồ sơ & Lưu trữ</strong></p>
+    <div class="req-block">
+      <div class="req-block-head">
+        <span class="req-id">FR-06.1</span>
+        <span class="req-name">Lưu & quản lý hồ sơ</span>
+        <span class="badge fr" style="margin-left:auto;">Functional</span>
+      </div>
+      <div class="req-body">
+        <ul class="doc-list">
+          <li>Lưu Master Form Data theo từng hồ sơ (case), không ghi đè lên nhau</li>
+          <li>Cho phép mở lại, chỉnh sửa và re-batch khi có thay đổi thông tin</li>
+          <li>Lịch sử phiên bản (version history) cơ bản: xem và restore phiên bản cũ</li>
+          <li>Tìm kiếm hồ sơ theo tên công ty, ngày tạo, người phụ trách</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- S3 -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <span class="section-num">S.03</span>
+      <span class="section-title">Yêu cầu phi chức năng (Non-Functional Requirements)</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Loại</th><th>Yêu cầu</th><th>Ngưỡng đo lường</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-01</td>
+            <td><span class="badge nfr">Performance</span></td>
+            <td>Thời gian xử lý batch fill</td>
+            <td>≤ 10 giây cho 13 tài liệu</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-02</td>
+            <td><span class="badge nfr">Performance</span></td>
+            <td>Thời gian export .zip</td>
+            <td>≤ 30 giây cho 13 tài liệu</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-03</td>
+            <td><span class="badge nfr">Security</span></td>
+            <td>Mã hóa dữ liệu</td>
+            <td>TLS 1.3 in-transit; AES-256 at-rest</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-04</td>
+            <td><span class="badge nfr">Security</span></td>
+            <td>Phân quyền truy cập</td>
+            <td>RBAC: Intern thấy hồ sơ được phân công; Leader thấy tất cả</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-05</td>
+            <td><span class="badge nfr">Usability</span></td>
+            <td>Onboarding</td>
+            <td>Người dùng mới hoàn thành bộ hồ sơ đầu tiên ≤ 60 phút (bao gồm thời gian học)</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-06</td>
+            <td><span class="badge nfr">Reliability</span></td>
+            <td>Uptime</td>
+            <td>≥ 99% trong giờ hành chính</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-07</td>
+            <td><span class="badge nfr">Compatibility</span></td>
+            <td>Trình duyệt</td>
+            <td>Chrome 110+, Edge 110+, Safari 16+</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">NFR-08</td>
+            <td><span class="badge nfr">Maintainability</span></td>
+            <td>Cập nhật template</td>
+            <td>Admin cập nhật template mà không cần developer / deployment</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- S4 -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <span class="section-num">S.04</span>
+      <span class="section-title">Use Cases</span>
+    </div>
+
+    <div class="use-case">
+      <div class="use-case-header">
+        <span>UC-01 — Tạo mới bộ hồ sơ và Batch Fill</span>
+        <span class="badge must">Core Flow</span>
+      </div>
+      <div class="use-case-body">
+        <div class="use-case-row"><span class="use-case-label">Actor</span><span class="use-case-val">Intern / Paralegal</span></div>
+        <div class="use-case-row"><span class="use-case-label">Precondition</span><span class="use-case-val">Đã đăng nhập; có dữ liệu khách hàng từ intake form</span></div>
+        <div class="use-case-row">
+          <span class="use-case-label">Main Flow</span>
+          <span class="use-case-val">
+            1. Người dùng chọn "Tạo hồ sơ mới" và chọn loại hồ sơ (FDI)<br>
+            2. Điền General Information vào Master Form<br>
+            3. Chọn danh sách tài liệu cần tạo (mặc định: toàn bộ 13 file)<br>
+            4. Click "Batch Fill" → hệ thống xử lý và hiển thị progress<br>
+            5. Người dùng review preview từng tài liệu<br>
+            6. Chỉnh sửa nội dung đặc thù nếu cần<br>
+            7. Export tất cả tài liệu (.zip)
+          </span>
+        </div>
+        <div class="use-case-row">
+          <span class="use-case-label">Alt Flow</span>
+          <span class="use-case-val">3a. Người dùng chỉ chọn một số tài liệu cụ thể → hệ thống chỉ batch fill các tài liệu đã chọn</span>
+        </div>
+        <div class="use-case-row">
+          <span class="use-case-label">Exception</span>
+          <span class="use-case-val">2a. Dữ liệu không hợp lệ → hiển thị lỗi inline, không cho tiến sang bước 3</span>
+        </div>
+        <div class="use-case-row"><span class="use-case-label">Postcondition</span><span class="use-case-val">Bộ hồ sơ được lưu; file .zip được tải về máy người dùng</span></div>
+      </div>
+    </div>
+
+    <div class="use-case">
+      <div class="use-case-header">
+        <span>UC-02 — Cập nhật thông tin và Re-batch</span>
+        <span class="badge should">Secondary</span>
+      </div>
+      <div class="use-case-body">
+        <div class="use-case-row"><span class="use-case-label">Actor</span><span class="use-case-val">Intern / Leader</span></div>
+        <div class="use-case-row"><span class="use-case-label">Trigger</span><span class="use-case-val">Khách hàng thay đổi thông tin (ví dụ: thay đổi địa chỉ trụ sở) sau khi hồ sơ đã tạo</span></div>
+        <div class="use-case-row">
+          <span class="use-case-label">Main Flow</span>
+          <span class="use-case-val">
+            1. Người dùng mở hồ sơ đã tạo<br>
+            2. Chỉnh sửa field trong Master Form<br>
+            3. Hệ thống highlight các tài liệu bị ảnh hưởng bởi thay đổi<br>
+            4. Người dùng xác nhận "Re-batch" → hệ thống cập nhật đồng bộ<br>
+            5. Export lại tài liệu bị thay đổi
+          </span>
+        </div>
+        <div class="use-case-row"><span class="use-case-label">Postcondition</span><span class="use-case-val">Toàn bộ tài liệu phản ánh thông tin mới; version cũ được lưu lại</span></div>
+      </div>
+    </div>
+
+    <div class="use-case">
+      <div class="use-case-header">
+        <span>UC-03 — Quản lý Template (Admin)</span>
+        <span class="badge could">Admin</span>
+      </div>
+      <div class="use-case-body">
+        <div class="use-case-row"><span class="use-case-label">Actor</span><span class="use-case-val">Leader / Admin</span></div>
+        <div class="use-case-row">
+          <span class="use-case-label">Main Flow</span>
+          <span class="use-case-val">
+            1. Admin upload template .docx mới với placeholder syntax<br>
+            2. Hệ thống phân tích và đề xuất mapping tự động<br>
+            3. Admin xác nhận / điều chỉnh mapping<br>
+            4. Template được kích hoạt cho người dùng
+          </span>
+        </div>
+        <div class="use-case-row"><span class="use-case-label">Constraint</span><span class="use-case-val">Placeholder syntax chuẩn: <code>&#123;&#123;field_name&#125;&#125;</code> trong file .docx</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S5 -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <span class="section-num">S.05</span>
+      <span class="section-title">Mô hình dữ liệu (Data Model)</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Entity</th><th>Field chính</th><th>Mô tả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Case</strong></td>
+            <td>case_id, case_name, case_type, created_by, created_at, status</td>
+            <td>Đại diện cho một hồ sơ (ví dụ: hồ sơ thành lập Công ty ABC)</td>
+          </tr>
+          <tr>
+            <td><strong>GeneralInfo</strong></td>
+            <td>case_id, company_name_vi, company_name_en, address, capital_amount, capital_currency, legal_rep, members[], industries[], registration_date</td>
+            <td>Master data — nguồn duy nhất cho batch fill</td>
+          </tr>
+          <tr>
+            <td><strong>Template</strong></td>
+            <td>template_id, template_name, template_code, file_path, language, field_mappings[], version, is_active</td>
+            <td>Biểu mẫu tài liệu và cấu hình mapping</td>
+          </tr>
+          <tr>
+            <td><strong>Document</strong></td>
+            <td>doc_id, case_id, template_id, filled_content, language, version, generated_at, status</td>
+            <td>Tài liệu đã được điền dữ liệu từ một hồ sơ cụ thể</td>
+          </tr>
+          <tr>
+            <td><strong>FieldMapping</strong></td>
+            <td>template_id, placeholder_key, general_info_field, transform_rule</td>
+            <td>Ánh xạ giữa placeholder trong template và field trong GeneralInfo. Transform rule: uppercase, number_to_text, date_format…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- S6 -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <span class="section-num">S.06</span>
+      <span class="section-title">Yêu cầu giao diện (UI/UX)</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Màn hình / Component</th><th>Yêu cầu</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">UI-01</td>
+            <td>Master Information Form</td>
+            <td>Phân nhóm field theo tab/section (Thông tin công ty / Vốn / Thành viên / Ngành nghề). Lưu nháp tự động (auto-save) mỗi 30 giây. Hiển thị progress indicator (% hoàn thành form).</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">UI-02</td>
+            <td>Template Selector</td>
+            <td>Danh sách checkbox có thể chọn/bỏ chọn từng biểu mẫu. Phân nhóm theo loại (Bắt buộc / Tùy chọn). Hiển thị trạng thái từng file (Chưa điền / Đã điền / Lỗi).</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">UI-03</td>
+            <td>Batch Processing Progress</td>
+            <td>Progress bar tổng thể. Hiển thị file đang xử lý. Thông báo lỗi nếu có file thất bại (kèm lý do).</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">UI-04</td>
+            <td>Document Preview</td>
+            <td>Render tài liệu dạng đọc được (không cần mở Word). Highlight các field được auto-fill bằng màu nền vàng nhạt. Nút "Chỉnh sửa" mở inline editor cho phần nội dung tùy chỉnh.</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">UI-05</td>
+            <td>Export Panel</td>
+            <td>Chọn định dạng (docx / pdf / cả hai). Chọn ngôn ngữ (Tiếng Việt / Tiếng Anh / Song ngữ). Đặt tên file theo quy tắc hoặc tùy chỉnh. Nút "Export tất cả" và "Export file đã chọn".</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>Nguyên tắc UX:</strong> Người dùng mục tiêu là Intern (ít kinh nghiệm phần mềm). Giao diện phải theo quy trình tuyến tính rõ ràng (wizard pattern), tránh phức tạp hóa không cần thiết. Tất cả thao tác destructive (xóa hồ sơ) phải có bước confirm.
+    </div>
+  </div>
+
+  <!-- S7 -->
+  <div class="section" id="s7">
+    <div class="section-header">
+      <span class="section-num">S.07</span>
+      <span class="section-title">Yêu cầu tích hợp</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Hệ thống</th><th>Loại tích hợp</th><th>Mô tả</th><th>Priority</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Document Engine</strong></td>
+            <td>Internal</td>
+            <td>Module xử lý .docx (đọc, điền placeholder, giữ format).
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td><strong>PDF Converter</strong></td>
+            <td>Internal</td>
+            <td>Chuyển đổi .docx → .pdf giữ nguyên layout. Gợi ý: LibreOffice headless, Gotenberg</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td><strong>File Storage</strong></td>
+            <td>Cloud</td>
+            <td>Lưu trữ template và document đã tạo. Gợi ý: S3-compatible storage</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td><strong>Auth System</strong></td>
+            <td>SSO / Internal</td>
+            <td>Xác thực và phân quyền RBAC theo vai trò (Intern / Leader / Admin)</td>
+            <td><span class="badge must">Must</span></td>
+          </tr>
+          <tr>
+            <td><strong>Audit Log</strong></td>
+            <td>Internal</td>
+            <td>Ghi lại mọi thao tác tạo, sửa, export hồ sơ (who did what when)</td>
+            <td><span class="badge should">Should</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- S8 -->
+  <div class="section" id="s8">
+    <div class="section-header">
+      <span class="section-num">S.08</span>
+      <span class="section-title">Acceptance Criteria</span>
+    </div>
+    <div class="callout success">
+      Tính năng được coi là <strong>Done</strong> khi toàn bộ các acceptance criteria dưới đây được pass trong môi trường staging với dữ liệu thực tế.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>AC#</th><th>Kịch bản</th><th>Điều kiện pass</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-01</td>
+            <td>Intern điền Master Form với đầy đủ thông tin hợp lệ và kích hoạt Batch Fill</td>
+            <td>Toàn bộ 13 tài liệu được điền đúng, không có field nào bị bỏ trống ngoài các field optional; thời gian xử lý ≤ 10 giây</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-02</td>
+            <td>Intern để trống một trường bắt buộc và click Batch Fill</td>
+            <td>Hệ thống hiển thị lỗi inline tại field đó, không thực hiện batch fill, focus tự động vào field lỗi</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-03</td>
+            <td>Nhập tổng tỷ lệ vốn góp các thành viên ≠ 100%</td>
+            <td>Hiển thị lỗi "Tổng tỷ lệ vốn góp phải bằng 100%. Hiện tại: X%"; không cho phép tiếp tục</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-04</td>
+            <td>Export toàn bộ 13 tài liệu dạng .pdf</td>
+            <td>File .zip được tải về, chứa đủ 13 file .pdf, đặt tên đúng convention; mỗi file mở được và hiển thị đúng nội dung</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-05</td>
+            <td>Chỉnh sửa một field trong Master Form sau khi đã batch fill</td>
+            <td>Hệ thống highlight đúng các tài liệu bị ảnh hưởng; sau khi Re-batch, tài liệu phản ánh giá trị mới; tài liệu không bị ảnh hưởng giữ nguyên</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-06</td>
+            <td>Cùng thông tin, export phiên bản tiếng Anh</td>
+            <td>File .docx tiếng Anh giữ nguyên cấu trúc, font, bảng biểu của template gốc; nội dung là tiếng Anh; không có placeholder chưa được thay thế</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-07</td>
+            <td>Mở lại hồ sơ đã tạo</td>
+            <td>Toàn bộ thông tin trong Master Form được khôi phục đúng; danh sách tài liệu và trạng thái của chúng hiển thị chính xác</td>
+          </tr>
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;">AC-08</td>
+            <td>Intern không có quyền truy cập hồ sơ của người khác</td>
+            <td>Hồ sơ của Intern A không xuất hiện trong danh sách của Intern B; URL trực tiếp trả về 403</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

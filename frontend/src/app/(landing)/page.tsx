@@ -6,12 +6,8 @@ import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
 import { BlogCardsSection } from "@/components/landing/blog-cards-section";
 import { Newspaper } from "@/components/landing/newspaper";
-import FeaturesSection from "@/components/landing/features-section";
-import CostSection from "@/components/landing/cost-section";
-import LandingPricingSection from "@/components/landing/landing-pricing-section";
-import TargetSection from "@/components/landing/target-section";
-import Achievement from "@/components/landing/achievement";
-import { Incubation } from "@/components/landing/incubation";
+import ProductOverviewSection from "@/components/landing/product-overview-section";
+import { Investors } from "@/components/landing/investors";
 import SurveySection from "@/components/landing/survey-section";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { FloatingActions } from "@/components/landing/floating-actions";
@@ -32,12 +28,8 @@ function LandingPageContent() {
     <div className="landing-light min-h-screen bg-[#faf9f5]">
       <LandingHeader />
       <HeroSection />
-      <FeaturesSection />
-      <CostSection />
-      <LandingPricingSection />
-      <TargetSection />
-      <Achievement />
-      <Incubation />
+      <ProductOverviewSection />
+      <Investors />
       <BlogCardsSection />
       <Newspaper />
 

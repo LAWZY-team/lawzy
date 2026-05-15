@@ -9,6 +9,8 @@ services:
       args:
         GEMINI_API_KEY: ${GEMINI_API_KEY}
         NEXT_PUBLIC_APP_URL: https://uat.lawzy.vn
+        NEXT_PUBLIC_SITE_ENV: uat
+        NEXT_PUBLIC_ALLOW_ROBOT_INDEXING: "false"
         NEXT_PUBLIC_BACKEND_URL: https://uat.lawzy.vn/api
         BACKEND_URL: ${BACKEND_URL}
     container_name: lawzy-frontend-uat

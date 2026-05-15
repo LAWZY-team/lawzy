@@ -25,9 +25,9 @@ export default function SurveySection({ isOpen, onClose }: SurveySectionProps) {
     <AnimatePresence>
       {isOpen && (
         <motion.div key="survey-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", stiffness: 260, damping: 25 }} className="relative w-full max-w-3xl md:max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-800" role="dialog" aria-modal="true" aria-label={t("survey_modal_title")}>
-            <div className="flex items-start justify-between p-1 border-b border-gray-100 dark:border-gray-800">
+          <div className="absolute inset-0 bg-black/55 backdrop-blur-md" onClick={onClose} aria-hidden="true" />
+          <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: "spring", stiffness: 280, damping: 28 }} className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-gray-100/95 bg-white shadow-2xl shadow-black/20 dark:border-gray-800 dark:bg-gray-900 md:max-w-4xl" role="dialog" aria-modal="true" aria-label={t("survey_modal_title")}>
+            <div className="flex items-start justify-between border-b border-gray-100/90 bg-orange-50/50 p-2 dark:border-gray-800 dark:bg-orange-950/25">
               <div />
               <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label={t("survey_close")}><X className="w-5 h-5" /></Button>
             </div>

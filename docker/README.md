@@ -40,9 +40,19 @@ Trong `frontend/.env.local`:
 ```env
 BACKEND_URL=http://localhost:5000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Không set NEXT_PUBLIC_ALLOW_ROBOT_INDEXING → local không bị Google index
 ```
 
 Trình duyệt mở `http://localhost:3000/login` — cookie auth qua proxy same-origin tới backend `:5000`.
+
+### SEO / robots (build-time `NEXT_PUBLIC_*`)
+
+| Môi trường | `NEXT_PUBLIC_APP_URL` | `NEXT_PUBLIC_SITE_ENV` | `NEXT_PUBLIC_ALLOW_ROBOT_INDEXING` |
+|------------|------------------------|-------------------------|-------------------------------------|
+| Production | `https://lawzy.vn` | `production` | `true` |
+| UAT | `https://uat.lawzy.vn` | `uat` | `false` |
+
+Đã gắn trong `docker/compose.prod*.yml`, `docker/compose.uat*.yml` và `frontend/Dockerfile` build args. Rebuild frontend image sau khi đổi các biến này.
 
 ## Full Stack (UAT / Production)
 

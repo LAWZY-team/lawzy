@@ -33,12 +33,12 @@ export default function LandingPricingSection() {
 
   if (isLoading) {
     return (
-      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80">
+      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
         <div className={sectionContainer}>
           <SectionHeader title={t("pricing_section_title")} subtitle={t("pricing_section_subtitle")} margin="tight" />
-          <div className="grid gap-6 md:grid-cols-3 mt-8">
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-80 rounded-lg" />
+              <Skeleton key={i} className="h-80 rounded-2xl" />
             ))}
           </div>
         </div>
@@ -50,7 +50,7 @@ export default function LandingPricingSection() {
 
   if (!displayedPlans.length) {
     return (
-      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80">
+      <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
         <div className={sectionContainer}>
           <SectionHeader
             title={t("pricing_section_title")}
@@ -79,7 +79,7 @@ export default function LandingPricingSection() {
   }
 
   return (
-    <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80">
+    <Section id="pricing" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/25 dark:border-gray-800/80 dark:bg-orange-950/15">
       <div className={sectionContainer}>
         <SectionHeader
           title={t("pricing_section_title")}
@@ -100,9 +100,9 @@ export default function LandingPricingSection() {
           </span>
         </div>
         <div
-          className={`grid gap-6 mt-8 ${
+          className={`mt-10 grid gap-8 ${
             displayedPlans.length <= 2
-              ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+              ? "mx-auto max-w-2xl grid-cols-1 sm:grid-cols-2"
               : displayedPlans.length === 3
                 ? "md:grid-cols-3"
                 : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"

@@ -11,11 +11,14 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyleKit } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
+import { Indent } from '@/lib/tiptap/extensions/indent'
+import { ResizableImageExtension } from '@/lib/tiptap/extensions/resizable-image'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
+import { EditorLeftWorkspace } from '@/components/editor/editor-left-workspace'
 import { useSidebar } from '@/components/ui/sidebar'
-import { useEditorStore } from '@/stores/editor-store'
+import { useEditorStore, type TemplateMergeField } from '@/stores/editor-store'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { useUserFieldsStore } from '@/stores/user-fields-store'
 import type { Template } from '@/types/template'
@@ -25,7 +28,9 @@ import { useOnboardingStore } from '@/stores/onboarding-store'
 import { useGuestEditorSessionStore } from '@/stores/guest-editor-session-store'
 import { AuthModal } from '@/components/editor/auth-modal'
 import { api } from '@/lib/api/client'
+import { getStructuredContractTemplate } from '@/lib/api/contract-templates'
 import { templateContentToEditorContent } from '@/lib/template-content-to-editor'
+import { normalizeTipTapDocContent } from '@/lib/editor/normalize-tiptap-content'
 import { editorContentToPlainText } from '@/lib/editor-content-to-text'
 import type { DocContent } from '@/types/template'
 import { toast } from 'sonner'
@@ -38,6 +43,10 @@ import {
   TOOL_NAME_LABELS_IN_PROGRESS,
 } from '@/lib/editor/contract-result'
 import type { QuestionnaireSchema, IntakeQuestionnaireResult } from '@/types/questionnaire'
+import { findContractType, type ContractTypeId } from '@/lib/editor/contract-questionnaires'
+import { type WizardFormStep } from '@/lib/editor/contract-wizard-config'
+import { ContractWizard } from '@/components/editor/chat/contract-wizard'
+import type { WizardOutputLanguage } from '@/components/editor/chat/contract-wizard'
 import { contractResultToTipTapContent } from '@/lib/editor/result-to-tiptap-content'
 import { resolveMergeFieldValue } from '@/lib/editor/merge-field-aliases'
 import { useThinkingProgress } from '@/hooks/use-thinking-progress'
@@ -49,6 +58,16 @@ import { useT } from '@/components/i18n-provider'
 
 // Template type alias for editor usage
 type EditorTemplate = Template
+type EditorMetadata = ReturnType<typeof useEditorStore.getState>['metadata']
+
+interface PendingEditorBootstrap {
+  documentId: string
+  editorContent: JSONContent
+  metadata: EditorMetadata
+  mergeFieldValues: Record<string, string>
+  templateMergeFields: TemplateMergeField[] | null
+  chatMessages: ChatMessage[]
+}
 
 /** Hợp đồng lưu dạng template (clause/field) cần chuyển sang TipTap khi load */
 function isTemplateFormat(doc: unknown): doc is DocContent {
@@ -76,12 +95,32 @@ export default function EditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ template?: string; draft?: string }>
+  searchParams?: Promise<{
+    template?: string
+    draft?: string
+    contractTemplate?: string
+    contractTemplateScope?: string
+  }>
 }) {
   const router = useRouter()
   const resolvedParams = use(params)
-  const resolvedSearchParams = use(searchParams ?? Promise.resolve({}) as Promise<{ template?: string; draft?: string }>)
+  const resolvedSearchParams = use(
+    searchParams ??
+      (Promise.resolve({}) as Promise<{
+        template?: string
+        draft?: string
+        contractTemplate?: string
+        contractTemplateScope?: string
+      }>),
+  )
   const templateId = typeof resolvedSearchParams.template === 'string' ? resolvedSearchParams.template : undefined
+  const contractTemplateId =
+    typeof resolvedSearchParams.contractTemplate === 'string'
+      ? resolvedSearchParams.contractTemplate
+      : undefined
+  const contractTemplateScope =
+    resolvedSearchParams.contractTemplateScope === 'internal' ? 'internal' : 'community'
+  const isTemplateEntry = !!templateId || !!contractTemplateId
   const { setCurrentDocument, setContent, setSaving, setLastSaved, updateMetadata, setTemplateMergeFields, setMergeFieldValues, mergeFieldValues, metadata } = useEditorStore()
   const { customFields } = useUserFieldsStore()
   const { isAuthenticated } = useAuthStore()
@@ -105,11 +144,16 @@ export default function EditorPage({
     }
   }, [currentWorkspace, fetchWorkspaces])
 
+  // Handle document ID locally to avoid Next.js unmounting when navigating from /editor/new
+  const [managedId, setManagedId] = useState(resolvedParams.id)
+  const [showLeftWorkspace, setShowLeftWorkspace] = useState(resolvedParams.id === 'new')
+
   // Mặc định: chỉ mở canvas khi đã có document id (editor/{id}); /editor/new bắt đầu ở chế độ chat
-  const [isCanvasMode, setIsCanvasMode] = useState(resolvedParams.id !== 'new')
+  const [isCanvasMode, setIsCanvasMode] = useState(managedId !== 'new')
   const prevCanvasModeRef = useRef(isCanvasMode)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [toolsPanelOpen, setToolsPanelOpen] = useState(true)
+  const [leftWorkspaceMode, setLeftWorkspaceMode] = useState<'chat' | 'templates'>('chat')
 
   // Chỉ thu gọn sidebar khi vừa chuyển sang canvas (false → true); nếu user tự mở lại sidebar thì không ép đóng
   useEffect(() => {
@@ -128,10 +172,14 @@ export default function EditorPage({
   const setThinkingProgress = useThinkingProgress(isGenerating)[1]
   const guestRestoredRef = useRef(false)
   const initialLoadRef = useRef(true)
+  const pendingEditorBootstrapRef = useRef<PendingEditorBootstrap | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [showSaveDraftModal, setShowSaveDraftModal] = useState(false)
   const [pendingUrl] = useState<string | null>(null)
   const [activeQuestionnaire, setActiveQuestionnaire] = useState<QuestionnaireSchema | null>(null)
+  const [wizardContractTypeId, setWizardContractTypeId] = useState<ContractTypeId | null>(null)
+  const [isWizardSubmitting, setIsWizardSubmitting] = useState(false)
+  const contentErrorRecoveryRef = useRef(false)
 
   // Allow RightPanel to request chat restoration when restoring a version
   useEffect(() => {
@@ -159,7 +207,7 @@ export default function EditorPage({
 
   // Restore draft when coming back to /editor/new (guest) OR migrate guest draft into account on login
   useEffect(() => {
-    if (resolvedParams.id !== 'new') return
+    if (managedId !== 'new' || isTemplateEntry) return
 
     let cancelled = false
 
@@ -189,7 +237,8 @@ export default function EditorPage({
       cancelled = true
     }
   }, [
-    resolvedParams.id, // Ensure we re-run when id changes
+    managedId,
+    isTemplateEntry,
     getSession,
     setMergeFieldValues,
     setTemplateMergeFields,
@@ -203,7 +252,7 @@ export default function EditorPage({
 
   // Save local session periodically on /editor/new
   useEffect(() => {
-    if (resolvedParams.id === 'new' && isCanvasMode) {
+    if (managedId === 'new' && isCanvasMode && !isTemplateEntry) {
       const interval = setInterval(() => {
         const isLoggingOut = (wasAuthRef.current && !useAuthStore.getState().isAuthenticated) || typeof window !== 'undefined' && (window as Window & { __isLoggingOut?: boolean }).__isLoggingOut;
         if (isLoggingOut) return
@@ -237,7 +286,7 @@ export default function EditorPage({
         }
       }
     }
-  }, [resolvedParams.id, isCanvasMode, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
+  }, [managedId, isCanvasMode, isTemplateEntry, editorContent, documentTitle, mergeFieldValues, chatMessages, saveSession])
 
   // Handle auth requirement for guest actions
   const handleAuthRequired = useCallback(() => {
@@ -248,10 +297,110 @@ export default function EditorPage({
     return false
   }, [isAuthenticated])
 
+  const applyTemplateState = useCallback((params: {
+    title: string
+    type: string
+    contentJSON: DocContent
+    mergeFields: Array<{ fieldKey: string; label: string; sampleValue?: string }>
+  }) => {
+    initialLoadRef.current = true
+    setCurrentDocument(null)
+    setChatMessages([])
+    const tipTapContent = normalizeTipTapDocContent(
+      templateContentToEditorContent(params.contentJSON),
+    )
+    setEditorContent(tipTapContent)
+    updateMetadata({
+      title: params.title,
+      type: params.type,
+      tags: [],
+      riskLevel: 'low',
+      visibility: 'workspace',
+      status: undefined,
+      creator: undefined,
+    })
+    const normalizedFields: TemplateMergeField[] = params.mergeFields.map((field) => ({
+      fieldKey: field.fieldKey,
+      label: field.label,
+      sampleValue: field.sampleValue,
+    }))
+    setTemplateMergeFields(normalizedFields)
+    setMergeFieldValues(
+      Object.fromEntries(
+        normalizedFields.map((field) => [field.fieldKey, field.sampleValue ?? '']),
+      ),
+    )
+    setIsCanvasMode(true)
+  }, [setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
+  const applyDocumentBootstrap = useCallback((bootstrap: PendingEditorBootstrap) => {
+    initialLoadRef.current = true
+    setCurrentDocument(bootstrap.documentId)
+    setTemplateMergeFields(bootstrap.templateMergeFields)
+    setMergeFieldValues(bootstrap.mergeFieldValues)
+    setEditorContent(bootstrap.editorContent)
+    updateMetadata(bootstrap.metadata)
+    setChatMessages(bootstrap.chatMessages)
+    setIsCanvasMode(true)
+  }, [setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, updateMetadata])
+
+  const resetTemplateEntryState = useCallback(() => {
+    initialLoadRef.current = true
+    setTemplateMergeFields(null)
+    setMergeFieldValues({})
+    setChatMessages([])
+    setEditorContent(getDefaultContent(t("editor_default_title")))
+  }, [setMergeFieldValues, setTemplateMergeFields, t])
+
+  const applyContractTemplateById = useCallback(async (
+    templateIdToLoad: string,
+    scope: 'community' | 'internal',
+  ) => {
+    resetTemplateEntryState()
+    const template = await getStructuredContractTemplate({
+      id: templateIdToLoad,
+      scope,
+    })
+    if (!template?.contentJSON) return
+    applyTemplateState({
+      title: template.title,
+      type: 'contract',
+      contentJSON: template.contentJSON as DocContent,
+      mergeFields: template.mergeFields ?? [],
+    })
+  }, [applyTemplateState, resetTemplateEntryState])
+
+  const applySystemTemplateById = useCallback(async (templateIdToLoad: string) => {
+    resetTemplateEntryState()
+    const template = await api.get<EditorTemplate>(`/templates/${templateIdToLoad}`)
+    if (!template?.contentJSON) return
+    applyTemplateState({
+      title: template.title,
+      type: template.category ?? 'contract',
+      contentJSON: template.contentJSON as DocContent,
+      mergeFields: (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>,
+    })
+  }, [applyTemplateState, resetTemplateEntryState])
+
   useEffect(() => {
-    if (resolvedParams.id !== 'new') {
+    let cancelled = false
+    if (managedId !== 'new') {
+      // If we just saved and transitioned smoothly, we already have the state.
+      if (useEditorStore.getState().currentDocumentId === managedId && !initialLoadRef.current) {
+        return
+      }
+
+      const pendingBootstrap = pendingEditorBootstrapRef.current
+      if (pendingBootstrap?.documentId === managedId) {
+        pendingEditorBootstrapRef.current = null
+        applyDocumentBootstrap(pendingBootstrap)
+        return () => {
+          cancelled = true
+        }
+      }
       initialLoadRef.current = true
-      api.get<Record<string, unknown>>(`/documents/${resolvedParams.id}`).then((doc) => {
+      api.get<Record<string, unknown>>(`/documents/${managedId}`).then((doc) => {
+        if (cancelled) return
         if (doc) {
           setCurrentDocument(doc.id as string)
           setTemplateMergeFields(null)
@@ -268,7 +417,11 @@ export default function EditorPage({
             typeof rawContent === 'string'
               ? (() => { try { return JSON.parse(rawContent) } catch { return rawContent } })()
               : rawContent
-          const content = isTemplateFormat(raw) ? templateContentToEditorContent(raw as DocContent) : (raw as JSONContent)
+          const content = normalizeTipTapDocContent(
+            isTemplateFormat(raw)
+              ? templateContentToEditorContent(raw as DocContent)
+              : raw,
+          )
           if (content) setEditorContent(content)
           // Use updateMetadata below to set both title and other metadata
           const meta = (doc.metadata as Record<string, unknown>) ?? {}
@@ -294,47 +447,35 @@ export default function EditorPage({
           })))
         }
       }).catch(() => {
+        if (cancelled) return
         setChatMessages([])
         initialLoadRef.current = false
       })
     } else {
       setCurrentDocument(null)
-      if (templateId) {
-        api.get<EditorTemplate>(`/templates/${templateId}`).then((template) => {
-          if (template?.contentJSON) {
-            const tipTapContent = templateContentToEditorContent(template.contentJSON as DocContent)
-            setEditorContent(tipTapContent)
-            updateMetadata({
-              title: template.title,
-              type: template.category ?? 'contract',
-              tags: [],
-            })
-            const fields = (template.mergeFields ?? []) as Array<{ fieldKey: string; label: string; sampleValue?: string }>
-            setTemplateMergeFields(
-              fields.map((f) => ({
-                fieldKey: f.fieldKey,
-                label: f.label,
-                sampleValue: f.sampleValue,
-              }))
-            )
-            setMergeFieldValues(
-              Object.fromEntries(fields.map((f) => [f.fieldKey, f.sampleValue ?? '']))
-            )
-            setIsCanvasMode(true)
-          }
-        }).catch(() => {})
-        return
+      if (contractTemplateId) {
+        applyContractTemplateById(contractTemplateId, contractTemplateScope).catch(() => {
+          if (cancelled) return
+        })
+      } else if (templateId) {
+        applySystemTemplateById(templateId).catch(() => {
+          if (cancelled) return
+        })
+      } else {
+        setTemplateMergeFields(null)
+        setMergeFieldValues({})
+        setEditorContent(getDefaultContent(t("editor_default_title")))
+        updateMetadata({ title: t("editor_untitled") })
+        // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
+        setIsCanvasMode(false)
+        setChatMessages([])
+        initialLoadRef.current = false
       }
-      setTemplateMergeFields(null)
-      setMergeFieldValues({})
-      setEditorContent(getDefaultContent(t("editor_default_title")))
-      updateMetadata({ title: t("editor_untitled") })
-      // Với /editor/new, bắt đầu ở chế độ chat, chưa mở canvas
-      setIsCanvasMode(false)
-      setChatMessages([])
-      initialLoadRef.current = false
     }
-  }, [resolvedParams.id, templateId, setCurrentDocument, updateMetadata, setTemplateMergeFields, setMergeFieldValues, t])
+    return () => {
+      cancelled = true
+    }
+  }, [applyContractTemplateById, applyDocumentBootstrap, applySystemTemplateById, contractTemplateId, contractTemplateScope, managedId, setCurrentDocument, setMergeFieldValues, setTemplateMergeFields, templateId, t, updateMetadata])
 
   // Merge per-user custom fields defaults into current editor mergeFieldValues (do not overwrite existing doc values)
   useEffect(() => {
@@ -365,27 +506,60 @@ export default function EditorPage({
 
   const editor = useEditor({
     immediatelyRender: false,
+    enableContentCheck: true,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
       TextStyleKit.configure({
         backgroundColor: false,
-        color: false,
+        color: {
+          types: ['textStyle'],
+        },
         lineHeight: false,
         fontFamily: { types: ['textStyle'] },
         fontSize: { types: ['textStyle'] },
       }),
+      ResizableImageExtension.configure({
+        allowBase64: true,
+        inline: false,
+      }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: true }),
+      Table.configure({
+        resizable: true,
+        lastColumnResizable: false,
+        cellMinWidth: 80,
+      }),
       TableRow, TableCell, TableHeader,
       Placeholder.configure({
         placeholder: t("editor_placeholder"),
       }),
       Underline,
       MergeFieldExtension,
+      Indent,
     ],
-    content: editorContent,
+    // Always initialize with a known-safe doc; actual data is synchronized in a guarded effect.
+    content: getDefaultContent(t("editor_default_title")),
+    onContentError: ({ error, editor }) => {
+      console.error("Tiptap content schema error", error)
+      if (contentErrorRecoveryRef.current) return
+      contentErrorRecoveryRef.current = true
+      const recovered = normalizeTipTapDocContent(editorContent)
+      try {
+        editor.commands.setContent(recovered)
+        setEditorContent(recovered)
+        toast.error(t("toast_generate_error"))
+      } catch (recoveryError) {
+        console.error("Tiptap content recovery failed", recoveryError)
+        const fallback = getDefaultContent(t("editor_default_title"))
+        editor.commands.setContent(fallback)
+        setEditorContent(fallback)
+      } finally {
+        setTimeout(() => {
+          contentErrorRecoveryRef.current = false
+        }, 0)
+      }
+    },
       editorProps: {
       attributes: {
          class: 'prose prose-invert prose-lg max-w-none focus:outline-none min-h-[calc(100vh-200px)] p-4 text-foreground selection:bg-blue-300 selection:text-black',
@@ -484,7 +658,7 @@ export default function EditorPage({
         })
       }
 
-      if (resolvedParams.id === 'new') {
+      if (managedId === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || (sourceMetadata?.title as string | undefined) || t("docs_default_title"),
@@ -540,17 +714,22 @@ export default function EditorPage({
         clearSession()
 
         setIsDirty(false)
+        setManagedId(newId)
+        setShowLeftWorkspace(true)
+        setCurrentDocument(newId)
+
         toast.success(t('toast_saved'))
 
         if (pendingUrl) {
           router.push(pendingUrl)
         } else {
-          router.replace(`/editor/${newId}`)
+          // Use replaceState to update URL without triggering Next.js page remount
+          window.history.replaceState(null, '', `/editor/${newId}`)
         }
         return
       }
 
-      await api.patch(`/documents/${resolvedParams.id}`, {
+      await api.patch(`/documents/${managedId}`, {
         title: documentTitle,
         status,
         visibility,
@@ -562,11 +741,11 @@ export default function EditorPage({
       // Persist version snapshot to S3/R2 immediately so storage usage counts now.
       try {
         await uploadSnapshot({
-          documentId: resolvedParams.id,
-          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${resolvedParams.id}.json`,
+          documentId: managedId,
+          fileName: `${sanitizeFileNameLocal(documentTitle || 'document')}-draft-${managedId}.json`,
           payload: {
             kind: 'document-draft-snapshot',
-            documentId: resolvedParams.id,
+            documentId: managedId,
             savedAt: new Date().toISOString(),
             title: documentTitle,
             status,
@@ -590,7 +769,7 @@ export default function EditorPage({
       console.error(e)
       toast.error(t('toast_save_failed'))
     }
-  }, [isAuthenticated, handleAuthRequired, resolvedParams.id, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient])
+  }, [isAuthenticated, handleAuthRequired, managedId, workspaceId, documentTitle, editorContent, chatMessages, clearSession, pendingUrl, router, t, queryClient, setCurrentDocument])
 
   const { isActive: isTourActive } = useOnboardingStore()
 
@@ -604,7 +783,8 @@ export default function EditorPage({
   useEffect(() => {
     if (
       isAuthenticated &&
-      resolvedParams.id === 'new' &&
+      managedId === 'new' &&
+      !isTemplateEntry &&
       guestRestoredRef.current &&
       !isTourActive &&
       !autoSaveTriggeredRef.current
@@ -614,7 +794,7 @@ export default function EditorPage({
         handleSaveDraftToDb('draft')
       }
     }
-  }, [isAuthenticated, resolvedParams.id, isTourActive, editorContent, handleSaveDraftToDb])
+  }, [isAuthenticated, managedId, isTemplateEntry, isTourActive, editorContent, handleSaveDraftToDb])
 
   // Sync editor content (defer to macrotask to avoid flushSync during React render)
   useEffect(() => {
@@ -624,7 +804,13 @@ export default function EditorPage({
     const id = setTimeout(() => {
       if (!editor) return
       if (JSON.stringify(pending) !== JSON.stringify(editor.getJSON())) {
-        editor.commands.setContent(pending)
+        const normalized = normalizeTipTapDocContent(pending)
+        try {
+          editor.commands.setContent(normalized)
+        } catch (error) {
+          console.error('Failed to set editor content safely', error)
+          // Keep current editor state instead of clearing canvas to avoid blank screen.
+        }
       }
       // Clear initial-load flag AFTER the onUpdate debounce (300ms) has had time to fire,
       // so the first content sync never marks the document as dirty.
@@ -669,14 +855,14 @@ export default function EditorPage({
   // Autosave authenticated documents (update live document, versions are manual)
   useEffect(() => {
     if (!isAuthenticated) return
-    if (resolvedParams.id === 'new') return
+    if (managedId === 'new') return
     if (initialLoadRef.current) return
 
     const timeoutId = setTimeout(() => {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
       api
-        .patch(`/documents/${resolvedParams.id}`, {
+        .patch(`/documents/${managedId}`, {
           title: documentTitle,
           contentJSON: editorContent,
           mergeFieldValues: persistedMergeValues,
@@ -691,7 +877,7 @@ export default function EditorPage({
     }, 800)
 
     return () => clearTimeout(timeoutId)
-  }, [isAuthenticated, resolvedParams.id, editorContent, mergeFieldValues, documentTitle])
+  }, [isAuthenticated, managedId, editorContent, mergeFieldValues, documentTitle])
 
   const sanitizeFileName = (input: string) =>
     input.replace(/[\/\\?%*:|"<>]/g, '_').trim() || 'document'
@@ -757,7 +943,7 @@ export default function EditorPage({
     try {
       flushMergeFieldDrafts()
       const persistedMergeValues = useEditorStore.getState().mergeFieldValues
-      if (resolvedParams.id === 'new') {
+      if (managedId === 'new') {
         const sourceMetadata = useEditorStore.getState().metadata
         const created = await api.post<Record<string, unknown>>('/documents', {
           title: documentTitle || sourceMetadata?.title || t("docs_default_title"),
@@ -811,8 +997,12 @@ export default function EditorPage({
         }
 
         clearSession()
+        setManagedId(newId)
+        setShowLeftWorkspace(true)
+        setCurrentDocument(newId)
+        setIsDirty(false)
         toast.success(t('toast_draft_saved'))
-        router.replace(`/editor/${newId}`)
+        window.history.replaceState(null, '', `/editor/${newId}`)
         return
       }
 
@@ -820,7 +1010,7 @@ export default function EditorPage({
       const versionLabel = t("version_save_label", {
         date: now.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US'),
       })
-      const createdVersion = await api.post(`/documents/${resolvedParams.id}/versions`, {
+      const createdVersion = await api.post(`/documents/${managedId}/versions`, {
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         chatCursorAt: now.toISOString(),
@@ -833,12 +1023,12 @@ export default function EditorPage({
       // Persist version snapshot to S3/R2 immediately so storage usage counts now.
       try {
         await persistDraftSnapshotToS3({
-          documentId: resolvedParams.id,
+          documentId: managedId,
           workspaceId: workspaceId ?? null,
-          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${resolvedParams.id}.json`,
+          fileName: `${sanitizeFileName(documentTitle || 'document')}${versionId ? `-v-${versionId}` : `-v-${now.getTime()}`}-${managedId}.json`,
           payload: {
             kind: 'document-version-snapshot',
-            documentId: resolvedParams.id,
+            documentId: managedId,
             versionId: versionId || undefined,
             savedAt: now.toISOString(),
             label: versionLabel,
@@ -865,7 +1055,10 @@ export default function EditorPage({
   }
 
   // Handle chat messages
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = useCallback(async (
+    message: string,
+    options?: { preferredOutputLanguage?: WizardOutputLanguage }
+  ) => {
     const hasFile = !!attachedFile
     const effectiveMessage = message.trim() || (hasFile ? (t('chat_file_only_prompt') || 'Xử lý file đính kèm') : '')
     if (!effectiveMessage) return
@@ -882,8 +1075,8 @@ export default function EditorPage({
     setThinkingProgress([])
 
     // Persist user message (best-effort)
-    if (isAuthenticated && resolvedParams.id !== 'new') {
-      api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+    if (isAuthenticated && managedId !== 'new') {
+      api.post(`/documents/${managedId}/chat-messages`, {
         role: 'user',
         content: effectiveMessage,
         metadata: attachedFile ? { attachedFileName: attachedFile.name } : undefined,
@@ -971,8 +1164,9 @@ export default function EditorPage({
         body: JSON.stringify({
           userMessage: effectiveMessage,
           locale,
+          preferredOutputLanguage: options?.preferredOutputLanguage,
           workspaceId: workspaceId ?? undefined,
-          documentId: resolvedParams.id !== 'new' ? resolvedParams.id : undefined,
+          documentId: managedId !== 'new' ? managedId : undefined,
           mergeFieldValues:
             Object.keys(mergeFieldValuesForRequest).length > 0 ? mergeFieldValuesForRequest : undefined,
           existingContent: existingContentText || undefined,
@@ -1079,10 +1273,10 @@ export default function EditorPage({
         setIsCanvasMode(true)
         setActiveQuestionnaire(null)
 
-        if (isAuthenticated && resolvedParams.id !== 'new') {
+        if (isAuthenticated && managedId !== 'new') {
           flushMergeFieldDrafts()
           try {
-            await api.patch(`/documents/${resolvedParams.id}`, {
+            await api.patch(`/documents/${managedId}`, {
               title: nextTitle,
               contentJSON: newContent,
               mergeFieldValues: mergedForSave,
@@ -1143,8 +1337,8 @@ export default function EditorPage({
 
       setChatMessages((prev) => [...prev, aiMessage])
 
-      if (isAuthenticated && resolvedParams.id !== 'new') {
-        api.post(`/documents/${resolvedParams.id}/chat-messages`, {
+      if (isAuthenticated && managedId !== 'new') {
+        api.post(`/documents/${managedId}/chat-messages`, {
           role: 'assistant',
           content: aiContent,
           metadata: {
@@ -1178,7 +1372,7 @@ export default function EditorPage({
       setIsGenerating(false)
       setThinkingProgress([])
     }
-  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, queryClient, resolvedParams.id, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues, updateMetadata])
+  }, [attachedFile, chatMessages, documentTitle, editorContent, isAuthenticated, locale, managedId, queryClient, setThinkingProgress, t, workspaceId, setTemplateMergeFields, setMergeFieldValues, updateMetadata])
 
   const handleQuestionnaireSubmit = useCallback((values: Record<string, string>) => {
     setActiveQuestionnaire(null)
@@ -1206,17 +1400,142 @@ export default function EditorPage({
     handleSendMessage(prompt)
   }, [t, handleSendMessage])
 
+  const handleContractTypeSelect = useCallback((contractTypeId: ContractTypeId) => {
+    setWizardContractTypeId(contractTypeId)
+  }, [])
+
+  const handleWizardSubmit = useCallback(async (
+    contractTypeId: ContractTypeId,
+    roleId: string | null,
+    values: Record<string, string>,
+    steps: WizardFormStep[],
+    outputLanguage: WizardOutputLanguage,
+  ) => {
+    setIsWizardSubmitting(true)
+    const contractType = findContractType(contractTypeId)
+    const CONTRACT_TYPE_LABELS: Record<ContractTypeId, string> = {
+      labor: 'Hợp đồng lao động',
+      service: 'Hợp đồng cung cấp dịch vụ',
+      nda: 'Thỏa thuận bảo mật (NDA)',
+      goods: 'Hợp đồng mua bán hàng hóa',
+      rental: 'Hợp đồng thuê',
+    }
+    const typeLabel = CONTRACT_TYPE_LABELS[contractTypeId] ?? contractType?.title ?? contractTypeId
+    const sections = steps.map((step) => {
+      const lines = step.fields
+        .filter((f) => values[f.key]?.trim())
+        .map((f) => {
+          const displayValue = f.type === 'toggle'
+            ? (values[f.key] === 'true' ? 'Có' : 'Không')
+            : values[f.key]
+          return `  ${f.label}: ${displayValue}`
+        })
+        .join('\n')
+      return lines ? `${step.title}:\n${lines}` : null
+    }).filter(Boolean).join('\n\n')
+    const WIZARD_LANG_PROMPT: Record<WizardOutputLanguage, string> = {
+      vi: 'Ngôn ngữ hợp đồng đầu ra: Tiếng Việt.',
+      en: 'Output contract language: English only.',
+      zh: '输出合同语言：中文（简体）。',
+      bilingual: 'Ngôn ngữ hợp đồng đầu ra: Song ngữ Việt - Anh.',
+    }
+    const prompt = [
+      '[CONTRACT_WIZARD_SUBMISSION]',
+      `[WIZARD_OUTPUT_LANGUAGE=${outputLanguage}]`,
+      WIZARD_LANG_PROMPT[outputLanguage],
+      `Loại hợp đồng: ${typeLabel}`,
+      roleId ? `Vai trò người dùng: ${roleId}` : '',
+      '',
+      sections,
+      '',
+      'Vui lòng soạn thảo hợp đồng đầy đủ và chính xác theo đúng pháp luật Việt Nam dựa trên thông tin trên.',
+    ].filter((l) => l !== '').join('\n')
+
+    // Push wizard answers into mergeFieldValues so the right panel tools are
+    // populated immediately — before the AI finishes drafting the contract.
+    const prevMfv = useEditorStore.getState().mergeFieldValues
+    const wizardMergeValues: Record<string, string> = { ...prevMfv }
+    for (const [key, val] of Object.entries(values)) {
+      const trimmed = typeof val === 'string' ? val.trim() : ''
+      if (trimmed) wizardMergeValues[key] = trimmed
+    }
+    setMergeFieldValues(wizardMergeValues)
+
+    // Build templateMergeFields from wizard fields so labels appear correctly
+    // in the right panel (deduped across steps).
+    const seenKeys = new Set<string>()
+    const wizardMergeFields: TemplateMergeField[] = []
+    for (const step of steps) {
+      for (const field of step.fields) {
+        if (seenKeys.has(field.key)) continue
+        seenKeys.add(field.key)
+        wizardMergeFields.push({
+          fieldKey: field.key,
+          label: field.label,
+          sampleValue: wizardMergeValues[field.key] ?? '',
+        })
+      }
+    }
+    setTemplateMergeFields(wizardMergeFields)
+
+    // Open canvas right away so the user sees the tools panel while the AI drafts.
+    setIsCanvasMode(true)
+
+    setWizardContractTypeId(null)
+    setIsWizardSubmitting(false)
+    await handleSendMessage(prompt, { preferredOutputLanguage: outputLanguage })
+  }, [handleSendMessage, setMergeFieldValues, setTemplateMergeFields])
+
+  const isNewEditorRoute = showLeftWorkspace
+
+  const chatSurface = wizardContractTypeId ? (
+    <ContractWizard
+      contractTypeId={wizardContractTypeId}
+      locale={locale}
+      onBack={() => setWizardContractTypeId(null)}
+      onSubmit={handleWizardSubmit}
+      isSubmitting={isWizardSubmitting}
+    />
+  ) : (
+    <ChatColumn
+      messages={chatMessages}
+      onSendMessage={handleSendMessage}
+      isLoading={isGenerating}
+      thinkingSteps={thinkingProgress}
+      isCanvasMode={isCanvasMode}
+      onOpenCanvas={() => setIsCanvasMode(true)}
+      userDisplayName={useAuthStore.getState().user?.name}
+      attachedFile={attachedFile ? { name: attachedFile.name } : null}
+      onAttachFile={(file) => {
+        const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+        if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
+          toast.error(t("chat_file_type_error"))
+          return
+        }
+        setAttachedFile(file)
+      }}
+      onRemoveAttachedFile={() => setAttachedFile(null)}
+      activeQuestionnaire={activeQuestionnaire}
+      onQuestionnaireSubmit={handleQuestionnaireSubmit}
+      onQuestionnaireSkip={handleQuestionnaireSkip}
+      onContractTypeSelect={handleContractTypeSelect}
+      mergeFieldValues={mergeFieldValues}
+      userFields={customFields}
+      workspaceFields={workspaceFields}
+    />
+  )
+
   return (
     <div className="flex flex-1 min-h-0 bg-background text-foreground overflow-hidden relative flex-col">
       {/* Main Content Area - 3 Column Layout */}
       <div className="relative z-10 flex flex-1 w-full min-h-0 gap-2 overflow-hidden">
         
-        {/* Left: Chat Area (30%) */}
+        {/* Left: Chat Area — hẹp hơn một chút khi mở canvas để nhường chỗ cho editor */}
         <motion.div 
           layout
           initial={false}
-          animate={{ 
-            width: isCanvasMode ? '30%' : '100%', // Chat shrinks when canvas is open
+          animate={{
+            width: isCanvasMode ? '32%' : '100%',
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 25 }}
           className={cn(
@@ -1226,43 +1545,31 @@ export default function EditorPage({
         >
           <div id="tour-editor-chat" className={cn(
             "w-full h-full transition-all duration-500",
-            !isCanvasMode ? "max-w-3xl mx-auto" : "w-full"
+            !isCanvasMode && !wizardContractTypeId
+              ? "max-w-3xl min-[1100px]:max-w-4xl min-[1536px]:max-w-5xl mx-auto w-full"
+              : "w-full"
           )}>
-            <ChatColumn
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              isLoading={isGenerating}
-              thinkingSteps={thinkingProgress}
-              isCanvasMode={isCanvasMode}
-              onOpenCanvas={() => setIsCanvasMode(true)}
-              userDisplayName={useAuthStore.getState().user?.name}
-              attachedFile={attachedFile ? { name: attachedFile.name } : null}
-              onAttachFile={(file) => {
-                const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
-                if (ext !== '.pdf' && ext !== '.doc' && ext !== '.docx') {
-                  toast.error(t("chat_file_type_error"))
-                  return
-                }
-                setAttachedFile(file)
-              }}
-              onRemoveAttachedFile={() => setAttachedFile(null)}
-              activeQuestionnaire={activeQuestionnaire}
-              onQuestionnaireSubmit={handleQuestionnaireSubmit}
-              onQuestionnaireSkip={handleQuestionnaireSkip}
-              mergeFieldValues={mergeFieldValues}
-              userFields={customFields}
-              workspaceFields={workspaceFields}
-            />
+            {isNewEditorRoute ? (
+              <EditorLeftWorkspace
+                activeMode={leftWorkspaceMode}
+                onActiveModeChange={setLeftWorkspaceMode}
+                chatContent={chatSurface}
+                onApplySystemTemplate={applySystemTemplateById}
+                onApplyContractTemplate={applyContractTemplateById}
+              />
+            ) : (
+              chatSurface
+            )}
           </div>
         </motion.div>
 
-        {/* Right Section: Editor + Metadata (70%) */}
+        {/* Right Section: Editor + Metadata */}
         <AnimatePresence>
           {isCanvasMode && (
             <motion.div
               layout
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '70%', opacity: 1 }}
+              animate={{ width: '68%', opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200, damping: 25 }}
               className="h-full relative z-0 flex gap-2"
@@ -1281,11 +1588,12 @@ export default function EditorPage({
                   toolsPanelOpen={toolsPanelOpen}
                   onToggleTools={() => setToolsPanelOpen((v) => !v)}
                   onSave={handleSave}
+                  documentId={managedId === 'new' ? null : managedId}
                 />
               </div>
 
               {toolsPanelOpen && (
-                <div className="w-[30%] h-full min-h-0 min-w-[250px] max-w-[400px] shrink-0 flex flex-col overflow-hidden">
+                <div className="flex h-full min-h-0 w-[min(28%,21rem)] min-w-[236px] shrink-0 flex-col overflow-hidden">
                   <RightPanel
                     editor={editor}
                     onAuthRequired={handleAuthRequired}

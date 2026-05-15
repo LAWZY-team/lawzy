@@ -1,0 +1,569 @@
+<h2 class="sr-only">Tech stack MVP 3 ngày — Batching Information Law Tech</h2>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0
+  }
+
+  .root {
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 8px
+  }
+
+  .arch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px
+  }
+
+  .service-card {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color .15s
+  }
+
+  .service-card:hover {
+    border-color: var(--color-border-secondary)
+  }
+
+  .service-card.selected {
+    border: 2px solid var(--color-border-info)
+  }
+
+  .svc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px
+  }
+
+  .svc-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary)
+  }
+
+  .svc-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap
+  }
+
+  .svc-host {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--color-text-tertiary);
+    margin-bottom: 2px
+  }
+
+  .svc-desc {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.5
+  }
+
+  .tech-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px
+  }
+
+  .pill {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    background: var(--color-background-secondary);
+    color: var(--color-text-secondary);
+    border: 0.5px solid var(--color-border-tertiary)
+  }
+
+  .pill.key {
+    background: var(--color-background-info);
+    color: var(--color-text-info);
+    border-color: transparent
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap
+  }
+
+  .flow-box {
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    white-space: nowrap
+  }
+
+  .flow-arr {
+    color: var(--color-text-tertiary);
+    font-size: 13px
+  }
+
+  .warn-box {
+    background: var(--color-background-warning);
+    border: 0.5px solid var(--color-border-warning);
+    border-radius: var(--border-radius-md);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--color-text-warning);
+    line-height: 1.6
+  }
+
+  .tip-box {
+    background: var(--color-background-success);
+    border: 0.5px solid var(--color-border-success);
+    border-radius: var(--border-radius-md);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--color-text-success);
+    line-height: 1.6
+  }
+
+  .detail-panel {
+    background: var(--color-background-secondary);
+    border-radius: var(--border-radius-lg);
+    padding: 14px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    display: none
+  }
+
+  .detail-panel.show {
+    display: block
+  }
+
+  .detail-panel strong {
+    font-weight: 500;
+    color: var(--color-text-primary)
+  }
+
+  .cmd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 6px 0;
+    display: block;
+    color: var(--color-text-primary);
+    white-space: pre
+  }
+
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap
+  }
+
+  .tab {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 0.5px solid var(--color-border-secondary);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all .15s
+  }
+
+  .tab.active {
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-primary)
+  }
+</style>
+
+<div class="root">
+
+  <div>
+    <div class="section-label">Architecture — 3 service, 3 người deploy song song</div>
+    <div class="arch">
+
+      <div class="service-card selected" id="card-fe" onclick="selectCard('fe')">
+        <div class="svc-header">
+          <span class="svc-name">Frontend</span>
+          <span class="svc-badge"
+            style="background:var(--color-background-info);color:var(--color-text-info)">Vercel</span>
+        </div>
+        <div class="svc-host">lawtech-app.vercel.app</div>
+        <div class="svc-desc">UI wizard form, preview, export panel. Deploy tự động khi push main.</div>
+        <div class="tech-pills">
+          <span class="pill key">Next.js 14</span>
+          <span class="pill key">TypeScript</span>
+          <span class="pill">Tailwind</span>
+          <span class="pill">shadcn/ui</span>
+          <span class="pill">React Hook Form</span>
+          <span class="pill">Zod</span>
+        </div>
+      </div>
+
+      <div class="service-card" id="card-doc" onclick="selectCard('doc')">
+        <div class="svc-header">
+          <span class="svc-name">Doc Worker</span>
+          <span class="svc-badge"
+            style="background:var(--color-background-warning);color:var(--color-text-warning)">Render</span>
+        </div>
+        <div class="svc-host">lawtech-worker.onrender.com</div>
+        <div class="svc-desc">Batch fill .docx, convert PDF, nén .zip. Nest.js service chạy riêng.</div>
+        <div class="tech-pills">
+          <span class="pill key">NestJs</span>
+          <span class="pill key">docxtemplater (fill .docx)</span>
+          <span class="pill key">libreoffice-convert hoặc unoconv</span>
+          <span class="pill">JSZip</span>
+          <span class="pill">Supabase SDK</span>
+          <span class="pill">🧠 Kiến trúc sau khi đổi
+            Frontend (Next.js)
+            ↓
+            Next API route (optional)
+            ↓
+            NestJS API (/batch)
+            ↓
+            Docx fill (docxtemplater)
+            ↓
+            PDF convert (libreoffice-convert)
+            ↓
+            Zip (JSZip)
+            ↓
+            Upload Supabase Storage
+            ↓
+            Return signed URL</span>
+          <span class="pill">Cấu trúc NeStJs services
+            lawtech-backend/
+            src/
+            modules/
+            batch/
+            batch.controller.ts
+            batch.service.ts
+            doc/
+            doc.service.ts ← fill docx
+            pdf/
+            pdf.service.ts ← convert pdf
+            storage/
+            storage.service.ts ← upload supabase
+            main.ts</span>
+        </div>
+      </div>
+
+      <div class="service-card" id="card-db" onclick="selectCard('db')">
+        <div class="svc-header">
+          <span class="svc-name">Data & Auth</span>
+          <span class="svc-badge"
+            style="background:var(--color-background-success);color:var(--color-text-success)">Supabase</span>
+        </div>
+        <div class="svc-host">xxx.supabase.co</div>
+        <div class="svc-desc">PostgreSQL, Auth (magic link/email), Storage cho template & output file.</div>
+        <div class="tech-pills">
+          <span class="pill key">PostgreSQL</span>
+          <span class="pill key">Supabase Auth</span>
+          <span class="pill key">Storage</span>
+          <span class="pill">Row Level Security</span>
+          <span class="pill">Realtime</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="detail-fe" class="detail-panel show">
+    <div class="tab-row">
+      <span class="tab active" onclick="showTab('fe','setup')">Setup</span>
+      <span class="tab" onclick="showTab('fe','key')">Thư viện chính</span>
+      <span class="tab" onclick="showTab('fe','deploy')">Deploy</span>
+    </div>
+    <div id="fe-setup">
+      <strong>Khởi tạo project (10 phút)</strong>
+      <code class="cmd">npx create-next-app@latest lawtech --typescript --tailwind --app
+cd lawtech
+npx shadcn@latest init
+npm i @supabase/supabase-js react-hook-form zod @hookform/resolvers</code>
+      <strong>Cấu trúc thư mục MVP</strong>
+      <code class="cmd">app/
+  (auth)/login/
+  dashboard/          ← danh sách hồ sơ
+  cases/[id]/         ← master form + preview + export
+  admin/templates/    ← upload template (Leader only)
+components/
+  forms/MasterForm.tsx
+  preview/DocPreview.tsx
+  export/ExportPanel.tsx
+lib/supabase.ts
+lib/api.ts            ← gọi doc-worker FastAPI</code>
+    </div>
+    <div id="fe-key" style="display:none">
+      <strong>React Hook Form + Zod</strong> — validation toàn bộ Master Form, kiểm tra tổng vốn = 100% client-side
+      trước khi gọi API.<br><br>
+      <strong>shadcn/ui</strong> — dùng ngay: Form, Input, Select, Tabs (4 tab wizard), Checkbox (template selector),
+      Progress, Dialog (confirm destructive).<br><br>
+      <strong>@supabase/supabase-js</strong> — auth session, upload file, fetch hồ sơ trực tiếp từ Supabase không cần
+      backend riêng cho CRUD cơ bản.<br><br>
+      <strong>docx-preview</strong> (npm) — render .docx trong browser để preview, highlight field auto-fill bằng CSS
+      injection.
+      <code class="cmd">npm i docx-preview          # preview .docx in browser
+npm i file-saver          # trigger download .zip
+npm i @tanstack/react-query # server state management</code>
+    </div>
+    <div id="fe-deploy" style="display:none">
+      <strong>Vercel — zero config</strong>
+      <code class="cmd">npm i -g vercel
+vercel login
+vercel --prod</code>
+      Set env vars trên Vercel dashboard:<br>
+      <code class="cmd">NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+DOC_WORKER_URL=https://lawtech-worker.onrender.com
+DOC_WORKER_SECRET=your-secret-key</code>
+    </div>
+  </div>
+
+  <div id="detail-doc" class="detail-panel">
+    <div class="tab-row">
+      <span class="tab active" onclick="showTab('doc','setup')">Setup</span>
+      <span class="tab" onclick="showTab('doc','engine')">Batch engine</span>
+      <span class="tab" onclick="showTab('doc','deploy')">Deploy Render</span>
+    </div>
+    <div id="doc-setup">
+      <strong>Cấu trúc NestJs service</strong>
+      <code class="cmd">lawtech-worker/
+  main.ts              ← NestJs app
+  services/
+    batch_fill.ts      ← docxtemplater engine
+    pdf_convert.ts     ← libreoffice-convert
+    storage.ts         ← Supabase Storage upload
+  requirements.txt
+  Dockerfile           ← Render dùng Docker</code>
+      <code class="cmd">nest new lawtech-worker
+npm i docxtemplater libreoffice-convert jszip @supabase/supabase-js</code>
+    </div>
+    <div id="doc-engine" style="display:none">
+      <strong>Placeholder convention</strong> trong template .docx: <code
+        style="font-family:var(--font-mono);font-size:11px">{{company_name_vi}}</code><br><br>
+      <strong>batch_fill.py — core logic</strong>
+      <code class="cmd">from docx import Document
+import re, copy
+
+def fill_template(template_path, data: dict) -> bytes:
+    doc = Document(template_path)
+    for para in doc.paragraphs:
+        for run in para.runs:
+            for key, val in data.items():
+                run.text = run.text.replace(
+                    f"{{{{{key}}}}}", str(val)
+                )
+    # xử lý table cells tương tự
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        for key, val in data.items():
+                            run.text = run.text.replace(
+                                f"{{{{{key}}}}}", str(val)
+                            )
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()</code>
+      <strong>PDF convert</strong> — LibreOffice headless trong Docker:
+      <code class="cmd">subprocess.run([
+    "libreoffice", "--headless", "--convert-to", "pdf",
+    "--outdir", output_dir, docx_path
+])</code>
+    </div>
+    <div id="doc-deploy" style="display:none">
+      <strong>Dockerfile</strong>
+      <code class="cmd">FROM node:18
+
+        RUN apt-get update && apt-get install -y libreoffice
+        
+        WORKDIR /app
+        
+        COPY package*.json ./
+        RUN npm install
+        
+        COPY . .
+        
+        RUN npm run build
+        
+        CMD ["node", "dist/main.js"]</code>
+      <strong>Render setup</strong><br>
+      New Web Service → Connect GitHub repo → Docker runtime → Free/Starter tier đủ dùng cho MVP. Set env:<br>
+      <code class="cmd">SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...   # service key, không phải anon
+WORKER_SECRET=your-secret-key</code>
+    </div>
+  </div>
+
+  <div id="detail-db" class="detail-panel">
+    <div class="tab-row">
+      <span class="tab active" onclick="showTab('db','schema')">Schema SQL</span>
+      <span class="tab" onclick="showTab('db','rls')">RLS (phân quyền)</span>
+      <span class="tab" onclick="showTab('db','storage')">Storage</span>
+    </div>
+    <div id="db-schema">
+      <strong>Paste thẳng vào Supabase SQL Editor</strong>
+      <code class="cmd">create table cases (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_by uuid references auth.users(id),
+  created_at timestamptz default now(),
+  status text default 'draft'
+);
+
+create table general_info (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid references cases(id) on delete cascade,
+  data jsonb not null,   -- lưu toàn bộ master form dưới dạng JSON
+  updated_at timestamptz default now()
+);
+
+create table templates (
+  id uuid primary key default gen_random_uuid(),
+  code text unique not null,
+  name text not null,
+  file_path text,        -- Supabase Storage path
+  field_mappings jsonb,  -- {"{{company_name_vi}}": "company.name_vi"}
+  language text default 'vi',
+  is_required boolean default true,
+  is_active boolean default true
+);
+
+create table documents (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid references cases(id) on delete cascade,
+  template_id uuid references templates(id),
+  output_path text,      -- Supabase Storage path
+  status text default 'pending',
+  generated_at timestamptz
+);</code>
+    </div>
+    <div id="db-rls" style="display:none">
+      <strong>Row Level Security — Intern chỉ thấy hồ sơ của mình</strong>
+      <code class="cmd">-- Bật RLS
+alter table cases enable row level security;
+
+-- Intern thấy hồ sơ mình tạo
+create policy "own cases" on cases
+  for all using (created_by = auth.uid());
+
+-- Leader thấy tất cả (set role trong user metadata)
+create policy "leader sees all" on cases
+  for all using (
+    auth.jwt() ->> 'role' = 'leader'
+  );
+
+-- Áp tương tự cho general_info và documents
+-- (case_id join về cases đã được RLS lọc)</code>
+      Set role khi tạo user:
+      <code class="cmd">-- Supabase Dashboard → Authentication → Users
+-- hoặc qua Admin API:
+supabase.auth.admin.updateUserById(userId, {
+  user_metadata: { role: 'leader' }
+})</code>
+    </div>
+    <div id="db-storage" style="display:none">
+      <strong>2 bucket trong Supabase Storage</strong>
+      <code class="cmd">templates/          ← public read, admin write
+  vi/mau-01.docx
+  vi/mau-02.docx
+  en/mau-01-en.docx
+  ...
+
+outputs/            ← private, per-case
+  {case_id}/mau-01_CongtyABC_2025-05-06.docx
+  {case_id}/mau-01_CongtyABC_2025-05-06.pdf
+  {case_id}/export.zip</code>
+      Download signed URL (expire 1h) để tránh expose file trực tiếp:
+      <code class="cmd">const { data } = await supabase.storage
+  .from('outputs')
+  .createSignedUrl(`${caseId}/export.zip`, 3600)</code>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-label">Request flow — từ "Batch Fill" đến file .zip</div>
+    <div class="flow-row" style="padding:10px 0">
+      <div class="flow-box">User nhấn Batch Fill</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">Next.js API route</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">NestJS /batch</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">nestJs-docx fill</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">libreoffice-convert hoặc unoconv PDF</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">Upload Supabase Storage</div>
+      <span class="flow-arr">→</span>
+      <div class="flow-box">Signed URL → download</div>
+    </div>
+  </div>
+
+  <div class="warn-box">
+    Render free tier sleep sau 15 phút không dùng → cold start ~30s. Nếu demo cho Leader cần ping trước hoặc nâng lên
+    Starter ($7/tháng). LibreOffice trong Docker image nặng ~400MB — build lần đầu trên Render mất 5–8 phút, những lần
+    sau cache lại.
+  </div>
+
+  <div class="tip-box">
+    Mẹo deploy nhanh: Supabase setup trước (tạo project, chạy SQL, tạo bucket) → FE và Doc Worker dev song song → FE
+    dùng mock JSON để test form trước khi Doc Worker xong. Không cần đợi nhau.
+  </div>
+
+</div>
+
+<script>
+  const cards = ['fe', 'doc', 'db'];
+  const panels = { fe: 'detail-fe', doc: 'detail-doc', db: 'detail-db' };
+  function selectCard(id) {
+    cards.forEach(c => {
+      document.getElementById('card-' + c).classList.remove('selected');
+      document.getElementById(panels[c]).classList.remove('show');
+    });
+    document.getElementById('card-' + id).classList.add('selected');
+    document.getElementById(panels[id]).classList.add('show');
+  }
+  const tabs = {
+    fe: ['setup', 'key', 'deploy'],
+    doc: ['setup', 'engine', 'deploy'],
+    db: ['schema', 'rls', 'storage']
+  };
+  function showTab(svc, tab) {
+    const allTabs = tabs[svc];
+    const panel = document.getElementById('detail-' + svc);
+    allTabs.forEach(t => {
+      const el = document.getElementById(svc + '-' + t);
+      if (el) el.style.display = t === tab ? 'block' : 'none';
+    });
+    panel.querySelectorAll('.tab').forEach((el, i) => {
+      el.classList.toggle('active', allTabs[i] === tab);
+    });
+  }
+</script>

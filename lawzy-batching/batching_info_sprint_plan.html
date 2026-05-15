@@ -1,0 +1,446 @@
+
+<h2 class="sr-only">Sprint plan 3 ngày cho tính năng Batching Information — Law Tech</h2>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.root{padding:1rem 0}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px}
+.top-bar h1{font-size:15px;font-weight:500;color:var(--color-text-primary)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;padding:3px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+.chip.active{background:var(--color-background-primary);color:var(--color-text-primary);border-color:var(--color-border-primary)}
+.days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.day-col{border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);padding:12px}
+.day-header{margin-bottom:10px}
+.day-title{font-size:13px;font-weight:500;color:var(--color-text-primary);display:flex;align-items:center;gap:6px}
+.day-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.day-meta{font-size:11px;color:var(--color-text-tertiary);margin-top:3px}
+.tasks{display:flex;flex-direction:column;gap:7px}
+.task{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:9px 10px;cursor:pointer;transition:border-color .15s}
+.task:hover{border-color:var(--color-border-secondary)}
+.task.hidden{display:none}
+.task-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:5px}
+.task-id{font-size:10px;font-weight:500;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap}
+.task-tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:500}
+.task-name{font-size:12px;font-weight:500;color:var(--color-text-primary);line-height:1.4;margin-bottom:4px}
+.task-desc{font-size:11px;color:var(--color-text-secondary);line-height:1.5;margin-bottom:6px}
+.task-bottom{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.assignee{display:flex;align-items:center;gap:5px}
+.avatar{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;flex-shrink:0}
+.assignee-name{font-size:10px;color:var(--color-text-secondary)}
+.effort{font-size:10px;color:var(--color-text-tertiary);white-space:nowrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:1rem;padding-top:0.75rem;border-top:0.5px solid var(--color-border-tertiary)}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.legend-dot{width:10px;height:10px;border-radius:3px}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1rem}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
+.stat-val{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.stat-lbl{font-size:10px;color:var(--color-text-tertiary);margin-top:1px}
+.ac-bar{margin-top:1rem;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary)}
+.ac-bar-title{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px}
+.ac-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px}
+.ac-id{font-family:var(--font-mono);color:var(--color-text-tertiary);width:44px;flex-shrink:0}
+.ac-track{flex:1;height:6px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden}
+.ac-fill{height:100%;border-radius:3px;transition:width .3s}
+.ac-day{color:var(--color-text-secondary);width:36px;text-align:right;flex-shrink:0}
+</style>
+
+<div class="root">
+<div class="summary">
+  <div class="stat"><div class="stat-val">3</div><div class="stat-lbl">Ngày</div></div>
+  <div class="stat"><div class="stat-val">16</div><div class="stat-lbl">Tasks</div></div>
+  <div class="stat"><div class="stat-val">8</div><div class="stat-lbl">ACs cần pass</div></div>
+  <div class="stat"><div class="stat-val">4</div><div class="stat-lbl">Vai trò</div></div>
+</div>
+
+<div class="top-bar">
+  <span class="top-bar h1" style="font-size:13px;font-weight:500;color:var(--color-text-primary)">Lọc theo vai trò</span>
+  <div class="filters">
+    <span class="chip active" data-role="all" onclick="filter(this)">Tất cả</span>
+    <span class="chip" data-role="BE" onclick="filter(this)">Backend</span>
+    <span class="chip" data-role="FE" onclick="filter(this)">Frontend</span>
+    <span class="chip" data-role="BA" onclick="filter(this)">BA/PM</span>
+    <span class="chip" data-role="QA" onclick="filter(this)">QA</span>
+  </div>
+</div>
+
+<div class="days">
+
+<div class="day-col">
+  <div class="day-header">
+    <div class="day-title">
+      <span style="font-size:15px">⬡</span> Ngày 1
+      <span class="day-badge" style="background:var(--color-background-info);color:var(--color-text-info)">Foundation</span>
+    </div>
+    <div class="day-meta">Setup · Form · Mapping engine</div>
+  </div>
+  <div class="tasks" id="day1">
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-01</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Project setup & DB schema</div>
+      <div class="task-desc">Khởi tạo repo, env, migrate schema: Case, GeneralInfo, Template, Document, FieldMapping. Auth + RBAC cơ bản.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-info);color:var(--color-text-info)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-02</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">Master Information Form UI</div>
+      <div class="task-desc">Wizard 4 tab: Công ty / Vốn / Thành viên / Ngành nghề. Auto-save 30s. Progress indicator. FR-01.1</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">4h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-03</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">Validation dữ liệu đầu vào</div>
+      <div class="task-desc">Required fields, date dd/mm/yyyy, vốn số dương, tổng tỷ lệ = 100%. Inline error + focus. AC-02, AC-03.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">2h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-04</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Template store & field mapping</div>
+      <div class="task-desc">Upload .docx với {{field_name}} syntax, parse placeholder, lưu FieldMapping. Admin UI đơn giản. FR-02.1, UC-03.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BA">
+      <div class="task-top">
+        <span class="task-id">T-05</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-success);color:var(--color-text-success)">BA</span>
+        </div>
+      </div>
+      <div class="task-name">Digitize & verify 13 templates</div>
+      <div class="task-desc">Workshop với Leader: xác nhận danh sách 13 mẫu FDI, gắn placeholder {{...}} vào từng file .docx thực tế.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-success);color:var(--color-text-success)">BA</div>
+          <span class="assignee-name">BA / PM</span>
+        </div>
+        <span class="effort">4h</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="day-col">
+  <div class="day-header">
+    <div class="day-title">
+      <span style="font-size:15px">⬡</span> Ngày 2
+      <span class="day-badge" style="background:var(--color-background-warning);color:var(--color-text-warning)">Core flow</span>
+    </div>
+    <div class="day-meta">Batch engine · Preview · Export</div>
+  </div>
+  <div class="tasks" id="day2">
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-06</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Auto-fill batch engine</div>
+      <div class="task-desc">Iterate templates, replace placeholder, xử lý transform (uppercase, number_to_text, date_format). Concurrent. ≤10s cho 13 file. FR-02.2, AC-01.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">4h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-07</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">Template selector UI + progress bar</div>
+      <div class="task-desc">Checkbox list phân nhóm Bắt buộc / Tùy chọn. Progress bar khi batch. Trạng thái từng file. UI-02, UI-03.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">2h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-08</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">Document preview + highlight</div>
+      <div class="task-desc">Render .docx preview dạng đọc được. Highlight field auto-fill màu vàng nhạt. Inline editor cho nội dung tùy chỉnh. FR-04, UI-04.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-09</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Export .docx / .pdf / .zip</div>
+      <div class="task-desc">nestJs-docx fill + LibreOffice/Gotenberg convert PDF. Nén .zip. Đặt tên [Code]_[Cty]_[Date]. ≤30s. FR-05, AC-04.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-10</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Case save, reload & re-batch</div>
+      <div class="task-desc">Lưu Master Form theo case_id. Mở lại hồ sơ khôi phục đúng. Highlight file bị ảnh hưởng khi thay đổi. AC-05, AC-07, UC-02.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">2h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-11</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">Export panel UI</div>
+      <div class="task-desc">Chọn định dạng, ngôn ngữ, file lẻ / tất cả. Tên file auto-fill theo convention. UI-05.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">1.5h</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="day-col">
+  <div class="day-header">
+    <div class="day-title">
+      <span style="font-size:15px">⬡</span> Ngày 3
+      <span class="day-badge" style="background:var(--color-background-success);color:var(--color-text-success)">Polish & QA</span>
+    </div>
+    <div class="day-meta">Multilingual · Test · Handoff</div>
+  </div>
+  <div class="tasks" id="day3">
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-12</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">Multilingual — tiếng Anh</div>
+      <div class="task-desc">Template EN lấy field EN từ Master Form. Giữ nguyên 100% format gốc sau fill. Không dịch auto tên người/địa chỉ. AC-06, FR-03.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">2.5h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BE">
+      <div class="task-top">
+        <span class="task-id">T-13</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</span>
+        </div>
+      </div>
+      <div class="task-name">RBAC & phân quyền hồ sơ</div>
+      <div class="task-desc">Intern chỉ thấy hồ sơ được phân công. URL trực tiếp của hồ sơ khác trả 403. NFR-04, AC-08.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-secondary);color:var(--color-text-secondary)">BE</div>
+          <span class="assignee-name">Backend dev</span>
+        </div>
+        <span class="effort">1.5h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="QA">
+      <div class="task-top">
+        <span class="task-id">T-14</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info)">Must</span>
+          <span class="tag" style="background:var(--color-background-danger);color:var(--color-text-danger)">QA</span>
+        </div>
+      </div>
+      <div class="task-name">UAT theo 8 Acceptance Criteria</div>
+      <div class="task-desc">Chạy toàn bộ AC-01 → AC-08 với dữ liệu hồ sơ FDI thực tế trên staging. Ghi nhận kết quả pass/fail.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-danger);color:var(--color-text-danger)">QA</div>
+          <span class="assignee-name">QA / BA</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="FE">
+      <div class="task-top">
+        <span class="task-id">T-15</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</span>
+        </div>
+      </div>
+      <div class="task-name">UX polish & onboarding hint</div>
+      <div class="task-desc">Tooltip hướng dẫn lần đầu. Confirm dialog cho thao tác destructive. Responsive check Chrome/Edge/Safari. NFR-05, NFR-07.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-warning);color:var(--color-text-warning)">FE</div>
+          <span class="assignee-name">Frontend dev</span>
+        </div>
+        <span class="effort">2h</span>
+      </div>
+    </div>
+
+    <div class="task" data-role="BA">
+      <div class="task-top">
+        <span class="task-id">T-16</span>
+        <div class="task-tags">
+          <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning)">Should</span>
+          <span class="tag" style="background:var(--color-background-success);color:var(--color-text-success)">BA</span>
+        </div>
+      </div>
+      <div class="task-name">Bug fix buffer & demo prep</div>
+      <div class="task-desc">Fix các lỗi từ UAT. Chuẩn bị demo cho Leader. Ghi nhận backlog (version history, audit log) cho sprint sau.</div>
+      <div class="task-bottom">
+        <div class="assignee">
+          <div class="avatar" style="background:var(--color-background-success);color:var(--color-text-success)">BA</div>
+          <span class="assignee-name">Cả team</span>
+        </div>
+        <span class="effort">3h</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<div class="ac-bar">
+  <div class="ac-bar-title">Acceptance Criteria — lịch pass theo ngày</div>
+  <div class="ac-row"><span class="ac-id">AC-01</span><div class="ac-track"><div class="ac-fill" style="width:67%;background:var(--color-background-info)"></div></div><span class="ac-day">N2</span></div>
+  <div class="ac-row"><span class="ac-id">AC-02</span><div class="ac-track"><div class="ac-fill" style="width:33%;background:var(--color-background-warning)"></div></div><span class="ac-day">N1</span></div>
+  <div class="ac-row"><span class="ac-id">AC-03</span><div class="ac-track"><div class="ac-fill" style="width:33%;background:var(--color-background-warning)"></div></div><span class="ac-day">N1</span></div>
+  <div class="ac-row"><span class="ac-id">AC-04</span><div class="ac-track"><div class="ac-fill" style="width:67%;background:var(--color-background-info)"></div></div><span class="ac-day">N2</span></div>
+  <div class="ac-row"><span class="ac-id">AC-05</span><div class="ac-track"><div class="ac-fill" style="width:67%;background:var(--color-background-info)"></div></div><span class="ac-day">N2</span></div>
+  <div class="ac-row"><span class="ac-id">AC-06</span><div class="ac-track"><div class="ac-fill" style="width:100%;background:var(--color-background-success)"></div></div><span class="ac-day">N3</span></div>
+  <div class="ac-row"><span class="ac-id">AC-07</span><div class="ac-track"><div class="ac-fill" style="width:67%;background:var(--color-background-info)"></div></div><span class="ac-day">N2</span></div>
+  <div class="ac-row"><span class="ac-id">AC-08</span><div class="ac-track"><div class="ac-fill" style="width:100%;background:var(--color-background-success)"></div></div><span class="ac-day">N3</span></div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-info)"></div>Must</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-warning)"></div>Should</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-success)"></div>BA/PM</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--color-background-danger)"></div>QA</div>
+</div>
+</div>
+
+<script>
+function filter(el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  const role=el.dataset.role;
+  document.querySelectorAll('.task').forEach(t=>{
+    if(role==='all'||t.dataset.role===role) t.classList.remove('hidden');
+    else t.classList.add('hidden');
+  });
+}
+</script>

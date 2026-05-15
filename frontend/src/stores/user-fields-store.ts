@@ -8,6 +8,8 @@ export interface UserCustomField {
   key: string
   label: string
   defaultValue: string
+  /** Optional custom group/category name shown on the fields settings page */
+  category?: string
 }
 
 /** Trường mẫu tiêu chuẩn trong hợp đồng — người dùng có thể chỉnh sửa sau */
@@ -16,8 +18,20 @@ export const DEFAULT_SAMPLE_FIELDS: UserCustomField[] = [
   { key: "address", label: "Địa chỉ", defaultValue: "" },
   { key: "tax_id", label: "Mã số thuế", defaultValue: "" },
   { key: "representative", label: "Người đại diện", defaultValue: "" },
+  { key: "representative_cccd", label: "CCCD người đại diện", defaultValue: "" },
+  { key: "representative_phone", label: "SĐT người đại diện", defaultValue: "" },
   { key: "position", label: "Chức vụ", defaultValue: "" },
   { key: "phone", label: "Điện thoại", defaultValue: "" },
+  { key: "employee_name", label: "Tên người lao động (cá nhân)", defaultValue: "" },
+  { key: "employee_cccd", label: "CCCD người lao động", defaultValue: "" },
+  { key: "employee_address", label: "Địa chỉ thường trú (NLĐ)", defaultValue: "" },
+  { key: "counterparty_company_name", label: "Tên đối tác / công ty đối tác", defaultValue: "" },
+  { key: "counterparty_address", label: "Địa chỉ đối tác", defaultValue: "" },
+  { key: "counterparty_tax_id", label: "MST đối tác", defaultValue: "" },
+  { key: "counterparty_representative", label: "Người đại diện đối tác", defaultValue: "" },
+  { key: "work_location", label: "Địa điểm làm việc (mặc định)", defaultValue: "" },
+  { key: "job_description", label: "Mô tả công việc (mẫu)", defaultValue: "" },
+  { key: "department", label: "Phòng ban (mặc định)", defaultValue: "" },
   { key: "contract_number", label: "Số hợp đồng", defaultValue: "" },
   { key: "signing_date", label: "Ngày ký", defaultValue: "" },
   { key: "signing_location", label: "Địa điểm ký", defaultValue: "" },
@@ -145,6 +159,7 @@ export const useUserFieldsStore = create<UserFieldsState>()(
               key,
               label: field.label,
               defaultValue: field.defaultValue ?? '',
+              ...(field.category ? { category: field.category } : {}),
             },
           ],
         })
@@ -240,78 +255,91 @@ async function fetchServerFields(): Promise<{ customFields: UserCustomField[]; h
   }
 }
 
+/**
+ * Hydrate user custom fields for the signed-in user (server + optional guest merge).
+ * Must run when user id changes and also once on load if the auth store already has a user —
+ * otherwise client-side navigation can leave `customFields` empty until a full reload.
+ */
+function runAuthenticatedUserFieldsHydration(): void {
+  void (async () => {
+    try {
+      const server = await fetchServerFields()
+      const guestRaw =
+        sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
+      const guest = parsePersistedState(guestRaw)
+      const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
+      const mergedCustom: UserCustomField[] = [...server.customFields]
+      for (const gf of guest?.customFields ?? []) {
+        if (!serverByKey.has(gf.key)) mergedCustom.push(gf)
+      }
+      const mergedHidden = Array.from(
+        new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])])
+      )
+      suppressNextSync = true
+      useUserFieldsStore.setState({
+        customFields: mergedCustom,
+        hiddenFieldKeys: mergedHidden,
+      })
+      suppressNextSync = false
+      await api.put('/users/me/custom-fields', {
+        fields: mergedCustom.map((f) => ({
+          key: f.key,
+          label: f.label,
+          defaultValue: f.defaultValue ?? '',
+          isHidden: mergedHidden.includes(f.key),
+        })),
+      })
+      try {
+        sessionStorage.removeItem('lawzy-user-fields-guest')
+        localStorage.removeItem('lawzy-user-fields-guest')
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      console.error(e)
+      suppressNextSync = false
+    }
+  })()
+}
+
+function applyGuestUserFieldsFromStorage(): void {
+  const guestRaw =
+    sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
+  const guest = parsePersistedState(guestRaw)
+  const guestFields = guest?.customFields ?? []
+  useUserFieldsStore.setState({
+    customFields: guestFields,
+    hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
+  })
+}
+
 // Subscribe to auth changes to reload fields when user logs in/out.
 // Guest: use localStorage. Auth: hydrate from server and sync changes.
 if (typeof window !== 'undefined') {
   let previousUserId: string | null = useAuthStore.getState().user?.id ?? null
-  
+
   useAuthStore.subscribe((state) => {
     const currentUserId = state.user?.id ?? null
-    // Only reload if the user ID actually changed
     if (currentUserId !== previousUserId) {
       previousUserId = currentUserId
       suppressNextSync = true
       queueMicrotask(() => {
         suppressNextSync = false
       })
-
       if (!currentUserId) {
-        // Guest: load from local persisted key; nếu chưa có gì thì để trống (user thêm mẫu trên /fields)
-        const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
-        const guest = parsePersistedState(guestRaw)
-        const guestFields = guest?.customFields ?? []
-        useUserFieldsStore.setState({
-          customFields: guestFields,
-          hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
-        })
+        applyGuestUserFieldsFromStorage()
         return
       }
-
-      // Authenticated: hydrate from server and merge guest fields once
-      void (async () => {
-        try {
-          const server = await fetchServerFields()
-          const guestRaw = sessionStorage.getItem('lawzy-user-fields-guest') || localStorage.getItem('lawzy-user-fields-guest')
-          const guest = parsePersistedState(guestRaw)
-
-          const serverByKey = new Map(server.customFields.map((f) => [f.key, f]))
-          const mergedCustom: UserCustomField[] = [...server.customFields]
-
-          for (const gf of guest?.customFields ?? []) {
-            if (!serverByKey.has(gf.key)) mergedCustom.push(gf)
-          }
-
-          const mergedHidden = Array.from(new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])]))
-
-          suppressNextSync = true
-          useUserFieldsStore.setState({
-            customFields: mergedCustom,
-            hiddenFieldKeys: mergedHidden,
-          })
-          suppressNextSync = false
-
-          // Push merged result to server (best-effort)
-          await api.put('/users/me/custom-fields', {
-            fields: mergedCustom.map((f) => ({
-              key: f.key,
-              label: f.label,
-              defaultValue: f.defaultValue ?? '',
-              isHidden: mergedHidden.includes(f.key),
-            })),
-          })
-
-          // Clear guest local fields after merge
-          try {
-            sessionStorage.removeItem('lawzy-user-fields-guest')
-            localStorage.removeItem('lawzy-user-fields-guest')
-          } catch {
-            // ignore
-          }
-        } catch (e) {
-          console.error(e)
-          suppressNextSync = false
-        }
-      })()
+      runAuthenticatedUserFieldsHydration()
     }
   })
+
+  // Auth resolved before this module evaluated (common on client navigations): hydrate once.
+  if (previousUserId) {
+    suppressNextSync = true
+    queueMicrotask(() => {
+      suppressNextSync = false
+    })
+    runAuthenticatedUserFieldsHydration()
+  }
 }

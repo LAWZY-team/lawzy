@@ -30,7 +30,7 @@ export interface ContentClauseNode {
   content: ContentNode[];
 }
 
-export type ContentBlockAlign = 'left' | 'center';
+export type ContentBlockAlign = 'left' | 'center' | 'right' | 'justify';
 
 export interface ContentHeadingNode {
   type: 'heading';
@@ -50,12 +50,43 @@ export interface ContentTextNode {
   marks?: { type: string }[];
 }
 
+export interface ContentListItemNode {
+  type: 'listItem';
+  content: ContentNode[];
+}
+
+export interface ContentBulletListNode {
+  type: 'bulletList';
+  content: ContentListItemNode[];
+}
+
+export interface ContentTableCellNode {
+  type: 'tableCell' | 'tableHeader';
+  attrs?: { colspan?: number; rowspan?: number; colwidth?: number[] };
+  content: Array<ContentParagraphNode | ContentHeadingNode | ContentBulletListNode>;
+}
+
+export interface ContentTableRowNode {
+  type: 'tableRow';
+  content: ContentTableCellNode[];
+}
+
+export interface ContentTableNode {
+  type: 'table';
+  content: ContentTableRowNode[];
+}
+
 export type ContentNode =
   | ContentHeadingNode
   | ContentParagraphNode
   | ContentClauseNode
   | ContentTextNode
-  | ContentFieldNode;
+  | ContentFieldNode
+  | ContentListItemNode
+  | ContentBulletListNode
+  | ContentTableNode
+  | ContentTableRowNode
+  | ContentTableCellNode;
 
 export interface DocContent {
   type: 'doc';

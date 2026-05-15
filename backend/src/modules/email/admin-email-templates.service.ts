@@ -118,7 +118,7 @@ export class AdminEmailTemplatesService {
       workspaceName: vars.workspaceName ?? '[Tên workspace]',
       inviterName: vars.inviterName ?? '[Người mời]',
       removerName: vars.removerName ?? '[Người xóa]',
-      dashboardUrl: vars.dashboardUrl ?? (process.env.FRONTEND_URL || 'https://lawzy.vn') + '/dashboard',
+      dashboardUrl: vars.dashboardUrl ?? (process.env.FRONTEND_URL || 'https://lawzy.vn').replace(/\/$/, '') + '/dashboard',
       planName: vars.planName ?? '[Gói]',
       amount: vars.amount ?? '0',
       newPlanName: vars.newPlanName ?? '[Gói mới]',

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Building2 } from "lucide-react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { Plus, Trash2, Building2, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -43,6 +43,12 @@ import { useUserFieldsStore } from "@/stores/user-fields-store"
 import { api } from "@/lib/api/client"
 import { toast } from "sonner"
 import useStore from "@/lib/zustand/use-store"
+import {
+  USER_FIELD_GROUP_LABELS,
+  USER_FIELD_OTHER_GROUP_LABEL,
+  getUserFieldGroupForSettings,
+  type UserFieldSettingsGroupId,
+} from "@/lib/editor/user-field-profile"
 
 type FieldItem = { key: string; label: string; defaultValue: string }
 type WorkspaceFieldItem = FieldItem & { id?: string; isHidden?: boolean }
@@ -67,18 +73,20 @@ export default function FieldsPage() {
   const [wsFields, setWsFields] = useState<WorkspaceFieldItem[]>([])
   const [wsLoading, setWsLoading] = useState(false)
   const [wsSaving, setWsSaving] = useState(false)
-  const [editDialog, setEditDialog] = useState<{
-    type: "user" | "workspace"
-    key: string
-    label: string
-    defaultValue: string
-  } | null>(null)
   const [addDialog, setAddDialog] = useState<"user" | "workspace" | null>(null)
-  const [newField, setNewField] = useState({ label: "", defaultValue: "" })
+  const wsFieldsRef = useRef<WorkspaceFieldItem[]>([])
+  const wsPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [newField, setNewField] = useState({ label: "", defaultValue: "", category: "" })
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "user" | "workspace"
     key: string
   } | null>(null)
+  const [inlineAdd, setInlineAdd] = useState<{
+    groupId: UserFieldSettingsGroupId | null
+    label: string
+    defaultValue: string
+  }>({ groupId: null, label: '', defaultValue: '' })
+  const inlineLabelRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setUserFields(
@@ -116,6 +124,43 @@ export default function FieldsPage() {
     }
   }, [currentWorkspace?.id])
 
+  useEffect(() => {
+    wsFieldsRef.current = wsFields
+  }, [wsFields])
+
+  const persistWorkspaceFields = useCallback(async () => {
+    if (!currentWorkspace?.id) return
+    const fields = wsFieldsRef.current
+    setWsSaving(true)
+    try {
+      await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
+        fields: fields.map((f) => ({
+          key: f.key,
+          label: f.label,
+          defaultValue: f.defaultValue || null,
+        })),
+      })
+    } catch {
+      toast.error("Lưu thất bại")
+    } finally {
+      setWsSaving(false)
+    }
+  }, [currentWorkspace?.id])
+
+  const scheduleWorkspacePersist = useCallback(() => {
+    if (wsPersistTimerRef.current) clearTimeout(wsPersistTimerRef.current)
+    wsPersistTimerRef.current = setTimeout(() => {
+      wsPersistTimerRef.current = null
+      void persistWorkspaceFields()
+    }, 450)
+  }, [persistWorkspaceFields])
+
+  useEffect(() => {
+    return () => {
+      if (wsPersistTimerRef.current) clearTimeout(wsPersistTimerRef.current)
+    }
+  }, [])
+
   const handleAddUserField = () => {
     if (!newField.label.trim()) return
     const key = slugifyKey(newField.label) || "field"
@@ -123,9 +168,10 @@ export default function FieldsPage() {
       key,
       label: newField.label.trim(),
       defaultValue: newField.defaultValue.trim(),
+      ...(newField.category.trim() ? { category: newField.category.trim() } : {}),
     })
     setAddDialog(null)
-    setNewField({ label: "", defaultValue: "" })
+    setNewField({ label: "", defaultValue: "", category: "" })
   }
 
   const handleAddWsField = async () => {
@@ -146,45 +192,7 @@ export default function FieldsPage() {
       })
       setWsFields(updated)
       setAddDialog(null)
-      setNewField({ label: "", defaultValue: "" })
-      toast.success(t("common_save") + "!")
-    } catch {
-      toast.error("Lưu thất bại")
-    } finally {
-      setWsSaving(false)
-    }
-  }
-
-  const handleEditUserField = () => {
-    if (!editDialog || editDialog.type !== "user") return
-    updateCustomField(editDialog.key, {
-      label: editDialog.label,
-      defaultValue: editDialog.defaultValue,
-    })
-    setEditDialog(null)
-  }
-
-  const handleEditWsField = async () => {
-    if (!editDialog || editDialog.type !== "workspace" || !currentWorkspace?.id) return
-    const idx = wsFields.findIndex((f) => f.key === editDialog.key)
-    if (idx < 0) return
-    const updated = [...wsFields]
-    updated[idx] = {
-      ...updated[idx],
-      label: editDialog.label,
-      defaultValue: editDialog.defaultValue,
-    }
-    setWsSaving(true)
-    try {
-      await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
-        fields: updated.map((f) => ({
-          key: f.key,
-          label: f.label,
-          defaultValue: f.defaultValue || null,
-        })),
-      })
-      setWsFields(updated)
-      setEditDialog(null)
+      setNewField({ label: "", defaultValue: "", category: "" })
       toast.success(t("common_save") + "!")
     } catch {
       toast.error("Lưu thất bại")
@@ -222,33 +230,180 @@ export default function FieldsPage() {
     }
   }
 
+  useEffect(() => {
+    if (inlineAdd.groupId !== null) {
+      const id = setTimeout(() => inlineLabelRef.current?.focus(), 30)
+      return () => clearTimeout(id)
+    }
+  }, [inlineAdd.groupId])
+
+  const handleInlineAddSave = useCallback(() => {
+    if (!inlineAdd.label.trim()) return
+    const key = slugifyKey(inlineAdd.label) || 'field'
+    addCustomField({
+      key,
+      label: inlineAdd.label.trim(),
+      defaultValue: inlineAdd.defaultValue.trim(),
+    })
+    setInlineAdd({ groupId: null, label: '', defaultValue: '' })
+  }, [inlineAdd, addCustomField])
+
+  const handleInlineAddCancel = useCallback(() => {
+    setInlineAdd({ groupId: null, label: '', defaultValue: '' })
+  }, [])
+
   const myRole = workspaceStore?.workspaces?.find(
     (w) => w.id === currentWorkspace?.id
   )?.role ?? "viewer"
   const canEditWs = myRole === "admin" || myRole === "editor"
 
-  const allFields: { type: "user" | "workspace"; item: FieldItem }[] = [
-    ...userFields.map((item) => ({ type: "user" as const, item })),
-    ...(currentWorkspace ? wsFields.map((item) => ({ type: "workspace" as const, item })) : []),
-  ]
   const hasUserFields = userFields.length > 0
-  const hasWsFields = currentWorkspace && wsFields.length > 0
+  const hasWsFields = Boolean(currentWorkspace && wsFields.length > 0)
   const isEmpty = !hasUserFields && !hasWsFields
 
-  return (
-    <div id="tour-settings-content" className="flex flex-1 flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">{t("sidebar_profile")}</h2>
-          <p className="text-muted-foreground">{t("sidebar_profile_desc")}</p>
-        </div>
-        <Button onClick={() => setAddDialog("user")} disabled={wsLoading}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("settings_fields_add")}
-        </Button>
-      </div>
+  const SETTINGS_GROUP_ORDER: UserFieldSettingsGroupId[] = [
+    "basic",
+    "representative",
+    "contract_profile",
+    "other",
+  ]
 
-      <div className="rounded-md border bg-card">
+  const customFieldCategoryMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const f of customFields) {
+      if (f.category) m[f.key] = f.category
+    }
+    return m
+  }, [customFields])
+
+  const userFieldsByGroup = (gid: UserFieldSettingsGroupId) =>
+    userFields.filter((item) => {
+      if (gid === 'other' && customFieldCategoryMap[item.key]) return false
+      return getUserFieldGroupForSettings(item.key) === gid
+    })
+
+  const customCategoryGroups: Array<{ category: string; items: FieldItem[] }> = useMemo(() => {
+    const map = new Map<string, FieldItem[]>()
+    for (const item of userFields) {
+      const cat = customFieldCategoryMap[item.key]
+      if (cat && getUserFieldGroupForSettings(item.key) === 'other') {
+        if (!map.has(cat)) map.set(cat, [])
+        map.get(cat)!.push(item)
+      }
+    }
+    return Array.from(map.entries()).map(([category, items]) => ({ category, items }))
+  }, [userFields, customFieldCategoryMap])
+
+  const renderFieldRow = (type: "user" | "workspace", item: FieldItem) => {
+    const canEditRow = type === "user" || canEditWs
+    return (
+      <TableRow key={`${type}-${item.key}`}>
+        <TableCell>
+          {type === "user" ? (
+            <span className="text-sm">{t("settings_fields_user")}</span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-sm">
+              <Building2 className="h-4 w-4" />
+              {currentWorkspace?.name}
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="font-mono text-sm align-middle">{item.key}</TableCell>
+        <TableCell className="align-middle">
+          {type === "user" ? (
+            <Input
+              value={item.label}
+              disabled={!canEditRow}
+              className="h-9 max-w-[280px]"
+              onChange={(e) =>
+                updateCustomField(item.key, { label: e.target.value })
+              }
+            />
+          ) : (
+            <Input
+              value={item.label}
+              disabled={!canEditRow}
+              className="h-9 max-w-[280px]"
+              onChange={(e) => {
+                const v = e.target.value
+                setWsFields((prev) => {
+                  const next = prev.map((f) =>
+                    f.key === item.key ? { ...f, label: v } : f
+                  )
+                  wsFieldsRef.current = next
+                  return next
+                })
+                scheduleWorkspacePersist()
+              }}
+            />
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {type === "user" ? (
+            <Input
+              value={item.defaultValue}
+              disabled={!canEditRow}
+              className="h-9 max-w-[320px]"
+              placeholder="—"
+              onChange={(e) =>
+                updateCustomField(item.key, { defaultValue: e.target.value })
+              }
+            />
+          ) : (
+            <Input
+              value={item.defaultValue}
+              disabled={!canEditRow}
+              className="h-9 max-w-[320px]"
+              placeholder="—"
+              onChange={(e) => {
+                const v = e.target.value
+                setWsFields((prev) => {
+                  const next = prev.map((f) =>
+                    f.key === item.key ? { ...f, defaultValue: v } : f
+                  )
+                  wsFieldsRef.current = next
+                  return next
+                })
+                scheduleWorkspacePersist()
+              }}
+            />
+          )}
+        </TableCell>
+        <TableCell className="align-middle">
+          {canEditRow && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => setDeleteConfirm({ type, key: item.key })}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  const renderUserGroupTable = (gid: UserFieldSettingsGroupId, title: string) => {
+    const items = userFieldsByGroup(gid)
+    const isAddingHere = inlineAdd.groupId === gid
+    if (items.length === 0 && !isAddingHere) return null
+    const keyPreview = inlineAdd.label.trim() ? (slugifyKey(inlineAdd.label) || '...') : '...'
+    return (
+      <div key={gid} className="rounded-md border bg-card overflow-hidden">
+        <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground px-2"
+            onClick={() => setInlineAdd({ groupId: gid, label: '', defaultValue: '' })}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Thêm trường
+          </Button>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -256,98 +411,204 @@ export default function FieldsPage() {
               <TableHead>{t("settings_fields_key")}</TableHead>
               <TableHead>{t("settings_fields_label")}</TableHead>
               <TableHead>{t("settings_fields_default")}</TableHead>
-              <TableHead className="w-[100px]" />
+              <TableHead className="w-[88px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {wsLoading && allFields.length === 0 ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                </TableRow>
-              ))
-            ) : isEmpty ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8">
-                  <div className="flex flex-col items-center justify-center gap-4 text-center">
-                    <p className="text-muted-foreground max-w-sm">
-                      {t("settings_fields_empty_hint")}
-                    </p>
+            {items.map((item) => renderFieldRow("user", item))}
+            {isAddingHere && (
+              <TableRow className="bg-muted/30">
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">{t("settings_fields_user")}</span>
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground/60">
+                  {keyPreview}
+                </TableCell>
+                <TableCell>
+                  <Input
+                    ref={inlineLabelRef}
+                    value={inlineAdd.label}
+                    onChange={(e) => setInlineAdd((p) => ({ ...p, label: e.target.value }))}
+                    placeholder="Nhãn trường"
+                    className="h-8 text-sm max-w-[280px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleInlineAddSave()
+                      if (e.key === 'Escape') handleInlineAddCancel()
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={inlineAdd.defaultValue}
+                    onChange={(e) => setInlineAdd((p) => ({ ...p, defaultValue: e.target.value }))}
+                    placeholder="Giá trị mặc định (tùy chọn)"
+                    className="h-8 text-sm max-w-[320px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleInlineAddSave()
+                      if (e.key === 'Escape') handleInlineAddCancel()
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-0.5">
                     <Button
-                      onClick={() => {
-                        addSampleFields()
-                        toast.success(t("settings_fields_sample_added"))
-                      }}
-                      variant="default"
-                      className="gap-2"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-primary hover:text-primary"
+                      onClick={handleInlineAddSave}
+                      disabled={!inlineAdd.label.trim()}
                     >
-                      <Plus className="h-4 w-4" />
-                      {t("settings_fields_add_sample")}
+                      <Check className="h-4 w-4" />
                     </Button>
-                    <p className="text-xs text-muted-foreground/80 max-w-xs">
-                      {t("settings_fields_sample_hint")}
-                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={handleInlineAddCancel}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
-            ) : (
-              allFields.map(({ type, item }) => (
-                <TableRow key={`${type}-${item.key}`}>
-                  <TableCell>
-                    {type === "user" ? (
-                      <span className="text-sm">{t("settings_fields_user")}</span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-sm">
-                        <Building2 className="h-4 w-4" />
-                        {currentWorkspace?.name}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{item.key}</TableCell>
-                  <TableCell>{item.label}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    {item.defaultValue || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {(type === "user" || canEditWs) && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() =>
-                            setEditDialog({
-                              type,
-                              key: item.key,
-                              label: item.label,
-                              defaultValue: item.defaultValue,
-                            })
-                          }
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            setDeleteConfirm({ type, key: item.key })
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
             )}
           </TableBody>
         </Table>
+      </div>
+    )
+  }
+
+  return (
+    <div id="tour-settings-content" className="flex flex-1 flex-col gap-4 p-6 overflow-y-auto">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{t("sidebar_profile")}</h2>
+          <p className="text-muted-foreground">{t("sidebar_profile_desc")}</p>
+        </div>
+        <Button onClick={() => setAddDialog("user")} disabled={wsLoading}>
+          <Plus className="mr-2 h-4 w-4" />
+          Thêm trường tùy chỉnh
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {wsLoading && !hasUserFields && !hasWsFields ? (
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                  <TableHead>{t("settings_fields_key")}</TableHead>
+                  <TableHead>{t("settings_fields_label")}</TableHead>
+                  <TableHead>{t("settings_fields_default")}</TableHead>
+                  <TableHead className="w-[72px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : isEmpty ? (
+          <div className="rounded-md border bg-card">
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8">
+                    <div className="flex flex-col items-center justify-center gap-4 text-center">
+                      <p className="text-muted-foreground max-w-sm">
+                        {t("settings_fields_empty_hint")}
+                      </p>
+                      <Button
+                        onClick={() => {
+                          addSampleFields()
+                          toast.success(t("settings_fields_sample_added"))
+                        }}
+                        variant="default"
+                        className="gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {t("settings_fields_add_sample")}
+                      </Button>
+                      <p className="text-xs text-muted-foreground/80 max-w-xs">
+                        {t("settings_fields_sample_hint")}
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <>
+            {SETTINGS_GROUP_ORDER.map((gid) => {
+              if (gid === "other") {
+                return renderUserGroupTable("other", USER_FIELD_OTHER_GROUP_LABEL)
+              }
+              return renderUserGroupTable(gid, USER_FIELD_GROUP_LABELS[gid])
+            })}
+            {customCategoryGroups.map(({ category, items }) => (
+              <div key={`custom-cat-${category}`} className="rounded-md border bg-card overflow-hidden">
+                <div className="border-b border-border bg-muted/40 px-4 py-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">{category}</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground px-2"
+                    onClick={() => setInlineAdd({ groupId: 'other', label: '', defaultValue: '' })}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Thêm trường
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                      <TableHead>{t("settings_fields_key")}</TableHead>
+                      <TableHead>{t("settings_fields_label")}</TableHead>
+                      <TableHead>{t("settings_fields_default")}</TableHead>
+                      <TableHead className="w-[88px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>{items.map((item) => renderFieldRow("user", item))}</TableBody>
+                </Table>
+              </div>
+            ))}
+            {hasWsFields && currentWorkspace && (
+              <div className="rounded-md border bg-card overflow-hidden">
+                <div className="border-b border-border bg-muted/40 px-4 py-2">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {currentWorkspace.name}
+                  </h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">{t("settings_fields_source")}</TableHead>
+                      <TableHead>{t("settings_fields_key")}</TableHead>
+                      <TableHead>{t("settings_fields_label")}</TableHead>
+                      <TableHead>{t("settings_fields_default")}</TableHead>
+                      <TableHead className="w-[72px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {wsFields.map((item) => renderFieldRow("workspace", item))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Add dialog */}
@@ -356,13 +617,13 @@ export default function FieldsPage() {
         onOpenChange={(o) => {
           if (!o) {
             setAddDialog(null)
-            setNewField({ label: "", defaultValue: "" })
+            setNewField({ label: "", defaultValue: "", category: "" })
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("settings_fields_add")}</DialogTitle>
+            <DialogTitle>Thêm trường tùy chỉnh</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {currentWorkspace && canEditWs && (
@@ -407,13 +668,31 @@ export default function FieldsPage() {
                 placeholder="Giá trị mặc định (tùy chọn)"
               />
             </div>
+            {addDialog === "user" && (
+              <div className="space-y-2">
+                <Label>
+                  Tên danh mục
+                  <span className="ml-1 text-xs text-muted-foreground font-normal">(tùy chọn)</span>
+                </Label>
+                <Input
+                  value={newField.category}
+                  onChange={(e) =>
+                    setNewField((n) => ({ ...n, category: e.target.value }))
+                  }
+                  placeholder="Ví dụ: Thông tin thanh toán"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Trường sẽ được nhóm vào danh mục này trên trang cài đặt.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setAddDialog(null)
-                setNewField({ label: "", defaultValue: "" })
+                setNewField({ label: "", defaultValue: "", category: "" })
               }}
             >
               {t("common_cancel")}
@@ -428,59 +707,6 @@ export default function FieldsPage() {
               }
             >
               {addDialog === "workspace" && wsSaving ? "..." : t("common_save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog open={!!editDialog} onOpenChange={(o) => !o && setEditDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Sửa trường — {editDialog?.key}
-            </DialogTitle>
-          </DialogHeader>
-          {editDialog && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>{t("settings_fields_label")}</Label>
-                <Input
-                  value={editDialog.label}
-                  onChange={(e) =>
-                    setEditDialog((d) => d && { ...d, label: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("settings_fields_default")}</Label>
-                <Input
-                  value={editDialog.defaultValue}
-                  onChange={(e) =>
-                    setEditDialog((d) =>
-                      d ? { ...d, defaultValue: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialog(null)}>
-              {t("common_cancel")}
-            </Button>
-            <Button
-              onClick={() =>
-                editDialog?.type === "user"
-                  ? handleEditUserField()
-                  : handleEditWsField()
-              }
-              disabled={
-                !editDialog?.label.trim() ||
-                (editDialog?.type === "workspace" && wsSaving)
-              }
-            >
-              {editDialog?.type === "workspace" && wsSaving ? "..." : t("common_save")}
             </Button>
           </DialogFooter>
         </DialogContent>

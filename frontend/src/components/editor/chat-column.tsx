@@ -10,6 +10,7 @@ import type { ChatMessage } from './chat/types'
 import type { QuestionnaireSchema } from '@/types/questionnaire'
 import type { UserCustomField } from '@/stores/user-fields-store'
 import type { WorkspaceFieldItem } from '@/hooks/workspaces/use-workspace-fields'
+import type { ContractTypeId } from '@/lib/editor/contract-questionnaires'
 export type { ChatMessage } from './chat/types'
 
 interface ChatColumnProps {
@@ -27,6 +28,7 @@ interface ChatColumnProps {
   activeQuestionnaire?: QuestionnaireSchema | null
   onQuestionnaireSubmit?: (values: Record<string, string>) => void
   onQuestionnaireSkip?: () => void
+  onContractTypeSelect?: (contractTypeId: ContractTypeId) => void
   mergeFieldValues?: Record<string, string>
   userFields?: UserCustomField[]
   workspaceFields?: WorkspaceFieldItem[]
@@ -47,6 +49,7 @@ export function ChatColumn({
   activeQuestionnaire = null,
   onQuestionnaireSubmit,
   onQuestionnaireSkip,
+  onContractTypeSelect,
   mergeFieldValues = {},
   userFields = [],
   workspaceFields = [],
@@ -103,7 +106,6 @@ export function ChatColumn({
     <div className="flex flex-col h-full bg-background text-foreground relative overflow-hidden">
       <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background z-10 sticky top-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium text-sm">Lawzy AI</h3>
         </div>
         {onClose && (
           <Button
@@ -130,6 +132,7 @@ export function ChatColumn({
         expandedThinkingId={expandedThinking}
         onToggleThinking={toggleThinking}
         onQuickAction={setInput}
+        onContractTypeSelect={onContractTypeSelect}
         activeQuestionnaire={activeQuestionnaire}
         onQuestionnaireSubmit={onQuestionnaireSubmit}
         onQuestionnaireSkip={onQuestionnaireSkip}

@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDocuments, useSharedDocuments, useDeleteDocument } from "@/hooks/documents/use-documents"
@@ -108,17 +109,17 @@ function DocumentsContent() {
           {t("docs_create_new")}
         </Button>
       </div>
-
+    
       <Tabs value={activeTab} onValueChange={(v) => setTab(v as "mine" | "shared")} className="flex flex-col gap-4">
         <TabsList>
           <TabsTrigger value="mine">{t("sidebar_documents_mine")}</TabsTrigger>
           <TabsTrigger value="shared">{t("sidebar_documents_shared")}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mine" className="mt-0">
-          <div className="rounded-md border bg-card">
+        <TabsContent value="mine" className="mt-0 flex-1 min-h-0">
+          <div className="rounded-md border bg-card h-[calc(100vh-220px)] overflow-auto relative scrollbar-thin">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
                 <TableRow>
                   <TableHead>{t("recent_docs_name")}</TableHead>
                   <TableHead>Kích thước</TableHead>
@@ -195,10 +196,10 @@ function DocumentsContent() {
           </div>
         </TabsContent>
 
-        <TabsContent value="shared" className="mt-0">
-          <div className="rounded-md border bg-card">
+        <TabsContent value="shared" className="mt-0 flex-1 min-h-0">
+          <div className="rounded-md border bg-card h-[calc(100vh-220px)] overflow-auto relative scrollbar-thin">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
                 <TableRow>
                   <TableHead>{t("recent_docs_name")}</TableHead>
                   <TableHead>{t("docs_shared_creator")}</TableHead>

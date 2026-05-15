@@ -8,7 +8,10 @@ export async function POST(req: NextRequest) {
     const content = body.content ?? { type: 'doc', content: [] }
     const metadata = body.metadata
 
-    const blob = await convertTipTapToDocx(content, metadata)
+    const blob = await convertTipTapToDocx(content, metadata, {
+      requestCookie: req.headers.get('cookie') ?? undefined,
+      requestOrigin: req.nextUrl.origin,
+    })
     const buffer = Buffer.from(await blob.arrayBuffer())
 
     const filename = metadata?.title

@@ -46,10 +46,10 @@ function CostStat({ stat, index, isVisible }: { stat: (typeof COST_STATS)[number
   return (
     <FadeInOnScroll delay={index * 0.05}>
       <div className="flex flex-col items-center text-center">
-        <span className="text-3xl font-bold tracking-tight text-orange-600 sm:text-4xl md:text-5xl">
+        <span className="text-3xl font-bold tracking-tight text-orange-600 tabular-nums sm:text-4xl md:text-5xl lg:text-6xl">
           {displayValue}
         </span>
-        <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:mt-1.5 sm:text-sm">
+        <p className="mt-2 max-w-[14rem] text-[11px] font-semibold uppercase leading-snug tracking-[0.14em] text-muted-foreground sm:mt-2.5 sm:max-w-none sm:text-xs sm:tracking-[0.18em]">
           {t(stat.labelKey)}
         </p>
       </div>
@@ -74,7 +74,7 @@ export default function CostSection() {
   }, []);
 
   return (
-    <Section id="cost" spacing="compact" className="border-t border-gray-100/80 dark:border-gray-800/80 dark:bg-gray-900/30">
+    <Section id="cost" spacing="compact" className="border-t border-gray-100/80 bg-orange-50/20 dark:border-gray-800/80 dark:bg-gray-900/25">
       <div ref={sectionRef} className={sectionContainer}>
         <FadeInOnScroll>
           <SectionHeader
@@ -84,12 +84,14 @@ export default function CostSection() {
             highlightWord={t("cost_title_highlight")}
           />
         </FadeInOnScroll>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-8">
+        <div className="rounded-3xl border border-gray-100/90 bg-white/70 px-6 py-10 shadow-sm shadow-black/[0.03] ring-1 ring-black/[0.04] backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/50 dark:ring-white/[0.06] sm:px-10 sm:py-12">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8 md:gap-10">
           {COST_STATS.map((stat, i) => (
             <CostStat key={stat.valueKey} stat={stat} index={i} isVisible={isVisible} />
           ))}
         </div>
-        <p className="mt-4 text-center text-xs text-muted-foreground sm:mt-6">
+        </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground sm:mt-8">
           {t("cost_stats_note")}
         </p>
         <div className="mt-8 flex justify-center sm:mt-10">

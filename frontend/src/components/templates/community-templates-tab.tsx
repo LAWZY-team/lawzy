@@ -4,7 +4,7 @@ import * as React from "react"
 import { Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { getDownloadUrl, type ContractTemplateFile } from "@/lib/api/contract-templates"
+import type { ContractTemplateFile } from "@/lib/api/contract-templates"
 import { useContractTemplates } from "@/hooks/contract-templates/use-contract-templates"
 import { useUploadContractTemplate } from "@/hooks/contract-templates/use-upload-contract-template"
 import { useDeleteContractTemplate } from "@/hooks/contract-templates/use-delete-contract-template"
@@ -14,6 +14,7 @@ import { CommunityTemplateUploadModal } from "@/components/templates/community-t
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
+import { communityContractTemplateFile } from "@/lib/templates/community-contract-template-file"
 import type { TemplateViewMode } from "@/components/templates/template-filters"
 import {
   CommunityTemplateFilters,
@@ -24,10 +25,6 @@ import {
 function matchesFileType(fileName: string, type: CommunityFileType): boolean {
   if (type === "all") return true
   return fileName.toLowerCase().endsWith(`.${type}`)
-}
-
-function isPdf(fileName: string): boolean {
-  return fileName.toLowerCase().endsWith(".pdf")
 }
 
 export function CommunityTemplatesTab({
@@ -161,15 +158,15 @@ export function CommunityTemplatesTab({
               <ScrollArea className="flex-1 min-h-0">
                 <CommunityTemplateGrid
                   files={filteredFiles}
+                  scope={scope}
                   viewMode={viewMode}
                   onView={(f) => {
-                    if (!isPdf(f.fileName)) {
-                      toast.error(t("tmpl_pdf_preview_only"))
+                    if (!communityContractTemplateFile.isSupported(f.fileName)) {
+                      toast.error(t("tmpl_preview_not_supported"))
                       return
                     }
                     setSelected(f)
                   }}
-                  onDownload={(f) => window.open(getDownloadUrl(scope, f.id), "_blank")}
                   onDelete={(f) => onDelete(f.id)}
                 />
               </ScrollArea>

@@ -35,15 +35,15 @@ export function SaveDraftModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t("save_draft_title") || "Lưu bản thảo?"}</DialogTitle>
+          <DialogTitle>{t("save_draft_title")}</DialogTitle>
           <DialogDescription>
-            {t("save_draft_description") || "Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại dưới dạng bản thảo trước khi rời đi không?"}
+            {t("save_draft_description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
           <Label className="text-sm font-medium mb-3 block">
-            {t("save_draft_status_label") || "Trạng thái hợp đồng"}
+            {t("save_draft_status_label")}
           </Label>
           <RadioGroup 
             value={status} 
@@ -53,18 +53,18 @@ export function SaveDraftModal({
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="draft" id="status-draft" />
               <Label htmlFor="status-draft" className="font-normal cursor-pointer">
-                {t("status_draft") || "Đang soạn thảo"} (In Progress)
+                {t("status_draft")}
               </Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="completed" id="status-completed" />
               <Label htmlFor="status-completed" className="font-normal cursor-pointer">
-                {t("status_completed") || "Hoàn thành"} (Complete)
+                {t("status_completed")}
               </Label>
             </div>
           </RadioGroup>
           <Label className="text-sm font-medium mb-3 block mt-4">
-            {t("visibility_label") || "Quyền truy cập"}
+            {t("visibility_label")}
           </Label>
           <RadioGroup
             value={visibility}
@@ -74,13 +74,13 @@ export function SaveDraftModal({
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="workspace" id="vis-workspace" />
               <Label htmlFor="vis-workspace" className="font-normal cursor-pointer">
-                {t("visibility_workspace") || "Chia sẻ trong workspace"}
+                {t("visibility_workspace")}
               </Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="private" id="vis-private" />
               <Label htmlFor="vis-private" className="font-normal cursor-pointer">
-                {t("visibility_private") || "Chỉ mình tôi"}
+                {t("visibility_private")}
               </Label>
             </div>
           </RadioGroup>
@@ -95,7 +95,7 @@ export function SaveDraftModal({
             }}
             className="sm:order-1"
           >
-            {t("save_draft_discard") || "Hủy bỏ thay đổi"}
+            {t("save_draft_discard")}
           </Button>
           <Button
             onClick={() => {
@@ -104,7 +104,7 @@ export function SaveDraftModal({
             }}
             className="sm:order-2"
           >
-            {t("save_draft_save") || "Lưu bản thảo"}
+            {t("save_draft_save")}
           </Button>
         </DialogFooter>
       </DialogContent>

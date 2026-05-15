@@ -67,27 +67,35 @@ export const TERM_CONTENT_VI = `
 <h1>CHƯƠNG 4. CHÍNH SÁCH BẢO MẬT DỮ LIỆU</h1>
 <h2>Điều 17. Phạm vi thu thập dữ liệu</h2>
 <p>Lawzy có thể thu thập các thông tin bao gồm thông tin tài khoản, dữ liệu cá nhân, tài liệu pháp lý do người dùng tải lên, thông tin giao dịch và dữ liệu sử dụng hệ thống nhằm mục đích cung cấp và cải thiện dịch vụ.</p>
-<h2>Điều 18. Mục đích xử lý dữ liệu</h2>
+<p>Chi tiết về các loại dữ liệu nhận từ Google khi bạn chọn đăng nhập hoặc đăng ký bằng Google được quy định tại Điều 18.</p>
+<h2>Điều 18. Đăng nhập bằng Google (Google Sign-In) và dữ liệu người dùng Google</h2>
+<p>Khi bạn sử dụng chức năng đăng nhập hoặc đăng ký bằng tài khoản Google, Lawzy tích hợp dịch vụ xác thực do Google cung cấp (Google Identity Services). Việc xác thực mật khẩu và phiên đăng nhập với Google do Google xử lý theo điều khoản và chính sách riêng của Google.</p>
+<p>Mục đích chính của tích hợp này là giúp bạn tạo tài khoản và đăng nhập vào Lawzy nhanh chóng, an toàn. Lawzy không sử dụng dữ liệu từ Google để theo dõi hoạt động của bạn trên các dịch vụ khác của Google hay trên Internet ngoài phạm vi vận hành Nền tảng, và không dùng thông tin hồ sơ Google làm dữ liệu đầu vào cho các tính năng soạn thảo hợp đồng hoặc AI trên Lawzy—các tính năng đó xử lý nội dung do bạn chủ động nhập hoặc tải lên trong Nền tảng, theo chính sách sử dụng AI và điều khoản sử dụng liên quan.</p>
+<p><strong>1. Dữ liệu người dùng Google mà Lawzy có thể truy cập hoặc nhận được:</strong> Sau khi bạn đồng ý trên màn hình ủy quyền của Google và tùy theo phạm vi (OAuth scopes) Lawzy yêu cầu tại từng thời điểm trên Google Cloud Console, Lawzy có thể nhận từ Google các thông tin sau: địa chỉ email; tên hiển thị; ảnh đại diện (đường dẫn/URL ảnh hồ sơ, nếu có); và mã định danh tài khoản Google duy nhất (số định danh chủ thể / Google user ID, thường gọi là <em>sub</em>) để liên kết tài khoản của bạn với Lawzy. Trong phạm vi cấu hình hiện tại, Lawzy không truy cập nội dung thư trong Gmail, tệp trên Google Drive, danh bạ Google hay các dữ liệu khác của tài khoản Google ngoài các thông tin hồ sơ cơ bản nêu trên. Lawzy chỉ yêu cầu các phạm vi tối thiểu cần thiết cho chức năng đăng nhập và hiển thị hồ sơ cơ bản, phù hợp với cấu hình ứng dụng đã công bố.</p>
+<p><strong>2. Mục đích sử dụng và cách Lawzy xử lý dữ liệu từ Google:</strong> Lawzy sử dụng các thông tin nêu tại khoản 1 để: (i) tạo tài khoản Lawzy mới hoặc cho phép đăng nhập vào tài khoản hiện có; (ii) gán hoặc cập nhật liên kết giữa tài khoản Lawzy và tài khoản Google của bạn; (iii) hiển thị trong Nền tảng (khi có) tên và ảnh đại diện mà bạn đồng ý chia sẻ thông qua Google; (iv) xác định duy nhất người dùng và ngăn trùng lặp tài khoản khi cùng một địa chỉ email đã tồn tại; (v) gửi thông báo liên quan đến tài khoản, bảo mật hoặc giao dịch với Lawzy qua email khi cần thiết và theo chính sách của Lawzy. Lawzy không sử dụng địa chỉ email hoặc hồ sơ Google của bạn để bán dữ liệu cho bên thứ ba và không dùng cho mục đích quảng cáo có mục tiêu (targeted advertising) cho bên thứ ba.</p>
+<p><strong>3. Lưu trữ, chia sẻ và bảo vệ:</strong> Các thông tin nhận từ Google được lưu trữ trên hệ thống do Lawzy vận hành hoặc trên hạ tầng nhà cung cấp dịch vụ lưu trữ, máy chủ và an ninh được lựa chọn theo hợp đồng và nghĩa vụ bảo mật. Lawzy có thể chia sẻ dữ liệu cá nhân với nhà cung cấp dịch vụ công nghệ đáng tin cậy (ví dụ: nhà cung cấp hosting, cơ sở dữ liệu, dịch vụ email giao dịch, giám sát bảo mật) trong phạm vi cần thiết để vận hành Nền tảng, họ chỉ được xử lý theo chỉ dẫn của Lawzy và không được sử dụng cho mục đích riêng về tiếp thị của họ. Lawzy không cấp cho bên thứ ba quyền truy cập để họ đại diện đăng nhập Google thay bạn. Thời gian lưu trữ và biện pháp bảo mật bổ sung được nêu tại Điều 22.</p>
+<p><strong>4. Huấn luyện mô hình trí tuệ nhân tạo (AI):</strong> Thông tin hồ sơ tài khoản nhận từ Google (email, tên hiển thị, ảnh đại diện, mã định danh Google) không được Lawzy sử dụng để huấn luyện (train), tinh chỉnh (fine-tune), đánh giá hoặc cải thiện mô hình AI của Lawzy hoặc của đối tác. Việc xử lý AI trên nội dung tài liệu trong Nền tảng (nếu có) tuân theo chính sách sử dụng AI và điều khoản sử dụng được công bố trên Nền tảng Lawzy, tách biệt với dữ liệu hồ sơ đăng nhập Google.</p>
+<h2>Điều 19. Mục đích xử lý dữ liệu</h2>
 <p>Dữ liệu được xử lý nhằm cung cấp chức năng của Nền tảng, hỗ trợ người dùng, nâng cao chất lượng dịch vụ, cải thiện hệ thống AI, đảm bảo an toàn thông tin và tuân thủ nghĩa vụ pháp lý theo quy định của pháp luật Việt Nam.</p>
-<h2>Điều 19. Dữ liệu cá nhân và dữ liệu nhạy cảm</h2>
+<h2>Điều 20. Dữ liệu cá nhân và dữ liệu nhạy cảm</h2>
 <p>Trường hợp người dùng tải lên dữ liệu cá nhân hoặc dữ liệu nhạy cảm theo quy định pháp luật, người dùng xác nhận đã có đầy đủ quyền và sự đồng ý hợp pháp để cung cấp dữ liệu đó.</p>
 <p>Lawzy áp dụng các biện pháp kỹ thuật và tổ chức hợp lý nhằm bảo vệ dữ liệu cá nhân và an ninh mạng bao gồm nhưng không giới hạn ở Luật An ninh quốc gia năm 2004, Luật An ninh mạng năm 2018, Luật Bảo vệ dữ liệu cá nhân năm 2025, Nghị định số 356/2025/NĐ-CP quy định chi tiết một số điều và biện pháp thi hành Luật Bảo vệ dữ liệu cá nhân ngày 31 tháng 12 năm 2025 và các văn bản sửa đổi, bổ sung hoặc thay thế trong từng thời kỳ.</p>
-<h2>Điều 20. Quyền của người dùng đối với dữ liệu</h2>
+<h2>Điều 21. Quyền của người dùng đối với dữ liệu</h2>
 <p>Người dùng có quyền yêu cầu truy cập, chỉnh sửa, cập nhật hoặc xóa dữ liệu cá nhân của mình trong phạm vi pháp luật cho phép.</p>
 <p>Yêu cầu có thể được thực hiện thông qua kênh hỗ trợ chính thức của Lawzy.</p>
-<h2>Điều 21. Thời gian lưu trữ và bảo mật</h2>
+<h2>Điều 22. Thời gian lưu trữ và bảo mật</h2>
 <p>Dữ liệu được lưu trữ trong thời gian cần thiết để thực hiện mục đích thu thập hoặc theo yêu cầu của pháp luật.</p>
 <p>Lawzy triển khai các biện pháp bảo mật hợp lý để phòng ngừa truy cập trái phép, mất mát hoặc lạm dụng dữ liệu.</p>
 <h1>CHƯƠNG 5. ĐIỀU KHOẢN GIỚI HẠN TRÁCH NHIỆM</h1>
-<h2>Điều 22. Không bảo đảm kết quả pháp lý cụ thể</h2>
+<h2>Điều 23. Không bảo đảm kết quả pháp lý cụ thể</h2>
 <p>Lawzy không bảo đảm rằng việc sử dụng Nền tảng sẽ giúp người dùng đạt được kết quả pháp lý mong muốn, tránh được tranh chấp hoặc đảm bảo tính hiệu lực của giao dịch.</p>
-<h2>Điều 23. Loại trừ thiệt hại gây ra hậu quả gián tiếp</h2>
+<h2>Điều 24. Loại trừ thiệt hại gây ra hậu quả gián tiếp</h2>
 <p>Trong phạm vi pháp luật cho phép, Lawzy không chịu trách nhiệm đối với các thiệt hại gây ra hậu quả gián tiếp, hệ quả ngẫu nhiên, mất lợi nhuận, mất cơ hội kinh doanh hoặc thiệt hại phát sinh từ hành vi của bên thứ ba liên quan đến việc sử dụng Nền tảng.</p>
-<h2>Điều 24. Trần trách nhiệm</h2>
+<h2>Điều 25. Trần trách nhiệm</h2>
 <p><strong>1.</strong> Trong phạm vi pháp luật cho phép, tổng trách nhiệm bồi thường của Lawzy phát sinh từ hoặc liên quan đến việc sử dụng Nền tảng, dù theo hợp đồng, ngoài hợp đồng hoặc căn cứ pháp lý nào khác, sẽ không vượt quá tổng số phí dịch vụ mà người dùng đã thực tế thanh toán cho Lawzy trong vòng sáu (06) tháng liền kề trước thời điểm phát sinh sự kiện gây thiệt hại.</p>
 <p><strong>2.</strong> Trường hợp người dùng sử dụng dịch vụ miễn phí, tổng trách nhiệm bồi thường của Lawzy (nếu có) sẽ không vượt quá một (01) tháng phí dịch vụ tiêu chuẩn của gói trả phí thấp nhất tại thời điểm phát sinh sự kiện.</p>
 <p><strong>3.</strong> Điều khoản này không loại trừ hoặc hạn chế trách nhiệm trong các trường hợp pháp luật bắt buộc phải chịu trách nhiệm theo quy định.</p>
-<h2>Điều 25. Ngoại lệ không loại trừ trách nhiệm</h2>
+<h2>Điều 26. Ngoại lệ không loại trừ trách nhiệm</h2>
 <p>Không điều khoản nào trong Chính sách này nhằm loại trừ trách nhiệm của Lawzy trong trường hợp có hành vi cố ý vi phạm pháp luật, gian lận hoặc các trách nhiệm không thể bị loại trừ theo quy định bắt buộc của pháp luật Việt Nam.</p>
 `.trim();
 
@@ -127,15 +135,23 @@ export const PRIVACY_CONTENT_VI = `
 <h1>CHƯƠNG 4. CHÍNH SÁCH BẢO MẬT DỮ LIỆU</h1>
 <h2>Điều 17. Phạm vi thu thập dữ liệu</h2>
 <p>Lawzy có thể thu thập các thông tin bao gồm thông tin tài khoản, dữ liệu cá nhân, tài liệu pháp lý do người dùng tải lên, thông tin giao dịch và dữ liệu sử dụng hệ thống nhằm mục đích cung cấp và cải thiện dịch vụ.</p>
-<h2>Điều 18. Mục đích xử lý dữ liệu</h2>
+<p>Chi tiết về các loại dữ liệu nhận từ Google khi bạn chọn đăng nhập hoặc đăng ký bằng Google được quy định tại Điều 18.</p>
+<h2>Điều 18. Đăng nhập bằng Google (Google Sign-In) và dữ liệu người dùng Google</h2>
+<p>Khi bạn sử dụng chức năng đăng nhập hoặc đăng ký bằng tài khoản Google, Lawzy tích hợp dịch vụ xác thực do Google cung cấp (Google Identity Services). Việc xác thực mật khẩu và phiên đăng nhập với Google do Google xử lý theo điều khoản và chính sách riêng của Google.</p>
+<p>Mục đích chính của tích hợp này là giúp bạn tạo tài khoản và đăng nhập vào Lawzy nhanh chóng, an toàn. Lawzy không sử dụng dữ liệu từ Google để theo dõi hoạt động của bạn trên các dịch vụ khác của Google hay trên Internet ngoài phạm vi vận hành Nền tảng, và không dùng thông tin hồ sơ Google làm dữ liệu đầu vào cho các tính năng soạn thảo hợp đồng hoặc AI trên Lawzy—các tính năng đó xử lý nội dung do bạn chủ động nhập hoặc tải lên trong Nền tảng, theo chính sách sử dụng AI và điều khoản sử dụng liên quan.</p>
+<p><strong>1. Dữ liệu người dùng Google mà Lawzy có thể truy cập hoặc nhận được:</strong> Sau khi bạn đồng ý trên màn hình ủy quyền của Google và tùy theo phạm vi (OAuth scopes) Lawzy yêu cầu tại từng thời điểm trên Google Cloud Console, Lawzy có thể nhận từ Google các thông tin sau: địa chỉ email; tên hiển thị; ảnh đại diện (đường dẫn/URL ảnh hồ sơ, nếu có); và mã định danh tài khoản Google duy nhất (số định danh chủ thể / Google user ID, thường gọi là <em>sub</em>) để liên kết tài khoản của bạn với Lawzy. Trong phạm vi cấu hình hiện tại, Lawzy không truy cập nội dung thư trong Gmail, tệp trên Google Drive, danh bạ Google hay các dữ liệu khác của tài khoản Google ngoài các thông tin hồ sơ cơ bản nêu trên. Lawzy chỉ yêu cầu các phạm vi tối thiểu cần thiết cho chức năng đăng nhập và hiển thị hồ sơ cơ bản, phù hợp với cấu hình ứng dụng đã công bố.</p>
+<p><strong>2. Mục đích sử dụng và cách Lawzy xử lý dữ liệu từ Google:</strong> Lawzy sử dụng các thông tin nêu tại khoản 1 để: (i) tạo tài khoản Lawzy mới hoặc cho phép đăng nhập vào tài khoản hiện có; (ii) gán hoặc cập nhật liên kết giữa tài khoản Lawzy và tài khoản Google của bạn; (iii) hiển thị trong Nền tảng (khi có) tên và ảnh đại diện mà bạn đồng ý chia sẻ thông qua Google; (iv) xác định duy nhất người dùng và ngăn trùng lặp tài khoản khi cùng một địa chỉ email đã tồn tại; (v) gửi thông báo liên quan đến tài khoản, bảo mật hoặc giao dịch với Lawzy qua email khi cần thiết và theo chính sách của Lawzy. Lawzy không sử dụng địa chỉ email hoặc hồ sơ Google của bạn để bán dữ liệu cho bên thứ ba và không dùng cho mục đích quảng cáo có mục tiêu (targeted advertising) cho bên thứ ba.</p>
+<p><strong>3. Lưu trữ, chia sẻ và bảo vệ:</strong> Các thông tin nhận từ Google được lưu trữ trên hệ thống do Lawzy vận hành hoặc trên hạ tầng nhà cung cấp dịch vụ lưu trữ, máy chủ và an ninh được lựa chọn theo hợp đồng và nghĩa vụ bảo mật. Lawzy có thể chia sẻ dữ liệu cá nhân với nhà cung cấp dịch vụ công nghệ đáng tin cậy (ví dụ: nhà cung cấp hosting, cơ sở dữ liệu, dịch vụ email giao dịch, giám sát bảo mật) trong phạm vi cần thiết để vận hành Nền tảng, họ chỉ được xử lý theo chỉ dẫn của Lawzy và không được sử dụng cho mục đích riêng về tiếp thị của họ. Lawzy không cấp cho bên thứ ba quyền truy cập để họ đại diện đăng nhập Google thay bạn. Thời gian lưu trữ và biện pháp bảo mật bổ sung được nêu tại Điều 22.</p>
+<p><strong>4. Huấn luyện mô hình trí tuệ nhân tạo (AI):</strong> Thông tin hồ sơ tài khoản nhận từ Google (email, tên hiển thị, ảnh đại diện, mã định danh Google) không được Lawzy sử dụng để huấn luyện (train), tinh chỉnh (fine-tune), đánh giá hoặc cải thiện mô hình AI của Lawzy hoặc của đối tác. Việc xử lý AI trên nội dung tài liệu trong Nền tảng (nếu có) tuân theo chính sách sử dụng AI và điều khoản sử dụng được công bố trên Nền tảng Lawzy, tách biệt với dữ liệu hồ sơ đăng nhập Google.</p>
+<h2>Điều 19. Mục đích xử lý dữ liệu</h2>
 <p>Dữ liệu được xử lý nhằm cung cấp chức năng của Nền tảng, hỗ trợ người dùng, nâng cao chất lượng dịch vụ, cải thiện hệ thống AI, đảm bảo an toàn thông tin và tuân thủ nghĩa vụ pháp lý theo quy định của pháp luật Việt Nam.</p>
-<h2>Điều 19. Dữ liệu cá nhân và dữ liệu nhạy cảm</h2>
+<h2>Điều 20. Dữ liệu cá nhân và dữ liệu nhạy cảm</h2>
 <p>Trường hợp người dùng tải lên dữ liệu cá nhân hoặc dữ liệu nhạy cảm theo quy định pháp luật, người dùng xác nhận đã có đầy đủ quyền và sự đồng ý hợp pháp để cung cấp dữ liệu đó.</p>
 <p>Lawzy áp dụng các biện pháp kỹ thuật và tổ chức hợp lý nhằm bảo vệ dữ liệu cá nhân và an ninh mạng bao gồm nhưng không giới hạn ở Luật An ninh quốc gia năm 2004, Luật An ninh mạng năm 2018, Luật Bảo vệ dữ liệu cá nhân năm 2025, Nghị định số 356/2025/NĐ-CP quy định chi tiết một số điều và biện pháp thi hành Luật Bảo vệ dữ liệu cá nhân ngày 31 tháng 12 năm 2025 và các văn bản sửa đổi, bổ sung hoặc thay thế trong từng thời kỳ.</p>
-<h2>Điều 20. Quyền của người dùng đối với dữ liệu</h2>
+<h2>Điều 21. Quyền của người dùng đối với dữ liệu</h2>
 <p>Người dùng có quyền yêu cầu truy cập, chỉnh sửa, cập nhật hoặc xóa dữ liệu cá nhân của mình trong phạm vi pháp luật cho phép.</p>
 <p>Yêu cầu có thể được thực hiện thông qua kênh hỗ trợ chính thức của Lawzy.</p>
-<h2>Điều 21. Thời gian lưu trữ và bảo mật</h2>
+<h2>Điều 22. Thời gian lưu trữ và bảo mật</h2>
 <p>Dữ liệu được lưu trữ trong thời gian cần thiết để thực hiện mục đích thu thập hoặc theo yêu cầu của pháp luật.</p>
 <p>Lawzy triển khai các biện pháp bảo mật hợp lý để phòng ngừa truy cập trái phép, mất mát hoặc lạm dụng dữ liệu.</p>
 `.trim();
@@ -144,15 +160,23 @@ export const PRIVACY_CONTENT_EN = `
 <h1>CHAPTER 4. DATA PRIVACY POLICY</h1>
 <h2>Article 17. Scope of data collection</h2>
 <p>Lawzy may collect information including account information, personal data, legal documents uploaded by users, transaction information, and system usage data for the purpose of providing and improving services.</p>
-<h2>Article 18. Purpose of data processing</h2>
+<p>Details of information received from Google when you choose to sign in or sign up with Google are set out in Article 18.</p>
+<h2>Article 18. Google Sign-In and Google user data</h2>
+<p>When you use Google to sign in or create a Lawzy account, Lawzy integrates Google's authentication services (Google Identity Services). Authentication of your Google credentials and Google session is handled by Google in accordance with Google's terms and policies.</p>
+<p>This integration is provided so you can register and sign in to Lawzy quickly and securely. Lawzy does not use your Google data to track your activity across other Google services or the wider web for purposes unrelated to operating the Platform, and your Google profile information is not used as input for contract drafting or other AI features in Lawzy—those features process content you voluntarily enter or upload within the Platform, as described in our AI usage policy and related terms.</p>
+<p><strong>1. Google user data that Lawzy may access or receive:</strong> After you grant consent on Google's authorization screen, and depending on the OAuth scopes Lawzy requests at any given time in Google Cloud Console, Lawzy may receive from Google: your email address; display name; profile picture (URL, if available); and a unique Google account identifier (subject identifier / Google user ID, commonly referred to as <em>sub</em>) to link your account to Lawzy. Under our current configuration, Lawzy does not access Gmail message content, files on Google Drive, Google Contacts, or other Google user data beyond the basic profile items listed above. Lawzy requests only the minimum scopes reasonably necessary for sign-in and basic profile display, consistent with the application's published configuration.</p>
+<p><strong>2. How Lawzy uses and processes Google data:</strong> Lawzy uses the information in section 1 to: (i) create a new Lawzy account or allow sign-in to an existing account; (ii) bind or update the link between your Lawzy account and your Google account; (iii) display, where applicable in the Platform, the name and profile picture you agree to share through Google; (iv) uniquely identify you and prevent duplicate accounts when the same email address already exists; (v) send account-, security-, or transaction-related communications to your email when needed in line with Lawzy's policies. Lawzy does not sell your Google-related profile data to third parties and does not use it for third-party targeted advertising.</p>
+<p><strong>3. Storage, sharing, and protection:</strong> Information received from Google is stored on systems operated by Lawzy or on infrastructure provided by hosting, server, and security vendors bound by contract and confidentiality obligations. Lawzy may share personal data with trusted technology subprocessors (for example: hosting, databases, transactional email, security monitoring) only as necessary to operate the Platform; they may process data only on Lawzy's instructions and must not use it for their own marketing purposes. Lawzy does not grant third parties the ability to sign in to Google on your behalf. Retention and additional security measures are described in Article 22.</p>
+<p><strong>4. Artificial intelligence (AI) model training:</strong> Profile information received from Google (email, display name, profile picture, Google identifier) is not used by Lawzy to train, fine-tune, evaluate, or improve Lawzy's or partners' machine learning models. AI features that operate on documents or content you provide within the Platform are governed separately under Lawzy's AI usage policy and terms of use published on the Platform, and are distinct from Google sign-in profile data.</p>
+<h2>Article 19. Purpose of data processing</h2>
 <p>Data is processed to provide Platform functionality, support users, improve service quality, enhance the AI system, ensure information security, and comply with legal obligations under Vietnamese law.</p>
-<h2>Article 19. Personal data and sensitive data</h2>
+<h2>Article 20. Personal data and sensitive data</h2>
 <p>Where users upload personal data or sensitive data as defined by law, users confirm that they have full authority and lawful consent to provide such data.</p>
 <p>Lawzy implements reasonable technical and organizational measures to protect personal data and cybersecurity, including but not limited to the National Security Law 2004, Cybersecurity Law 2018, Personal Data Protection Law 2025, Decree No. 356/2025/ND-CP detailing certain articles and implementation measures of the Personal Data Protection Law dated December 31, 2025, and any amendments, supplements, or replacements.</p>
-<h2>Article 20. User rights regarding data</h2>
+<h2>Article 21. User rights regarding data</h2>
 <p>Users have the right to request access, correction, update, or deletion of their personal data within the scope permitted by law.</p>
 <p>Requests may be submitted through Lawzy's official support channel.</p>
-<h2>Article 21. Retention period and security</h2>
+<h2>Article 22. Retention period and security</h2>
 <p>Data is retained for as long as necessary to fulfill the collection purpose or as required by law.</p>
 <p>Lawzy implements reasonable security measures to prevent unauthorized access, loss, or misuse of data.</p>
 `.trim();

@@ -42,7 +42,6 @@ export class GeminiClient {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey)
-    // Dùng gemini-2.5-flash (stable) để tránh 503 overload; có thể override bằng GEMINI_MODEL
     const modelId = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
     this.model = this.genAI.getGenerativeModel({
       model: modelId,
@@ -51,7 +50,7 @@ export class GeminiClient {
         temperature: 0.7,
         topP: 0.95,
         topK: 40,
-        maxOutputTokens: 65536, // Tăng lên mức tối đa để tránh bị cắt nội dung
+        maxOutputTokens: 65536,
       },
     })
   }
