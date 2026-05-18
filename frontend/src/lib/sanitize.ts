@@ -8,10 +8,10 @@ const PROSE_TAGS = [
   "a", "blockquote",
   "table", "thead", "tbody", "tr", "th", "td",
   "div", "span", "section", "article", "header", "footer",
-  "img",
+  "img", "figure", "figcaption",
 ] as const
 
-const PROSE_ATTRS = ["href", "target", "rel", "title", "alt", "src", "class"]
+const PROSE_ATTRS = ["href", "target", "rel", "title", "alt", "src", "class", "style"]
 
 /**
  * Sanitize HTML to prevent XSS when using dangerouslySetInnerHTML.

@@ -28,17 +28,24 @@ export default function AdminArticleEditPage({
   }, [isLoading, article, error])
 
   const handleSubmit = async (form: ArticleFormData) => {
-    const basePayload = { ...form }
+    const basePayload: any = { ...form }
     if (article?.type === "policy" || form.type === "policy") {
       const prevContent =
         typeof article?.content === "object" && article?.content !== null
           ? (article.content as Record<string, string>)
           : {}
-      ;(basePayload as Record<string, unknown>).content = {
+      basePayload.content = {
         ...prevContent,
         vi: form.contentText,
       }
     }
+    
+    basePayload.metadata = {
+      ...(typeof article?.metadata === 'object' ? article.metadata : {}),
+      coverImageAlt: form.coverImageAlt || "",
+      originalCoverImage: form.originalCoverImage || "",
+    }
+
     await updateMutation.mutateAsync({
       id,
       ...basePayload,

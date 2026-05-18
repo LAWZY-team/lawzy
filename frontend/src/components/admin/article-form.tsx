@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { api } from "@/lib/api/client"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { ArticleCanvasEditor } from "@/components/admin/article-canvas-editor"
+import { ImageCropDialog } from "@/components/admin/image-crop-dialog"
 import { slugify } from "@/lib/slugify"
 import { useT } from "@/components/i18n-provider"
 import { toast } from "sonner"
@@ -39,6 +40,8 @@ export interface ArticleFormData {
   excerpt: string
   contentText: string
   coverImage: string
+  coverImageAlt?: string
+  originalCoverImage?: string
   status: string
 }
 
@@ -81,8 +84,13 @@ export function ArticleForm({
     excerpt: article?.excerpt ?? "",
     contentText: getContentForForm(article),
     coverImage: article?.coverImage ?? "",
+    coverImageAlt: (article?.metadata as any)?.coverImageAlt ?? "",
+    originalCoverImage: (article?.metadata as any)?.originalCoverImage ?? "",
     status: article?.status ?? "draft",
   })
+  const [cropDialogOpen, setCropDialogOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const slugLocked = !!article?.slug
 
   useEffect(() => {
@@ -94,6 +102,8 @@ export function ArticleForm({
         excerpt: article?.excerpt ?? "",
         contentText: getContentForForm(article),
         coverImage: article?.coverImage ?? "",
+        coverImageAlt: (article?.metadata as any)?.coverImageAlt ?? "",
+        originalCoverImage: (article?.metadata as any)?.originalCoverImage ?? "",
         status: article?.status ?? "draft",
       })
     })
@@ -136,6 +146,33 @@ export function ArticleForm({
       const response = await api.upload<{ url: string }>("/articles/upload-image", formData)
       setForm((prev) => ({ ...prev, coverImage: response.url }))
       toast.success("Thumbnail uploaded")
+    } catch (err) {
+      toast.error((err as Error).message || t("editor_image_upload_failed"))
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF, WEBP files are allowed")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
+    try {
+      setIsUploadingImage(true)
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await api.upload<{ url: string }>("/articles/upload-image", formData)
+      
+      setForm((prev) => ({ ...prev, originalCoverImage: response.url }))
+      setCropImageSrc(response.url)
+      setCropDialogOpen(true)
     } catch (err) {
       toast.error((err as Error).message || t("editor_image_upload_failed"))
     } finally {
@@ -213,28 +250,63 @@ export function ArticleForm({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input
+            ref={fileInputRef}
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp"
-            onChange={(e) => {
-              const file = e.target.files?.[0] ?? null
-              void handleUploadCoverImage(file)
-              e.currentTarget.value = ""
-            }}
+            onChange={handleFileSelect}
             disabled={isUploadingImage || isPending}
             className="max-w-xs"
           />
           {form.coverImage && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setForm((prev) => ({ ...prev, coverImage: "" }))}
-              disabled={isUploadingImage || isPending}
-            >
-              {t("common_delete")}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCropImageSrc(form.originalCoverImage || form.coverImage)
+                  setCropDialogOpen(true)
+                }}
+                disabled={isUploadingImage || isPending}
+              >
+                Resize
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setForm((prev) => ({ ...prev, coverImage: "", coverImageAlt: "", originalCoverImage: "" }))
+                  if (fileInputRef.current) fileInputRef.current.value = ""
+                }}
+                disabled={isUploadingImage || isPending}
+              >
+                {t("common_delete")}
+              </Button>
+            </>
           )}
         </div>
+        {form.coverImage && (
+          <div className="space-y-1 mt-2">
+            <Label className="text-sm font-medium text-muted-foreground">Thumbnail Alt Text</Label>
+            <Input
+              value={form.coverImageAlt || ""}
+              onChange={(e) => setForm((f) => ({ ...f, coverImageAlt: e.target.value }))}
+              placeholder="Văn bản thay thế cho Thumbnail (SEO)"
+              className="h-9"
+            />
+          </div>
+        )}
       </div>
+
+      <ImageCropDialog
+        open={cropDialogOpen}
+        onOpenChange={(open) => {
+          setCropDialogOpen(open)
+          if (!open && fileInputRef.current) fileInputRef.current.value = ""
+        }}
+        imageSrc={cropImageSrc}
+        onCropComplete={handleUploadCoverImage}
+        aspectRatio={16 / 9}
+      />
 
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">{t("admin_articles_form_content")}</Label>

@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef } from "react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Placeholder from "@tiptap/extension-placeholder"
-import Image from "@tiptap/extension-image"
+import FontFamily from "@tiptap/extension-font-family"
+import { FontSize } from "./tiptap-font-size"
+import { ResizableImage } from "./tiptap-resizable-image"
 import TextAlign from "@tiptap/extension-text-align"
 import { TextStyleKit } from "@tiptap/extension-text-style"
 import Underline from "@tiptap/extension-underline"
@@ -45,6 +47,34 @@ const ARTICLE_BODY_CLASSES = [
   "[&_p]:text-[15px] [&_p]:leading-relaxed [&_p]:mb-3",
   "[&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:p-2 [&_td]:p-2",
 ].join(" ")
+
+const FONT_FAMILIES = [
+  { name: "Mặc định", value: "" },
+  { name: "Times New Roman", value: "'Times New Roman', Times, serif" },
+  { name: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { name: "Courier New", value: "'Courier New', Courier, monospace" },
+  { name: "Noto Sans", value: "'Noto Sans', sans-serif" },
+  { name: "Cambria", value: "Cambria, Georgia, serif" },
+]
+
+const FONT_SIZES = [
+              "8pt",
+              "9pt",
+              "10pt",
+              "11pt",
+              "12pt",
+              "13pt",
+              "14pt",
+              "16pt",
+              "18pt",
+              "20pt",
+              "24pt",
+              "28pt",
+              "36pt",
+              "48pt",
+              "72pt",
+]
+
 
 interface ArticleCanvasEditorProps {
   content?: string
@@ -97,7 +127,11 @@ export function ArticleCanvasEditor({
         fontFamily: { types: ["textStyle"] },
         fontSize: { types: ["textStyle"] },
       }),
-      Image.configure({
+      FontFamily.configure({
+        types: ["textStyle"],
+      }),
+      FontSize,
+      ResizableImage.configure({
         allowBase64: true,
         inline: false,
       }),
@@ -109,7 +143,7 @@ export function ArticleCanvasEditor({
         if (files?.length && files[0].type.startsWith("image/")) {
           event.preventDefault()
           handleImageUpload(files[0]).then((url) => {
-            if (url) editor?.chain().focus().setImage({ src: url }).run()
+            if (url) editor?.chain().focus().setImage({ src: url, originalSrc: url } as any).run()
           })
         }
       },
@@ -122,7 +156,7 @@ export function ArticleCanvasEditor({
               if (file) {
                 event.preventDefault()
                 handleImageUpload(file).then((url) => {
-                  if (url) editor?.chain().focus().setImage({ src: url }).run()
+                  if (url) editor?.chain().focus().setImage({ src: url, originalSrc: url } as any).run()
                 })
                 return
               }
@@ -150,7 +184,7 @@ export function ArticleCanvasEditor({
       return
     }
     const url = await handleImageUpload(file)
-    if (url) editor?.chain().focus().setImage({ src: url }).run()
+    if (url) editor?.chain().focus().setImage({ src: url, originalSrc: url } as any).run()
     e.target.value = ""
   }
 
@@ -181,6 +215,56 @@ export function ArticleCanvasEditor({
           )}
           <span className="text-xs">Chèn ảnh</span>
         </Button>
+
+        <div className="h-4 w-px bg-border mx-1" />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-foreground">
+              <span className="text-xs max-w-[80px] truncate">
+                {editor.getAttributes("textStyle").fontFamily
+                  ? FONT_FAMILIES.find(f => f.value === editor.getAttributes("textStyle").fontFamily)?.name || "Font"
+                  : "Font"}
+              </span>
+              <ChevronDown className="w-3 h-3 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="h-[200px] overflow-y-auto">
+            {FONT_FAMILIES.map((font) => (
+              <DropdownMenuItem
+                key={font.name}
+                onClick={() => {
+                  if (font.value) editor.chain().focus().setFontFamily(font.value).run()
+                  else editor.chain().focus().unsetFontFamily().run()
+                }}
+                style={{ fontFamily: font.value || "inherit" }}
+              >
+                {font.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-foreground px-2">
+              <span className="text-xs">
+                {editor.getAttributes("textStyle").fontSize || "Size"}
+              </span>
+              <ChevronDown className="w-3 h-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="h-[200px] overflow-y-auto min-w-[80px]">
+            {FONT_SIZES.map((size) => (
+              <DropdownMenuItem
+                key={size}
+                onClick={() => editor.chain().focus().setFontSize(size).run()}
+              >
+                {size}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="h-4 w-px bg-border mx-1" />
 

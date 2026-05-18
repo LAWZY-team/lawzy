@@ -13,10 +13,17 @@ export default function AdminArticleAddPage() {
   const createMutation = useCreateArticle()
 
   const handleSubmit = async (form: ArticleFormData) => {
-    const basePayload = { ...form }
+    const basePayload: any = { ...form }
     if (form.type === "policy") {
-      ;(basePayload as Record<string, unknown>).content = { vi: form.contentText }
+      basePayload.content = { vi: form.contentText }
     }
+    
+    basePayload.metadata = {
+      ...(basePayload.metadata || {}),
+      coverImageAlt: form.coverImageAlt || "",
+      originalCoverImage: form.originalCoverImage || "",
+    }
+    
     await createMutation.mutateAsync({
       ...basePayload,
       title: form.title,

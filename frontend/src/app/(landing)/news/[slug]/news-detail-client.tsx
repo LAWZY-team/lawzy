@@ -130,6 +130,20 @@ export default function NewsDetailClient({
           {display.excerpt && (
             <p className="mb-8 text-pretty text-lg leading-relaxed text-muted-foreground">{display.excerpt}</p>
           )}
+          {/* {display.coverImage && (
+            <figure className="mb-8 overflow-hidden rounded-xl border border-gray-100 bg-gray-50/50 p-2 text-center">
+              <img
+                src={display.coverImage}
+                alt={(display.metadata as any)?.coverImageAlt || display.title}
+                className="aspect-video w-full rounded-lg object-cover"
+              />
+              {(display.metadata as any)?.coverImageAlt && (
+                <figcaption className="text-center text-sm text-muted-foreground mt-3 italic border-b border-gray-100 pb-2 w-full">
+                  {(display.metadata as any)?.coverImageAlt}
+                </figcaption>
+              )}
+            </figure>
+          )} */}
           <div
             className="prose prose-neutral max-w-none dark:prose-invert prose-headings:tracking-tight prose-p:leading-relaxed"
             dangerouslySetInnerHTML={{

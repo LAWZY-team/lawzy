@@ -51,7 +51,16 @@ export default function NewsPage() {
             <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:gap-10">
               {articles.map((art) => (
                 <Link key={art.id} href={getArticleUrl(art.slug, art.type)} className="group block">
-                  <Card className="h-full overflow-hidden rounded-2xl border-0 bg-white/90 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.05] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-orange-900/[0.06] hover:ring-orange-200/40 dark:bg-gray-900/90 dark:ring-white/[0.08]">
+                  <Card className="flex h-full flex-col overflow-hidden rounded-2xl border-0 bg-white/90 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.05] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-orange-900/[0.06] hover:ring-orange-200/40 dark:bg-gray-900/90 dark:ring-white/[0.08]">
+                    {art.coverImage && (
+                      <div className="aspect-[16/9] w-full overflow-hidden bg-muted/30">
+                        <img 
+                          src={art.coverImage} 
+                          alt={(art.metadata as any)?.coverImageAlt || art.title} 
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                    )}
                     <CardHeader className="pb-2">
                       <CardDescription className="text-xs font-medium uppercase tracking-wider">
                         {art.publishedAt ? format(new Date(art.publishedAt), "d MMMM yyyy", { locale: dateLocale }) : ""}
@@ -61,7 +70,7 @@ export default function NewsPage() {
                       </h2>
                     </CardHeader>
                     {art.excerpt && (
-                      <CardContent className="pt-0">
+                      <CardContent className="pt-0 flex-1">
                         <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{art.excerpt}</p>
                       </CardContent>
                     )}
