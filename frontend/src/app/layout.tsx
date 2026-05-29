@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Lora } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,14 +9,11 @@ import { Analytics } from "@/components/analytics";
 import type { Locale } from "@/lib/i18n";
 import { getAppUrl, isRobotIndexingAllowed } from "@/lib/seo/site-env";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const lora = Lora({
+  variable: "--font-lora",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const allowRobotIndexing = isRobotIndexingAllowed();
@@ -101,7 +98,7 @@ export default async function RootLayout({
     <html lang={htmlLang} suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${lora.variable} font-sans antialiased`}
       >
         <Analytics />
         <ThemeProvider

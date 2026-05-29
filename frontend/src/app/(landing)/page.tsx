@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { ContactModalProvider } from "@/components/landing/contact-modal";
 import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
-import { BlogCardsSection } from "@/components/landing/blog-cards-section";
+import { NewsAndPressSection } from "@/components/landing/news-and-press-section";
 import { Investors } from "@/components/landing/investors";
 import HookSection from "@/components/landing/hook-section";
 import VisionTeamSection from "@/components/landing/vision-team-section";
 import FaqSection from "@/components/landing/faq-section";
-import { Newspaper } from "@/components/landing/newspaper";
 import SurveySection from "@/components/landing/survey-section";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { FloatingActions } from "@/components/landing/floating-actions";
@@ -34,8 +33,7 @@ function LandingPageContent() {
       <Investors />
       <HookSection />
       <VisionTeamSection />
-      <BlogCardsSection />
-      <Newspaper />
+      <NewsAndPressSection />
       <FaqSection />
       {/* <ProductOverviewSection /> */}
 

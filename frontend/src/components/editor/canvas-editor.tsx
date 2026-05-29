@@ -527,7 +527,7 @@ export function CanvasEditor({
     printWindow.document.write(`
       <!DOCTYPE html><html><head><meta charset="utf-8"><title>${docTitle || "Hợp đồng"}</title>
       <style>
-        body{font-family:system-ui,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
+        body{font-family:"Lora",ui-serif,Georgia,serif;max-width:210mm;margin:auto;padding:20px;line-height:1.6}
         h1{font-size:1.5rem;margin:0.5em 0}h2{font-size:1.25rem;margin:0.5em 0}p{margin:0.4em 0}
         ul,ol{padding-left:20px;margin-bottom:10px}
         [data-indent="1"]{padding-left:30px}

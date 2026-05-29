@@ -56,7 +56,7 @@ export function BlogCardsSection() {
 
   if (isLoading) {
     return (
-      <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 dark:border-gray-800/80">
+      <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 bg-[#faf9f5] dark:border-gray-800/80">
         <div className={sectionContainer}>
           <SectionHeader title={t("blog_section_title")} subtitle={t("blog_section_subtitle")} margin="default" />
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
@@ -69,10 +69,28 @@ export function BlogCardsSection() {
     )
   }
 
-  if (articles.length === 0) return null
+  if (articles.length === 0) {
+    return (
+      <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 bg-[#faf9f5] dark:border-gray-800/80">
+        <div className={sectionContainer}>
+          <SectionHeader title={t("blog_section_title")} subtitle={t("blog_section_subtitle")} margin="default" />
+          <p className="mx-auto max-w-xl text-center text-muted-foreground">{t("blog_section_empty")}</p>
+          <div className="mt-8 flex justify-center sm:mt-10">
+            <Link
+              href="/news"
+              className="inline-flex items-center gap-2 rounded-full border border-orange-200/90 bg-white/90 px-6 py-2.5 text-sm font-semibold text-orange-600 shadow-sm shadow-orange-900/5 transition-all hover:border-orange-300 hover:bg-orange-50/90 hover:shadow-md dark:bg-gray-900/80 dark:hover:bg-orange-950/25"
+            >
+              {t("blog_view_all")}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </Section>
+    );
+  }
 
   return (
-    <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 dark:border-gray-800/80">
+    <Section id="blog" spacing="relaxed" className="border-t border-gray-100/80 bg-[#faf9f5] dark:border-gray-800/80">
       <div className={sectionContainer}>
         <SectionHeader title={t("blog_section_title")} subtitle={t("blog_section_subtitle")} margin="default" />
         <div className="relative group/carousel">
