@@ -44,17 +44,29 @@ type SectionHeaderProps = {
   accent?: boolean;
   /** Word or phrase to highlight in orange (must exist in title) */
   highlightWord?: string;
+  /** For section aria-labelledby */
+  titleId?: string;
 };
 
-function renderTitleWithHighlight(title: string, highlightWord?: string, Tag: "h1" | "h2" | "h3" = "h2", titleClassName?: string) {
+function renderTitleWithHighlight(
+  title: string,
+  highlightWord?: string,
+  Tag: "h1" | "h2" | "h3" = "h2",
+  titleClassName?: string,
+  titleId?: string
+) {
   const baseCls =
     "text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-bold tracking-tight text-foreground text-balance";
   if (!highlightWord || !title.includes(highlightWord)) {
-    return <Tag className={cn(baseCls, titleClassName)}>{title}</Tag>;
+    return (
+      <Tag id={titleId} className={cn(baseCls, titleClassName)}>
+        {title}
+      </Tag>
+    );
   }
   const parts = title.split(highlightWord);
   return (
-    <Tag className={cn(baseCls, titleClassName)}>
+    <Tag id={titleId} className={cn(baseCls, titleClassName)}>
       {parts[0]}
       <span className="text-orange-600">{highlightWord}</span>
       {parts[1]}
@@ -73,6 +85,7 @@ export function SectionHeader({
   as: Tag = "h2",
   accent = false,
   highlightWord,
+  titleId,
 }: SectionHeaderProps) {
   const alignCls = align === "center" ? "text-center mx-auto" : "text-left mr-auto";
 
@@ -81,6 +94,7 @@ export function SectionHeader({
       {title ? (
         accent ? (
           <Tag
+            id={titleId}
             className={cn(
               "text-2xl sm:text-3xl md:text-4xl lg:text-[2.5rem] font-bold tracking-tight text-orange-600 text-balance",
               titleClassName
@@ -89,7 +103,7 @@ export function SectionHeader({
             {title}
           </Tag>
         ) : (
-          renderTitleWithHighlight(title, highlightWord, Tag, titleClassName)
+          renderTitleWithHighlight(title, highlightWord, Tag, titleClassName, titleId)
         )
       ) : null}
       {subtitle ? (

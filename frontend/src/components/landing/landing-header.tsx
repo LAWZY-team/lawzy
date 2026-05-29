@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,8 +14,9 @@ import {
 import { useI18n } from "./language-provider";
 import { LocaleSwitcher } from "./locale-switcher";
 import { useAuthStore } from "@/stores/auth-store";
-import { Menu, X, LogIn, LayoutDashboard, User, LogOut } from "lucide-react";
+import { Menu, X, LogIn, LayoutDashboard, User, LogOut, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function LandingHeader() {
   const { t } = useI18n();
@@ -23,6 +24,8 @@ export default function LandingHeader() {
   const { user, isAuthenticated, authResolved, fetchUser, logout } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProductsOpen, setIsProductsOpen] = useState(false);
+  const productsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authResolved) fetchUser();
@@ -45,10 +48,15 @@ export default function LandingHeader() {
   };
 
   const navLinks = [
-    { href: "/pricing", label: t("nav_pricing") },
+    // { href: "/pricing", label: t("nav_pricing") },
     { href: "/news", label: t("footer_link_news") },
     { href: "/contact", label: t("nav_contact") },
   ];
+
+  const productLinks = [
+    { href: "/products/clm", label: t("nav_product_clm"), shortLabel: "CLM" },
+    { href: "/products/lpms", label: t("nav_product_lpms"), shortLabel: "LPMS" },
+  ] as const;
 
   return (
     <>
@@ -65,7 +73,50 @@ export default function LandingHeader() {
               <Image src="/lawzy-logo.png" alt="" width={88} height={88} className="h-11 w-auto sm:h-12 md:h-14 object-contain object-left" priority />
             </Link>
 
-            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-2 md:flex lg:gap-10" aria-label="Main">
+            <nav className="hidden min-w-0 flex-1 items-center justify-center gap-2 md:flex lg:gap-6" aria-label="Main">
+              <div
+                ref={productsRef}
+                className="relative"
+                onMouseEnter={() => setIsProductsOpen(true)}
+                onMouseLeave={() => setIsProductsOpen(false)}
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    "group relative flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors lg:text-[0.9375rem]",
+                    isProductsOpen ? "bg-gray-100 text-foreground" : "text-gray-600 hover:text-foreground"
+                  )}
+                  aria-expanded={isProductsOpen}
+                  aria-haspopup="true"
+                >
+                  {t("nav_products")}
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isProductsOpen && "rotate-180")} />
+                </button>
+                <AnimatePresence>
+                  {isProductsOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute left-1/2 top-full z-50 mt-1.5 w-52 -translate-x-1/2 rounded-xl border border-gray-200/90 bg-white p-2 shadow-lg shadow-black/[0.08]"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        {productLinks.map((link) => (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            className="rounded-lg px-2.5 py-2 text-foreground transition-colors hover:bg-gray-50"
+                          >
+                            <span className="block text-sm font-semibold">{link.shortLabel}</span>
+                            <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{link.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
@@ -106,7 +157,6 @@ export default function LandingHeader() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-
                 <Button variant="outline" size="sm" className="h-9 px-3 sm:px-4 border-gray-300 hover:bg-gray-50 text-sm" asChild>
                   <Link href="/login">
                     <LogIn className="w-4 h-4 mr-1.5 shrink-0" />
@@ -149,6 +199,17 @@ export default function LandingHeader() {
               className="relative mx-3 sm:mx-4 mt-[calc(3rem+1rem)] sm:mt-[calc(3.25rem+1rem)] rounded-2xl border border-gray-100 bg-white shadow-lg max-h-[min(70vh,calc(100dvh-6rem))] overflow-y-auto"
             >
               <div className="flex flex-col p-4 sm:p-5 gap-1">
+                <p className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("nav_products")}</p>
+                {productLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-base font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.shortLabel} — {link.label}
+                  </Link>
+                ))}
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -190,7 +251,6 @@ export default function LandingHeader() {
                     </button>
                   </div>
                 ) : (
-
                   <Link
                     href="/login"
                     className="pt-3 mt-2 border-t border-gray-100 text-lg font-semibold text-orange-600 hover:text-orange-700 py-3 px-2 rounded-lg hover:bg-orange-50 flex items-center gap-2"

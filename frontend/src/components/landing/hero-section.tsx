@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useI18n } from "./language-provider";
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { sectionContainer } from "./landing-section";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,11 +17,6 @@ function HeroRotatingText({ options, fallback }: { options: string[]; fallback: 
   }, [list.length]);
   return <span className="text-orange-600">{list[idx]}</span>;
 }
-
-const HERO_TRUST_LOGOS = [
-  { src: "/partners_logo/newpaper/businesstimess.svg", alt: "Business Times" },
-  { src: "/partners_logo/newpaper/vneconomy.svg", alt: "VnEconomy" },
-] as const;
 
 export default function HeroSection() {
   const { t } = useI18n();
@@ -64,24 +58,6 @@ export default function HeroSection() {
               </Button>
             </div>
             <p className="mt-4 text-sm text-muted-foreground/90">{t("hero_cta_hint")}</p>
-
-            <div className="mt-14 flex w-full max-w-2xl flex-col items-center gap-5 border-t border-gray-200/60 pt-10 sm:mt-16 sm:gap-6 sm:pt-12">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-xs sm:tracking-[0.22em]">
-                {t("hero_trust")}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-10">
-                {HERO_TRUST_LOGOS.map((logo, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "relative h-9 w-auto opacity-[0.72] grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0 sm:h-10"
-                    )}
-                  >
-                    <Image src={logo.src} alt={logo.alt} width={88} height={36} className="h-9 w-auto object-contain sm:h-10" />
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </FadeInOnScroll>
