@@ -6,6 +6,7 @@ import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
 import { NewsAndPressSection } from "@/components/landing/news-and-press-section";
 import { Investors } from "@/components/landing/investors";
+import ClmLpmsJourneySection from "@/components/landing/clm-lpms-journey-section";
 import HookSection from "@/components/landing/hook-section";
 import VisionTeamSection from "@/components/landing/vision-team-section";
 import FaqSection from "@/components/landing/faq-section";
@@ -31,6 +32,7 @@ function LandingPageContent() {
       <LandingHeader />
       <HeroSection />
       <Investors />
+      <ClmLpmsJourneySection />
       <HookSection />
       <VisionTeamSection />
       <NewsAndPressSection />

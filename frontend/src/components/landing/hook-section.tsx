@@ -211,11 +211,6 @@ const HealthGauge = ({ score, zone, zoneLabel, zoneAxisLabels }: HealthGaugeProp
             <circle cx="100" cy="100" r="5" fill={styles.needle} />
           </g>
         </svg>
-        <div className="absolute inset-x-0 bottom-0 flex justify-between px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          <span className="text-red-900/70">{zoneAxisLabels.critical}</span>
-          <span className="text-amber-800/80">{zoneAxisLabels.warning}</span>
-          <span className="text-emerald-800/80">{zoneAxisLabels.healthy}</span>
-        </div>
       </div>
       <p className={cn("mt-1 text-4xl font-bold tabular-nums tracking-tight", styles.score)}>{score}/100</p>
       <p className={cn("mt-1 text-sm font-semibold", styles.label)}>{zoneLabel}</p>

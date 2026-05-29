@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useI18n } from "./language-provider";
 import { InfiniteMarquee } from "./infinite-marquee";
+import { LandingPartnerLogo } from "./landing-partner-logo";
 import { Section, SectionHeader, sectionContainer } from "./landing-section";
 
 type OrgLogoItem = {
@@ -10,7 +10,7 @@ type OrgLogoItem = {
   logo: string;
   alt: string;
   program?: string;
-  extraClasses?: string;
+  logoMaxWidthClass?: string;
 };
 
 const INVESTORS: readonly OrgLogoItem[] = [
@@ -18,6 +18,7 @@ const INVESTORS: readonly OrgLogoItem[] = [
     name: "Golden Gate Ventures",
     logo: "/partners_logo/investors/golden-gate-ventures.png",
     alt: "Golden Gate Ventures",
+    logoMaxWidthClass: "max-w-[200px]",
   },
 ] as const;
 
@@ -32,12 +33,13 @@ const INCUBATED_BY: readonly OrgLogoItem[] = [
     alt: "HCMC University of Law",
     program: "",
     name: "University of Law HCMC",
-    extraClasses: "scale-150",
+    logoMaxWidthClass: "max-w-[120px]",
   },
   {
     logo: "/partners_logo/incubation/fulbright.png",
     alt: "Fulbright University Vietnam",
     name: "FulBright University - Center for Entrepreneurship and Innovation",
+    logoMaxWidthClass: "max-w-[200px]",
   },
 ] as const;
 
@@ -53,20 +55,13 @@ type InvestorCardProps = {
 };
 
 const InvestorCard = ({ item }: InvestorCardProps) => (
-  <div className="flex w-[240px] flex-col items-center justify-center text-center sm:w-[260px]">
-    <div
-      className={[
-        "relative mb-4 flex h-14 w-full items-center justify-center grayscale transition-all duration-300 hover:grayscale-0 sm:h-16",
-        item.extraClasses ?? "",
-      ].join(" ")}
-    >
-      <Image
+  <div className="flex w-[220px] flex-col items-center justify-center text-center sm:w-[240px]">
+    <div className="relative mb-4 flex h-14 w-full items-center justify-center sm:h-16">
+      <LandingPartnerLogo
         src={item.logo}
         alt={item.alt}
-        width={220}
-        height={90}
-        className="max-h-full w-auto object-contain"
-        loading="lazy"
+        maxWidthClass={item.logoMaxWidthClass ?? "max-w-[180px]"}
+        className="grayscale transition-all duration-300 hover:grayscale-0"
       />
     </div>
     <p className="text-sm font-semibold text-foreground sm:text-base">{item.name}</p>
@@ -79,13 +74,13 @@ const InvestorCard = ({ item }: InvestorCardProps) => (
 export function Investors() {
   const { t } = useI18n();
   return (
-    <Section id="investors" spacing="compact" className="bg-[#faf9f5]">
+    <Section id="investors" spacing="compact" className="bg-[#faf9f5]" aria-labelledby="investors-heading">
       <div className={sectionContainer}>
         <SectionHeader
+          titleId="investors-heading"
           title={t("investors_title")}
           subtitle={t("investors_subtitle")}
           margin="tight"
-          highlightWord={t("investors_title_highlight")}
           className="mt-4"
         />
         <div className="mx-auto mt-10 max-w-7xl sm:mt-12">

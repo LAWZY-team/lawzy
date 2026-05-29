@@ -83,15 +83,17 @@ type MemberCardProps = {
 const MemberCard = ({ member, achievementsLabel, statusLabel }: MemberCardProps) => (
   <article
     tabIndex={0}
-    className="group relative overflow-hidden rounded-2xl bg-gray-100 outline-none sm:rounded-3xl focus-visible:ring-2 focus-visible:ring-orange-500/80 focus-visible:ring-offset-2"
+    aria-label={`${member.name}, ${member.lawzyRole}`}
+    className="group relative mx-auto w-full max-w-[260px] overflow-hidden rounded-2xl bg-gray-100 outline-none sm:max-w-[280px] md:max-w-[300px] lg:mx-0 lg:max-w-none sm:rounded-3xl focus-visible:ring-2 focus-visible:ring-orange-500/80 focus-visible:ring-offset-2"
   >
-    <div className="relative aspect-[4/5] w-full">
+    <div className="relative aspect-[4/5] w-full max-h-[420px] lg:max-h-none">
       <Image
         src={member.imageSrc}
-        alt={member.name}
+        alt={`${member.name}, ${member.lawzyRole} at Lawzy`}
         fill
         className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.03] group-focus-within:scale-[1.03]"
-        sizes="(max-width:640px) 100vw, 25vw"
+        sizes="(max-width: 1023px) 300px, (max-width: 1280px) 240px, 280px"
+        loading="lazy"
       />
       <div
         className={cn(
@@ -147,7 +149,12 @@ export default function VisionTeamSection() {
   const achievementsLabel = t("member_overlay_achievements");
   const statusLabel = t("member_overlay_status");
   return (
-    <Section id="team" spacing="compact" className="border-t border-gray-200/80 bg-[#faf9f5]">
+    <Section
+      id="team"
+      spacing="compact"
+      className="border-t border-gray-200/80 bg-[#faf9f5]"
+      aria-labelledby="members-heading"
+    >
       <div className={sectionContainer}>
         <SectionHeader title={t("vision_title")} subtitle={t("vision_subtitle")} margin="tight" align="left" className="mx-0 max-w-3xl" />
         <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
@@ -160,9 +167,14 @@ export default function VisionTeamSection() {
             <p className="mt-3 leading-relaxed text-muted-foreground">{t("solution_card_desc")}</p>
           </div>
         </div>
-        <h3 className="mt-16 text-xl font-semibold text-foreground sm:mt-20 sm:text-2xl">{t("members_title")}</h3>
+        <h3
+          id="members-heading"
+          className="mt-16 text-xl font-semibold text-foreground sm:mt-20 sm:text-2xl"
+        >
+          {t("members_title")}
+        </h3>
         <div className="mt-10 lg:hidden">
-          <LandingSnapCarousel className="px-10">
+          <LandingSnapCarousel className="px-8 sm:px-10" itemClassName="flex justify-center">
             {members.map((member) => (
               <MemberCard
                 key={member.id}

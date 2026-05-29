@@ -192,6 +192,98 @@ export const landingVi = {
   investors_title: "Nhà đầu tư & Vườn ươm",
   investors_title_highlight: "Nhà đầu tư & Vườn ươm",
   investors_subtitle: "Những quỹ và đối tác đồng hành cùng Lawzy.",
+  journey_section_title: "Mọi tác vụ hợp đồng trên một nền tảng",
+  journey_section_highlight: "CLM × LPMS",
+  journey_value_title: "Tuyên bố giá trị",
+  journey_value_label: "Value Proposition",
+  journey_audience_label: "Đối tượng",
+  journey_expand_more: "Xem thêm",
+  journey_expand_less: "Thu gọn",
+  journey_previous_stage: "Chặng trước",
+  journey_next_stage: "Chặng tiếp",
+  journey_bridge_label: "Điểm chạm kết nối",
+  journey_stages_title: "Hành trình vòng đời hợp đồng",
+  journey_clm_column: "CLM",
+  journey_lpms_column: "LPMS",
+  journey_clm_product: "CLM — Doanh nghiệp (SMEs)",
+  journey_clm_system: "Contract Lifecycle Management",
+  journey_clm_value:
+    "Trợ lý pháp lý thông minh giúp SMEs tự động hóa và chuẩn hóa toàn bộ vòng đời hợp đồng, giảm thiểu rủi ro thất thoát tài chính và bảo vệ dữ liệu lõi.",
+  journey_clm_audience: "Ban giám đốc, hành chính, pháp chế, kế toán, kỹ thuật tại SMEs",
+  journey_lpms_product: "LPMS — Văn phòng Luật (Law Firms)",
+  journey_lpms_system: "Legal Practice Management System",
+  journey_lpms_value:
+    "Nền tảng \"may đo\" cài đặt trực tiếp trên hạ tầng nội bộ, giúp Law Firms số hóa vận hành, bảo mật tuyệt đối và tự động mở rộng khách hàng B2B.",
+  journey_lpms_audience: "Văn phòng luật sư, Law Firms quy mô vừa và lớn",
+  journey_stage1_title: "Chặng 1 — Soạn thảo & Chuẩn hóa",
+  journey_stage1_display_title: "Soạn thảo & Chuẩn hóa",
+  journey_stage1_clm_badge: "CLM · Doanh nghiệp (SMEs)",
+  journey_stage1_clm_headline: "Knowledge Base Pháp Lý Nội Bộ & Automation Legal Drafting Engine",
+  journey_stage1_clm_summary:
+    "Chuẩn hóa hồ sơ và soạn thảo hợp đồng với AI ngay từ giai đoạn khởi tạo.",
+  journey_stage1_clm_expanded:
+    "Kết nối luật sư từ Law Firm ngay giai đoạn Setup để chuẩn hóa hồ sơ, thiết lập workflows, playbooks & rules. AI tự động auto-fill, validate dữ liệu, quét ngữ cảnh và detect rủi ro ngay khi khởi tạo văn bản.",
+  journey_stage1_clm_outcome:
+    "Xóa phụ thuộc cá nhân · Nhất quán tuyệt đối · Giảm rework · Chất xám luật sư thành tài sản tái dùng lâu dài",
+  journey_stage1_lpms_badge: "LPMS · Văn phòng Luật (Law Firms)",
+  journey_stage1_lpms_headline: "On-Premises Deployment & Localization",
+  journey_stage1_lpms_summary: "Triển khai LPMS trên hạ tầng nội bộ, tùy biến theo nghiệp vụ Firm.",
+  journey_stage1_lpms_expanded:
+    "LPMS được setup trực tiếp trên máy chủ nội bộ của Firm. Lawzy customize toàn bộ cấu trúc dữ liệu, thuật ngữ và workflow phù hợp nghiệp vụ đặc thù — dữ liệu án vụ không bao giờ rời khỏi server của Firm.",
+  journey_stage1_lpms_outcome:
+    "Bảo mật 100% · Không rào cản phần mềm ngoại nhập · Chuyển đổi số không xáo trộn nội bộ",
+  journey_stage2_title: "Chặng 2 — Điểm chạm kết nối",
+  journey_stage2_display_title: "Điểm chạm kết nối",
+  journey_stage2_bridge:
+    "AI nhận diện rủi ro vượt khả năng nội bộ → 1-click đóng gói Proposal ⇄ LPMS tự động nhận & phân loại Proposal từ mạng lưới CLM",
+  journey_stage2_bridge_note:
+    "Cơ chế Network Effect — càng nhiều SMEs dùng CLM, Law Firms càng nhận nhiều leads chất lượng cao.",
+  journey_stage2_clm_badge: "CLM · Doanh nghiệp (SMEs)",
+  journey_stage2_clm_headline: "Phát hiện Rủi ro & Proposal Tư vấn",
+  journey_stage2_clm_summary: "Cảnh báo rủi ro và chuyển Proposal bảo mật sang Law Firm chỉ với một thao tác.",
+  journey_stage2_clm_expanded:
+    "Khi hợp đồng có rủi ro pháp lý vượt khả năng nhân sự nội bộ, AI cảnh báo tức thì. SME 1-click đóng gói thành Proposal bảo mật, luân chuyển trực tiếp sang LPMS của Law Firms.",
+  journey_stage2_clm_outcome:
+    "Bảo vệ khỏi điều khoản cài cắm · Không cần pháp chế cơ hữu · Tự tin đối đầu đối tác lớn",
+  journey_stage2_lpms_badge: "LPMS · Văn phòng Luật (Law Firms)",
+  journey_stage2_lpms_headline: "CRM & Lead Generation B2B",
+  journey_stage2_lpms_summary: "Tiếp nhận và phân loại Proposal từ hệ sinh thái SMEs.",
+  journey_stage2_lpms_expanded:
+    "Cổng tiếp nhận tự động phân loại Proposal từ hệ sinh thái SMEs. Luồng leads \"nóng\" có nhu cầu thực tế và sẵn sàng chi trả — Firm không cần tự tìm kiếm khách hàng.",
+  journey_stage2_lpms_outcome:
+    "Giải quyết bài toán \"đói khách hàng\" B2B · Leads chất lượng cao · Tự động mở rộng tệp khách",
+  journey_stage3_title: "Chặng 3 — Thực thi & Ký kết",
+  journey_stage3_display_title: "Thực thi & Ký kết",
+  journey_stage3_clm_badge: "CLM · Doanh nghiệp (SMEs)",
+  journey_stage3_clm_headline: "Workflow, RBAC & Audit Log",
+  journey_stage3_clm_summary: "Dashboard tập trung Status – PIC – Deadline với phân quyền theo vai trò.",
+  journey_stage3_clm_expanded:
+    "Dashboard quản lý tập trung Status – PIC – Deadline. Phân quyền theo vai trò (RBAC): kế toán chỉ thấy điều khoản thanh toán, kỹ thuật chỉ thấy phụ lục kỹ thuật. Audit Log ghi nhận vĩnh viễn mọi thao tác. Mã hóa AES-256 bảo vệ toàn bộ dữ liệu hợp đồng.",
+  journey_stage3_clm_outcome:
+    "Minh bạch phê duyệt nội bộ · Bằng chứng pháp lý không thể chối cãi · Bảo vệ hợp đồng hàng tỷ đồng",
+  journey_stage3_lpms_badge: "LPMS · Văn phòng Luật (Law Firms)",
+  journey_stage3_lpms_headline: "Case Management & Billable Hours",
+  journey_stage3_lpms_summary: "Không gian làm việc số hóa theo từng vụ việc trên hạ tầng nội bộ.",
+  journey_stage3_lpms_expanded:
+    "Không gian làm việc số hóa tập trung trên hạ tầng nội bộ: hồ sơ, chứng cứ, lịch sử tư vấn theo từng vụ việc. Tự động nhắc lịch tòa, theo dõi deadlines và ghi nhận chính xác từng phút billable hours của luật sư.",
+  journey_stage3_lpms_outcome:
+    "Tối ưu năng suất · Tự động xuất hóa đơn · Tránh thất thoát doanh thu · Triệt tiêu rủi ro trễ hẹn pháp lý",
+  journey_stage4_title: "Chặng 4 — Hậu ký kết",
+  journey_stage4_display_title: "Hậu ký kết",
+  journey_stage4_clm_badge: "CLM · Doanh nghiệp (SMEs)",
+  journey_stage4_clm_headline: "Obligations & Alerts — Theo dõi Nghĩa vụ",
+  journey_stage4_clm_summary: "Timeline dài hạn và cảnh báo nghĩa vụ, gia hạn, thay đổi pháp luật.",
+  journey_stage4_clm_expanded:
+    "Gắn timeline dài hạn cho từng hợp đồng. Ví dụ bảo hành inverter 5 năm, tấm pin 20 năm. Tự động cảnh báo khi sắp đến hạn thanh toán, bảo hành, gia hạn hợp đồng và khi các văn bản pháp luật liên quan hết hiệu lực hoặc bị thay đổi.",
+  journey_stage4_clm_outcome:
+    "Chấm dứt quên lịch gây khiếu nại · Quản lý vòng đời dự án dài hạn · Không thất thoát doanh thu",
+  journey_stage4_lpms_badge: "LPMS · Văn phòng Luật (Law Firms)",
+  journey_stage4_lpms_headline: "Lưu trữ Án vụ & Bằng chứng Pháp lý số",
+  journey_stage4_lpms_summary: "Lưu trữ vĩnh viễn hồ sơ và chứng cứ trên server nội bộ.",
+  journey_stage4_lpms_expanded:
+    "Lưu trữ vĩnh viễn trên server nội bộ: toàn bộ hồ sơ khách hàng, tài liệu chứng cứ, lịch sử tư vấn và các phiên bản sửa đổi của án vụ. Luật sư tra cứu nhanh, cộng tác và bàn giao không thất thoát thông tin.",
+  journey_stage4_lpms_outcome:
+    "Bằng chứng số vững chắc · Bảo vệ quyền lợi thân chủ tối đa · Sẵn sàng cho tranh chấp dài hạn",
   hook_title:
     "CHẨN ĐOÁN SỨC KHỎE QUẢN TRỊ HỢP ĐỒNG — BẠN ĐANG THẤT THOÁT BAO NHIÊU CHI PHÍ?",
   hook_subtitle:
@@ -508,6 +600,98 @@ export const landingEn = {
   investors_title: "Investors & Incubators",
   investors_title_highlight: "Investors & Incubators",
   investors_subtitle: "Funds and partners backing Lawzy.",
+  journey_section_title: "All contract tasks on one platform",
+  journey_section_highlight: "CLM × LPMS",
+  journey_value_title: "Value proposition",
+  journey_value_label: "Value Proposition",
+  journey_audience_label: "Audience",
+  journey_expand_more: "Learn more",
+  journey_expand_less: "Show less",
+  journey_previous_stage: "Previous stage",
+  journey_next_stage: "Next stage",
+  journey_bridge_label: "Connection touchpoint",
+  journey_stages_title: "Contract lifecycle journey",
+  journey_clm_column: "CLM",
+  journey_lpms_column: "LPMS",
+  journey_clm_product: "CLM — Business (SMEs)",
+  journey_clm_system: "Contract Lifecycle Management",
+  journey_clm_value:
+    "An intelligent legal assistant helping SMEs automate and standardize the full contract lifecycle, reducing financial leakage risk and protecting core data.",
+  journey_clm_audience: "Executives, admin, legal, finance, and technical teams at SMEs",
+  journey_lpms_product: "LPMS — Law Firms",
+  journey_lpms_system: "Legal Practice Management System",
+  journey_lpms_value:
+    "A tailored platform deployed on your internal infrastructure — digitize operations, stay fully secure, and grow B2B clients automatically.",
+  journey_lpms_audience: "Law firms and legal practices at medium and large scale",
+  journey_stage1_title: "Stage 1 — Drafting & Standardization",
+  journey_stage1_display_title: "Drafting & Standardization",
+  journey_stage1_clm_badge: "CLM · Business (SMEs)",
+  journey_stage1_clm_headline: "Internal Legal Knowledge Base & Automation Legal Drafting Engine",
+  journey_stage1_clm_summary:
+    "Standardize records and contract drafting with AI from the first document creation.",
+  journey_stage1_clm_expanded:
+    "Connect law-firm counsel during setup to standardize records, workflows, playbooks, and rules. AI auto-fills, validates data, scans context, and detects risk at document creation.",
+  journey_stage1_clm_outcome:
+    "Remove personal dependency · Absolute consistency · Less rework · Lawyer know-how becomes reusable assets",
+  journey_stage1_lpms_badge: "LPMS · Law Firms",
+  journey_stage1_lpms_headline: "On-Premises Deployment & Localization",
+  journey_stage1_lpms_summary: "Deploy LPMS on internal infrastructure, tailored to firm workflows.",
+  journey_stage1_lpms_expanded:
+    "LPMS is set up directly on the firm's internal servers. Lawzy customizes data structure, terminology, and workflows — case data never leaves the firm's server.",
+  journey_stage1_lpms_outcome:
+    "100% security · No foreign software barriers · Digital transformation without internal disruption",
+  journey_stage2_title: "Stage 2 — Connection touchpoint",
+  journey_stage2_display_title: "Connection touchpoint",
+  journey_stage2_bridge:
+    "AI flags risk beyond in-house capacity → 1-click Proposal package ⇄ LPMS auto-receives & classifies Proposals from the CLM network",
+  journey_stage2_bridge_note:
+    "Network effect — more SMEs on CLM means more high-quality leads for law firms.",
+  journey_stage2_clm_badge: "CLM · Business (SMEs)",
+  journey_stage2_clm_headline: "Risk Detection & Advisory Proposal",
+  journey_stage2_clm_summary: "Instant risk alerts and secure Proposal handoff to law firms in one click.",
+  journey_stage2_clm_expanded:
+    "When contract risk exceeds in-house capacity, AI alerts immediately. SMEs package a secure Proposal and route it directly to firm LPMS.",
+  journey_stage2_clm_outcome:
+    "Protection from hidden clauses · No need for in-house legal · Confidence with large counterparties",
+  journey_stage2_lpms_badge: "LPMS · Law Firms",
+  journey_stage2_lpms_headline: "CRM & B2B Lead Generation",
+  journey_stage2_lpms_summary: "Receive and classify Proposals from the SME ecosystem.",
+  journey_stage2_lpms_expanded:
+    "Automated intake classifies Proposals from the SME ecosystem. Hot leads with real demand and willingness to pay — firms no longer hunt for clients.",
+  journey_stage2_lpms_outcome:
+    "Solve B2B client hunger · High-quality leads · Automatic client-base growth",
+  journey_stage3_title: "Stage 3 — Execution & Signing",
+  journey_stage3_display_title: "Execution & Signing",
+  journey_stage3_clm_badge: "CLM · Business (SMEs)",
+  journey_stage3_clm_headline: "Workflow, RBAC & Audit Log",
+  journey_stage3_clm_summary: "Central dashboard for status, owners, and deadlines with role-based access.",
+  journey_stage3_clm_expanded:
+    "Central dashboard for Status, PIC, and Deadline. RBAC: finance sees payment terms, engineering sees technical schedules. Permanent audit log. AES-256 encryption for all contract data.",
+  journey_stage3_clm_outcome:
+    "Transparent internal approval · Undeniable legal evidence · Protect billion-dong contracts",
+  journey_stage3_lpms_badge: "LPMS · Law Firms",
+  journey_stage3_lpms_headline: "Case Management & Billable Hours",
+  journey_stage3_lpms_summary: "Digitized workspace per matter on internal infrastructure.",
+  journey_stage3_lpms_expanded:
+    "Centralized digital workspace: files, evidence, and advisory history per matter. Court reminders, deadline tracking, and accurate billable-hour capture.",
+  journey_stage3_lpms_outcome:
+    "Optimize productivity · Auto invoicing · Prevent revenue leakage · Eliminate legal deadline risk",
+  journey_stage4_title: "Stage 4 — Post-execution",
+  journey_stage4_display_title: "Post-execution",
+  journey_stage4_clm_badge: "CLM · Business (SMEs)",
+  journey_stage4_clm_headline: "Obligations & Alerts",
+  journey_stage4_clm_summary: "Long-term timelines and alerts for obligations, renewals, and regulatory change.",
+  journey_stage4_clm_expanded:
+    "Attach long-term timelines per contract. Auto-alert before payment, warranty, renewal deadlines, and when related regulations expire or change.",
+  journey_stage4_clm_outcome:
+    "End missed deadlines and disputes · Manage long project lifecycles · No revenue leakage",
+  journey_stage4_lpms_badge: "LPMS · Law Firms",
+  journey_stage4_lpms_headline: "Digital Case & Evidence Archive",
+  journey_stage4_lpms_summary: "Permanent on-premise storage of case files and evidence.",
+  journey_stage4_lpms_expanded:
+    "Permanent on-premise storage of client files, evidence, advisory history, and matter versions. Fast search, collaboration, and handover without information loss.",
+  journey_stage4_lpms_outcome:
+    "Solid digital evidence · Maximum client protection · Ready for long disputes",
   hook_title: "CONTRACT HEALTH DIAGNOSTIC — HOW MUCH ARE YOU LOSING?",
   hook_subtitle:
     "Discover hidden costs and silent revenue leakage from manual contract management in just 30 seconds.",
