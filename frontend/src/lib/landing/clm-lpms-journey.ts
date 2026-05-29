@@ -31,6 +31,7 @@ export type JourneyValueBlockKeys = {
 
 export const CLM_LPMS_JOURNEY = {
   sectionTitleKey: "journey_section_title",
+  sectionSubtitleKey: "journey_section_subtitle",
   sectionHighlightKey: "journey_section_highlight",
   valuePropositionTitleKey: "journey_value_title",
   valueLabelKey: "journey_value_label",
