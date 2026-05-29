@@ -47,7 +47,11 @@ export function BlogCardsSection() {
     }
   }
 
-  const articles = data?.data ?? []
+  const articles = [...(data?.data ?? [])].sort((a, b) => {
+    const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return dateB - dateA;
+  });
   const dateLocale = locale === "vi" ? vi : undefined
 
   if (isLoading) {

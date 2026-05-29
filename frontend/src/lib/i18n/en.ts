@@ -1,4 +1,5 @@
 import type { TranslationKey } from "./vi";
+import { landingEn } from "./landing-messages";
 
 const en: Record<TranslationKey, string> = {
   // Sidebar
@@ -908,8 +909,6 @@ Tip for your own prompts later: try “Explain clause …” or “What does thi
   plan_save_months: "Save {n} months",
   plan_save_percent: "Save {n}%",
   plan_original_price: "Original {n} ₫",
-  pricing_section_title: "Pricing",
-  pricing_section_subtitle: "Choose the plan that fits your needs. Upgrade anytime.",
   upgrade_modal_title: "Upgrade plan",
   upgrade_modal_desc: "You've reached your quota limit. Upgrade to continue.",
   payment_title: "Payment & Quota",
@@ -1061,6 +1060,8 @@ Tip for your own prompts later: try “Explain clause …” or “What does thi
   editor_share_access_code_hint: "This code has also been sent to the recipient's email. They need to enter their email and this code to request an OTP.",
   editor_panel_close: "Close Tools",
   editor_panel_open: "Open Tools",
+
+  ...landingEn,
 };
 
 export default en;

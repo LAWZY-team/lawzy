@@ -301,3 +301,51 @@
 .landing-light ::selection {
   background: oklch(0.82 0.12 55 / 0.45);
 }
+
+/* Hook diagnostic range — free drag, stone track, dark thumb */
+.hook-range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    oklch(0.42 0.02 75) 0%,
+    oklch(0.42 0.02 75) var(--range-percent, 50%),
+    oklch(0.92 0.005 75) var(--range-percent, 50%),
+    oklch(0.92 0.005 75) 100%
+  );
+  cursor: pointer;
+}
+
+.hook-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  border: 2px solid oklch(0.98 0 0);
+  background: oklch(0.28 0.02 75);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.18);
+  margin-top: -0.3125rem;
+}
+
+.hook-range-input::-moz-range-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  border: 2px solid oklch(0.98 0 0);
+  background: oklch(0.28 0.02 75);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.18);
+}
+
+.hook-range-input::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: oklch(0.92 0.005 75);
+}
+
+.hook-range-input:focus-visible {
+  outline: 2px solid oklch(0.55 0.12 45);
+  outline-offset: 3px;
+}

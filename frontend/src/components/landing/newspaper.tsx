@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "./language-provider";
 import { InfiniteMarquee } from "./infinite-marquee";
-import { Section, SectionHeader, sectionContainer } from "./landing-section";
+import { Section, sectionContainer } from "./landing-section";
 
 const NEWSPAPERS = [
   {
@@ -50,7 +50,18 @@ export function Newspaper() {
   return (
     <Section id="newspaper" spacing="relaxed" className="border-t border-gray-100/80 bg-white/50 dark:border-gray-800/80">
       <div className={sectionContainer}>
-        <SectionHeader title={t("newspaper_title")} margin="default" highlightWord={t("newspaper_title_highlight")} />
+        <header className="mx-auto mb-12 max-w-3xl text-center sm:mb-14 md:mb-16 lg:mb-20">
+          <h2 className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-2xl font-bold tracking-tight text-foreground text-balance sm:text-3xl md:text-4xl lg:text-[2.5rem]">
+            <Image
+              src="/logo/lawzy-logo-black.png"
+              alt="Lawzy"
+              width={200}
+              height={100}
+              className="h-[1em] w-auto shrink-0"
+            />
+            <span className="leading-none">{t("newspaper_title_suffix")}</span>
+          </h2>
+        </header>
         <div className="mx-auto mt-4 max-w-7xl">
           <InfiniteMarquee
             durationSeconds={34}

@@ -1,3 +1,5 @@
+import { landingVi } from "./landing-messages";
+
 const vi = {
   sidebar_workspaces: "Không gian làm việc",
   sidebar_dashboard: "Dashboard",
@@ -883,8 +885,6 @@ Gợi ý tự prompt sau này: “Giải thích điều …” hoặc “Điều
   plan_save_months: "Tiết kiệm {n} tháng",
   plan_save_percent: "Tiết kiệm {n}%",
   plan_original_price: "Giá gốc {n} ₫",
-  pricing_section_title: "Bảng giá",
-  pricing_section_subtitle: "Chọn gói phù hợp với nhu cầu của bạn. Nâng cấp bất cứ lúc nào.",
   upgrade_modal_title: "Nâng cấp gói",
   upgrade_modal_desc: "Bạn đã hết hạn mức. Nâng cấp để tiếp tục sử dụng.",
   payment_title: "Thanh toán & Quota",
@@ -1033,6 +1033,8 @@ Gợi ý tự prompt sau này: “Giải thích điều …” hoặc “Điều
   editor_share_access_code_hint: "Mã này cũng đã được gửi tới email người nhận. Người nhận cần nhập email và mã này để yêu cầu OTP truy cập.",
   editor_panel_close: "Đóng công cụ",
   editor_panel_open: "Mở công cụ",
+
+  ...landingVi,
 } as const;
 
 export default vi;

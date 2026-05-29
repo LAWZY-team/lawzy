@@ -11,7 +11,8 @@ export function LandingFooter() {
   const year = new Date().getFullYear();
 
   const productLinks = [
-    { href: "/pricing", label: t("footer_link_pricing") },
+    { href: "/products/clm", label: t("footer_link_clm") },
+    { href: "/products/lpms", label: t("footer_link_lpms") },
     { href: "/news", label: t("footer_link_news") },
     { href: "/contact", label: t("nav_contact") },
   ] as const;
@@ -27,7 +28,7 @@ export function LandingFooter() {
         <div className="grid gap-10 py-12 sm:gap-12 sm:py-14 lg:grid-cols-12 lg:gap-10 lg:py-16">
           <div className="lg:col-span-4">
             <Link href="/" className="inline-block">
-              <Image src="/lawzy-logo-white.png" alt="Lawzy" width={132} height={132} className="h-10 w-auto object-contain sm:h-11 md:h-12" loading="lazy" />
+              <Image src="/lawzy-logo-white.png" alt="Lawzy" width={132} height={132} className="ml-2 scale-180 h-10 w-auto object-contain sm:h-11 md:h-12" loading="lazy" />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-zinc-400 sm:mt-4">{t("footer_tagline")}</p>
             <p className="mt-2 text-xs leading-relaxed text-zinc-500 sm:mt-3">{t("footer_description")}</p>
