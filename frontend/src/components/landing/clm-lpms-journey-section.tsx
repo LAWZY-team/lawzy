@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { CLM_LPMS_JOURNEY, type JourneySideKeys } from "@/lib/landing/clm-lpms-journey";
+import {
+  CLM_LPMS_JOURNEY,
+  type JourneySideKeys,
+} from "@/lib/landing/clm-lpms-journey";
 import { cn } from "@/lib/utils";
 import { useI18n } from "./language-provider";
 import { Section, SectionHeader, sectionContainer } from "./landing-section";
@@ -43,29 +46,35 @@ const JourneySideCard = ({
     <article
       className={cn(
         "flex flex-col rounded-2xl border bg-white p-4 shadow-sm sm:p-5",
-        accent === "clm" ? "border-orange-100" : "border-stone-200/90"
+        accent === "clm" ? "border-orange-100" : "border-stone-200/90",
       )}
     >
       <p
         className={cn(
           "text-xs font-semibold uppercase tracking-[0.14em]",
-          "text-stone-600"
+          "text-stone-600",
         )}
       >
         {badge}
       </p>
-      <h4 className="mt-2 text-base font-semibold leading-snug text-foreground">{headline}</h4>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{summary}</p>
+      <h4 className="mt-2 text-base font-semibold leading-snug text-foreground">
+        {headline}
+      </h4>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {summary}
+      </p>
       <div
         id={detailsId}
         className={cn(
           "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out",
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
         aria-hidden={!isOpen}
       >
         <div className="overflow-hidden">
-          <p className="mt-3 text-sm leading-relaxed text-foreground/90">{expanded}</p>
+          <p className="mt-3 text-sm leading-relaxed text-foreground/90">
+            {expanded}
+          </p>
           <p className="mt-4 border-l-2 border-orange-400/70 pl-3 text-sm leading-relaxed text-muted-foreground italic">
             {outcome}
           </p>
@@ -79,7 +88,11 @@ const JourneySideCard = ({
         className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-medium text-orange-600 hover:text-orange-700"
       >
         {isOpen ? expandLess : expandMore}
-        {isOpen ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4" aria-hidden />
+        ) : (
+          <ChevronDown className="h-4 w-4" aria-hidden />
+        )}
       </button>
     </article>
   );
@@ -129,7 +142,9 @@ export function ClmLpmsJourneySection() {
   const stagesHeadingId = useId();
   const [activeStageIndex, setActiveStageIndex] = useState(0);
   const [openCards, setOpenCards] = useState<Set<string>>(() => new Set());
-  const [autoplayDelayMs, setAutoplayDelayMs] = useState(STAGE_AUTOPLAY_INTERVAL_MS);
+  const [autoplayDelayMs, setAutoplayDelayMs] = useState(
+    STAGE_AUTOPLAY_INTERVAL_MS,
+  );
   const [autoplayResetCount, setAutoplayResetCount] = useState(0);
   const activeStage = CLM_LPMS_JOURNEY.stages[activeStageIndex];
   const toggleCard = useCallback((key: string) => {
@@ -144,7 +159,9 @@ export function ClmLpmsJourneySection() {
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setActiveStageIndex((current) => (current + 1) % CLM_LPMS_JOURNEY.stages.length);
+      setActiveStageIndex(
+        (current) => (current + 1) % CLM_LPMS_JOURNEY.stages.length,
+      );
       setAutoplayDelayMs(STAGE_AUTOPLAY_INTERVAL_MS);
     }, autoplayDelayMs);
     return () => window.clearTimeout(timer);
@@ -161,7 +178,7 @@ export function ClmLpmsJourneySection() {
       <div className={sectionContainer}>
         <SectionHeader
           title={t(CLM_LPMS_JOURNEY.sectionTitleKey)}
-          subtitle={t(CLM_LPMS_JOURNEY.sectionSubtitleKey)}
+          // subtitle={t(CLM_LPMS_JOURNEY.sectionSubtitleKey)}
           highlightWord={t(CLM_LPMS_JOURNEY.sectionHighlightKey)}
           titleId={SECTION_TITLE_ID}
           align="center"
@@ -179,7 +196,9 @@ export function ClmLpmsJourneySection() {
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-bold text-white">
                 {activeStage.stageKey}
               </span>
-              <h3 className="text-base font-bold leading-snug text-foreground">{t(activeStage.displayTitleKey)}</h3>
+              <h3 className="text-base font-bold leading-snug text-foreground">
+                {t(activeStage.displayTitleKey)}
+              </h3>
             </div>
             <div className="mt-4 flex items-center gap-2" aria-hidden>
               {CLM_LPMS_JOURNEY.stages.map((stage, index) => (
@@ -187,7 +206,9 @@ export function ClmLpmsJourneySection() {
                   key={stage.id}
                   className={cn(
                     "h-1.5 rounded-full transition-all",
-                    activeStageIndex === index ? "w-8 bg-orange-600" : "w-1.5 bg-stone-200"
+                    activeStageIndex === index
+                      ? "w-8 bg-orange-600"
+                      : "w-1.5 bg-stone-200",
                   )}
                 />
               ))}
@@ -206,18 +227,24 @@ export function ClmLpmsJourneySection() {
                   aria-current={isActive ? "step" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors",
-                    isActive ? "bg-orange-600 text-white shadow-sm" : "text-muted-foreground hover:bg-stone-50 hover:text-foreground"
+                    isActive
+                      ? "bg-orange-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:bg-stone-50 hover:text-foreground",
                   )}
                 >
                   <span
                     className={cn(
                       "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                      isActive ? "bg-white text-orange-600" : "bg-stone-100 text-stone-600"
+                      isActive
+                        ? "bg-white text-orange-600"
+                        : "bg-stone-100 text-stone-600",
                     )}
                   >
                     {stage.stageKey}
                   </span>
-                  <span className="text-sm font-semibold leading-snug">{t(stage.displayTitleKey)}</span>
+                  <span className="text-sm font-semibold leading-snug">
+                    {t(stage.displayTitleKey)}
+                  </span>
                 </button>
               );
             })}

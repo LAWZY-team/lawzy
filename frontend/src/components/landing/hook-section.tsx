@@ -26,8 +26,10 @@ type HookInputState = Record<HookInputKey, number>;
 
 const DEFAULT_INPUTS: HookInputState = {
   contractsPerMonth: HOOK_DIAGNOSTIC_CONFIG.inputs.contractsPerMonth.default,
-  annualRevenueBillionVnd: HOOK_DIAGNOSTIC_CONFIG.inputs.annualRevenueBillionVnd.default,
-  avgSalaryMillionVndPerMonth: HOOK_DIAGNOSTIC_CONFIG.inputs.avgSalaryMillionVndPerMonth.default,
+  annualRevenueBillionVnd:
+    HOOK_DIAGNOSTIC_CONFIG.inputs.annualRevenueBillionVnd.default,
+  avgSalaryMillionVndPerMonth:
+    HOOK_DIAGNOSTIC_CONFIG.inputs.avgSalaryMillionVndPerMonth.default,
 };
 
 const STEP_LABEL_KEYS: Record<HookInputKey, string> = {
@@ -71,19 +73,30 @@ type DiagnosticStepProps = {
   isLast: boolean;
 };
 
-const DiagnosticStep = ({ stepIndex, inputKey, value, onChange, isLast }: DiagnosticStepProps) => {
+const DiagnosticStep = ({
+  stepIndex,
+  inputKey,
+  value,
+  onChange,
+  isLast,
+}: DiagnosticStepProps) => {
   const { t } = useI18n();
   const config = HOOK_DIAGNOSTIC_CONFIG.inputs[inputKey];
   const ticks = useMemo(
-    () => buildHookTicks({ min: config.min, max: config.max, snapStep: config.snapStep }),
-    [config.min, config.max, config.snapStep]
+    () =>
+      buildHookTicks({
+        min: config.min,
+        max: config.max,
+        snapStep: config.snapStep,
+      }),
+    [config.min, config.max, config.snapStep],
   );
   const atMax = value >= config.max;
   const handleChange = useCallback(
     (next: number) => {
       onChange(Math.min(config.max, Math.max(config.min, next)));
     },
-    [config.max, config.min, onChange]
+    [config.max, config.min, onChange],
   );
   const handlePointerUp = useCallback(() => {
     onChange(
@@ -92,7 +105,7 @@ const DiagnosticStep = ({ stepIndex, inputKey, value, onChange, isLast }: Diagno
         min: config.min,
         max: config.max,
         snapStep: config.snapStep,
-      })
+      }),
     );
   }, [config.max, config.min, config.snapStep, onChange, value]);
   const percent = ((value - config.min) / (config.max - config.min)) * 100;
@@ -103,25 +116,40 @@ const DiagnosticStep = ({ stepIndex, inputKey, value, onChange, isLast }: Diagno
           {stepIndex}
         </span>
         {!isLast ? (
-          <span className="mt-2 w-px flex-1 min-h-[2.5rem] bg-gradient-to-b from-stone-300/80 to-stone-200/40" aria-hidden />
+          <span
+            className="mt-2 w-px flex-1 min-h-[2.5rem] bg-gradient-to-b from-stone-300/80 to-stone-200/40"
+            aria-hidden
+          />
         ) : null}
       </div>
       <div className="min-w-0 flex-1 pb-8">
-        <p className="text-sm font-medium leading-snug text-foreground">{t(STEP_LABEL_KEYS[inputKey])}</p>
+        <p className="text-sm font-medium leading-snug text-foreground">
+          {t(STEP_LABEL_KEYS[inputKey])}
+        </p>
         <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-[1.65rem]">
           {value}
           {atMax ? "+" : ""}{" "}
-          <span className="text-base font-medium text-muted-foreground">{t(STEP_UNIT_KEYS[inputKey])}</span>
+          <span className="text-base font-medium text-muted-foreground">
+            {t(STEP_UNIT_KEYS[inputKey])}
+          </span>
         </p>
         <div className="relative mt-4">
-          <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-between px-0.5" aria-hidden>
+          <div
+            className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-between px-0.5"
+            aria-hidden
+          >
             {ticks.map((tick) => {
-              const tickPercent = ((tick - config.min) / (config.max - config.min)) * 100;
+              const tickPercent =
+                ((tick - config.min) / (config.max - config.min)) * 100;
               return (
                 <span
                   key={tick}
                   className="h-1.5 w-px bg-stone-300/90"
-                  style={{ position: "absolute", left: `${tickPercent}%`, transform: "translateX(-50%)" }}
+                  style={{
+                    position: "absolute",
+                    left: `${tickPercent}%`,
+                    transform: "translateX(-50%)",
+                  }}
                 />
               );
             })}
@@ -146,13 +174,8 @@ const DiagnosticStep = ({ stepIndex, inputKey, value, onChange, isLast }: Diagno
             }
           />
           <div className="mt-2 flex justify-between text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
-            <span>
-              {config.min}
-              {config.min === config.max ? "" : ""}
-            </span>
-            <span>
-              {config.max}+
-            </span>
+            <span>{config.min}</span>
+            <span>{config.max}+</span>
           </div>
         </div>
       </div>
@@ -167,7 +190,12 @@ type HealthGaugeProps = {
   zoneAxisLabels: { critical: string; warning: string; healthy: string };
 };
 
-const HealthGauge = ({ score, zone, zoneLabel, zoneAxisLabels }: HealthGaugeProps) => {
+const HealthGauge = ({
+  score,
+  zone,
+  zoneLabel,
+  zoneAxisLabels,
+}: HealthGaugeProps) => {
   const rotation = -90 + (score / 100) * 180;
   const styles = ZONE_STYLES[zone];
   return (
@@ -212,8 +240,17 @@ const HealthGauge = ({ score, zone, zoneLabel, zoneAxisLabels }: HealthGaugeProp
           </g>
         </svg>
       </div>
-      <p className={cn("mt-1 text-4xl font-bold tabular-nums tracking-tight", styles.score)}>{score}/100</p>
-      <p className={cn("mt-1 text-sm font-semibold", styles.label)}>{zoneLabel}</p>
+      <p
+        className={cn(
+          "mt-1 text-4xl font-bold tabular-nums tracking-tight",
+          styles.score,
+        )}
+      >
+        {score}/100
+      </p>
+      <p className={cn("mt-1 text-sm font-semibold", styles.label)}>
+        {zoneLabel}
+      </p>
     </div>
   );
 };
@@ -227,14 +264,23 @@ const AnimatedMoney = ({ amountVnd, className }: AnimatedMoneyProps) => {
   const { locale } = useI18n();
   const animated = useFastAnimatedNumber(
     amountVnd,
-    HOOK_DIAGNOSTIC_CONFIG.animatedNumberDurationMs
+    HOOK_DIAGNOSTIC_CONFIG.animatedNumberDurationMs,
   );
   const formatted = formatHookMoney({
     amountVnd: animated,
     currency: HOOK_DIAGNOSTIC_CONFIG.displayCurrency,
     locale,
   });
-  return <p className={cn("text-xl font-bold tabular-nums tracking-tight sm:text-2xl", className)}>{formatted}</p>;
+  return (
+    <p
+      className={cn(
+        "text-xl font-bold tabular-nums tracking-tight sm:text-2xl",
+        className,
+      )}
+    >
+      {formatted}
+    </p>
+  );
 };
 
 type ResultCardProps = {
@@ -259,13 +305,17 @@ const ResultCard = ({
       "rounded-xl border bg-white p-5 shadow-sm transition-shadow",
       featured
         ? "border-emerald-200/90 shadow-md shadow-emerald-900/[0.06] ring-1 ring-emerald-100/80"
-        : "border-stone-200/90 shadow-stone-900/[0.04]"
+        : "border-stone-200/90 shadow-stone-900/[0.04]",
     )}
   >
     <div className={cn("mb-3 h-0.5 w-12 rounded-full", barClass)} />
-    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">{title}</p>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-600">
+      {title}
+    </p>
     <AnimatedMoney amountVnd={amountVnd} className={valueClass} />
-    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
+    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      {description}
+    </p>
   </div>
 );
 
@@ -291,7 +341,11 @@ export default function HookSection() {
     >
       <div className={sectionContainer}>
         <FadeInOnScroll>
-          <SectionHeader title={t("hook_title")} subtitle={t("hook_subtitle")} margin="tight" />
+          <SectionHeader
+            title={t("hook_title")}
+            subtitle={t("hook_subtitle")}
+            margin="tight"
+          />
         </FadeInOnScroll>
         <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-5 lg:gap-10">
           <div className="lg:col-span-2">
@@ -374,7 +428,9 @@ export default function HookSection() {
                   featured
                 />
               </div>
-              <p className="mt-6 text-center text-[11px] text-muted-foreground">{t("hook_disclaimer")}</p>
+              <p className="mt-6 text-center text-[11px] text-muted-foreground">
+                {t("hook_disclaimer")}
+              </p>
             </div>
             <Button
               size="lg"
