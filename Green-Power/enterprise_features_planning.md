@@ -213,10 +213,11 @@ flowchart TD
 
 ### 1. Tóm tắt giải pháp (Technical Approach)
 *   **Tác động Backend**:
-    *   Tạo bảng `Project` trong database. Thêm trường liên kết `projectId` và `parentId` vào model `Document` trong `schema.prisma`.
+    *   Tạo các bảng `Project` (ràng buộc `@@unique([workspaceId, code])`), `DocumentLink`, `ClauseMapping`, và `MismatchAlert` trong database. Thêm trường liên kết `projectId`, `parentId` và `deletedAt` (hỗ trợ Soft-delete giữ toàn vẹn liên kết) vào model `Document` trong `schema.prisma`.
     *   Xây dựng thuật toán AI khớp thực thể (AI Entity Matching) để quét phần mở đầu của văn bản tải lên, tự động tìm và gợi ý liên kết nó làm Phụ lục (`parentId`) của Hợp đồng chính trong cùng một dự án.
-    *   Xây dựng **Bản đồ hiệu lực điều khoản** (Clause Versioning Tree): Khi phụ lục được liên kết, AI phân tích các đoạn văn bản sửa đổi (ví dụ: *"Sửa đổi Điều 5..."*) và tự động đánh dấu Điều 5 trong Hợp đồng gốc là `superseded` (bị thay thế) kèm liên kết ngược tới Phụ lục, đồng thời đưa phiên bản Điều 5 mới trong Phụ lục lên trạng thái `active`.
+    *   Xây dựng **Bản đồ hiệu lực điều khoản** (Clause Versioning Tree): Sử dụng bảng `ClauseMapping` liên kết các ID điều khoản (UUID). Khi phụ lục được liên kết, AI phân tích các đoạn văn bản sửa đổi (ví dụ: *"Sửa đổi Điều 5..."*) và tự động đánh dấu Node Clause tương ứng trong Hợp đồng gốc là `superseded` (bị thay thế) kèm liên kết ngược tới Phụ lục, đồng thời đưa phiên bản Điều 5 mới trong Phụ lục lên trạng thái `active`.
 *   **Tác động Frontend**:
+    *   Xây dựng Custom TipTap extension `ClauseExtension` định nghĩa node `clause` block có ID tĩnh (`data-clause-id` dạng UUID) giúp xác định chính xác và bất biến các điều khoản bất kể thay đổi tiêu đề.
     *   Xây dựng giao diện "Cây hồ sơ" (Document Tree View) hiển thị trực quan quan hệ phân cấp các tài liệu trong dự án.
     *   Khi xem hợp đồng chính, các điều khoản đã bị sửa đổi sẽ được phủ một lớp cảnh báo (alert badge). Người dùng click vào sẽ chuyển hướng nhanh hoặc hiển thị popup xem nội dung điều khoản mới nhất ở Phụ lục tương ứng.
 

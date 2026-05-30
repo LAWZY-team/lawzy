@@ -13,6 +13,7 @@ import Underline from '@tiptap/extension-underline'
 import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import { Indent } from '@/lib/tiptap/extensions/indent'
 import { ResizableImageExtension } from '@/lib/tiptap/extensions/resizable-image'
+import { ClauseExtension } from '@/lib/tiptap/extensions/clause'
 import { ChatColumn, type ChatMessage } from '@/components/editor/chat-column'
 import { CanvasEditor } from '@/components/editor/canvas-editor'
 import { RightPanel } from '@/components/editor/right-panel'
@@ -537,6 +538,7 @@ export default function EditorPage({
       Underline,
       MergeFieldExtension,
       Indent,
+      ClauseExtension,
     ],
     // Always initialize with a known-safe doc; actual data is synchronized in a guarded effect.
     content: getDefaultContent(t("editor_default_title")),
@@ -602,6 +604,79 @@ export default function EditorPage({
       }, 300)
     },
   })
+
+  const [compareData, setCompareData] = useState<{
+    isOpen: boolean;
+    title: string;
+    parentClauseText: string;
+    childClauseText: string;
+    childDocTitle: string;
+    isLoading: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const ce = e as CustomEvent<{
+        clauseId: string;
+        title: string;
+        supersededByDocumentId: string;
+        supersededByClauseId: string;
+      }>;
+      
+      const { clauseId, title, supersededByDocumentId, supersededByClauseId } = ce.detail;
+      
+      setCompareData({
+        isOpen: true,
+        title: title || 'Điều khoản',
+        parentClauseText: '',
+        childClauseText: '',
+        childDocTitle: 'Phụ lục',
+        isLoading: true,
+      });
+
+      try {
+        let parentClauseContent = '';
+        if (editor) {
+          const editorJson = editor.getJSON();
+          const parentNode = findClauseNodeInJson(editorJson, clauseId);
+          if (parentNode) {
+            parentClauseContent = getClauseTextFromJson(parentNode);
+          }
+        }
+
+        const childDoc = await api.get<{
+          title: string;
+          contentJSON: any;
+        }>(`/documents/${supersededByDocumentId}`);
+        
+        let childClauseContent = '';
+        if (childDoc && childDoc.contentJSON) {
+          const childNode = findClauseNodeInJson(childDoc.contentJSON, supersededByClauseId);
+          if (childNode) {
+            childClauseContent = getClauseTextFromJson(childNode);
+          }
+        }
+
+        setCompareData({
+          isOpen: true,
+          title: title || 'Điều khoản',
+          parentClauseText: parentClauseContent,
+          childClauseText: childClauseContent,
+          childDocTitle: childDoc.title || 'Phụ lục',
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error('Failed to load comparison data', error);
+        toast.error('Không thể tải thông tin so sánh điều khoản');
+        setCompareData(null);
+      }
+    };
+
+    window.addEventListener('lawzy:compare-clause', handler as EventListener);
+    return () => {
+      window.removeEventListener('lawzy:compare-clause', handler as EventListener);
+    };
+  }, [editor]);
 
   const handleSaveDraftToDb = useCallback(async (opts: { status: 'draft' | 'completed'; visibility?: 'private' | 'workspace' } | 'draft' | 'completed') => {
     const status = typeof opts === 'string' ? opts : opts.status
@@ -1637,6 +1712,148 @@ export default function EditorPage({
           }
         }}
       />
+
+      {/* Comparison Drawer for Superseded Clauses */}
+      <AnimatePresence>
+        {compareData?.isOpen && (
+          <>
+            {/* Backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCompareData(null)}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            />
+            {/* Comparison Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 z-50 h-full w-[700px] max-w-full bg-card shadow-2xl border-l border-border flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-orange-50/50 to-background dark:from-orange-950/20 dark:to-card">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 animate-pulse">
+                      Đã bị thay thế
+                    </span>
+                    <h3 className="text-lg font-bold tracking-tight">{compareData.title}</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    So sánh điều khoản gốc với thay đổi tại phụ lục
+                  </p>
+                </div>
+                <button
+                  onClick={() => setCompareData(null)}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {compareData.isLoading ? (
+                  <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                    <div className="w-8 h-8 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+                    <p className="text-sm text-muted-foreground font-medium animate-pulse">
+                      Đang tải dữ liệu so sánh...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-6 h-full min-h-[300px]">
+                    {/* Left Column: Old/Parent Clause */}
+                    <div className="flex flex-col h-full bg-muted/30 dark:bg-muted/10 rounded-xl border border-border overflow-hidden">
+                      <div className="px-4 py-3 bg-muted/50 border-b border-border flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Hợp đồng chính (Gốc)
+                        </span>
+                      </div>
+                      <div className="p-4 flex-1 text-sm font-normal text-muted-foreground/80 leading-relaxed whitespace-pre-wrap line-through decoration-red-500/50 decoration-2">
+                        {compareData.parentClauseText || (
+                          <span className="italic text-muted-foreground/40 font-mono">Không tìm thấy nội dung cũ</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: New/Child Clause */}
+                    <div className="flex flex-col h-full bg-orange-50/5 dark:bg-orange-950/5 rounded-xl border border-orange-200/50 dark:border-orange-900/30 overflow-hidden shadow-inner">
+                      <div className="px-4 py-3 bg-orange-500/5 dark:bg-orange-500/10 border-b border-orange-200/50 dark:border-orange-900/30 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-orange-700 dark:text-orange-400 uppercase tracking-wider">
+                          {compareData.childDocTitle}
+                        </span>
+                      </div>
+                      <div className="p-4 flex-1 text-sm font-normal text-foreground leading-relaxed whitespace-pre-wrap bg-orange-500/[0.02]">
+                        {compareData.childClauseText || (
+                          <span className="italic text-muted-foreground/40 font-mono">Không tìm thấy nội dung thay thế</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-border bg-muted/20 flex justify-end">
+                <button
+                  onClick={() => setCompareData(null)}
+                  className="px-4 py-2 rounded-lg bg-foreground text-background font-medium hover:opacity-90 active:scale-95 transition-all text-sm"
+                >
+                  Đóng
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
+}
+
+function findClauseNodeInJson(node: any, targetId: string): any | null {
+  if (node.type === 'clause' && node.attrs?.id === targetId) {
+    return node;
+  }
+  if (node.content) {
+    for (const child of node.content) {
+      const found = findClauseNodeInJson(child, targetId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function getClauseTextFromJson(node: any): string {
+  if (!node) return '';
+  const lines: string[] = [];
+  function textFromNode(n: any): string {
+    if (n.type === 'text') return n.text ?? '';
+    if (n.type === 'mergeField') {
+      const key = n.attrs?.fieldKey;
+      return key ? `{{${key}}}` : '{{}}';
+    }
+    if (n.content) {
+      return n.content.map(textFromNode).join('');
+    }
+    return '';
+  }
+  function walk(nodes: any[]) {
+    for (const n of nodes) {
+      if (n.type === 'paragraph' || n.type === 'heading') {
+        const text = (n.content ?? []).map(textFromNode).join('').trim();
+        lines.push(text);
+      } else if (n.content) {
+        walk(n.content);
+      }
+    }
+  }
+  if (node.content) {
+    walk(node.content);
+  }
+  return lines.join('\n').trim();
 }

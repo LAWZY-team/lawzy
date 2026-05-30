@@ -189,7 +189,7 @@ export class SourceProcessingService {
     }
   }
 
-  private async extractText(source: {
+  public async extractText(source: {
     type: string;
     s3Key: string | null;
     sourceUrl: string | null;

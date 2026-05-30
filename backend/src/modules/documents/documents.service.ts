@@ -1,16 +1,26 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
+import { ProjectMetadataExtractorService } from '../projects/project-metadata-extractor.service';
+import { ProjectLinkerSuggestionService } from '../projects/project-linker-suggestion.service';
+import { ClauseVersioningService } from '../projects/clause-versioning.service';
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccess: WorkspaceAccessService,
+    private readonly metadataExtractor: ProjectMetadataExtractorService,
+    private readonly linkerSuggestion: ProjectLinkerSuggestionService,
+    private readonly clauseVersioning: ClauseVersioningService,
   ) {}
 
   /**
@@ -50,7 +60,7 @@ export class DocumentsService {
     if (!['private', 'workspace'].includes(visibility)) {
       throw new BadRequestException('Invalid visibility');
     }
-    return this.prisma.document.create({
+    const doc = await this.prisma.document.create({
       data: {
         title: data.title,
         type: data.type ?? 'contract',
@@ -69,6 +79,19 @@ export class DocumentsService {
         },
       },
     });
+
+    if (doc.status === 'completed' || doc.status === 'signed') {
+      this.metadataExtractor.extractMetadata(doc.id)
+        .then(() => this.linkerSuggestion.generateSuggestions(doc.id))
+        .catch((err) => {
+          this.logger.error(
+            `Error executing AI metadata extraction or suggestion generation: ${err.message}`,
+            err.stack,
+          );
+        });
+    }
+
+    return doc;
   }
 
   async findByWorkspace(
@@ -337,7 +360,7 @@ export class DocumentsService {
       throw new BadRequestException('Invalid visibility');
     }
 
-    return this.prisma.document.update({
+    const doc = await this.prisma.document.update({
       where: { id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
@@ -361,6 +384,19 @@ export class DocumentsService {
         },
       },
     });
+
+    if (data.status === 'completed' || data.status === 'signed') {
+      this.metadataExtractor.extractMetadata(doc.id)
+        .then(() => this.linkerSuggestion.generateSuggestions(doc.id))
+        .catch((err) => {
+          this.logger.error(
+            `Error executing AI metadata extraction or suggestion generation on update: ${err.message}`,
+            err.stack,
+          );
+        });
+    }
+
+    return doc;
   }
 
   async delete(id: string, userId: string) {
@@ -589,5 +625,177 @@ export class DocumentsService {
       drafts,
       completed,
     };
+  }
+
+  async hasPath(
+    startId: string,
+    endId: string,
+    visited: Set<string> = new Set(),
+  ): Promise<boolean> {
+    if (startId === endId) return true;
+    if (visited.has(startId)) return false;
+    visited.add(startId);
+
+    const outgoing = await this.prisma.documentLink.findMany({
+      where: { sourceDocumentId: startId },
+      select: { targetDocumentId: true },
+    });
+
+    for (const link of outgoing) {
+      if (await this.hasPath(link.targetDocumentId, endId, visited)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async createLink(
+    userId: string,
+    data: {
+      sourceDocumentId: string;
+      targetDocumentId: string;
+      linkType: string;
+      description?: string;
+    },
+  ) {
+    // 1. Verify document access for both documents
+    await this.workspaceAccess.requireDocumentAccess(data.sourceDocumentId, userId);
+    await this.workspaceAccess.requireDocumentAccess(data.targetDocumentId, userId);
+
+    if (data.sourceDocumentId === data.targetDocumentId) {
+      throw new BadRequestException('Không thể tự liên kết tài liệu với chính nó.');
+    }
+
+    // 2. Check for circular dependency
+    const cycleDetected = await this.hasPath(data.targetDocumentId, data.sourceDocumentId);
+    if (cycleDetected) {
+      throw new ConflictException(
+        'Không thể tạo liên kết. Phát hiện vòng lặp phụ thuộc giữa các tài liệu.',
+      );
+    }
+
+    // 3. Create link
+    const link = await this.prisma.documentLink.create({
+      data: {
+        sourceDocumentId: data.sourceDocumentId,
+        targetDocumentId: data.targetDocumentId,
+        linkType: data.linkType,
+        description: data.description,
+      },
+    });
+
+    if (link.linkType === 'dependency' && link.status === 'active') {
+      this.clauseVersioning.analyzeAndMapClauses(link.sourceDocumentId, link.targetDocumentId).catch((err) => {
+        this.logger.error(`Error analyzing clause mapping after creating link: ${err.message}`, err.stack);
+      });
+    }
+
+    return link;
+  }
+
+  async getDocumentLinks(documentId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+
+    const [outgoing, incoming] = await Promise.all([
+      this.prisma.documentLink.findMany({
+        where: { sourceDocumentId: documentId },
+        include: {
+          targetDocument: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              status: true,
+              deletedAt: true,
+            },
+          },
+        },
+      }),
+      this.prisma.documentLink.findMany({
+        where: { targetDocumentId: documentId },
+        include: {
+          sourceDocument: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              status: true,
+              deletedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    // Format results, mapping status to 'broken' if target/source document is soft-deleted
+    const formatLink = (link: any, isOutgoing: boolean) => {
+      const doc = isOutgoing ? link.targetDocument : link.sourceDocument;
+      const isBroken = doc?.deletedAt != null || link.status === 'broken';
+
+      return {
+        id: link.id,
+        sourceDocumentId: link.sourceDocumentId,
+        targetDocumentId: link.targetDocumentId,
+        linkType: link.linkType,
+        description: link.description,
+        status: isBroken ? 'broken' : link.status,
+        createdAt: link.createdAt,
+        document: doc ? {
+          id: doc.id,
+          title: doc.title,
+          type: doc.type,
+          status: doc.status,
+        } : null,
+      };
+    };
+
+    return {
+      outgoing: outgoing.map((link) => formatLink(link, true)),
+      incoming: incoming.map((link) => formatLink(link, false)),
+    };
+  }
+
+  async deleteLink(linkId: string, userId: string) {
+    const link = await this.prisma.documentLink.findUnique({
+      where: { id: linkId },
+    });
+
+    if (!link) {
+      throw new NotFoundException('Link not found');
+    }
+
+    // Verify user has access to at least the source or target document
+    await this.workspaceAccess.requireDocumentAccess(link.sourceDocumentId, userId);
+
+    return this.prisma.documentLink.delete({
+      where: { id: linkId },
+    });
+  }
+
+  async getSuggestions(documentId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+    return this.linkerSuggestion.getSuggestions(documentId, userId);
+  }
+
+  async acceptSuggestion(documentId: string, linkId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+    const result = await this.linkerSuggestion.acceptSuggestion(documentId, linkId, userId);
+    
+    // Trigger Clause Mapping analysis when suggestion is accepted
+    this.clauseVersioning.analyzeAndMapClauses(result.sourceDocumentId, result.targetDocumentId).catch((err) => {
+      this.logger.error(`Error analyzing clause mapping after accepting suggestion: ${err.message}`, err.stack);
+    });
+    
+    return result;
+  }
+
+  async rejectSuggestion(documentId: string, linkId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+    return this.linkerSuggestion.rejectSuggestion(documentId, linkId, userId);
+  }
+
+  async getClauseMappings(documentId: string, userId: string) {
+    await this.workspaceAccess.requireDocumentAccess(documentId, userId);
+    return this.clauseVersioning.getClauseMappings(documentId);
   }
 }

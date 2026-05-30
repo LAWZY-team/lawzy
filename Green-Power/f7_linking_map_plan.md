@@ -39,6 +39,7 @@ Trong các dự án năng lượng tái tạo, xây dựng hoặc hạ tầng, m
 // Cập nhật Model Document hiện tại
 model Document {
   // ... các trường hiện có
+  deletedAt        DateTime?        @map("deleted_at")
   projectId        String?          @map("project_id")
   parentId         String?          @map("parent_id")
   
@@ -58,13 +59,15 @@ model Project {
   id           String      @id @default(uuid())
   workspaceId  String      @map("workspace_id")
   name         String
-  code         String      @unique @map("code")
+  code         String      @map("code")
   description  String?     @db.Text
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   documents    Document[]
+
+  @@unique([workspaceId, code])
 }
 
 // Model quản lý liên kết động giữa các văn bản (Dependency & Inherit)
@@ -85,18 +88,20 @@ model DocumentLink {
 
 // Model quản lý phiên bản điều khoản chi tiết (Clause Versioning Map)
 model ClauseMapping {
-  id               String   @id @default(uuid())
-  sourceDocId      String   @map("source_doc_id")
-  targetDocId      String   @map("target_doc_id")
-  sourceClauseKey  String   @map("source_clause_key") // Ví dụ: "Điều 5. Đơn giá" trong HĐ gốc
-  targetClauseKey  String   @map("target_clause_key") // Ví dụ: "Mục 2" trong Phụ lục
-  mappingType      String   // 'supersedes' (ghi đè) | 'modifies' (sửa đổi) | 'extends' (bổ sung)
-  status           String   @default("active") // 'active' | 'inactive'
-  effectiveDate    DateTime? @map("effective_date")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id              String    @id @default(uuid())
+  sourceDocId     String    @map("source_doc_id")
+  targetDocId     String    @map("target_doc_id")
+  sourceClauseId  String    @map("source_clause_id")
+  targetClauseId  String    @map("target_clause_id")
+  sourceClauseKey String    @map("source_clause_key") // Ví dụ: "Điều 5. Đơn giá" trong HĐ gốc
+  targetClauseKey String    @map("target_clause_key") // Ví dụ: "Mục 2" trong Phụ lục
+  mappingType     String    // 'supersedes' (ghi đè) | 'modifies' (sửa đổi) | 'extends' (bổ sung)
+  status          String    @default("active")
+  effectiveDate   DateTime? @map("effective_date")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
-  sourceDoc        Document @relation("SourceClauseDoc", fields: [sourceDocId], references: [id], onDelete: Cascade)
-  targetDoc        Document @relation("TargetClauseDoc", fields: [targetDocId], references: [id], onDelete: Cascade)
+  sourceDoc       Document  @relation("SourceClauseDoc", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  targetDoc       Document  @relation("TargetClauseDoc", fields: [targetDocId], references: [id], onDelete: Cascade)
 
   @@index([sourceDocId])
   @@index([targetDocId])
@@ -104,17 +109,17 @@ model ClauseMapping {
 
 // Model lưu trữ cảnh báo mâu thuẫn dữ liệu chéo
 model MismatchAlert {
-  id             String   @id @default(uuid())
-  documentId     String   @map("document_id")
-  fieldKey       String   @map("field_key") // Trường bị lệch, ví dụ: "capacity" hoặc "entity_name"
-  sourceValue    String   @db.Text @map("source_value")
-  mismatchValue  String   @db.Text @map("mismatch_value")
-  severity       String   @default("medium") // 'high' | 'medium' | 'low'
-  description    String   @db.Text
-  status         String   @default("unresolved") // 'unresolved' | 'resolved' | 'bypassed'
-  createdAt      DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  documentId    String   @map("document_id")
+  fieldKey      String   @map("field_key") // Trường bị lệch, ví dụ: "capacity" hoặc "entity_name"
+  sourceValue   String   @db.Text @map("source_value")
+  mismatchValue String   @db.Text @map("mismatch_value")
+  severity      String   @default("medium") // 'high' | 'medium' | 'low'
+  description   String   @db.Text
+  status        String   @default("unresolved") // 'unresolved' | 'resolved' | 'bypassed'
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
 }

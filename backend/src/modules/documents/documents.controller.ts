@@ -123,6 +123,76 @@ export class DocumentsController {
     );
   }
 
+  @Post('links')
+  async createLink(
+    @Request() req: any,
+    @Body()
+    body: {
+      sourceDocumentId: string;
+      targetDocumentId: string;
+      linkType: string;
+      description?: string;
+    },
+  ) {
+    const userId = req.user.userId;
+    if (!body.sourceDocumentId || !body.targetDocumentId || !body.linkType) {
+      throw new BadRequestException(
+        'sourceDocumentId, targetDocumentId, and linkType are required',
+      );
+    }
+    return this.documentsService.createLink(userId, body);
+  }
+
+  @Get(':id/links')
+  async getLinks(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.documentsService.getDocumentLinks(id, userId);
+  }
+
+  @Delete('links/:id')
+  async deleteLink(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.documentsService.deleteLink(id, userId);
+  }
+
+  @Get(':id/linking-suggestions')
+  async getLinkingSuggestions(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.documentsService.getSuggestions(id, userId);
+  }
+
+  @Get(':id/clause-mappings')
+  async getClauseMappings(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.documentsService.getClauseMappings(id, userId);
+  }
+
+  @Post(':id/accept-link')
+  async acceptLink(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { linkId: string },
+  ) {
+    const userId = req.user.userId;
+    if (!body.linkId) {
+      throw new BadRequestException('linkId is required');
+    }
+    return this.documentsService.acceptSuggestion(id, body.linkId, userId);
+  }
+
+  @Post(':id/reject-link')
+  async rejectLink(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { linkId: string },
+  ) {
+    const userId = req.user.userId;
+    if (!body.linkId) {
+      throw new BadRequestException('linkId is required');
+    }
+    return this.documentsService.rejectSuggestion(id, body.linkId, userId);
+  }
+
   @Get(':id')
   async getOne(@Request() req: any, @Param('id') id: string) {
     return this.documentsService.findById(id, req.user.userId);
