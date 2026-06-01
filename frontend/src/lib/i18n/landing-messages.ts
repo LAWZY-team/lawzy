@@ -53,6 +53,7 @@ export const landingVi = {
     "LPMS của Lawzy hỗ trợ law firm số hóa vận hành, quản lý công việc pháp lý theo chuẩn và nâng cao hiệu suất cộng tác của đội ngũ.",
   product_back_home: "Quay lại trang chủ",
   product_request_demo: "Đặt lịch demo",
+  product_lpms_cta: "Trở thành đối tác",
   product_how_teams_use: "Cách đội ngũ sử dụng Lawzy",
   product_use_case_1_title: "Tổng hợp thông tin",
   product_use_case_1_desc:
@@ -80,6 +81,81 @@ export const landingVi = {
   lpms_highlight_3_title: "Tăng hiệu suất vận hành law firm",
   lpms_highlight_3_desc:
     "Giảm thao tác thủ công, tăng khả năng phối hợp giữa luật sư và trợ lý, cải thiện trải nghiệm khách hàng.",
+  lpms_partner_features_title: "Quyền lợi đối tác chiến lược LPMS",
+  lpms_partner_features_subtitle:
+    "Lawzy đồng hành cùng hãng luật địa phương với nguồn khách hàng, công nghệ vận hành và thương hiệu số.",
+  lpms_partner_f1_badge: "Access to Customer Base",
+  lpms_partner_f1_title: "Chuyển giao nguồn khách hàng chất lượng",
+  lpms_partner_f1_mechanism:
+    "Nền tảng LAWZY tiếp cận hàng ngàn doanh nghiệp nhỏ (SMEs), hộ kinh doanh cá thể và cá nhân mỗi tháng. Khi khách hàng có nhu cầu tranh tụng, tư vấn cấu trúc doanh nghiệp phức tạp, M&A, sở hữu trí tuệ chuyên sâu..., LAWZY sẽ điều phối chuyển giao thông tin hồ sơ (leads) trực tiếp đến Quý Đối tác phù hợp.",
+  lpms_partner_f1_benefit:
+    "Quý Đối tác sở hữu nguồn khách hàng mục tiêu chất lượng cao, đã được sàng lọc cơ bản bởi đội ngũ/AI của LAWZY mà hoàn toàn không tốn chi phí marketing và tìm kiếm ban đầu.",
+  lpms_partner_f1_lead_1: "Doanh nghiệp A — Tư vấn M&A tại TP.HCM",
+  lpms_partner_f1_lead_2: "Hộ kinh doanh B — Tranh chấp hợp đồng thương mại",
+  lpms_partner_f1_lead_3: "Công ty C — Tư vấn cấu trúc doanh nghiệp",
+  lpms_partner_f1_lead_4: "Startup D — Đăng ký sở hữu trí tuệ",
+  lpms_partner_f1_lead_5: "Doanh nghiệp E — Tố tụng lao động",
+  lpms_partner_f1_lead_6: "Cá nhân F — Tư vấn thừa kế & phân chia tài sản",
+  lpms_partner_f1_route_label: "Chuyển giao lead an toàn",
+  lpms_partner_f2_badge: "LPMS Operations",
+  lpms_partner_f2_title: "Hiện đại hóa vận hành qua LPMS",
+  lpms_partner_f2_intro:
+    "LAWZY hỗ trợ và tài trợ triển khai Hệ thống Quản trị Văn phòng Luật (LPMS) trực tiếp tại văn phòng — hệ thống chạy trên máy chủ hoặc máy trạm nội bộ của hãng luật, dữ liệu hồ sơ vụ việc và khách hàng được lưu trữ local trên hạ tầng của văn phòng, không phụ thuộc cloud công cộng.",
+  lpms_partner_f2_local_highlight: "Dữ liệu chạy local — kiểm soát hoàn toàn trên máy của văn phòng",
+  lpms_partner_f2_mock_app_label: "LPMS — Triển khai local",
+  lpms_partner_f2_tab_matter: "Quản trị vụ việc & Khách hàng",
+  lpms_partner_f2_tab_matter_desc:
+    "Quản lý hồ sơ vụ việc tập trung, số hóa tiến trình tố tụng/tư vấn, lưu trữ tài liệu bảo mật theo từng thư mục khách hàng.",
+  lpms_partner_f2_tab_timesheet: "Ghi nhận giờ làm việc & Biểu phí",
+  lpms_partner_f2_tab_timesheet_desc:
+    "Time-tracking theo từng luật sư và đầu việc, tự động xuất bảng kê chi phí (Invoicing) chuẩn xác gửi khách hàng.",
+  lpms_partner_f2_tab_docs: "Tự động hóa biểu mẫu",
+  lpms_partner_f2_tab_docs_desc:
+    "Thư viện mẫu văn bản tố tụng, hợp đồng chuẩn hóa — soạn dự thảo nhanh bằng kéo-thả dữ liệu.",
+  lpms_partner_f2_tab_access: "Phân quyền & Bảo mật cục bộ",
+  lpms_partner_f2_tab_access_desc:
+    "Phân quyền nghiêm ngặt giữa luật sư thành viên, cộng sự và trợ lý — đảm bảo an toàn thông tin theo chuẩn đạo đức hành nghề.",
+  lpms_partner_f2_mock_matter_client: "Khách hàng: Công ty TNHH Alpha",
+  lpms_partner_f2_mock_matter_status: "Đang tố tụng — Giai đoạn nộp đơn",
+  lpms_partner_f2_mock_invoice: "Hóa đơn tự động",
+  lpms_partner_f2_mock_drag_source: "Dữ liệu khách hàng",
+  lpms_partner_f2_mock_drag_target: "Hợp đồng mẫu",
+  lpms_partner_f2_mock_role_lawyer: "Luật sư thành viên",
+  lpms_partner_f2_mock_role_associate: "Luật sư cộng sự",
+  lpms_partner_f2_mock_role_intern: "Trợ lý thực tập",
+  lpms_partner_f3_badge: "Brand Website Build",
+  lpms_partner_f3_title: "Thiết kế & Xây dựng Website Thương hiệu riêng",
+  lpms_partner_f3_design:
+    "Xây dựng website giới thiệu hãng luật với giao diện hiện đại, thể hiện bản sắc và đội ngũ cốt lõi. Responsive Design và chuẩn SEO giúp dễ tìm kiếm trên Google.",
+  lpms_partner_f3_onboarding:
+    "Widget Onboarding kết nối trực tiếp hệ thống LAWZY: yêu cầu tư vấn được AI xử lý sơ bộ trước khi vào LPMS — tăng tỷ lệ chuyển đổi lên đến 40%.",
+  lpms_partner_f3_support:
+    "LAWZY hỗ trợ vận hành, bảo mật máy chủ và cập nhật kỹ thuật định kỳ trong suốt thời gian hợp tác chiến lược.",
+  lpms_partner_f3_device_desktop: "Desktop",
+  lpms_partner_f3_device_mobile: "Mobile",
+  lpms_partner_f3_form_name: "Họ tên",
+  lpms_partner_f3_form_phone: "Số điện thoại",
+  lpms_partner_f3_form_issue: "Vấn đề cần tư vấn",
+  lpms_partner_f3_form_submit: "Gửi yêu cầu",
+  lpms_partner_f3_ai_packet: "Dữ liệu đã chuẩn hóa → LPMS",
+  lpms_partner_f4_badge: "Joint Media & Brand",
+  lpms_partner_f4_title: "Truyền thông & Định vị Thương hiệu liên kết",
+  lpms_partner_f4_mechanism:
+    "Thương hiệu và đội ngũ Luật sư của Quý Đối tác được vinh danh trên trang chủ LAWZY với tư cách \"Đối tác Chuyên môn Chiến lược\" (Strategic Legal Partner).",
+  lpms_partner_f4_benefit:
+    "Gia tăng uy tín, kết nối thương hiệu truyền thống với hình ảnh tiên phong công nghệ số trong mắt khách hàng thế hệ mới.",
+  lpms_partner_f4_partner_badge: "Strategic Legal Partner",
+  lpms_partner_f4_partner_name: "Hãng luật Đối tác",
+  lpms_partner_f5_badge: "Professional Network",
+  lpms_partner_f5_title: "Kết nối mạng lưới chuyên gia quốc tế",
+  lpms_partner_f5_mechanism:
+    "LAWZY nằm trong mạng lưới liên kết của Golden Gate Ventures, BLOCK71, Google và các trường đại học Luật hàng đầu trong và ngoài nước.",
+  lpms_partner_f5_benefit:
+    "Ưu tiên mời tham gia hội thảo quốc tế, kết nối giao thương với hãng luật nước ngoài để xử lý vụ việc xuyên biên giới.",
+  lpms_partner_f5_tooltip_ggv: "Cơ hội kết nối Thung lũng Silicon",
+  lpms_partner_f5_tooltip_block71: "Chương trình Univenture & đổi mới sáng tạo",
+  lpms_partner_f5_tooltip_google: "Mạng lưới startup & công nghệ toàn cầu",
+  lpms_partner_f5_tooltip_ulaw: "Đối tác học thuật pháp lý hàng đầu VN",
   features_title: "Tính năng giúp bạn làm việc thông minh hơn",
   features_title_highlight: "thông minh hơn",
   features_subtitle:
@@ -394,6 +470,19 @@ export const landingVi = {
   contact_modal_message: "Nội dung",
   contact_modal_message_placeholder: "Bạn cần hỗ trợ gì?",
   contact_modal_submit: "Đặt lịch ngay",
+  contact_modal_lpms_title: "Đặt lịch trao đổi",
+  contact_modal_lpms_subtitle:
+    "Đặt lịch buổi trao đổi 1-1 về chương trình đối tác LPMS và mô hình hợp tác với Lawzy.",
+  contact_modal_lpms_benefit_1: "Phản hồi trong 24 giờ",
+  contact_modal_lpms_benefit_2: "Trao đổi miễn phí, không ràng buộc",
+  contact_modal_lpms_company: "Hãng luật",
+  contact_modal_lpms_company_placeholder: "Công ty luật ABC",
+  contact_modal_lpms_message: "Nội dung trao đổi",
+  contact_modal_lpms_message_placeholder:
+    "Quy mô hãng, lĩnh vực chuyên môn, mong muốn hợp tác...",
+  contact_modal_lpms_submit: "Trở thành đối tác",
+  contact_modal_lpms_success_desc:
+    "Chúng tôi sẽ liên hệ để xác nhận lịch trao đổi trong thời gian sớm nhất.",
   contact_modal_cancel: "Hủy",
   contact_modal_sending: "Đang gửi...",
   contact_validation_name: "Vui lòng nhập họ tên (ít nhất 2 ký tự)",
@@ -461,6 +550,7 @@ export const landingEn = {
     "Lawzy LPMS enables law firms to digitize operations, manage legal work systematically, and improve collaboration efficiency.",
   product_back_home: "Back to home",
   product_request_demo: "Request a Demo",
+  product_lpms_cta: "Become a partner",
   product_how_teams_use: "How teams use Lawzy",
   product_use_case_1_title: "Information synthesis",
   product_use_case_1_desc:
@@ -488,6 +578,81 @@ export const landingEn = {
   lpms_highlight_3_title: "Higher law firm operating efficiency",
   lpms_highlight_3_desc:
     "Reduce manual work, improve lawyer-assistant coordination, and deliver better client experience.",
+  lpms_partner_features_title: "Strategic LPMS partner benefits",
+  lpms_partner_features_subtitle:
+    "Lawzy partners with local law firms through qualified leads, operating technology, and digital brand presence.",
+  lpms_partner_f1_badge: "Access to Customer Base",
+  lpms_partner_f1_title: "Qualified customer lead handoff",
+  lpms_partner_f1_mechanism:
+    "LAWZY reaches thousands of SMEs, household businesses, and individuals each month. When clients need litigation, complex corporate structuring, M&A, or deep IP work, LAWZY routes qualified leads directly to the right partner firm.",
+  lpms_partner_f1_benefit:
+    "Partners receive high-intent leads pre-screened by LAWZY's team and AI — with no upfront marketing or acquisition cost.",
+  lpms_partner_f1_lead_1: "Company A — M&A advisory in Ho Chi Minh City",
+  lpms_partner_f1_lead_2: "Business B — Commercial contract dispute",
+  lpms_partner_f1_lead_3: "Company C — Corporate restructuring advisory",
+  lpms_partner_f1_lead_4: "Startup D — IP registration",
+  lpms_partner_f1_lead_5: "Company E — Labor litigation",
+  lpms_partner_f1_lead_6: "Individual F — Inheritance & asset division",
+  lpms_partner_f1_route_label: "Secure lead routing",
+  lpms_partner_f2_badge: "LPMS Operations",
+  lpms_partner_f2_title: "Modernize operations with LPMS",
+  lpms_partner_f2_intro:
+    "LAWZY supports and sponsors LPMS deployment directly at your firm — the system runs on in-office servers or workstations, with matter and client data stored locally on your infrastructure, not on public cloud.",
+  lpms_partner_f2_local_highlight: "Data runs locally — full control on your firm's machines",
+  lpms_partner_f2_mock_app_label: "LPMS — Local deployment",
+  lpms_partner_f2_tab_matter: "Matter & client management",
+  lpms_partner_f2_tab_matter_desc:
+    "Centralized matter files, digitized litigation/advisory progress, and secure per-client document folders.",
+  lpms_partner_f2_tab_timesheet: "Timesheet & billing",
+  lpms_partner_f2_tab_timesheet_desc:
+    "Track lawyer time per task and auto-generate accurate client invoices.",
+  lpms_partner_f2_tab_docs: "Document automation",
+  lpms_partner_f2_tab_docs_desc:
+    "Standard litigation and contract templates — draft quickly with drag-and-drop data.",
+  lpms_partner_f2_tab_access: "Local permissions & security",
+  lpms_partner_f2_tab_access_desc:
+    "Strict access between partners, associates, and interns — aligned with professional ethics.",
+  lpms_partner_f2_mock_matter_client: "Client: Alpha Co., Ltd.",
+  lpms_partner_f2_mock_matter_status: "Litigation — Filing stage",
+  lpms_partner_f2_mock_invoice: "Auto invoice",
+  lpms_partner_f2_mock_drag_source: "Client data",
+  lpms_partner_f2_mock_drag_target: "Contract template",
+  lpms_partner_f2_mock_role_lawyer: "Partner lawyer",
+  lpms_partner_f2_mock_role_associate: "Associate lawyer",
+  lpms_partner_f2_mock_role_intern: "Legal intern",
+  lpms_partner_f3_badge: "Brand Website Build",
+  lpms_partner_f3_title: "Dedicated brand website",
+  lpms_partner_f3_design:
+    "A modern firm website reflecting your identity and core team — responsive and SEO-ready for Google discovery.",
+  lpms_partner_f3_onboarding:
+    "Smart onboarding widget connects to LAWZY: AI pre-processes inquiries before they enter LPMS — up to 40% higher conversion.",
+  lpms_partner_f3_support:
+    "LAWZY handles hosting security and periodic technical updates throughout the strategic partnership.",
+  lpms_partner_f3_device_desktop: "Desktop",
+  lpms_partner_f3_device_mobile: "Mobile",
+  lpms_partner_f3_form_name: "Full name",
+  lpms_partner_f3_form_phone: "Phone number",
+  lpms_partner_f3_form_issue: "Legal issue",
+  lpms_partner_f3_form_submit: "Submit request",
+  lpms_partner_f3_ai_packet: "Normalized data → LPMS",
+  lpms_partner_f4_badge: "Joint Media & Brand",
+  lpms_partner_f4_title: "Joint media & brand positioning",
+  lpms_partner_f4_mechanism:
+    "Your firm and lawyers are featured on LAWZY's homepage as a Strategic Legal Partner.",
+  lpms_partner_f4_benefit:
+    "Elevate credibility by pairing your traditional brand with a modern digital legal pioneer image.",
+  lpms_partner_f4_partner_badge: "Strategic Legal Partner",
+  lpms_partner_f4_partner_name: "Partner Law Firm",
+  lpms_partner_f5_badge: "Professional Network",
+  lpms_partner_f5_title: "International expert network",
+  lpms_partner_f5_mechanism:
+    "LAWZY is connected through Golden Gate Ventures, BLOCK71, Google, and leading law schools locally and abroad.",
+  lpms_partner_f5_benefit:
+    "Priority invitations to international forums and cross-border referrals with foreign law firms.",
+  lpms_partner_f5_tooltip_ggv: "Silicon Valley connection opportunities",
+  lpms_partner_f5_tooltip_block71: "Univenture & innovation programs",
+  lpms_partner_f5_tooltip_google: "Global startup & tech network",
+  lpms_partner_f5_tooltip_ulaw: "Leading Vietnamese legal academic partner",
   features_title: "Features that make you work smarter",
   features_title_highlight: "smarter",
   features_subtitle:
@@ -799,6 +964,19 @@ export const landingEn = {
   contact_modal_message: "Message",
   contact_modal_message_placeholder: "What do you need help with?",
   contact_modal_submit: "Book now",
+  contact_modal_lpms_title: "Schedule a discussion",
+  contact_modal_lpms_subtitle:
+    "Book a 1:1 conversation about the LPMS partner program and how we can work together.",
+  contact_modal_lpms_benefit_1: "Response within 24 hours",
+  contact_modal_lpms_benefit_2: "Free discussion, no obligation",
+  contact_modal_lpms_company: "Law firm",
+  contact_modal_lpms_company_placeholder: "ABC Law Firm",
+  contact_modal_lpms_message: "Discussion topics",
+  contact_modal_lpms_message_placeholder:
+    "Firm size, practice areas, partnership goals...",
+  contact_modal_lpms_submit: "Become a partner",
+  contact_modal_lpms_success_desc:
+    "We will reach out shortly to confirm your discussion time.",
   contact_modal_cancel: "Cancel",
   contact_modal_sending: "Sending...",
   contact_validation_name:

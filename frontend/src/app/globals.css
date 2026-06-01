@@ -291,6 +291,103 @@
   }
 }
 
+@keyframes lawzy-marquee-scroll-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.lawzy-marquee-y {
+  --marquee-duration: 18s;
+  position: relative;
+  overflow: clip;
+  contain: paint;
+  isolation: isolate;
+  clip-path: inset(0 round 0.75rem);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 94%, transparent 100%);
+}
+
+.lawzy-marquee-y--paused .lawzy-marquee-y__track {
+  animation-play-state: paused;
+}
+
+.lawzy-marquee-y--hidden {
+  visibility: hidden;
+}
+
+.lawzy-marquee-y::before,
+.lawzy-marquee-y::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lawzy-marquee-y::before {
+  top: 0;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 1), rgb(255 255 255 / 0));
+}
+
+.lawzy-marquee-y::after {
+  bottom: 0;
+  background: linear-gradient(to top, rgb(255 255 255 / 1), rgb(255 255 255 / 0));
+}
+
+.lawzy-marquee-y__track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: lawzy-marquee-scroll-y var(--marquee-duration) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lawzy-marquee-y__track {
+    animation: none;
+  }
+}
+
+@keyframes lpms-route-dash {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.lpms-route-line {
+  stroke-dasharray: 8 6;
+  animation: lpms-route-dash 1.2s linear infinite;
+}
+
+.lpms-shimmer-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.lpms-shimmer-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    oklch(1 0 0 / 0.45) 50%,
+    transparent 60%
+  );
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+.lpms-shimmer-card:hover::after {
+  transform: translateX(120%);
+}
+
 /* Marketing landing: warm canvas + crisp type (palette unchanged) */
 .landing-light {
   -webkit-font-smoothing: antialiased;

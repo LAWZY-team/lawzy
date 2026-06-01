@@ -1,11 +1,17 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, useEffect } from "react";
+import { createContext, useCallback, useContext, useState, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Clock, CheckCircle2 } from "lucide-react";
 import { useI18n } from "./language-provider";
 import { Button } from "@/components/ui/button";
 import { ContactForm } from "./contact-form";
+import {
+  type ContactModalIntent,
+  getContactModalCopyKey,
+  isLpmsContactPath,
+} from "./contact-modal-intent";
 
 type ContactModalContextValue = {
   open: () => void;
@@ -25,8 +31,13 @@ type ContactModalProviderProps = {
 };
 
 export function ContactModalProvider({ children }: ContactModalProviderProps) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const intent: ContactModalIntent = useMemo(
+    () => (isLpmsContactPath(pathname) ? "lpms" : "default"),
+    [pathname]
+  );
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => {
@@ -49,6 +60,7 @@ export function ContactModalProvider({ children }: ContactModalProviderProps) {
           phone: data.get("phone"),
           company: data.get("company") || undefined,
           message: data.get("message"),
+          source: intent === "lpms" ? "lpms_partner" : "general",
         }),
       });
       if (res.ok) setStatus("done");
@@ -61,12 +73,20 @@ export function ContactModalProvider({ children }: ContactModalProviderProps) {
   return (
     <ContactModalContext.Provider value={{ open, close }}>
       {children}
-      <ContactModal isOpen={isOpen} onClose={close} onSubmit={handleSubmit} onRetry={() => setStatus("idle")} status={status} />
+      <ContactModal
+        intent={intent}
+        isOpen={isOpen}
+        onClose={close}
+        onSubmit={handleSubmit}
+        onRetry={() => setStatus("idle")}
+        status={status}
+      />
     </ContactModalContext.Provider>
   );
 }
 
 type ContactModalProps = {
+  intent: ContactModalIntent;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
@@ -74,7 +94,7 @@ type ContactModalProps = {
   status: "idle" | "sending" | "done" | "error";
 };
 
-function ContactModal({ isOpen, onClose, onSubmit, onRetry, status }: ContactModalProps) {
+function ContactModal({ intent, isOpen, onClose, onSubmit, onRetry, status }: ContactModalProps) {
   const { t } = useI18n();
 
   useEffect(() => {
@@ -114,17 +134,17 @@ function ContactModal({ isOpen, onClose, onSubmit, onRetry, status }: ContactMod
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 id="contact-modal-title" className="text-xl font-bold text-foreground">
-                    {t("contact_modal_title")}
+                    {t(getContactModalCopyKey(intent, "title"))}
                   </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{t("contact_modal_subtitle")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t(getContactModalCopyKey(intent, "subtitle"))}</p>
                   <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {t("contact_modal_benefit_1")}
+                      {t(getContactModalCopyKey(intent, "benefit_1"))}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      {t("contact_modal_benefit_2")}
+                      {t(getContactModalCopyKey(intent, "benefit_2"))}
                     </span>
                   </div>
                 </div>
@@ -135,7 +155,14 @@ function ContactModal({ isOpen, onClose, onSubmit, onRetry, status }: ContactMod
             </div>
 
             <div className="p-6">
-              <ContactForm onSubmit={onSubmit} status={status} onRetry={onRetry} onClose={onClose} variant="modal" />
+              <ContactForm
+                intent={intent}
+                onSubmit={onSubmit}
+                status={status}
+                onRetry={onRetry}
+                onClose={onClose}
+                variant="modal"
+              />
             </div>
           </motion.div>
         </motion.div>

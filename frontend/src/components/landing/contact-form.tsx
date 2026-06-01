@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { type ContactModalIntent, getContactModalCopyKey } from "./contact-modal-intent";
 
 type ContactFormProps = {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
@@ -13,13 +14,15 @@ type ContactFormProps = {
   onRetry?: () => void;
   onClose?: () => void;
   variant?: "modal" | "page";
+  intent?: ContactModalIntent;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+]?[\d\s-]{9,}$/;
 
-export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "modal" }: ContactFormProps) {
+export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "modal", intent = "default" }: ContactFormProps) {
   const { t } = useI18n();
+  const copy = (field: Parameters<typeof getContactModalCopyKey>[1]) => t(getContactModalCopyKey(intent, field));
   const [errors, setErrors] = useState<Record<string, string>>({});
   useEffect(() => {
     requestAnimationFrame(() => setErrors({}));
@@ -54,7 +57,7 @@ export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "mod
           </svg>
         </div>
         <p className="text-lg font-semibold text-green-600 dark:text-green-400">{t("contact_modal_success")}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{t("contact_modal_success_desc")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{copy("success_desc")}</p>
         {onClose && (
           <Button className="mt-6" onClick={onClose}>
             {t("contact_modal_close")}
@@ -127,22 +130,22 @@ export function ContactForm({ onSubmit, status, onRetry, onClose, variant = "mod
         )}
       </div>
       <div>
-        <Label htmlFor="contact-company">{t("contact_modal_company")}</Label>
-        <Input id="contact-company" name="company" className="mt-1" placeholder={t("contact_modal_company_placeholder")} />
+        <Label htmlFor="contact-company">{copy("company")}</Label>
+        <Input id="contact-company" name="company" className="mt-1" placeholder={copy("company_placeholder")} />
       </div>
       <div>
-        <Label htmlFor="contact-message">{t("contact_modal_message")}</Label>
+        <Label htmlFor="contact-message">{copy("message")}</Label>
         <textarea
           id="contact-message"
           name="message"
           rows={variant === "page" ? 4 : 3}
           className={cn("mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]")}
-          placeholder={t("contact_modal_message_placeholder")}
+          placeholder={copy("message_placeholder")}
         />
       </div>
       <div className={cn("flex gap-3 pt-2", variant === "page" && "flex-col sm:flex-row")}>
         <Button type="submit" disabled={status === "sending"} className="flex-1 min-h-12 text-base bg-orange-600 hover:bg-orange-700">
-          {status === "sending" ? t("contact_modal_sending") : t("contact_modal_submit")}
+          {status === "sending" ? t("contact_modal_sending") : copy("submit")}
         </Button>
       </div>
     </form>

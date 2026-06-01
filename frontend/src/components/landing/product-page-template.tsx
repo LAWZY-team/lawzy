@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "./language-provider";
 import { sectionContainer } from "./landing-section";
@@ -11,14 +10,13 @@ import { cn } from "@/lib/utils";
 
 type ProductPageTemplateProps = {
   productKey: "clm" | "lpms";
-  heroImageSrc?: string;
 };
 
 const USE_CASE_COUNT = 4;
 const AUTO_ROLL_MS = 4000;
 const RESUME_AFTER_INTERACTION_MS = 5000;
 
-export default function ProductPageTemplate({ productKey, heroImageSrc = "/hero.gif" }: ProductPageTemplateProps) {
+export default function ProductPageTemplate({ productKey }: ProductPageTemplateProps) {
   const { t } = useI18n();
   const { open } = useContactModal();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -68,19 +66,6 @@ export default function ProductPageTemplate({ productKey, heroImageSrc = "/hero.
           <Button size="lg" className="mt-8 shadow-md shadow-orange-900/10" onClick={open}>
             {t("product_request_demo")}
           </Button>
-          <div className="relative mx-auto mt-12 w-full max-w-5xl sm:mt-14">
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-gray-200/90 bg-gray-100 shadow-[0_28px_70px_-24px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] sm:rounded-3xl">
-              <Image
-                src={heroImageSrc}
-                alt={t(titleKey)}
-                fill
-                priority
-                sizes="(min-width: 640px) 90vw, 100vw"
-                className="object-cover"
-                unoptimized
-              />
-            </div>
-          </div>
         </div>
       </section>
       <section className="bg-zinc-950 py-16 text-white sm:py-20 md:py-24">
