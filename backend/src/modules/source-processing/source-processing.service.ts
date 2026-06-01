@@ -12,6 +12,7 @@ import { UrlExtractor } from './extractors/url.extractor';
 import { OcrExtractor } from './extractors/ocr.extractor';
 import { ChunkerService } from './chunker.service';
 import { EmbeddingService } from './embedding.service';
+import { AIJobObligationService } from '../obligations/services/ai-job-obligation.service';
 
 @Injectable()
 export class SourceProcessingService {
@@ -31,6 +32,7 @@ export class SourceProcessingService {
     private readonly ocrExtractor: OcrExtractor,
     private readonly chunker: ChunkerService,
     private readonly embedding: EmbeddingService,
+    private readonly aiObligation: AIJobObligationService,
     @Inject(R2_S3_CLIENT) private readonly s3: S3Client,
   ) {}
 
@@ -179,6 +181,42 @@ export class SourceProcessingService {
       this.logger.log(
         `Source ${sourceId} processed: ${pageCount} pages, ${totalChunks} chunks`,
       );
+
+      // Tự động tạo Document và kích hoạt bóc tách Obligations AI ngay lập tức sau khi upload file
+      if (source.workspaceId) {
+        this.logger.log(`[SourceProcessingService] Tự động tạo Document và bóc tách nghĩa vụ AI cho Source: ${source.title}`);
+        this.prisma.document.create({
+          data: {
+            title: source.title,
+            type: 'contract',
+            visibility: 'workspace',
+            workspaceId: source.workspaceId,
+            createdBy: source.userId,
+            status: 'completed',
+            contentJSON: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: text
+                    }
+                  ]
+                }
+              ]
+            },
+            metadata: {},
+          }
+        }).then(async (doc) => {
+          this.logger.log(`[SourceProcessingService] Tạo Document thành công (ID: ${doc.id}). Tiến hành trích xuất nghĩa vụ bằng Gemini...`);
+          await this.aiObligation.extractObligations(doc.id);
+          this.logger.log(`[SourceProcessingService] Bóc tách nghĩa vụ AI cho Document ${doc.id} hoàn tất!`);
+        }).catch((err) => {
+          this.logger.error(`[SourceProcessingService] Lỗi tạo Document hoặc trích xuất nghĩa vụ: ${err.message}`);
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Failed to process source ${sourceId}: ${message}`);

@@ -4,6 +4,7 @@ const vi = {
   sidebar_workspaces: "Không gian làm việc",
   sidebar_dashboard: "Dashboard",
   sidebar_documents: "Văn bản",
+  sidebar_obligations: "Nghĩa vụ hợp đồng",
   sidebar_documents_mine: "Của tôi",
   sidebar_documents_shared: "Được chia sẻ",
   sidebar_profile: "Trường thông tin",

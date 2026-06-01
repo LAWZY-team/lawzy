@@ -27,6 +27,7 @@ import { useT } from "@/components/i18n-provider"
 const HREF_TO_LABEL: Record<SidebarItemHref, string> = {
   "/dashboard": "sidebar_dashboard",
   "/documents": "sidebar_documents",
+  "/obligations": "sidebar_obligations",
   "/fields": "sidebar_profile",
   "/templates": "sidebar_templates",
   "/sources": "sidebar_sources",

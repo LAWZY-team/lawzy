@@ -41,6 +41,11 @@ export class EmbeddingService {
       try {
         const batchResults = await this.batchEmbed(batch, 'RETRIEVAL_DOCUMENT');
         results.push(...batchResults);
+        
+        // Add a small throttle delay between consecutive batches to respect free tier RPM limits
+        if (i + BATCH_SIZE < texts.length) {
+          await sleepMs(1500);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.error(`Embedding batch failed: ${msg}`);

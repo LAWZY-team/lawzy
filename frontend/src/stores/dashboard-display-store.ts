@@ -15,6 +15,7 @@ export const DASHBOARD_CARD_IDS = [
   "chart",
   "workspace_breakdown",
   "recent_docs",
+  "obligations",
 ] as const
 
 export type DashboardCardId = (typeof DASHBOARD_CARD_IDS)[number]
@@ -30,6 +31,7 @@ const DEFAULT_ENABLED: DashboardCardId[] = [
   "chart",
   "workspace_breakdown",
   "recent_docs",
+  "obligations",
 ]
 
 interface DashboardDisplayState {

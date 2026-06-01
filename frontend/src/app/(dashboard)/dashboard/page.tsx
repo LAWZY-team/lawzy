@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -19,7 +19,9 @@ import { useDashboardDisplayStore } from "@/stores/dashboard-display-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, ClipboardCheck, Sparkles, AlertTriangle, ArrowRight } from "lucide-react";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { api } from "@/lib/api/client";
 import type { DashboardPeriod } from "@/components/dashboard/overview-chart";
 import { useGuestEditorSessionStore } from "@/stores/guest-editor-session-store";
 import { useRouter } from "next/navigation";
@@ -56,6 +58,30 @@ export default function DashboardPage() {
   const chartData = initialData?.chart ?? null;
   const workspaceBreakdownData = initialData?.workspaceBreakdown ?? null;
 
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const workspaceId = currentWorkspace?.id;
+
+  const [obligationStats, setObligationStats] = useState<{
+    total: number;
+    pending: number;
+    overdue: number;
+    escalated: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    api.get<any[]>(`/obligations?workspaceId=${workspaceId}`)
+      .then((data) => {
+        setObligationStats({
+          total: data.length,
+          pending: data.filter((o) => o.status === "pending").length,
+          overdue: data.filter((o) => o.status === "overdue").length,
+          escalated: data.filter((o) => o.status === "escalated").length,
+        });
+      })
+      .catch((err) => console.error("Failed to fetch obligations stats", err));
+  }, [workspaceId]);
+
   const statCardsEnabled =
     enabledCards.includes("total_docs") ||
     enabledCards.includes("completed") ||
@@ -65,7 +91,8 @@ export default function DashboardPage() {
   const quotaCardsEnabled =
     enabledCards.includes("ai_quota") ||
     enabledCards.includes("storage") ||
-    enabledCards.includes("referral");
+    enabledCards.includes("referral") ||
+    enabledCards.includes("obligations");
   const chartCardsEnabled =
     enabledCards.includes("chart") ||
     enabledCards.includes("workspace_breakdown") ||
@@ -133,7 +160,7 @@ export default function DashboardPage() {
               )}
 
               {quotaCardsEnabled && (
-                <div className={DASHBOARD_GRID_QUOTA}>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {enabledCards.includes("ai_quota") && (
                     <QuotaCard
                       show="quota"
@@ -147,6 +174,78 @@ export default function DashboardPage() {
                       overview={quota ?? null}
                       isLoading={isQuotaLoading}
                     />
+                  )}
+                  {enabledCards.includes("obligations") && (
+                    <Card
+                      className={`py-3 gap-1.5 h-full flex flex-col justify-between ${DASHBOARD_CARD_HOVER}`}
+                    >
+                      <CardHeader className="pb-2 pt-0 px-4 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="text-sm font-semibold">
+                          {t("sidebar_obligations")}
+                        </CardTitle>
+                        <ClipboardCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </CardHeader>
+                      <CardContent className="px-4 pb-2 pt-0 flex-1 flex flex-col justify-between gap-4">
+                        {obligationStats ? (
+                          <div className="space-y-3">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-bold">{obligationStats.total}</span>
+                              <span className="text-xs text-muted-foreground">nghĩa vụ đang theo dõi</span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 border-t border-border/30 pt-3">
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-muted-foreground block">Cần duyệt</span>
+                                <span className="text-xs font-semibold text-foreground flex items-center gap-0.5">
+                                  <Sparkles className="h-3 w-3 shrink-0" />
+                                  {obligationStats.pending}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-muted-foreground block">Quá hạn</span>
+                                <span className="text-xs font-semibold text-red-500 flex items-center gap-0.5">
+                                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                                  {obligationStats.overdue}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[10px] text-muted-foreground block">Leo thang</span>
+                                <span className="text-xs font-semibold text-amber-600">
+                                  {obligationStats.escalated}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-baseline gap-2">
+                              <div className="h-8 w-12 bg-muted animate-pulse rounded" />
+                              <div className="h-4 w-28 bg-muted animate-pulse rounded" />
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 border-t border-border/30 pt-3">
+                              {[1, 2, 3].map((i) => (
+                                <div key={i} className="space-y-1">
+                                  <div className="h-3 w-10 bg-muted animate-pulse rounded" />
+                                  <div className="h-4 w-6 bg-muted animate-pulse rounded" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="w-full text-xs hover:bg-secondary/5 hover:text-foreground justify-between group/btn border border-border/30 rounded-xl mt-2"
+                        >
+                          <Link href="/obligations">
+                            <span>Xem chi tiết Kanban</span>
+                            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
                   )}
                   {enabledCards.includes("referral") && <ReferralCard />}
                 </div>

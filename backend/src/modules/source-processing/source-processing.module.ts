@@ -9,9 +9,10 @@ import { UrlExtractor } from './extractors/url.extractor';
 import { OcrExtractor } from './extractors/ocr.extractor';
 import { ChunkerService } from './chunker.service';
 import { EmbeddingService } from './embedding.service';
+import { ObligationsModule } from '../obligations/obligations.module';
 
 @Module({
-  imports: [PrismaModule, R2Module],
+  imports: [PrismaModule, R2Module, ObligationsModule],
   providers: [
     SourceProcessingService,
     PdfExtractor,

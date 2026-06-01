@@ -98,6 +98,7 @@ model Workspace {
   customFields   WorkspaceCustomField[]
   templates      Template[]
   projects       Project[]
+  obligations    Obligation[]
 
   @@map("workspaces")
 }
@@ -220,6 +221,7 @@ model Document {
   clauseMappings   ClauseMapping[]  @relation("SourceClauseDoc")
   targetMappings   ClauseMapping[]  @relation("TargetClauseDoc")
   mismatchAlerts   MismatchAlert[]
+  obligations      Obligation[]
 
   @@index([workspaceId])
   @@index([createdBy])
@@ -287,7 +289,7 @@ model File {
   name        String
   size        Int
   mimeType    String   @map("mime_type")
-  s3Key       String   @map("s3_key")
+  s3Key       String   @db.Text @map("s3_key")
   category    FileCategory @default(input_upload)
   documentId  String?  @map("document_id")
   userId      String   @map("user_id")
@@ -311,7 +313,7 @@ model Source {
   type            String   @default("pdf")
   status          String   @default("pending")
   scope           String   @default("workspace") // 'workspace' | 'system' | 'premium'
-  s3Key           String?  @map("s3_key")
+  s3Key           String?  @db.Text @map("s3_key")
   sourceUrl       String?  @db.Text @map("source_url")
   size            Int      @default(0)
   content         String?  @db.LongText
@@ -561,3 +563,39 @@ model MismatchAlert {
   @@index([documentId])
   @@map("mismatch_alerts")
 }
+
+model Obligation {
+  id                String    @id @default(uuid())
+  documentId        String    @map("document_id")
+  workspaceId       String    @map("workspace_id")
+  picId             String?   @map("pic_id")
+  title             String    @db.VarChar(255)
+  description       String?   @db.Text
+  status            String    @default("pending") // 'pending' | 'in_progress' | 'completed' | 'overdue' | 'escalated'
+  dueDate           DateTime  @map("due_date")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Nhóm thuộc tính tài chính
+  amount            Decimal?  @db.Decimal(15, 2)
+  percentage        Float?
+  triggerCondition  String?   @db.Text @map("trigger_condition")
+
+  // Nhóm thuộc tính phi tài chính
+  obligationType    String?   @map("obligation_type") // 'warranty' | 'inspection' | 'delivery' | 'other'
+  effectivePeriod   String?   @db.VarChar(255) @map("effective_period")
+  responsibleVendor String?   @db.VarChar(255) @map("responsible_vendor")
+
+  // Trạng thái nhắc nhở / lưu vết để không spam email
+  notifiedStages    Json      @default("[]") @map("notified_stages") // e.g. ["30_days", "15_days", "7_days", "due_date", "overdue"]
+
+  // Quan hệ liên kết
+  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([workspaceId])
+  @@index([status])
+  @@map("obligations")
+}
+

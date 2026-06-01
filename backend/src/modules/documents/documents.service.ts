@@ -10,6 +10,7 @@ import { WorkspaceAccessService } from '../../common/workspace-access.service';
 import { ProjectMetadataExtractorService } from '../projects/project-metadata-extractor.service';
 import { ProjectLinkerSuggestionService } from '../projects/project-linker-suggestion.service';
 import { ClauseVersioningService } from '../projects/clause-versioning.service';
+import { AIJobObligationService } from '../obligations/services/ai-job-obligation.service';
 
 @Injectable()
 export class DocumentsService {
@@ -21,6 +22,7 @@ export class DocumentsService {
     private readonly metadataExtractor: ProjectMetadataExtractorService,
     private readonly linkerSuggestion: ProjectLinkerSuggestionService,
     private readonly clauseVersioning: ClauseVersioningService,
+    private readonly aiObligation: AIJobObligationService,
   ) {}
 
   /**
@@ -82,7 +84,10 @@ export class DocumentsService {
 
     if (doc.status === 'completed' || doc.status === 'signed') {
       this.metadataExtractor.extractMetadata(doc.id)
-        .then(() => this.linkerSuggestion.generateSuggestions(doc.id))
+        .then(() => {
+          this.linkerSuggestion.generateSuggestions(doc.id).catch(() => {});
+          this.aiObligation.extractObligations(doc.id).catch(() => {});
+        })
         .catch((err) => {
           this.logger.error(
             `Error executing AI metadata extraction or suggestion generation: ${err.message}`,
@@ -387,7 +392,10 @@ export class DocumentsService {
 
     if (data.status === 'completed' || data.status === 'signed') {
       this.metadataExtractor.extractMetadata(doc.id)
-        .then(() => this.linkerSuggestion.generateSuggestions(doc.id))
+        .then(() => {
+          this.linkerSuggestion.generateSuggestions(doc.id).catch(() => {});
+          this.aiObligation.extractObligations(doc.id).catch(() => {});
+        })
         .catch((err) => {
           this.logger.error(
             `Error executing AI metadata extraction or suggestion generation on update: ${err.message}`,

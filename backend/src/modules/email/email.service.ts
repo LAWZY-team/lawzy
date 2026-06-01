@@ -339,6 +339,69 @@ export class EmailService {
     }
   }
 
+  async sendObligationAlertEmail(data: {
+    toEmail: string;
+    title: string;
+    dueDate: string;
+    stage: string;
+    responsibleParty?: string;
+  }): Promise<void> {
+    let subjectStage = '';
+    let stageDescription = '';
+    
+    switch (data.stage) {
+      case '30_days':
+        subjectStage = 'Nhắc nhở trước 30 ngày';
+        stageDescription = 'Nghĩa vụ này sắp đến hạn trong vòng 30 ngày tới. Vui lòng sắp xếp kế hoạch thực hiện.';
+        break;
+      case '15_days':
+        subjectStage = 'Nhắc nhở trước 15 ngày';
+        stageDescription = 'Nghĩa vụ này sắp đến hạn trong vòng 15 ngày tới. Vui lòng khẩn trương hoàn tất.';
+        break;
+      case '7_days':
+        subjectStage = 'Cảnh báo khẩn cấp trước 7 ngày';
+        stageDescription = 'Nghĩa vụ này chỉ còn 7 ngày nữa là đến hạn. Vui lòng xử lý ngay lập tức.';
+        break;
+      case 'due_date':
+        subjectStage = 'Đến Hạn Thực Hiện Hôm Nay';
+        stageDescription = 'Hôm nay là hạn cuối cùng để hoàn thành nghĩa vụ này. Vui lòng cập nhật trạng thái kết quả.';
+        break;
+      case 'overdue':
+        subjectStage = 'Đã Quá Hạn Thực Hiện';
+        stageDescription = 'Nghĩa vụ này đã quá hạn thực hiện. Vui lòng kiểm tra và xử lý khẩn cấp.';
+        break;
+      case 'escalated':
+        subjectStage = 'Cảnh Báo SLA Quá Hạn Cấp Cao';
+        stageDescription = 'Cảnh báo leo thang vi phạm SLA: Nghĩa vụ này đã trễ hạn quá 3 ngày. Báo cáo tự động đã được chuyển tới cấp quản lý.';
+        break;
+      default:
+        subjectStage = 'Cảnh báo nghĩa vụ';
+        stageDescription = 'Nghĩa vụ của bạn cần được rà soát thực hiện.';
+    }
+
+    const html = buildLawzyEmailHtml({
+      title: `${subjectStage}`,
+      greeting: `Xin chào PIC,`,
+      body: `
+        <p>Hệ thống quản lý nghĩa vụ hợp đồng Lawzy xin thông báo về nghĩa vụ sau:</p>
+        <div style="background-color: #f8f8f8; padding: 20px; border: 1px solid #e5e5e5; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>Tên nghĩa vụ:</strong> ${data.title}</p>
+          <p style="margin: 5px 0;"><strong>Hạn hoàn thành:</strong> ${data.dueDate}</p>
+          ${data.responsibleParty ? `<p style="margin: 5px 0;"><strong>Bên chịu trách nhiệm:</strong> ${data.responsibleParty}</p>` : ''}
+        </div>
+        <p><strong>Tình trạng:</strong> ${stageDescription}</p>
+      `,
+      button: undefined,
+      footerNote: 'Đây là email thông báo tự động từ hệ thống quản lý nghĩa vụ hợp đồng Lawzy. Vui lòng không trả lời trực tiếp email này.',
+    });
+
+    await this.sendIfConfigured({
+      to: data.toEmail,
+      subject: `[Lawzy] [Nghĩa vụ Hợp đồng] ${subjectStage}: ${data.title}`,
+      html,
+    });
+  }
+
   private async sendIfConfigured(opts: {
     to: string
     subject: string

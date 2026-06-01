@@ -27,7 +27,7 @@ const LAWZY_HTML_WRAPPER = (title: string, greeting: string, body: string, butto
       ${footerNote}
     </div>
     <div class="footer">
-      <p>&copy; 2025 Lawzy. Nền tảng quản lý hợp đồng pháp lý.</p>
+      <p>&copy; ${new Date().getFullYear()} Lawzy. Nền tảng quản lý hợp đồng pháp lý.</p>
     </div>
   </div>
 </body>

@@ -7,6 +7,7 @@ import { persist } from "zustand/middleware"
 export const SIDEBAR_ITEM_HREFS = [
   "/dashboard",
   "/documents",
+  "/obligations",
   "/fields",
   "/templates",
   "/sources",
@@ -21,6 +22,7 @@ export type SidebarItemHref = (typeof SIDEBAR_ITEM_HREFS)[number]
 const DEFAULT_VISIBLE: SidebarItemHref[] = [
   "/dashboard",
   "/documents",
+  "/obligations",
   "/fields",
   "/templates",
   "/sources",

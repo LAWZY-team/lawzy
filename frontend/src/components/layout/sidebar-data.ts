@@ -15,6 +15,7 @@ import {
   ClipboardList,
   FolderInput,
   Mail,
+  ClipboardCheck,
 } from "lucide-react"
 import type { TranslationKey } from "@/lib/i18n"
 
@@ -50,6 +51,7 @@ const baseNavGroups: NavGroup[] = [
     items: [
       { titleKey: "sidebar_dashboard", href: "/dashboard", icon: LayoutDashboard },
       { titleKey: "sidebar_documents", href: "/documents", icon: FileText },
+      { titleKey: "sidebar_obligations", href: "/obligations", icon: ClipboardCheck },
       { titleKey: "sidebar_profile", href: "/fields", icon: ClipboardList },
       { titleKey: "sidebar_templates", href: "/templates", icon: Library },
       { titleKey: "sidebar_sources", href: "/sources", icon: FolderInput },

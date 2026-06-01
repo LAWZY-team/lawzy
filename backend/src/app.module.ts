@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
@@ -23,10 +24,12 @@ import { EmailModule } from './modules/email/email.module';
 import { AiModule } from './modules/ai/ai.module';
 import { SourceProcessingModule } from './modules/source-processing/source-processing.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { ObligationsModule } from './modules/obligations/obligations.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
     R2Module,
@@ -48,6 +51,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
     AiModule,
     SourceProcessingModule,
     ProjectsModule,
+    ObligationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

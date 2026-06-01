@@ -12,6 +12,7 @@ export class AiProviderService {
   private readonly logger = new Logger(AiProviderService.name);
   private aiStudioClient: GoogleGenAI | null = null;
   private vertexClient: GoogleGenAI | null = null;
+  private vertexAuthFailed = false;
 
   constructor() {
     this.initializeClients();
@@ -56,7 +57,7 @@ export class AiProviderService {
   public getClient(): GoogleGenAI {
     const config = getLlmConfig();
     
-    if (config.provider === 'VERTEX_AI') {
+    if (config.provider === 'VERTEX_AI' && !this.vertexAuthFailed) {
       if (!this.vertexClient) {
         this.logger.warn('Vertex AI client not available, falling back to AI Studio');
         if (!this.aiStudioClient) {
@@ -98,13 +99,72 @@ export class AiProviderService {
           config: params.config,
         });
       } catch (error: any) {
-        const statusCode = error.status || error.response?.status;
-        const isRetryable = statusCode === 429 || statusCode === 503;
+        const errorStr = String(error?.message || error?.stack || error || '');
+        const isAuthError = errorStr.includes('invalid_grant') || 
+                            errorStr.includes('invalid_rapt') || 
+                            errorStr.includes('unauthorized') || 
+                            errorStr.includes('auth') ||
+                            errorStr.includes('credential');
+
+        if (isAuthError && !this.vertexAuthFailed && this.aiStudioClient) {
+          this.logger.warn(`Vertex AI generateContent authentication failure detected (${errorStr}). Falling back to AI Studio (Gemini API Key) automatically.`);
+          this.vertexAuthFailed = true;
+          attempt = 0; // Retry immediately using fallback
+          continue;
+        }
+
+        const statusCode = error.status || error.response?.status || error.error?.code || error.code;
+        const is429 = statusCode === 429 || 
+                      statusCode === 'RESOURCE_EXHAUSTED' || 
+                      errorStr.includes('429') || 
+                      errorStr.includes('RESOURCE_EXHAUSTED') || 
+                      errorStr.includes('rate-limit') ||
+                      errorStr.includes('quota');
+        const is503 = statusCode === 503 || errorStr.includes('503');
+        const isRetryable = is429 || is503;
         
         if (isRetryable && attempt < MAX_RETRIES) {
-          this.logger.warn(`GenAI API error (${statusCode}). Retry ${attempt}/${MAX_RETRIES} in ${delayMs}ms...`);
-          await new Promise(res => setTimeout(res, delayMs));
-          delayMs *= 2; // Exponential backoff
+          let backoffDelay = delayMs;
+          if (is429) {
+            let parsedDelaySeconds: number | null = null;
+            try {
+              // Handle structured object if error is already an object or stringified JSON
+              const errObj = typeof error === 'string' ? JSON.parse(error) : error;
+              const details = errObj?.error?.details || errObj?.details;
+              if (Array.isArray(details)) {
+                const retryInfo = details.find((d: any) => d?.['@type'] === 'type.googleapis.com/google.rpc.RetryInfo' || d?.type === 'type.googleapis.com/google.rpc.RetryInfo');
+                if (retryInfo?.retryDelay) {
+                  const seconds = parseInt(retryInfo.retryDelay.replace('s', ''), 10);
+                  if (!isNaN(seconds)) {
+                    parsedDelaySeconds = seconds;
+                  }
+                }
+              }
+            } catch {
+              // Ignore
+            }
+
+            if (parsedDelaySeconds === null) {
+              const match = errorStr.match(/retry in ([\d\.]+)s/i);
+              if (match && match[1]) {
+                const seconds = parseFloat(match[1]);
+                if (!isNaN(seconds)) {
+                  parsedDelaySeconds = Math.ceil(seconds);
+                }
+              }
+            }
+
+            if (parsedDelaySeconds !== null) {
+              backoffDelay = (parsedDelaySeconds + 1) * 1000;
+              this.logger.warn(`Quota rate limit hit. Google API requested retry delay: ${parsedDelaySeconds}s. Sleeping for ${backoffDelay}ms to recover...`);
+            } else {
+              backoffDelay = Math.max(delayMs, 10000); // Wait at least 10s on rate limit
+            }
+          }
+
+          this.logger.warn(`GenAI API error (${statusCode || '429'}). Retry ${attempt}/${MAX_RETRIES} in ${backoffDelay}ms...`);
+          await new Promise(res => setTimeout(res, backoffDelay));
+          delayMs = backoffDelay * 2;
           continue;
         }
         throw error;
@@ -129,13 +189,71 @@ export class AiProviderService {
           config: params.config,
         });
       } catch (error: any) {
-        const statusCode = error.status || error.response?.status;
-        const isRetryable = statusCode === 429 || statusCode === 503;
+        const errorStr = String(error?.message || error?.stack || error || '');
+        const isAuthError = errorStr.includes('invalid_grant') || 
+                            errorStr.includes('invalid_rapt') || 
+                            errorStr.includes('unauthorized') || 
+                            errorStr.includes('auth') ||
+                            errorStr.includes('credential');
+
+        if (isAuthError && !this.vertexAuthFailed && this.aiStudioClient) {
+          this.logger.warn(`Vertex AI embedContent authentication failure detected (${errorStr}). Falling back to AI Studio (Gemini API Key) automatically.`);
+          this.vertexAuthFailed = true;
+          attempt = 0; // Retry immediately using fallback
+          continue;
+        }
+
+        const statusCode = error.status || error.response?.status || error.error?.code || error.code;
+        const is429 = statusCode === 429 || 
+                      statusCode === 'RESOURCE_EXHAUSTED' || 
+                      errorStr.includes('429') || 
+                      errorStr.includes('RESOURCE_EXHAUSTED') || 
+                      errorStr.includes('rate-limit') ||
+                      errorStr.includes('quota');
+        const is503 = statusCode === 503 || errorStr.includes('503');
+        const isRetryable = is429 || is503;
         
         if (isRetryable && attempt < MAX_RETRIES) {
-          this.logger.warn(`GenAI embedContent error (${statusCode}). Retry ${attempt}/${MAX_RETRIES} in ${delayMs}ms...`);
-          await new Promise(res => setTimeout(res, delayMs));
-          delayMs *= 2;
+          let backoffDelay = delayMs;
+          if (is429) {
+            let parsedDelaySeconds: number | null = null;
+            try {
+              const errObj = typeof error === 'string' ? JSON.parse(error) : error;
+              const details = errObj?.error?.details || errObj?.details;
+              if (Array.isArray(details)) {
+                const retryInfo = details.find((d: any) => d?.['@type'] === 'type.googleapis.com/google.rpc.RetryInfo' || d?.type === 'type.googleapis.com/google.rpc.RetryInfo');
+                if (retryInfo?.retryDelay) {
+                  const seconds = parseInt(retryInfo.retryDelay.replace('s', ''), 10);
+                  if (!isNaN(seconds)) {
+                    parsedDelaySeconds = seconds;
+                  }
+                }
+              }
+            } catch {
+              // Ignore
+            }
+
+            if (parsedDelaySeconds === null) {
+              const match = errorStr.match(/retry in ([\d\.]+)s/i);
+              if (match && match[1]) {
+                const seconds = parseFloat(match[1]);
+                if (!isNaN(seconds)) {
+                  parsedDelaySeconds = Math.ceil(seconds);
+                }
+              }
+            }
+
+            if (parsedDelaySeconds !== null) {
+              backoffDelay = (parsedDelaySeconds + 1) * 1000;
+              this.logger.warn(`Quota rate limit hit. Google API requested retry delay: ${parsedDelaySeconds}s. Sleeping for ${backoffDelay}ms to recover...`);
+            } else {
+              backoffDelay = Math.max(delayMs, 10000); // Wait at least 10s on rate limit
+            }
+          }
+
+          this.logger.warn(`GenAI embedContent error (${statusCode || '429'}). Retry ${attempt}/${MAX_RETRIES} in ${backoffDelay}ms...`);
+          await new Promise(res => setTimeout(res, backoffDelay));
+          delayMs = backoffDelay * 2;
           continue;
         }
         throw error;

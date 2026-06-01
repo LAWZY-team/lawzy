@@ -35,6 +35,7 @@ const CARD_LABELS: Record<DashboardCardId, string> = {
   chart: "dash_chart_title",
   workspace_breakdown: "dash_stats_by_ws",
   recent_docs: "recent_docs_title",
+  obligations: "sidebar_obligations",
 }
 
 function makeDashboardDisplaySchema(t: (k: string) => string) {

@@ -6,6 +6,7 @@ const en: Record<TranslationKey, string> = {
   sidebar_workspaces: "Workspaces",
   sidebar_dashboard: "Dashboard",
   sidebar_documents: "Documents",
+  sidebar_obligations: "Obligations",
   sidebar_documents_mine: "My documents",
   sidebar_documents_shared: "Shared with me",
   sidebar_profile: "Information Fields",
