@@ -35,6 +35,8 @@ const vi = {
   sidebar_admin_inbox: "Liên hệ",
   sidebar_admin_articles: "Bài viết",
   sidebar_admin_workspaces: "Workspace",
+  sidebar_projects: "Dự án",
+  sidebar_projects_desc: "Quản lý hồ sơ gắn theo dự án",
 
   dash_this_week: "Tuần này",
   dash_this_month: "Tháng nay",

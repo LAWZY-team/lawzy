@@ -52,6 +52,8 @@ export class DocumentsController {
       mergeFieldValues?: any;
       status?: string;
       visibility?: 'private' | 'workspace';
+      projectId?: string;
+      parentId?: string;
     },
   ) {
     const userId = req.user.userId;
@@ -210,6 +212,8 @@ export class DocumentsController {
       metadata?: any;
       mergeFieldValues?: any;
       visibility?: 'private' | 'workspace';
+      projectId?: string | null;
+      parentId?: string | null;
     },
   ) {
     return this.documentsService.update(id, body, req.user.userId);

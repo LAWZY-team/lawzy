@@ -62,6 +62,14 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
   const [editingLabel, setEditingLabel] = useState('')
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const [projects, setProjects] = useState<Array<{ id: string; name: string; code: string }>>([])
+
+  useEffect(() => {
+    if (!workspaceId) return
+    api.get<Array<{ id: string; name: string; code: string }>>(`/projects?workspaceId=${workspaceId}`)
+      .then((data) => setProjects(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load projects for editor", err))
+  }, [workspaceId])
 
   const loadVersions = useCallback(() => {
     if (!isAuthenticated || !currentDocumentId) {
@@ -543,6 +551,25 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
                     placeholder={t("panel_meta_name_placeholder")}
                     className="bg-background border-border" 
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">{t("sidebar_projects")}</Label>
+                  <select
+                    value={metadata.projectId || "none"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateMetadata({ projectId: val === "none" ? null : val });
+                    }}
+                    className="w-full h-9 rounded-md border border-border bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="none">-- Không thuộc dự án nào --</option>
+                    {projects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name} ({proj.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">

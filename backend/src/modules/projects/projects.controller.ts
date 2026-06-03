@@ -10,9 +10,14 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { ProjectsService } from './projects.service';
 import { ConsistencyValidatorService } from './consistency-validator.service';
+import { ProjectImportService } from './project-import.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -21,6 +26,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly consistencyValidator: ConsistencyValidatorService,
+    private readonly projectImportService: ProjectImportService,
   ) {}
 
   @Post()
@@ -95,5 +101,24 @@ export class ProjectsController {
   async getMismatchAlerts(@Request() req: any, @Param('id') id: string) {
     const userId = req.user.userId;
     return this.consistencyValidator.getMismatchAlerts(userId, id);
+  }
+
+  @Post(':id/import-files')
+  @UseInterceptors(
+    FilesInterceptor('files', 20, {
+      storage: memoryStorage(),
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  async importFiles(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files provided');
+    }
+    const userId = req.user.userId;
+    return this.projectImportService.importFiles(userId, projectId, files);
   }
 }

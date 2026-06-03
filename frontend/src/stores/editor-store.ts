@@ -25,6 +25,8 @@ interface EditorState {
     visibility: 'workspace' | 'private' | 'public'
     status?: string
     creator?: { name: string; email?: string; avatar?: string }
+    projectId?: string | null
+    parentId?: string | null
   }
   isSaving: boolean
   lastSaved: string | null

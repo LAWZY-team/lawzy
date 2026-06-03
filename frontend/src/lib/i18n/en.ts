@@ -38,6 +38,8 @@ const en: Record<TranslationKey, string> = {
   sidebar_admin_inbox: "Contacts",
   sidebar_admin_articles: "Articles",
   sidebar_admin_workspaces: "Workspaces",
+  sidebar_projects: "Projects",
+  sidebar_projects_desc: "Manage documents tied to projects",
 
   // Dashboard
   dash_this_week: "This week",

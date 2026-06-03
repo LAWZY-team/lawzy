@@ -434,6 +434,8 @@ export default function EditorPage({
             visibility: (meta.visibility as 'workspace' | 'private' | 'public') ?? 'workspace',
             status: (doc.status as string) || 'draft',
             creator: (doc.creator as { name: string; email?: string; avatar?: string }) || undefined,
+            projectId: (doc.projectId as string) || null,
+            parentId: (doc.parentId as string) || null,
           })
           setIsCanvasMode(true)
 
@@ -744,6 +746,8 @@ export default function EditorPage({
           mergeFieldValues: persistedMergeValues,
           status,
           visibility,
+          projectId: sourceMetadata?.projectId ?? null,
+          parentId: sourceMetadata?.parentId ?? null,
         })
         const newId = String((created as { id?: unknown }).id ?? '')
         if (!newId) throw new Error('Failed to create document')
@@ -811,6 +815,8 @@ export default function EditorPage({
         contentJSON: editorContent,
         mergeFieldValues: persistedMergeValues,
         metadata: useEditorStore.getState().metadata,
+        projectId: useEditorStore.getState().metadata.projectId,
+        parentId: useEditorStore.getState().metadata.parentId,
       })
 
       // Persist version snapshot to S3/R2 immediately so storage usage counts now.
@@ -942,6 +948,8 @@ export default function EditorPage({
           contentJSON: editorContent,
           mergeFieldValues: persistedMergeValues,
           metadata: useEditorStore.getState().metadata,
+          projectId: useEditorStore.getState().metadata.projectId,
+          parentId: useEditorStore.getState().metadata.parentId,
         })
         .then(() => {
           setIsDirty(false)

@@ -53,6 +53,8 @@ export class DocumentsService {
     mergeFieldValues?: any;
     status?: string;
     visibility?: 'private' | 'workspace';
+    projectId?: string;
+    parentId?: string;
   }) {
     await this.workspaceAccess.requireMembership(
       data.workspaceId,
@@ -62,6 +64,25 @@ export class DocumentsService {
     if (!['private', 'workspace'].includes(visibility)) {
       throw new BadRequestException('Invalid visibility');
     }
+
+    if (data.projectId) {
+      const proj = await this.prisma.project.findFirst({
+        where: { id: data.projectId, workspaceId: data.workspaceId },
+      });
+      if (!proj) {
+        throw new BadRequestException('Dự án được chọn không tồn tại hoặc không thuộc workspace hiện tại.');
+      }
+    }
+
+    if (data.parentId) {
+      const parentDoc = await this.prisma.document.findFirst({
+        where: { id: data.parentId, workspaceId: data.workspaceId },
+      });
+      if (!parentDoc) {
+        throw new BadRequestException('Tài liệu cha được chọn không tồn tại hoặc không thuộc workspace hiện tại.');
+      }
+    }
+
     const doc = await this.prisma.document.create({
       data: {
         title: data.title,
@@ -74,6 +95,8 @@ export class DocumentsService {
         metadata: data.metadata,
         mergeFieldValues: data.mergeFieldValues,
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.projectId && { projectId: data.projectId }),
+        ...(data.parentId && { parentId: data.parentId }),
       },
       include: {
         creator: {
@@ -353,16 +376,46 @@ export class DocumentsService {
       metadata?: any;
       mergeFieldValues?: any;
       visibility?: 'private' | 'workspace';
+      projectId?: string | null;
+      parentId?: string | null;
     },
     userId: string,
   ) {
-    await this.workspaceAccess.requireDocumentAccess(id, userId);
+    const docInfo = await this.workspaceAccess.requireDocumentAccess(id, userId);
+    const workspaceId = docInfo.workspaceId;
 
     if (
       data.visibility !== undefined &&
       !['private', 'workspace'].includes(data.visibility)
     ) {
       throw new BadRequestException('Invalid visibility');
+    }
+
+    if (data.projectId) {
+      const proj = await this.prisma.project.findFirst({
+        where: { id: data.projectId, workspaceId },
+      });
+      if (!proj) {
+        throw new BadRequestException('Dự án được chọn không tồn tại hoặc không thuộc workspace hiện tại.');
+      }
+    }
+
+    if (data.parentId) {
+      if (data.parentId === id) {
+        throw new BadRequestException('Không thể chọn chính tài liệu này làm tài liệu cha.');
+      }
+      const parentDoc = await this.prisma.document.findFirst({
+        where: { id: data.parentId, workspaceId },
+      });
+      if (!parentDoc) {
+        throw new BadRequestException('Tài liệu cha được chọn không tồn tại hoặc không thuộc workspace hiện tại.');
+      }
+      const cycleDetected = await this.hasParentPath(id, data.parentId);
+      if (cycleDetected) {
+        throw new ConflictException(
+          'Không thể tạo liên kết. Phát hiện vòng lặp phụ thuộc giữa các tài liệu.',
+        );
+      }
     }
 
     const doc = await this.prisma.document.update({
@@ -382,6 +435,8 @@ export class DocumentsService {
             data.mergeFieldValues,
           ) as any,
         }),
+        ...(data.projectId !== undefined && { projectId: data.projectId }),
+        ...(data.parentId !== undefined && { parentId: data.parentId }),
       },
       include: {
         creator: {
@@ -654,6 +709,25 @@ export class DocumentsService {
         return true;
       }
     }
+    return false;
+  }
+
+  async hasParentPath(startId: string, endId: string): Promise<boolean> {
+    let currentId: string | null = endId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+      if (currentId === startId) return true;
+      if (visited.has(currentId)) return false;
+      visited.add(currentId);
+
+      const doc = await this.prisma.document.findUnique({
+        where: { id: currentId },
+        select: { parentId: true },
+      });
+      currentId = doc?.parentId ?? null;
+    }
+
     return false;
   }
 
