@@ -1,12 +1,31 @@
 /**
  * Convert contract generation API result into TipTap JSON content.
  * Supports two formats:
- *   1. New markdown format: result.content.markdown -> parse via @tiptap/markdown
+ *   1. New markdown format: result.content.markdown -> parse via marked + generateJSON
  *   2. Legacy JSON format: result.content.sections[] -> custom mapping
  * Both handle {{KEY}} -> mergeField nodes and **...** -> bold marks.
  */
 import type { JSONContent } from '@tiptap/core'
+import { marked } from 'marked'
+import { generateJSON } from '@tiptap/html'
+import StarterKit from '@tiptap/starter-kit'
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
+import TextAlign from '@tiptap/extension-text-align'
+import Underline from '@tiptap/extension-underline'
+import { MergeFieldExtension } from '@/lib/tiptap/extensions/merge-field'
 import type { ContractGenerationResult } from './contract-result'
+
+// Note: Ensure extensions match the main editor schema
+const getExtensions = () => [
+  StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+  Table,
+  TableRow,
+  TableCell,
+  TableHeader,
+  TextAlign.configure({ types: ['heading', 'paragraph'] }),
+  Underline,
+  MergeFieldExtension,
+]
 
 type InlineText = { type: 'text'; text: string; marks?: { type: 'bold' }[] }
 type InlineMerge = { type: 'mergeField'; attrs: { fieldKey: string } }
@@ -69,6 +88,7 @@ export interface ResultToTipTapOutput {
 /**
  * Replace {{KEY}} text nodes inside a TipTap JSONContent tree with mergeField nodes.
  * Recursively walks the document tree.
+ * Also handles auto-centering for National Motto ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
  */
 function replaceMergeFieldsInJsonContent(
   node: JSONContent,
@@ -77,127 +97,58 @@ function replaceMergeFieldsInJsonContent(
   if (!node.content || !Array.isArray(node.content)) return node
 
   const newContent: JSONContent[] = []
+  let shouldCenter = false
+
   for (const child of node.content) {
-    if (child.type === 'text' && typeof child.text === 'string' && child.text.includes('{{')) {
-      const inlineNodes = inlineContentFromString(child.text, allMergeKeys)
-      for (const inline of inlineNodes) {
-        if (inline.type === 'mergeField') {
-          newContent.push(inline as JSONContent)
-        } else {
-          newContent.push({
-            ...inline,
-            marks: [...(child.marks || []), ...(inline.marks || [])],
-          } as JSONContent)
+    if (child.type === 'text' && typeof child.text === 'string') {
+      const text = child.text
+      if (
+        text.includes('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM') ||
+        text.includes('Độc lập - Tự do')
+      ) {
+        shouldCenter = true
+      }
+
+      if (text.includes('{{')) {
+        const inlineNodes = inlineContentFromString(text, allMergeKeys)
+        for (const inline of inlineNodes) {
+          if (inline.type === 'mergeField') {
+            newContent.push(inline as JSONContent)
+          } else {
+            newContent.push({
+              ...inline,
+              marks: [...(child.marks || []), ...(inline.marks || [])],
+            } as JSONContent)
+          }
         }
+      } else {
+        newContent.push(child)
       }
     } else {
       newContent.push(replaceMergeFieldsInJsonContent(child, allMergeKeys))
     }
   }
 
-  return { ...node, content: newContent }
+  const resultNode = { ...node, content: newContent }
+  if (shouldCenter && (resultNode.type === 'paragraph' || resultNode.type === 'heading')) {
+    resultNode.attrs = { ...(resultNode.attrs || {}), textAlign: 'center' }
+  }
+
+  return resultNode
 }
 
 /**
  * Parse markdown string into TipTap JSONContent.
- * Uses a lightweight approach: convert markdown to HTML, then create TipTap-compatible JSON.
- * Falls back to simple paragraph splitting if editor instance not available.
+ * Uses marked to generate HTML, then generateJSON from @tiptap/html.
  */
 function parseMarkdownToTipTap(markdown: string): JSONContent {
-  const lines = markdown.split('\n')
-  const content: JSONContent[] = []
-
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-
-    if (line.startsWith('# ')) {
-      content.push({
-        type: 'heading',
-        attrs: { level: 1 },
-        content: textToInlineWithBold(line.slice(2).trim()) as JSONContent[],
-      })
-    } else if (line.startsWith('## ')) {
-      content.push({
-        type: 'heading',
-        attrs: { level: 2 },
-        content: textToInlineWithBold(line.slice(3).trim()) as JSONContent[],
-      })
-    } else if (line.startsWith('### ')) {
-      content.push({
-        type: 'heading',
-        attrs: { level: 3 },
-        content: textToInlineWithBold(line.slice(4).trim()) as JSONContent[],
-      })
-    } else if (line.trim() === '---' || line.trim() === '***') {
-      content.push({ type: 'horizontalRule' })
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      const items: JSONContent[] = []
-      while (i < lines.length && (lines[i].startsWith('- ') || lines[i].startsWith('* '))) {
-        items.push({
-          type: 'listItem',
-          content: [{
-            type: 'paragraph',
-            content: textToInlineWithBold(lines[i].slice(2).trim()) as JSONContent[],
-          }],
-        })
-        i++
-      }
-      content.push({ type: 'bulletList', content: items })
-      continue
-    } else if (/^\d+\.\s/.test(line)) {
-      const items: JSONContent[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        const text = lines[i].replace(/^\d+\.\s/, '').trim()
-        items.push({
-          type: 'listItem',
-          content: [{
-            type: 'paragraph',
-            content: textToInlineWithBold(text) as JSONContent[],
-          }],
-        })
-        i++
-      }
-      content.push({ type: 'orderedList', content: items })
-      continue
-    } else if (line.startsWith('|') && line.includes('|')) {
-      const tableRows: JSONContent[] = []
-      let isFirstRow = true
-      while (i < lines.length && lines[i].startsWith('|')) {
-        const cells = lines[i].split('|').filter((c) => c.trim() !== '')
-        if (cells.every((c) => /^[\s-:]+$/.test(c))) {
-          i++
-          continue
-        }
-        tableRows.push({
-          type: 'tableRow',
-          content: cells.map((cell) => ({
-            type: isFirstRow ? 'tableHeader' : 'tableCell',
-            content: [{
-              type: 'paragraph',
-              content: textToInlineWithBold(cell.trim()) as JSONContent[],
-            }],
-          })),
-        })
-        isFirstRow = false
-        i++
-      }
-      if (tableRows.length > 0) {
-        content.push({ type: 'table', content: tableRows })
-      }
-      continue
-    } else if (line.trim() === '') {
-      content.push({ type: 'paragraph' })
-    } else {
-      content.push({
-        type: 'paragraph',
-        content: textToInlineWithBold(line) as JSONContent[],
-      })
-    }
-    i++
-  }
-
-  return { type: 'doc', content }
+  // Use marked to convert markdown to HTML string
+  const html = marked.parse(markdown, { async: false }) as string
+  
+  // Convert HTML to TipTap JSON structure using its core extensions
+  const json = generateJSON(html, getExtensions())
+  
+  return json
 }
 
 /**
@@ -270,11 +221,16 @@ function contractResultToTipTapContentLegacy(
         ],
       })
     }
+    
+    let shouldCenterHeading = sectionHeadingIndex < 3
+    if (section.heading && (section.heading.includes('CỘNG HÒA') || section.heading.includes('Độc lập'))) {
+      shouldCenterHeading = true
+    }
+
     if (section.heading) {
-      const isHeaderBlock = sectionHeadingIndex < 3
       newContent.content?.push({
         type: 'heading',
-        attrs: { level: 2, ...(isHeaderBlock ? { textAlign: 'center' as const } : {}) },
+        attrs: { level: 2, ...(shouldCenterHeading ? { textAlign: 'center' as const } : {}) },
         content: headingToContent(section.heading, allMergeKeys),
       })
       sectionHeadingIndex++
@@ -285,9 +241,10 @@ function contractResultToTipTapContentLegacy(
         if (p.trim() === '') {
           newContent.content?.push({ type: 'paragraph' })
         } else {
+          const isMotto = p.includes('CỘNG HÒA') || p.includes('Độc lập')
           newContent.content?.push({
             type: 'paragraph',
-            attrs: { textAlign: 'left' },
+            attrs: { textAlign: isMotto ? 'center' : 'left' },
             content: inlineContentFromString(p, allMergeKeys),
           })
         }
