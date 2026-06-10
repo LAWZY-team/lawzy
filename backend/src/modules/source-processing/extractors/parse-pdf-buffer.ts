@@ -41,6 +41,9 @@ export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<{
       format: 'markdown',
       toStdout: true,
       quiet: true,
+      tableMethod: 'cluster', // Advanced table detection (border + cluster) for borderless tables
+      useStructTree: true,    // Exploit tagged PDF structures for better reading order
+      detectStrikethrough: true, // Useful for parsing redlined contracts
     });
     
     // Convert output from java parser

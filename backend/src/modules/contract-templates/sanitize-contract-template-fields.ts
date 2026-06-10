@@ -588,6 +588,8 @@ export const sanitizeContractTemplateFields = async ({
   let sanitizedText = regexSanitizedLines.join('\n');
 
   // 2. PHASE 2: AI-Powered Entity Sanitization
+  // TEMPORARILY DISABLED: Prevent Gemini rate limit issues and formatting corruption
+  /*
   if (aiSanitizer) {
     try {
       // Use original text for identification to avoid confusion with already replaced placeholders
@@ -641,6 +643,7 @@ export const sanitizeContractTemplateFields = async ({
       console.error('AI Sanitization Phase failed:', error);
     }
   }
+  */
 
   // 3. PHASE 3: Greedy Explanation Cleanup
   // Specifically looks for placeholders followed by parenthetical explanations (common in currency)
@@ -668,6 +671,7 @@ export const sanitizeContractTemplateFields = async ({
     .replace(/^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/gim, '')
     .replace(/^\s*-\s*\d+\s+-\s*$/gm, '')
     .replace(/^\s*Page\s+\d+\s+of\s+\d+\s*$/gim, '')
+    .replace(/▯/g, '') // Remove OCR missing character artifacts
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
