@@ -44,7 +44,7 @@ export default function LandingHeader() {
       /**/
     }
     logout();
-    router.push("/");
+    router.push("/login");
   };
 
   const navLinks = [
@@ -139,13 +139,13 @@ export default function LandingHeader() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard">
+                      <Link href="/clm/dashboard">
                         <LayoutDashboard className="mr-2 h-4 w-4" />
                         {t("nav_dashboard")}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/settings">
+                      <Link href="/clm/settings">
                         <User className="mr-2 h-4 w-4" />
                         {t("settings_title")}
                       </Link>
@@ -223,7 +223,7 @@ export default function LandingHeader() {
                 {authResolved && isAuthenticated ? (
                   <div className="pt-3 mt-2 border-t border-gray-100 flex flex-col gap-1">
                     <Link
-                      href="/dashboard"
+                      href="/clm/dashboard"
                       className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
@@ -231,7 +231,7 @@ export default function LandingHeader() {
                       {t("nav_dashboard")}
                     </Link>
                     <Link
-                      href="/settings"
+                      href="/clm/settings"
                       className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors py-3 px-2 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >

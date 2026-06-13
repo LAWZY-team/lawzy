@@ -55,7 +55,7 @@ export function useAdminUsers(opts?: {
 
   return useQuery<PaginatedUsers>({
     queryKey: ["admin", "users", opts],
-    queryFn: () => api.get(`/admin/users?${params.toString()}`),
+    queryFn: () => api.get(`/clm/admin/users?${params.toString()}`),
     enabled,
   })
 }
@@ -63,7 +63,7 @@ export function useAdminUsers(opts?: {
 export function useDeleteAdminUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/admin/users/${id}`),
+    mutationFn: (id: string) => api.delete(`/clm/admin/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
     },

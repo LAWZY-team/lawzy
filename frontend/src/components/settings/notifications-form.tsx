@@ -204,7 +204,7 @@ export function NotificationsForm() {
                 <FormDescription>
                   Bạn có thể quản lý thông báo di động của mình trong trang{" "}
                   <Link
-                    href="/settings"
+                    href="/clm/settings"
                     className="underline decoration-dashed underline-offset-4 hover:decoration-solid"
                   >
                     cài đặt di động

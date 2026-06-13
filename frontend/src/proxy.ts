@@ -27,7 +27,7 @@ export function proxy(request: NextRequest) {
 
   if (isAuthPage(pathname) && authenticated) {
     return applyUatNoIndexHeader(
-      NextResponse.redirect(new URL("/dashboard", request.url)),
+      NextResponse.redirect(new URL("/clm/dashboard", request.url)),
       host
     );
   }

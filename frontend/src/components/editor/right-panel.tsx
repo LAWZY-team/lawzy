@@ -78,7 +78,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
     }
     api
       .get<Array<{ id: string; label: string | null; createdAt: string; createdBy: string }>>(
-        `/documents/${currentDocumentId}/versions`
+        `/clm/documents/${currentDocumentId}/versions`
       )
       .then((data) => setVersions(Array.isArray(data) ? data : []))
       .catch(() => setVersions([]))
@@ -278,7 +278,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
         contentJSON?: Record<string, unknown>
         mergeFieldValues?: Record<string, unknown>
         chatCursorAt?: string | null
-      }>(`/documents/${currentDocumentId}/versions/${versionId}`)
+      }>(`/clm/documents/${currentDocumentId}/versions/${versionId}`)
 
       const content = version?.contentJSON
       if (content) {
@@ -293,7 +293,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
 
       if (version?.chatCursorAt) {
         const msgs = await api.get<Array<{ id: string; role: string; content: string; createdAt: string }>>(
-          `/documents/${currentDocumentId}/chat-messages?to=${encodeURIComponent(version.chatCursorAt)}`
+          `/clm/documents/${currentDocumentId}/chat-messages?to=${encodeURIComponent(version.chatCursorAt)}`
         )
         window.dispatchEvent(new CustomEvent('lawzy:restore-chat', { detail: { messages: msgs } }))
       }
@@ -314,7 +314,7 @@ export function RightPanel({ editor, onAuthRequired, workspaceId }: RightPanelPr
     }
 
     try {
-      await api.patch(`/documents/${currentDocumentId}/versions/${versionId}`, {
+      await api.patch(`/clm/documents/${currentDocumentId}/versions/${versionId}`, {
         label: editingLabel.trim(),
       })
       setVersions((prev) =>

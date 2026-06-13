@@ -63,7 +63,7 @@ export function useAdminArticles(opts?: {
 
   return useQuery<PaginatedArticles>({
     queryKey: ["admin", "articles", opts],
-    queryFn: () => api.get(`/admin/articles?${params.toString()}`),
+    queryFn: () => api.get(`/clm/admin/articles?${params.toString()}`),
   })
 }
 

@@ -37,7 +37,7 @@ export const useLegalCrawler = () => {
   const startCrawl = useCallback(async (params: StartCrawlParams) => {
     setStarting(true)
     try {
-      const result = await api.post<{ jobId: string }>('/admin/sources/crawl', params)
+      const result = await api.post<{ jobId: string }>('/clm/admin/sources/crawl', params)
       setJobId(result.jobId)
       setJob({
         id: result.jobId,
@@ -61,7 +61,7 @@ export const useLegalCrawler = () => {
 
     const poll = async () => {
       try {
-        const status = await api.get<CrawlJob>(`/admin/sources/crawl/${jobId}/status`)
+        const status = await api.get<CrawlJob>(`/clm/admin/sources/crawl/${jobId}/status`)
         setJob(status)
         if (status.status !== 'running') {
           stopPolling()

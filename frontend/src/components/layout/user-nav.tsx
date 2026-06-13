@@ -43,7 +43,7 @@ export function UserNav() {
       /* proceed with client-side logout regardless */
     }
     logout()
-    router.push("/")
+    router.push("/login")
   }
 
   const toggleLocale = () => setLocale(locale === "vi" ? "en" : "vi")
@@ -104,7 +104,7 @@ export function UserNav() {
             ) : (
               <>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" id="dropdown-settings-link">
+                  <Link href="/clm/settings" id="dropdown-settings-link">
                     <Settings className="mr-2 h-4 w-4" />
                     {t("settings_title")}
                   </Link>

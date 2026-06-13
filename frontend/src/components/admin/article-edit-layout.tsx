@@ -25,7 +25,7 @@ export function ArticleEditLayout({
   formId,
   saveLabel = "Lưu",
   isPending = false,
-  cancelHref = "/admin/articles",
+  cancelHref = "/clm/admin/articles",
   showCancel = true,
   className,
 }: ArticleEditLayoutProps) {

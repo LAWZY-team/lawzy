@@ -25,17 +25,17 @@ import {
 import { useT } from "@/components/i18n-provider"
 
 const HREF_TO_LABEL: Record<SidebarItemHref, string> = {
-  "/dashboard": "sidebar_dashboard",
-  "/documents": "sidebar_documents",
-  "/projects": "sidebar_projects",
-  "/obligations": "sidebar_obligations",
-  "/fields": "sidebar_profile",
-  "/templates": "sidebar_templates",
-  "/sources": "sidebar_sources",
-  "/files": "sidebar_storage",
+  "/clm/dashboard": "sidebar_dashboard",
+  "/clm/documents": "sidebar_documents",
+  "/clm/projects": "sidebar_projects",
+  "/clm/obligations": "sidebar_obligations",
+  "/clm/fields": "sidebar_profile",
+  "/clm/templates": "sidebar_templates",
+  "/clm/sources": "sidebar_sources",
+  "/clm/files": "sidebar_storage",
   "/payment": "sidebar_payment_short",
-  "/workspace": "sidebar_workspace",
-  "/settings": "sidebar_settings",
+  "/clm/workspace": "sidebar_workspace",
+  "/clm/settings": "sidebar_settings",
 }
 
 function makeDisplayFormSchema(t: (k: string) => string) {

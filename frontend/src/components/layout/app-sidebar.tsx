@@ -52,7 +52,7 @@ function isNavLink(item: NavLink | NavCollapsible): item is NavLink {
 }
 
 function checkIsActive(pathname: string, href: string): boolean {
-  return pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"))
+  return pathname === href || (href !== "/clm/dashboard" && pathname.startsWith(href + "/"))
 }
 
 function checkCollapsibleActive(pathname: string, item: NavCollapsible): boolean {

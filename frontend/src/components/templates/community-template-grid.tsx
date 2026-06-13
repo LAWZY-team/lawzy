@@ -114,7 +114,7 @@ export function CommunityTemplateGrid({
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" className={cn(compact && "min-w-0 flex-1")} asChild>
-                    <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                    <Link href={`/clm/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
                       {t("tmpl_use")}
                     </Link>
                   </Button>
@@ -185,7 +185,7 @@ export function CommunityTemplateGrid({
                 </Button>
               ) : (
                 <Button variant="outline" className="flex-1" asChild>
-                  <Link href={`/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
+                  <Link href={`/clm/editor/new?contractTemplate=${f.id}&contractTemplateScope=${scope}`}>
                     {t("tmpl_use")}
                   </Link>
                 </Button>

@@ -230,7 +230,7 @@ export function WizardUserProfileDialog({
           <p className="text-sm text-muted-foreground font-normal pt-1">
             {emptyHint
               ? <>Chưa có thông tin nào. Thêm bộ trường mẫu hoặc{' '}
-                  <Link href="/fields" className="text-primary underline underline-offset-2">
+                  <Link href="/clm/fields" className="text-primary underline underline-offset-2">
                     quản lý tại đây
                   </Link>.</>
               : 'Nhấn "Áp dụng" để điền tất cả thông tin đã lưu vào biểu mẫu. Nhấn biểu tượng cài đặt để chỉnh sửa từng nhóm.'}

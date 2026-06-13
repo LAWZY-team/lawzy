@@ -71,12 +71,15 @@ async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }
 
   const resHeaders = new Headers();
   backendRes.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "set-cookie") {
-      resHeaders.append(key, value);
-    } else if (key.toLowerCase() !== "transfer-encoding") {
+    if (key.toLowerCase() !== "set-cookie" && key.toLowerCase() !== "transfer-encoding") {
       resHeaders.set(key, value);
     }
   });
+
+  const setCookies = backendRes.headers.getSetCookie ? backendRes.headers.getSetCookie() : [];
+  for (const cookie of setCookies) {
+    resHeaders.append("Set-Cookie", cookie);
+  }
 
   const responseBody = await backendRes.arrayBuffer();
 

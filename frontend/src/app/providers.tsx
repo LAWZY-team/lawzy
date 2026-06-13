@@ -17,6 +17,7 @@ function UnauthorizedHandler() {
     const handleUnauthorized = () => {
       logout();
       toast.error(t("auth_session_expired"));
+      window.location.href = "/login";
     };
     window.addEventListener("lawzy:unauthorized", handleUnauthorized);
     return () =>
