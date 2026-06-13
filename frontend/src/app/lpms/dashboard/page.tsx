@@ -34,7 +34,6 @@ export default function LPMSDashboardPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-emerald-400" />
                     Bắt đầu với AI Legal Assistant
                   </h3>
                   <p className="text-sm text-gray-300 mb-4 max-w-xl">
@@ -52,11 +51,10 @@ export default function LPMSDashboardPage() {
                     </Button>
                     <Button
                       variant="outline"
-                      className="text-white border-gray-700 hover:bg-gray-800 hover:text-white"
+                      className="bg-white text-black hover:bg-gray-100 shadow-sm"
                       asChild
                     >
                       <Link href="/lpms/assistant">
-                        <Sparkles className="mr-2 h-4 w-4" />
                         Chat với AI
                       </Link>
                     </Button>

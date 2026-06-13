@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, TableProperties, Sparkles, FolderKanban } from "lucide-react"
 
@@ -39,13 +40,17 @@ export function LPMSSidebar() {
     <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="flex flex-row items-center gap-2">
         <div className={cn("flex-1 min-w-0", state === "collapsed" && "hidden")}>
-          <div className="flex items-center gap-2 px-2 py-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-              <Sparkles className="h-5 w-5" />
-            </div>
+          <div className="ml-2 flex items-center gap-2 px-2 py-1">
+            <Image 
+              src="/logo/lawzy-triangle.png" 
+              alt="Lawzy Logo" 
+              width={120} 
+              height={40} 
+              className="h-8 w-auto object-contain scale-120"
+              priority
+            />
             <div className="flex flex-col">
-              <span className="text-sm font-semibold leading-tight">Lawzy LPMS</span>
-              <span className="text-xs text-muted-foreground leading-tight">AI Legal Assistant</span>
+              <span className="text-lg font-bold">LPMS</span>
             </div>
           </div>
         </div>

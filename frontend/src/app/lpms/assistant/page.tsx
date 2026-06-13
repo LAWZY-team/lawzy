@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useState } from "react"
-import { Send, Bot, User, Sparkles, AlertCircle } from "lucide-react"
+import Image from "next/image"
+import { Send, User, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -49,9 +50,6 @@ export default function AssistantPage() {
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border shadow-sm mt-4 mx-4 mb-4 overflow-hidden">
       <div className="flex items-center gap-2 p-4 border-b bg-slate-50">
-        <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
-          <Sparkles className="h-4 w-4 text-emerald-600" />
-        </div>
         <div>
           <h2 className="text-sm font-semibold text-foreground">Lawzy Assistant</h2>
           <p className="text-xs text-muted-foreground">Trợ lý AI phân tích và tra cứu</p>
@@ -72,9 +70,9 @@ export default function AssistantPage() {
               className={`flex gap-3 text-sm ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
             >
               <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-emerald-100 text-emerald-600"
+                msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-white text-black"
               }`}>
-                {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                {msg.role === "user" ? <User className="h-4 w-4" /> : <Image src="/logo/lawzy-triangle.png" alt="Lawzy" width={24} height={24} className="h-5 w-5 object-contain" />}
               </div>
               <div className={`px-4 py-2.5 rounded-2xl max-w-[80%] ${
                 msg.role === "user" 
@@ -89,8 +87,8 @@ export default function AssistantPage() {
           ))}
           {isTyping && (
             <div className="flex gap-3 text-sm flex-row">
-              <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                <Bot className="h-4 w-4" />
+              <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Image src="/logo/lawzy-triangle.png" alt="Lawzy" width={24} height={24} className="h-5 w-5 object-contain" />
               </div>
               <div className="px-4 py-2.5 rounded-2xl bg-muted text-foreground rounded-tl-none flex items-center gap-1">
                 <span className="animate-bounce h-1.5 w-1.5 bg-gray-400 rounded-full"></span>
