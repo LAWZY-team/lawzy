@@ -1,9 +1,8 @@
 export const AUTH_COOKIE = "auth_session" as const;
-export const DEFAULT_AFTER_LOGIN = "/hub" as const;
+export const DEFAULT_AFTER_LOGIN = "/clm/dashboard" as const;
 export const LOGIN_PATH = "/login" as const;
 
 export const PROTECTED_PREFIXES = [
-  "/hub",
   "/lpms",
   "/clm/dashboard",
   "/clm/documents",

@@ -5,7 +5,6 @@ import { Mail, Phone, MapPin, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/landing/language-provider";
 import { ContactForm } from "@/components/landing/contact-form";
 import { sectionContainer } from "@/components/landing/landing-section";
-import { ContactModalProvider } from "@/components/landing/contact-modal";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { Cta } from "@/components/landing/cta";
@@ -40,8 +39,7 @@ export default function ContactPage() {
   };
 
   return (
-    <ContactModalProvider>
-      <div className="landing-light min-h-screen bg-[#faf9f5]">
+    <div className="landing-light min-h-screen bg-[#faf9f5]">
         <LandingHeader />
         <main className={sectionContainer}>
           <div className="relative grid gap-12 pb-16 pt-[5.75rem] sm:grid-cols-[1fr_340px] sm:gap-16 sm:pb-20 sm:pt-28 md:pt-32 lg:grid-cols-[1fr_380px] lg:gap-20 lg:pb-24 lg:pt-36">
@@ -88,7 +86,6 @@ export default function ContactPage() {
           </div>
         </main>
         <LandingFooter />
-      </div>
-    </ContactModalProvider>
+    </div>
   );
 }

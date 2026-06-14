@@ -6,8 +6,8 @@ import { useI18n } from "./language-provider";
 import { Section, SectionHeader, sectionContainer } from "./landing-section";
 import FadeInOnScroll from "./fade-in-on-scroll";
 import { Button } from "@/components/ui/button";
-import { useContactModal } from "./contact-modal";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
   HOOK_DIAGNOSTIC_CONFIG,
   HOOK_INPUT_ORDER,
@@ -321,7 +321,6 @@ const ResultCard = ({
 
 export default function HookSection() {
   const { t } = useI18n();
-  const { open } = useContactModal();
   const [inputs, setInputs] = useState<HookInputState>(DEFAULT_INPUTS);
   const setInput = useCallback((key: HookInputKey, value: number) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -434,10 +433,12 @@ export default function HookSection() {
             </div>
             <Button
               size="lg"
-              className="h-auto min-h-12 w-full whitespace-normal px-6 py-3 text-center text-sm font-semibold leading-snug shadow-md shadow-orange-900/10 sm:text-base"
-              onClick={open}
+              className="h-auto min-h-12 w-full whitespace-normal shadow-md shadow-orange-900/10"
+              asChild
             >
-              {t("hook_cta")}
+              <Link href="/login" className="px-6 py-3 text-center text-sm font-semibold leading-snug sm:text-base">
+                {t("hook_cta")}
+              </Link>
             </Button>
           </div>
         </div>

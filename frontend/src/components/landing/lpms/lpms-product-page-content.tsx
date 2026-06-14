@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useI18n } from "../language-provider";
 import { sectionContainer } from "../landing-section";
 import { Button } from "@/components/ui/button";
-import { useContactModal } from "../contact-modal";
 import { LpmsPartnerFeaturesSection } from "./lpms-partner-features-section";
 import { cn } from "@/lib/utils";
 
 export function LpmsProductPageContent() {
   const { t } = useI18n();
-  const { open } = useContactModal();
 
   return (
     <>
@@ -28,8 +26,10 @@ export function LpmsProductPageContent() {
           <p className="mt-5 max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg md:text-xl">
             {t("product_lpms_page_subtitle")}
           </p>
-          <Button size="lg" className="mt-8 shadow-md shadow-orange-900/10" onClick={open}>
-            {t("product_lpms_cta")}
+          <Button size="lg" className="mt-8 shadow-md shadow-orange-900/10" asChild>
+            <Link href="/login?returnUrl=/lpms/dashboard">
+              {t("product_lpms_cta")}
+            </Link>
           </Button>
         </div>
       </section>
@@ -37,8 +37,10 @@ export function LpmsProductPageContent() {
       <section className="border-t border-zinc-800 bg-zinc-950 py-10 text-white sm:py-12">
         <div className={cn(sectionContainer, "flex flex-col items-center justify-between gap-6 sm:flex-row")}>
           <p className="max-w-xl text-center text-lg font-bold sm:text-left sm:text-xl">{t("product_footer_cta_title")}</p>
-          <Button variant="secondary" size="lg" className="shrink-0 bg-white text-zinc-900 hover:bg-zinc-100" onClick={open}>
-            {t("product_lpms_cta")}
+          <Button variant="secondary" size="lg" className="shrink-0 bg-white text-zinc-900 hover:bg-zinc-100" asChild>
+            <Link href="/login?returnUrl=/lpms/dashboard">
+              {t("product_lpms_cta")}
+            </Link>
           </Button>
         </div>
       </section>

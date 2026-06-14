@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "./language-provider";
-import { useContactModal } from "./contact-modal";
+import Link from "next/link";
 import { isLpmsContactPath } from "./contact-modal-intent";
 import { ChevronUp, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 export function FloatingActions() {
   const { t } = useI18n();
   const pathname = usePathname();
-  const { open } = useContactModal();
   const [showBackTop, setShowBackTop] = useState(false);
   const bookLabel = isLpmsContactPath(pathname) ? t("product_lpms_cta") : t("floating_book_demo");
 
@@ -39,9 +38,8 @@ export function FloatingActions() {
           <ChevronUp className="h-5 w-5 text-foreground" />
         </button>
       )}
-      <button
-        type="button"
-        onClick={open}
+      <Link
+        href="/login"
         aria-label={bookLabel}
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-full bg-orange-600 text-white shadow-lg shadow-orange-900/25 transition-all hover:bg-orange-700 hover:shadow-xl hover:shadow-orange-900/30",
@@ -49,7 +47,7 @@ export function FloatingActions() {
         )}
       >
         <Calendar className="h-5 w-5" />
-      </button>
+      </Link>
     </div>
   );
 }
