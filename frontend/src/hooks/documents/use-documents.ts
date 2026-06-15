@@ -44,14 +44,14 @@ export function useSharedDocuments(workspaceId?: string, opts?: { page?: number;
 
   return useQuery<PaginatedDocs>({
     queryKey: ['documents', 'shared', workspaceId ?? 'all', opts],
-    queryFn: () => api.get(`/documents/shared?${params.toString()}`),
+    queryFn: () => api.get(`/clm/documents/shared?${params.toString()}`),
   });
 }
 
 export function useDocument(id: string) {
   return useQuery({
     queryKey: ['documents', id],
-    queryFn: () => api.get<Record<string, unknown>>(`/documents/${id}`),
+    queryFn: () => api.get<Record<string, unknown>>(`/clm/documents/${id}`),
     enabled: !!id,
   });
 }
@@ -60,7 +60,7 @@ export function useCreateDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { title: string; type?: string; workspaceId?: string; templateId?: string; contentJSON?: unknown; visibility?: 'private' | 'workspace' }) =>
-      api.post('/documents', data),
+      api.post('/clm/documents', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   });
 }
@@ -69,7 +69,7 @@ export function useUpdateDocument() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; title?: string; status?: string; contentJSON?: unknown; metadata?: unknown; mergeFieldValues?: unknown }) =>
-      api.patch(`/documents/${id}`, data),
+      api.patch(`/clm/documents/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   });
 }
@@ -77,7 +77,7 @@ export function useUpdateDocument() {
 export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/documents/${id}`),
+    mutationFn: (id: string) => api.delete(`/clm/documents/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
   });
 }

@@ -59,7 +59,6 @@ export function FeatureCustomerBase() {
         >
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-600 text-xs font-bold text-white">LZ</div>
               <span className="text-sm font-semibold text-foreground">LAWZY</span>
             </div>
             <ArrowRight className={cn("h-5 w-5 text-orange-500 transition-transform", hovered && "translate-x-1")} />

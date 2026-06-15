@@ -24,7 +24,7 @@ export const useUploadEditorImage = () => {
       const formData = new FormData();
       formData.append("file", params.file);
       formData.append("workspaceId", params.workspaceId);
-      return api.upload<UploadEditorImageResult>("/files/upload", formData);
+      return api.upload<UploadEditorImageResult>("/clm/files/upload", formData);
     },
   });
 };

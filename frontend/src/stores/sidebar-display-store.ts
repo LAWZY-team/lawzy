@@ -5,33 +5,33 @@ import { persist } from "zustand/middleware"
 
 /** Hrefs of sidebar items that can be toggled (base nav only, not admin) */
 export const SIDEBAR_ITEM_HREFS = [
-  "/dashboard",
-  "/documents",
-  "/projects",
-  "/obligations",
-  "/fields",
-  "/templates",
-  "/sources",
-  "/files",
+  "/clm/dashboard",
+  "/clm/documents",
+  "/clm/projects",
+  "/clm/obligations",
+  "/clm/fields",
+  "/clm/templates",
+  "/clm/sources",
+  "/clm/files",
   "/payment",
-  "/workspace",
-  "/settings",
+  "/clm/workspace",
+  "/clm/settings",
 ] as const
 
 export type SidebarItemHref = (typeof SIDEBAR_ITEM_HREFS)[number]
 
 const DEFAULT_VISIBLE: SidebarItemHref[] = [
-  "/dashboard",
-  "/documents",
-  "/projects",
-  "/obligations",
-  "/fields",
-  "/templates",
-  "/sources",
-  "/files",
+  "/clm/dashboard",
+  "/clm/documents",
+  "/clm/projects",
+  "/clm/obligations",
+  "/clm/fields",
+  "/clm/templates",
+  "/clm/sources",
+  "/clm/files",
   "/payment",
-  "/workspace",
-  "/settings",
+  "/clm/workspace",
+  "/clm/settings",
 ]
 
 interface SidebarDisplayState {

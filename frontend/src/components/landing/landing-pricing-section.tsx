@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlans, filterPlansForDisplay } from "@/hooks/plans/use-plans";
-import { useContactModal } from "./contact-modal";
 import { PricingCard } from "@/components/pricing/pricing-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +14,6 @@ import { loginPathWithReturn } from "@/lib/auth";
 export default function LandingPricingSection() {
   const { t } = useI18n();
   const router = useRouter();
-  const { open } = useContactModal();
   const [billingYearly, setBillingYearly] = useState(false);
   const { data: plans, isLoading } = usePlans();
   const displayedPlans = useMemo(
@@ -25,7 +23,7 @@ export default function LandingPricingSection() {
 
   const handleSelectPlan = (_planId: string, _slug: string, plan: Plan) => {
     if (plan.contactSales) {
-      open();
+      router.push("/contact");
       return;
     }
     router.push(loginPathWithReturn("/payment"));

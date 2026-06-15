@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ContactModalProvider } from "@/components/landing/contact-modal";
 import LandingHeader from "@/components/landing/landing-header";
 import HeroSection from "@/components/landing/hero-section";
 import { NewsAndPressSection } from "@/components/landing/news-and-press-section";
@@ -50,8 +49,6 @@ function LandingPageContent() {
 
 export default function LandingPage() {
   return (
-    <ContactModalProvider>
-      <LandingPageContent />
-    </ContactModalProvider>
+    <LandingPageContent />
   );
 }

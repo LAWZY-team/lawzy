@@ -5,18 +5,15 @@ import { loginPathWithReturn } from "@/lib/auth";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { PricingSection } from "@/components/pricing/pricing-section";
-import { ContactModalProvider } from "@/components/landing/contact-modal";
-import { useContactModal } from "@/components/landing/contact-modal";
 import { sectionContainer } from "@/components/landing/landing-section";
 import type { Plan } from "@/types/plan";
 
 function PricingPageContent() {
   const router = useRouter();
-  const { open: openContact } = useContactModal();
 
   const handleSelectPlan = (_planId: string, _slug: string, plan: Plan) => {
     if (plan.contactSales) {
-      openContact();
+      router.push("/contact");
       return;
     }
     router.push(loginPathWithReturn("/payment"));
@@ -36,8 +33,6 @@ function PricingPageContent() {
 
 export default function PricingPage() {
   return (
-    <ContactModalProvider>
-      <PricingPageContent />
-    </ContactModalProvider>
+    <PricingPageContent />
   );
 }
