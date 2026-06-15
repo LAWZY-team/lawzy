@@ -158,7 +158,7 @@ export function useWorkspaceBreakdown() {
   return useQuery<WorkspaceBreakdown[]>({
     queryKey: ['dashboard', 'workspace-breakdown'],
     queryFn: async () => {
-      const raw = await api.get<WorkspaceBreakdownApi[]>('/dashboard/workspace-breakdown');
+      const raw = await api.get<WorkspaceBreakdownApi[]>('/clm/dashboard/workspace-breakdown');
       return (raw ?? []).map((r) => ({ name: r.workspaceName, value: r.documentCount }));
     },
   });

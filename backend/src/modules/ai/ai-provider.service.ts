@@ -35,9 +35,7 @@ export class AiProviderService {
       try {
         // Bulletproof ADC initialization: write to a temporary file and set env var
         const tempPath = path.join(process.cwd(), '.gcp-creds.json');
-        if (!fs.existsSync(tempPath)) {
-          fs.writeFileSync(tempPath, JSON.stringify(config.credentials));
-        }
+        fs.writeFileSync(tempPath, JSON.stringify(config.credentials));
         process.env.GOOGLE_APPLICATION_CREDENTIALS = tempPath;
 
         this.vertexClient = new GoogleGenAI({
@@ -77,6 +75,11 @@ export class AiProviderService {
 
   public getModelName(): string {
     return getLlmConfig().model;
+  }
+
+  public markVertexAuthFailed() {
+    this.vertexAuthFailed = true;
+    this.logger.warn('Vertex AI authentication failure manually flagged.');
   }
 
   /**

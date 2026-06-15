@@ -195,7 +195,7 @@ export async function executeTool(
       if (!sourceId) {
         return { error: 'Thiếu sourceId' }
       }
-      const res = await fetchBackend(`/sources/${encodeURIComponent(sourceId)}`, context)
+      const res = await fetchBackend(`/clm/sources/${encodeURIComponent(sourceId)}`, context)
       if (!res.ok) {
         return { error: res.error || 'Không thể lấy nội dung nguồn' }
       }
@@ -223,7 +223,7 @@ export async function executeTool(
       }
       const topK = typeof args.topK === 'number' ? Math.min(args.topK, 20) : 10
       const searchRes = await fetchBackendPost(
-        `/sources/semantic-search`,
+        `/clm/sources/semantic-search`,
         {
           query,
           workspaceId,
@@ -262,7 +262,7 @@ export async function executeTool(
       if (citeWorkspaceId) {
         try {
           const ragRes = await fetchBackendPost(
-            `/sources/semantic-search`,
+            `/clm/sources/semantic-search`,
             {
               query,
               workspaceId: citeWorkspaceId,

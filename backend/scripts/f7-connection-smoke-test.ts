@@ -41,7 +41,8 @@ async function runTest() {
     code: 'GP-AIRPORT-2026',
     workspaceId: workspace.id,
   });
-  console.log(`Dự án đã tạo: ${project.name} (${project.code})`);
+  const projectId = String(project.id);
+  console.log(`Dự án đã tạo: ${project.name} (${project.cm_number})`);
 
   let doc1Id: string | null = null;
   let doc2Id: string | null = null;
@@ -54,11 +55,11 @@ async function runTest() {
       workspaceId: workspace.id,
       createdBy: user.id,
       status: 'draft',
-      projectId: project.id,
+      projectId,
     });
     doc1Id = doc1.id;
     console.log(`Tài liệu 1 được tạo với ID: ${doc1Id}, projectId: ${doc1.projectId}`);
-    if (doc1.projectId !== project.id) {
+    if (doc1.projectId !== projectId) {
       throw new Error('Gán projectId khi tạo tài liệu thất bại.');
     }
     console.log('✅ [PASS] Gán projectId khi tạo tài liệu thành công.');
@@ -78,13 +79,13 @@ async function runTest() {
     const updatedDoc2 = await documentsService.update(
       doc2Id,
       {
-        projectId: project.id,
+        projectId,
         parentId: doc1Id,
       },
       user.id,
     );
     console.log(`Tài liệu 2 sau cập nhật: projectId: ${updatedDoc2.projectId}, parentId: ${updatedDoc2.parentId}`);
-    if (updatedDoc2.projectId !== project.id || updatedDoc2.parentId !== doc1Id) {
+    if (updatedDoc2.projectId !== projectId || updatedDoc2.parentId !== doc1Id) {
       throw new Error('Cập nhật projectId và parentId thất bại.');
     }
     console.log('✅ [PASS] Cập nhật projectId và parentId thành công.');
@@ -113,7 +114,7 @@ async function runTest() {
     console.log('\n7. Dọn dẹp dữ liệu kiểm thử...');
     if (doc2Id) await prisma.document.delete({ where: { id: doc2Id } }).catch(() => {});
     if (doc1Id) await prisma.document.delete({ where: { id: doc1Id } }).catch(() => {});
-    await prisma.project.delete({ where: { id: project.id } }).catch(() => {});
+    await prisma.project.delete({ where: { id: projectId } }).catch(() => {});
     await prisma.workspaceMember.deleteMany({ where: { userId: user.id } }).catch(() => {});
     await prisma.workspace.delete({ where: { id: workspace.id } }).catch(() => {});
     await prisma.user.delete({ where: { id: user.id } }).catch(() => {});

@@ -52,8 +52,8 @@ export const landingVi = {
   product_lpms_page_subtitle:
     "LPMS của Lawzy hỗ trợ law firm số hóa vận hành, quản lý công việc pháp lý theo chuẩn và nâng cao hiệu suất cộng tác của đội ngũ.",
   product_back_home: "Quay lại trang chủ",
-  product_request_demo: "Đặt lịch demo",
-  product_lpms_cta: "Trở thành đối tác",
+  product_request_demo: "Dùng thử",
+  product_lpms_cta: "Dùng thử",
   product_how_teams_use: "Cách đội ngũ sử dụng Lawzy",
   product_use_case_1_title: "Tổng hợp thông tin",
   product_use_case_1_desc:
@@ -549,8 +549,8 @@ export const landingEn = {
   product_lpms_page_subtitle:
     "Lawzy LPMS enables law firms to digitize operations, manage legal work systematically, and improve collaboration efficiency.",
   product_back_home: "Back to home",
-  product_request_demo: "Request a Demo",
-  product_lpms_cta: "Become a partner",
+  product_request_demo: "Try demo",
+  product_lpms_cta: "Try demo",
   product_how_teams_use: "How teams use Lawzy",
   product_use_case_1_title: "Information synthesis",
   product_use_case_1_desc:

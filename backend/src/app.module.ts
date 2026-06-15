@@ -25,10 +25,13 @@ import { AiModule } from './modules/ai/ai.module';
 import { SourceProcessingModule } from './modules/source-processing/source-processing.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { ObligationsModule } from './modules/obligations/obligations.module';
+import { LpmsAiModule } from './modules/lpms-ai/lpms-ai.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
@@ -52,6 +55,7 @@ import { ObligationsModule } from './modules/obligations/obligations.module';
     SourceProcessingModule,
     ProjectsModule,
     ObligationsModule,
+    LpmsAiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

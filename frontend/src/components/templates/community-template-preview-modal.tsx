@@ -102,7 +102,7 @@ export function CommunityTemplatePreviewModal({
           <div className="flex items-center gap-2 shrink-0">
             {file.hasStructuredContent && (
               <Button variant="secondary" size="sm" asChild>
-                <Link href={`/editor/new?contractTemplate=${file.id}&contractTemplateScope=${scope}`}>
+                <Link href={`/clm/editor/new?contractTemplate=${file.id}&contractTemplateScope=${scope}`}>
                   {t("tmpl_use_this")}
                 </Link>
               </Button>

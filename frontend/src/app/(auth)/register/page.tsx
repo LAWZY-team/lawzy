@@ -174,7 +174,7 @@ export default function RegisterPage() {
         }
         setUser(data.user);
         toast.success(t("auth_register_toast_google_success"));
-        router.push("/dashboard");
+        router.push("/clm/dashboard");
       } catch {
         setError(t("auth_error_connection"));
       } finally {

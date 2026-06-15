@@ -575,7 +575,7 @@ export function CanvasEditor({
           );
           form.append("workspaceId", workspaceId);
           if (documentId) form.append("documentId", documentId);
-          await api.upload("/files/upload-export", form);
+          await api.upload("/clm/files/upload-export", form);
           queryClient.invalidateQueries({ queryKey: ["files"] });
           queryClient.invalidateQueries({
             queryKey: ["files", "storage", workspaceId],

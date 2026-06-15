@@ -38,7 +38,7 @@ export const useAdminSources = (opts?: { page?: number; limit?: number; scope?: 
 
   return useQuery<PaginatedAdminSources>({
     queryKey: ['admin-sources', opts],
-    queryFn: () => api.get(`/admin/sources?${params.toString()}`),
+    queryFn: () => api.get(`/clm/admin/sources?${params.toString()}`),
     refetchInterval: (query) => {
       const list = query.state.data?.data ?? []
       if (list.length === 0) return false
@@ -53,7 +53,7 @@ export const useAdminSources = (opts?: { page?: number; limit?: number; scope?: 
 export const useDeleteAdminSource = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/admin/sources/${id}`),
+    mutationFn: (id: string) => api.delete(`/clm/admin/sources/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-sources'] })
       qc.invalidateQueries({ queryKey: ['admin-source-chunks'] })
@@ -64,7 +64,7 @@ export const useDeleteAdminSource = () => {
 export const useAdminSourceChunks = (sourceId: string | null, enabled: boolean) => {
   return useQuery<{ chunks: WorkspaceSourceChunk[] }>({
     queryKey: ['admin-source-chunks', sourceId],
-    queryFn: () => api.get(`/admin/sources/chunks/${sourceId}`),
+    queryFn: () => api.get(`/clm/admin/sources/chunks/${sourceId}`),
     enabled: enabled && !!sourceId,
   })
 }
@@ -72,7 +72,7 @@ export const useAdminSourceChunks = (sourceId: string | null, enabled: boolean) 
 export const useReprocessAdminSource = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post(`/admin/sources/${id}/reprocess`),
+    mutationFn: (id: string) => api.post(`/clm/admin/sources/${id}/reprocess`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-sources'] })
       qc.invalidateQueries({ queryKey: ['admin-source-chunks'] })

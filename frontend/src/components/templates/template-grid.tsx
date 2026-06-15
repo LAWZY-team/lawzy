@@ -80,7 +80,7 @@ export function TemplateGrid({
                     </Button>
                   ) : (
                     <Button size="sm" className={cn(compact && "flex-1")} asChild>
-                      <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
+                      <Link href={`/clm/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
                     </Button>
                   )
                 )}
@@ -130,7 +130,7 @@ export function TemplateGrid({
                   </Button>
                 ) : (
                   <Button asChild className="flex-1">
-                    <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
+                    <Link href={`/clm/editor/new?template=${template.id}`}>{t("tmpl_use")}</Link>
                   </Button>
                 )
               )}

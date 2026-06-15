@@ -33,7 +33,7 @@ export function TemplateDetailSplit({ template, onClose }: TemplateDetailSplitPr
         <h3 className="font-semibold truncate">{template.title}</h3>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/editor/new?template=${template.id}`}>{t("tmpl_use_this")}</Link>
+            <Link href={`/clm/editor/new?template=${template.id}`}>{t("tmpl_use_this")}</Link>
           </Button>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("common_close")}>
             <X className="h-4 w-4" />

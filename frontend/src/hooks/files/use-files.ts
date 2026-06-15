@@ -50,7 +50,7 @@ export function useUploadFile() {
       const formData = new FormData();
       formData.append('file', data.file);
       formData.append('workspaceId', data.workspaceId);
-      return api.upload('/files/upload', formData);
+      return api.upload('/clm/files/upload', formData);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
   });
@@ -59,7 +59,7 @@ export function useUploadFile() {
 export function useDeleteFile() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/files/${id}`),
+    mutationFn: (id: string) => api.delete(`/clm/files/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['files'] }),
   });
 }
@@ -67,7 +67,7 @@ export function useDeleteFile() {
 export function useStorageUsed(workspaceId: string) {
   return useQuery<{ bytes: number; limitBytes?: number }>({
     queryKey: ['files', 'storage', workspaceId],
-    queryFn: () => api.get(`/files/storage/${workspaceId}`),
+    queryFn: () => api.get(`/clm/files/storage/${workspaceId}`),
     enabled: !!workspaceId,
   });
 }

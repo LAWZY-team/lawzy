@@ -1,19 +1,20 @@
 export const AUTH_COOKIE = "auth_session" as const;
-export const DEFAULT_AFTER_LOGIN = "/dashboard" as const;
+export const DEFAULT_AFTER_LOGIN = "/clm/dashboard" as const;
 export const LOGIN_PATH = "/login" as const;
 
 export const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/documents",
-  "/editor",
-  "/fields",
-  "/settings",
-  "/templates",
-  "/workspace",
-  "/files",
+  "/lpms",
+  "/clm/dashboard",
+  "/clm/documents",
+  "/clm/editor",
+  "/clm/fields",
+  "/clm/settings",
+  "/clm/templates",
+  "/clm/workspace",
+  "/clm/files",
   "/payment",
-  "/sources",
-  "/admin",
+  "/clm/sources",
+  "/clm/admin",
 ] as const;
 
 export const AUTH_PAGE_PREFIXES = [

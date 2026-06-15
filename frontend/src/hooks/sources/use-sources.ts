@@ -70,7 +70,7 @@ export function useUploadSource() {
       formData.append('type', data.type);
       formData.append('workspaceId', data.workspaceId);
       if (data.tags) formData.append('tags', JSON.stringify(data.tags));
-      return api.upload('/sources', formData);
+      return api.upload('/clm/sources', formData);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sources'] }),
   });
@@ -79,7 +79,7 @@ export function useUploadSource() {
 export function useDeleteSource() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/sources/${id}`),
+    mutationFn: (id: string) => api.delete(`/clm/sources/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sources'] });
       qc.invalidateQueries({ queryKey: ['workspace-source-detail'] });
@@ -91,7 +91,7 @@ export function useDeleteSource() {
 export function useWorkspaceSourceDetail(sourceId: string | null, enabled: boolean) {
   return useQuery<WorkspaceSourceDetail>({
     queryKey: ['workspace-source-detail', sourceId],
-    queryFn: () => api.get(`/sources/${sourceId}`),
+    queryFn: () => api.get(`/clm/sources/${sourceId}`),
     enabled: enabled && !!sourceId,
   });
 }
@@ -99,7 +99,7 @@ export function useWorkspaceSourceDetail(sourceId: string | null, enabled: boole
 export function useWorkspaceSourceChunks(sourceId: string | null, enabled: boolean) {
   return useQuery<{ chunks: WorkspaceSourceChunk[] }>({
     queryKey: ['workspace-source-chunks', sourceId],
-    queryFn: () => api.get(`/sources/chunks/${sourceId}`),
+    queryFn: () => api.get(`/clm/sources/chunks/${sourceId}`),
     enabled: enabled && !!sourceId,
   });
 }

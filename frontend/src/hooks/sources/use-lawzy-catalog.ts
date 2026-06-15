@@ -34,7 +34,7 @@ export const useLawzyCatalog = (
   if (opts?.limit) params.set("limit", String(opts.limit))
   return useQuery<LawzyCatalogResponse>({
     queryKey: ["lawzy-catalog", workspaceId, opts],
-    queryFn: () => api.get(`/sources/lawzy-catalog?${params.toString()}`),
+    queryFn: () => api.get(`/clm/sources/lawzy-catalog?${params.toString()}`),
     enabled: !!workspaceId,
     refetchInterval: (query) => {
       const list = query.state.data?.data ?? []
