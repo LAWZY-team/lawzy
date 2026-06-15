@@ -31,4 +31,4 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/tls ./tls
 
 EXPOSE 5000
-CMD ["sh", "-c", "npx prisma migrate deploy && (node prisma/seed.js || true) && exec node dist/src/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && (node prisma/seed.js || true) && exec node dist/main"]
