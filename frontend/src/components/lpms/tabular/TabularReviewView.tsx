@@ -42,16 +42,9 @@ import { AddDocumentsModal } from "../shared/AddDocumentsModal";
 import { AddProjectDocsModal } from "../shared/AddProjectDocsModal";
 import { PeopleModal } from "../shared/PeopleModal";
 import { OwnerOnlyModal } from "../shared/OwnerOnlyModal";
-import { ApiKeyMissingModal } from "../shared/ApiKeyMissingModal";
 import { ConfirmPopup } from "../shared/ConfirmPopup";
 import { HeaderActionsMenu } from "../shared/HeaderActionsMenu";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserProfile } from "@/contexts/UserProfileContext";
-import {
-    getModelProvider,
-    isModelAvailable,
-    type ModelProvider,
-} from "@/app/lib/modelAvailability";
 import { TRSidePanel } from "./TRSidePanel";
 import { TRTable } from "./TRTable";
 import type { TRTableHandle } from "./TRTable";
@@ -110,14 +103,9 @@ export function TRView({ reviewId, projectId }: Props) {
             : null,
     );
     const [highlightedCell, setHighlightedCell] = useState<{ colIdx: number; rowIdx: number } | null>(null);
-    const [apiKeyModalProvider, setApiKeyModalProvider] =
-        useState<ModelProvider | null>(null);
     const actionsRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<TRTableHandle>(null);
     const router = useRouter();
-    const { profile } = useUserProfile();
-    const apiKeys = profile?.apiKeys;
-    const tabularModel = profile?.tabularModel ?? "gemini-3-flash-preview";
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -245,11 +233,6 @@ export function TRView({ reviewId, projectId }: Props) {
     }
 
     async function handleRegenerateCell(docId: string, colIndex: number) {
-        if (apiKeys && !isModelAvailable(tabularModel, apiKeys)) {
-            setApiKeyModalProvider(getModelProvider(tabularModel));
-            return;
-        }
-
         setCells((prev) =>
             prev.map((c) =>
                 c.document_id === docId && c.column_index === colIndex
@@ -301,25 +284,12 @@ export function TRView({ reviewId, projectId }: Props) {
         // If columns changed since last save, update the review first
         if (columns.length === 0) return;
 
-        if (apiKeys && !isModelAvailable(tabularModel, apiKeys)) {
-            setApiKeyModalProvider(getModelProvider(tabularModel));
-            return;
-        }
-
         setGenerating(true);
 
         try {
             const response = await streamTabularGeneration(reviewId);
             if (!response.ok) {
                 const payload = await response.json().catch(() => null);
-                const provider =
-                    payload &&
-                    ["claude", "gemini", "openai"].includes(payload.provider)
-                        ? (payload.provider as ModelProvider)
-                        : getModelProvider(tabularModel);
-                if (payload?.code === "missing_api_key" && provider) {
-                    setApiKeyModalProvider(provider);
-                }
                 throw new Error(
                     payload?.detail ?? `Generation failed: ${response.status}`,
                 );
@@ -580,8 +550,8 @@ export function TRView({ reviewId, projectId }: Props) {
             setTimeout(() => {
                 router.push(
                     projectId
-                        ? `/projects/${projectId}?tab=reviews`
-                        : "/tabular-reviews",
+                        ? `/lpms/matters/${projectId}/tabular-analysis`
+                        : "/lpms/tabular-analysis",
                 );
             }, 250);
         } catch (err) {
@@ -648,8 +618,8 @@ export function TRView({ reviewId, projectId }: Props) {
                         ...(projectId
                             ? [
                                   {
-                                      label: "Projects",
-                                      onClick: () => router.push("/projects"),
+                                      label: "Matters",
+                                      onClick: () => router.push("/lpms/matters"),
                                   },
                                   loading
                                       ? {
@@ -657,24 +627,24 @@ export function TRView({ reviewId, projectId }: Props) {
                                             skeletonClassName: "w-32",
                                             onClick: () =>
                                                 router.push(
-                                                    `/projects/${projectId}?tab=reviews`,
+                                                    `/lpms/matters/${projectId}/tabular-analysis`,
                                                 ),
-                                            title: "Back to project",
+                                            title: "Back to matter",
                                         }
                                       : {
                                             label: project?.name ?? "",
                                             onClick: () =>
                                                 router.push(
-                                                    `/projects/${projectId}?tab=reviews`,
+                                                    `/lpms/matters/${projectId}/tabular-analysis`,
                                                 ),
-                                            title: "Back to project",
+                                            title: "Back to matter",
                                         },
                               ]
                             : [
                                   {
-                                      label: "Tabular Reviews",
-                                      onClick: () => router.push("/tabular-reviews"),
-                                      title: "Back to Tabular Reviews",
+                                      label: "Bóc tách hàng loạt",
+                                      onClick: () => router.push("/lpms/tabular-analysis"),
+                                      title: "Back to tabular reviews",
                                   },
                               ]),
                         loading
@@ -1103,12 +1073,6 @@ export function TRView({ reviewId, projectId }: Props) {
                 open={!!ownerOnlyAction}
                 action={ownerOnlyAction ?? undefined}
                 onClose={() => setOwnerOnlyAction(null)}
-            />
-
-            <ApiKeyMissingModal
-                open={apiKeyModalProvider !== null}
-                provider={apiKeyModalProvider}
-                onClose={() => setApiKeyModalProvider(null)}
             />
         </div>
     );

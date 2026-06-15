@@ -215,10 +215,12 @@ model Document {
   // F7: Project and Hierarchy relations
   projectId        String?          @map("project_id")
   parentId         String?          @map("parent_id")
+  folderId         String?          @map("folder_id")
   
   project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   parent           Document?        @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children         Document[]       @relation("DocumentHierarchy")
+  folder           ProjectFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
   
   incomingLinks    DocumentLink[]   @relation("TargetDocument")
   outgoingLinks    DocumentLink[]   @relation("SourceDocument")
@@ -234,6 +236,7 @@ model Document {
   @@index([visibility])
   @@index([projectId])
   @@index([parentId])
+  @@index([folderId])
   @@map("documents")
 }
 
@@ -579,22 +582,62 @@ model LpmsWorkflow {
   @@map("lpms_workflows")
 }
 
+model LpmsWorkflowShare {
+  id              String   @id @default(uuid())
+  workflowId      String   @map("workflow_id")
+  sharedWithEmail String   @map("shared_with_email")
+  allowEdit       Boolean  @default(false) @map("allow_edit")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("lpms_workflow_shares")
+}
+
+model LpmsHiddenWorkflow {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  workflowId String   @map("workflow_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, workflowId])
+  @@map("lpms_hidden_workflows")
+}
+
 model Project {
   id           String      @id @default(uuid())
   workspaceId  String      @map("workspace_id")
+  createdBy    String?     @map("created_by")
   name         String
   code         String      @map("code")
   description  String?     @db.Text
+  sharedWith   Json?       @map("shared_with")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   documents      Document[]
   tabularReviews TabularReview[]
   lpmsChats      LpmsChat[]
+  folders        ProjectFolder[]
 
   @@unique([workspaceId, code])
   @@map("projects")
+}
+
+model ProjectFolder {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  userId         String   @map("user_id")
+  name           String
+  parentFolderId String?  @map("parent_folder_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   ProjectFolder? @relation("ProjectFolderTree", fields: [parentFolderId], references: [id], onDelete: SetNull)
+  children ProjectFolder[] @relation("ProjectFolderTree")
+  documents Document[]
+
+  @@map("project_folders")
 }
 
 model LpmsChat {

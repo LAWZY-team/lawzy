@@ -6,6 +6,13 @@ import { SourceProcessingService } from '../source-processing/source-processing.
 import { BUILTIN_WORKFLOWS } from './builtin-workflows';
 import type { Response } from 'express';
 import { FilesService } from '../files/files.service';
+import {
+  serializeTabularCell,
+  serializeTabularReview,
+  serializeWorkflow,
+  serializeDocument,
+  serializeLpmsChat,
+} from './lpms-serializer';
 
 export interface ColumnConfig {
   index: number;
@@ -99,7 +106,10 @@ export class LpmsAiService {
       ? BUILTIN_WORKFLOWS.filter(w => w.type === type)
       : BUILTIN_WORKFLOWS;
 
-    return [...custom, ...system];
+    return [
+      ...custom.map((w) => serializeWorkflow(w as unknown as Record<string, unknown>)),
+      ...system.map((w) => serializeWorkflow(w as unknown as Record<string, unknown>)),
+    ];
   }
 
   async createWorkflow(userId: string, workspaceId: string, data: {
@@ -117,7 +127,7 @@ export class LpmsAiService {
       throw new BadRequestException("type must be 'assistant' or 'tabular'");
     }
 
-    return this.prisma.lpmsWorkflow.create({
+    const created = await this.prisma.lpmsWorkflow.create({
       data: {
         userId,
         title: data.title.trim(),
@@ -128,6 +138,7 @@ export class LpmsAiService {
         isSystem: false,
       },
     });
+    return serializeWorkflow(created as unknown as Record<string, unknown>);
   }
 
   async getWorkflow(userId: string, workspaceId: string, workflowId: string) {
@@ -135,7 +146,7 @@ export class LpmsAiService {
     
     // Check builtins first
     const builtin = BUILTIN_WORKFLOWS.find(w => w.id === workflowId);
-    if (builtin) return builtin;
+    if (builtin) return serializeWorkflow(builtin as unknown as Record<string, unknown>);
 
     const wf = await this.prisma.lpmsWorkflow.findUnique({
       where: { id: workflowId },
@@ -145,7 +156,7 @@ export class LpmsAiService {
       throw new NotFoundException('Workflow not found');
     }
 
-    return wf;
+    return serializeWorkflow(wf as unknown as Record<string, unknown>);
   }
 
   async updateWorkflow(userId: string, workspaceId: string, workflowId: string, updates: any) {
@@ -157,7 +168,7 @@ export class LpmsAiService {
       throw new NotFoundException('Workflow not found or not editable');
     }
 
-    return this.prisma.lpmsWorkflow.update({
+    const updated = await this.prisma.lpmsWorkflow.update({
       where: { id: workflowId },
       data: {
         ...(updates.title !== undefined && { title: updates.title }),
@@ -166,6 +177,7 @@ export class LpmsAiService {
         ...(updates.practice !== undefined && { practice: updates.practice }),
       },
     });
+    return serializeWorkflow(updated as unknown as Record<string, unknown>);
   }
 
   async deleteWorkflow(userId: string, workspaceId: string, workflowId: string) {
@@ -181,15 +193,107 @@ export class LpmsAiService {
     return { success: true };
   }
 
+  async listHiddenWorkflows(userId: string, workspaceId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    const rows = await this.prisma.lpmsHiddenWorkflow.findMany({
+      where: { userId },
+      select: { workflowId: true },
+    });
+    return rows.map((r) => r.workflowId);
+  }
+
+  async hideWorkflow(userId: string, workspaceId: string, workflowId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    await this.prisma.lpmsHiddenWorkflow.upsert({
+      where: { userId_workflowId: { userId, workflowId } },
+      create: { userId, workflowId },
+      update: {},
+    });
+    return { success: true };
+  }
+
+  async unhideWorkflow(userId: string, workspaceId: string, workflowId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    await this.prisma.lpmsHiddenWorkflow.deleteMany({
+      where: { userId, workflowId },
+    });
+    return { success: true };
+  }
+
+  async shareWorkflow(
+    userId: string,
+    workspaceId: string,
+    workflowId: string,
+    emails: string[],
+    allowEdit: boolean,
+  ) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    const wf = await this.prisma.lpmsWorkflow.findUnique({ where: { id: workflowId } });
+    if (!wf || wf.userId !== userId) {
+      throw new NotFoundException('Workflow not found');
+    }
+    for (const email of emails) {
+      const normalized = email.trim().toLowerCase();
+      if (!normalized) continue;
+      const existing = await this.prisma.lpmsWorkflowShare.findFirst({
+        where: { workflowId, sharedWithEmail: normalized },
+      });
+      if (existing) {
+        await this.prisma.lpmsWorkflowShare.update({
+          where: { id: existing.id },
+          data: { allowEdit },
+        });
+      } else {
+        await this.prisma.lpmsWorkflowShare.create({
+          data: { workflowId, sharedWithEmail: normalized, allowEdit },
+        });
+      }
+    }
+    return { success: true };
+  }
+
+  async listWorkflowShares(userId: string, workspaceId: string, workflowId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    const shares = await this.prisma.lpmsWorkflowShare.findMany({
+      where: { workflowId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return shares.map((s) => ({
+      id: s.id,
+      shared_with_email: s.sharedWithEmail,
+      allow_edit: s.allowEdit,
+      created_at: s.createdAt.toISOString(),
+    }));
+  }
+
+  async deleteWorkflowShare(
+    userId: string,
+    workspaceId: string,
+    workflowId: string,
+    shareId: string,
+  ) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    await this.prisma.lpmsWorkflowShare.deleteMany({
+      where: { id: shareId, workflowId },
+    });
+    return { success: true };
+  }
+
   // Tabular Reviews
   async listReviews(userId: string, workspaceId: string, projectId?: string) {
     await this.workspaceAccess.requireMembership(workspaceId, userId);
-    return this.prisma.tabularReview.findMany({
+    const reviews = await this.prisma.tabularReview.findMany({
       where: {
         workspaceId,
         ...(projectId && { projectId }),
       },
       orderBy: { createdAt: 'desc' },
+    });
+    return reviews.map((r) => {
+      const docIds = (r.documentIds as unknown as string[]) ?? [];
+      return serializeTabularReview(r as unknown as Record<string, unknown>, {
+        document_count: docIds.length,
+      });
     });
   }
 
@@ -235,7 +339,10 @@ export class LpmsAiService {
       await this.prisma.tabularCell.createMany({ data: cells });
     }
 
-    return review;
+    const docIds = (review.documentIds as unknown as string[]) ?? [];
+    return serializeTabularReview(review as unknown as Record<string, unknown>, {
+      document_count: docIds.length,
+    });
   }
 
   async getReview(userId: string, workspaceId: string, id: string) {
@@ -264,9 +371,15 @@ export class LpmsAiService {
     });
 
     return {
-      review,
-      cells: review.cells,
-      documents,
+      review: serializeTabularReview(review as unknown as Record<string, unknown>, {
+        document_count: docIds.length,
+      }),
+      cells: review.cells.map((c) =>
+        serializeTabularCell(c as unknown as Record<string, unknown>),
+      ),
+      documents: documents.map((d) =>
+        serializeDocument(d as unknown as Record<string, unknown>),
+      ),
     };
   }
 
@@ -286,6 +399,7 @@ export class LpmsAiService {
         ...(updates.columnsConfig !== undefined && { columnsConfig: updates.columnsConfig }),
         ...(updates.documentIds !== undefined && { documentIds: updates.documentIds }),
         ...(updates.projectId !== undefined && { projectId: updates.projectId }),
+        ...(updates.sharedWith !== undefined && { sharedWith: updates.sharedWith }),
       },
     });
 
@@ -330,7 +444,41 @@ export class LpmsAiService {
       }
     }
 
-    return updated;
+    const docIds = (updated.documentIds as unknown as string[]) ?? [];
+    return serializeTabularReview(updated as unknown as Record<string, unknown>, {
+      document_count: docIds.length,
+    });
+  }
+
+  async getReviewPeople(userId: string, workspaceId: string, reviewId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+    const review = await this.prisma.tabularReview.findFirst({
+      where: { id: reviewId, workspaceId },
+    });
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+    const owner = await this.prisma.user.findUnique({
+      where: { id: review.userId },
+      select: { id: true, email: true, name: true },
+    });
+    const sharedEmails = (review.sharedWith as string[] | null) ?? [];
+    const members = await this.prisma.user.findMany({
+      where: { email: { in: sharedEmails } },
+      select: { email: true, name: true },
+    });
+    const memberByEmail = new Map(members.map((m) => [m.email, m.name]));
+    return {
+      owner: {
+        user_id: owner?.id ?? review.userId,
+        email: owner?.email ?? null,
+        display_name: owner?.name ?? null,
+      },
+      members: sharedEmails.map((email) => ({
+        email,
+        display_name: memberByEmail.get(email) ?? null,
+      })),
+    };
   }
 
   async deleteReview(userId: string, workspaceId: string, id: string) {
@@ -552,6 +700,7 @@ The "summary" field must contain only the extracted value with inline citations 
 
     const review = await this.prisma.tabularReview.findFirst({
       where: { id: reviewId, workspaceId },
+      include: { cells: true },
     });
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -567,6 +716,10 @@ The "summary" field must contain only the extracted value with inline citations 
       where: { id: { in: docIds }, workspaceId },
     });
 
+    const cellMap = new Map(
+      review.cells.map((c) => [`${c.documentId}:${c.columnIndex}`, c]),
+    );
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -576,32 +729,39 @@ The "summary" field must contain only the extracted value with inline citations 
     const write = (line: string) => res.write(line);
 
     try {
-      for (const doc of documents) {
-        const docId = doc.id;
-        const documentText = await this.getDocumentText(docId);
-        
-        // Mark columns as generating
-        for (const col of columns) {
-          write(`data: ${JSON.stringify({ type: "cell_update", document_id: docId, column_index: col.index, content: null, status: "generating" })}\n\n`);
-          await this.prisma.tabularCell.updateMany({
-            where: { reviewId, documentId: docId, columnIndex: col.index },
-            data: { status: 'generating', content: null },
+      await Promise.all(
+        documents.map(async (doc) => {
+          const docId = doc.id;
+          const documentText = await this.getDocumentText(docId);
+
+          const columnsToProcess = columns.filter((col) => {
+            const cell = cellMap.get(`${docId}:${col.index}`);
+            return !(cell?.status === 'done' && cell?.content);
           });
-        }
+          if (columnsToProcess.length === 0) return;
 
-        // Generate results column-by-column stream
-        const client = this.aiProvider.getClient();
-        const model = this.aiProvider.getModelName();
+          for (const col of columnsToProcess) {
+            write(
+              `data: ${JSON.stringify({ type: 'cell_update', document_id: docId, column_index: col.index, content: null, status: 'generating' })}\n\n`,
+            );
+            await this.prisma.tabularCell.updateMany({
+              where: { reviewId, documentId: docId, columnIndex: col.index },
+              data: { status: 'generating', content: null },
+            });
+          }
 
-        const columnsDesc = columns
-          .map((col) => {
-            const suffix = this.formatPromptSuffix(col.format, col.tags);
-            const fullPrompt = `${col.prompt}${suffix} If not found, state "Not Found".`;
-            return `Column ${col.index} — "${col.name}": ${fullPrompt}`;
-          })
-          .join('\n');
+          const client = this.aiProvider.getClient();
+          const model = this.aiProvider.getModelName();
 
-        const SYSTEM = `You are a legal document analyst. Extract information for each column listed below.
+          const columnsDesc = columnsToProcess
+            .map((col) => {
+              const suffix = this.formatPromptSuffix(col.format, col.tags);
+              const fullPrompt = `${col.prompt}${suffix} If not found, state "Not Found".`;
+              return `Column ${col.index} — "${col.name}": ${fullPrompt}`;
+            })
+            .join('\n');
+
+          const SYSTEM = `You are a legal document analyst. Extract information for each column listed below.
 
 For each column, output exactly one minified JSON object on its own line (no line breaks inside the JSON), then a newline. Process columns in order and output each result as soon as you finish it.
 
@@ -614,55 +774,70 @@ Rules:
 - "reasoning": brief explanation of the extraction
 - Output ONLY the JSON lines themselves. Do NOT wrap the response in markdown code fences (e.g. \`\`\`json), and do not add any preamble or summary.`;
 
-        const responseStream = await client.models.generateContentStream({
-          model,
-          contents: `Document: ${doc.title}\n\n${documentText.slice(0, 120000)}\n\n---\nColumns to extract:\n${columnsDesc}`,
-          config: {
-            systemInstruction: SYSTEM,
-          },
-        });
+          const receivedColumns = new Set<number>();
 
-        let buffer = '';
-        for await (const chunk of responseStream) {
-          buffer += chunk.text;
-          let newlineIdx: number;
-          while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-            const line = buffer.slice(0, newlineIdx).trim();
-            buffer = buffer.slice(newlineIdx + 1);
+          try {
+            const responseStream = await client.models.generateContentStream({
+              model,
+              contents: `Document: ${doc.title}\n\n${documentText.slice(0, 120000)}\n\n---\nColumns to extract:\n${columnsDesc}`,
+              config: { systemInstruction: SYSTEM },
+            });
 
-            if (line) {
-              try {
-                const parsed = JSON.parse(line);
-                const colIdx = parsed.column_index;
-                const cellResult = {
-                  summary: String(parsed.summary ?? parsed.value ?? "").trim() || "Not addressed",
-                  flag: (["green", "grey", "yellow", "red"] as const).includes(parsed.flag as "green")
-                    ? (parsed.flag as string)
-                    : "grey",
-                  reasoning: String(parsed.reasoning ?? ""),
-                };
-
-                await this.prisma.tabularCell.updateMany({
-                  where: { reviewId, documentId: docId, columnIndex: colIdx },
-                  data: {
-                    content: JSON.stringify(cellResult),
-                    status: 'done',
-                  },
-                });
-
-                write(`data: ${JSON.stringify({ type: "cell_update", document_id: docId, column_index: colIdx, content: cellResult, status: "done" })}\n\n`);
-              } catch (e) {
-                // Skip invalid JSON lines
+            let buffer = '';
+            for await (const chunk of responseStream) {
+              buffer += chunk.text;
+              let newlineIdx: number;
+              while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+                const line = buffer.slice(0, newlineIdx).trim();
+                buffer = buffer.slice(newlineIdx + 1);
+                if (!line) continue;
+                try {
+                  const parsed = JSON.parse(line);
+                  const colIdx = Number(parsed.column_index);
+                  receivedColumns.add(colIdx);
+                  const cellResult = {
+                    summary: String(parsed.summary ?? parsed.value ?? '').trim() || 'Not addressed',
+                    flag: (['green', 'grey', 'yellow', 'red'] as const).includes(parsed.flag as 'green')
+                      ? (parsed.flag as string)
+                      : 'grey',
+                    reasoning: String(parsed.reasoning ?? ''),
+                  };
+                  await this.prisma.tabularCell.updateMany({
+                    where: { reviewId, documentId: docId, columnIndex: colIdx },
+                    data: { content: JSON.stringify(cellResult), status: 'done' },
+                  });
+                  write(
+                    `data: ${JSON.stringify({ type: 'cell_update', document_id: docId, column_index: colIdx, content: cellResult, status: 'done' })}\n\n`,
+                  );
+                } catch {
+                  /* skip invalid JSON line */
+                }
               }
             }
+          } catch (err) {
+            this.logger.error(
+              `[tabular/generate] doc=${docId} ${(err as Error).message}`,
+            );
           }
-        }
-      }
 
-      write("data: [DONE]\n\n");
+          for (const col of columnsToProcess) {
+            if (!receivedColumns.has(col.index)) {
+              await this.prisma.tabularCell.updateMany({
+                where: { reviewId, documentId: docId, columnIndex: col.index },
+                data: { status: 'error' },
+              });
+              write(
+                `data: ${JSON.stringify({ type: 'cell_update', document_id: docId, column_index: col.index, content: null, status: 'error' })}\n\n`,
+              );
+            }
+          }
+        }),
+      );
+
+      write('data: [DONE]\n\n');
     } catch (err) {
       this.logger.error(`Error streaming review: ${(err as Error).message}`);
-      write(`data: ${JSON.stringify({ type: "error", message: (err as Error).message })}\n\ndata: [DONE]\n\n`);
+      write(`data: ${JSON.stringify({ type: 'error', message: (err as Error).message })}\n\ndata: [DONE]\n\n`);
     } finally {
       res.end();
     }

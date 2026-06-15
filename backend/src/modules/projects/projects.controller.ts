@@ -12,8 +12,9 @@ import {
   BadRequestException,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ProjectsService } from './projects.service';
 import { ConsistencyValidatorService } from './consistency-validator.service';
@@ -38,6 +39,7 @@ export class ProjectsController {
       code: string;
       description?: string;
       workspaceId: string;
+      sharedWith?: string[];
     },
   ) {
     const userId = req.user.userId;
@@ -79,6 +81,8 @@ export class ProjectsController {
     body: {
       name?: string;
       description?: string;
+      code?: string;
+      sharedWith?: string[];
     },
   ) {
     const userId = req.user.userId;
@@ -89,6 +93,107 @@ export class ProjectsController {
   async delete(@Request() req: any, @Param('id') id: string) {
     const userId = req.user.userId;
     return this.projectsService.delete(userId, id);
+  }
+
+  @Get(':id/people')
+  async getPeople(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.projectsService.getPeople(userId, id);
+  }
+
+  @Get(':id/chats')
+  async listChats(@Request() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.projectsService.listChats(userId, id);
+  }
+
+  @Post(':id/documents')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  async uploadDocument(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    const userId = req.user.userId;
+    return this.projectsService.uploadDocument(userId, projectId, file);
+  }
+
+  @Patch(':id/documents/:documentId')
+  async renameDocument(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('documentId') documentId: string,
+    @Body() body: { filename: string },
+  ) {
+    const userId = req.user.userId;
+    return this.projectsService.renameDocument(
+      userId,
+      projectId,
+      documentId,
+      body.filename,
+    );
+  }
+
+  @Patch(':id/documents/:documentId/folder')
+  async moveDocumentToFolder(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('documentId') documentId: string,
+    @Body() body: { folderId?: string | null; folder_id?: string | null },
+  ) {
+    const userId = req.user.userId;
+    const folderId = body.folderId ?? body.folder_id ?? null;
+    return this.projectsService.moveDocumentToFolder(
+      userId,
+      projectId,
+      documentId,
+      folderId,
+    );
+  }
+
+  @Post(':id/folders')
+  async createFolder(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Body() body: { name: string; parentFolderId?: string | null; parent_folder_id?: string | null },
+  ) {
+    const userId = req.user.userId;
+    return this.projectsService.createFolder(
+      userId,
+      projectId,
+      body.name,
+      body.parentFolderId ?? body.parent_folder_id ?? null,
+    );
+  }
+
+  @Patch(':id/folders/:folderId')
+  async updateFolder(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('folderId') folderId: string,
+    @Body() body: { name?: string; parentFolderId?: string | null; parent_folder_id?: string | null },
+  ) {
+    const userId = req.user.userId;
+    return this.projectsService.updateFolder(userId, projectId, folderId, {
+      name: body.name,
+      parentFolderId: body.parentFolderId ?? body.parent_folder_id,
+    });
+  }
+
+  @Delete(':id/folders/:folderId')
+  async deleteFolder(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('folderId') folderId: string,
+  ) {
+    const userId = req.user.userId;
+    return this.projectsService.deleteFolder(userId, projectId, folderId);
   }
 
   @Post(':id/validate-consistency')

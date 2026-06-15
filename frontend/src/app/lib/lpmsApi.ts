@@ -16,6 +16,21 @@ import type {
     TabularReview,
     TabularReviewDetailOut,
 } from "@/app/components/shared/types";
+import {
+    mapDocumentFromServer,
+    mapFolderFromServer,
+    mapProjectFromServer,
+    mapTabularReviewDetailFromServer,
+    mapTabularReviewFromServer,
+    mapWorkflowFromServer,
+    toServerProjectBody,
+    toServerProjectPatch,
+    toServerTabularReviewBody,
+    toServerTabularReviewPatch,
+    toServerWorkflowBody,
+    toServerWorkflowPatch,
+} from "@/app/lib/lpms-api-mapper";
+import { appendWorkspaceQuery, getLpmsWorkspaceId } from "@/app/lib/lpms-workspace";
 
 // Server-side shape before mapping
 interface ServerMessage {
@@ -156,7 +171,10 @@ async function toApiError(response: Response, path: string) {
 // ---------------------------------------------------------------------------
 
 export async function listProjects(): Promise<Project[]> {
-    return apiRequest<Project[]>("/projects");
+    const data = await apiRequest<Record<string, unknown>[]>(
+        appendWorkspaceQuery("/projects"),
+    );
+    return (data ?? []).map((p) => mapProjectFromServer(p));
 }
 
 export async function createProject(
@@ -164,11 +182,15 @@ export async function createProject(
     cm_number?: string,
     shared_with?: string[],
 ): Promise<Project> {
-    return apiRequest<Project>("/projects", {
+    const workspaceId = getLpmsWorkspaceId();
+    const raw = await apiRequest<Record<string, unknown>>("/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, cm_number, shared_with }),
+        body: JSON.stringify(
+            toServerProjectBody({ name, cm_number, shared_with, workspaceId }),
+        ),
     });
+    return mapProjectFromServer(raw);
 }
 
 export async function deleteAccount(): Promise<void> {
@@ -285,7 +307,10 @@ export async function saveApiKey(
 }
 
 export async function getProject(projectId: string): Promise<Project> {
-    return apiRequest<Project>(`/projects/${projectId}`);
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}`),
+    );
+    return mapProjectFromServer(raw);
 }
 
 export async function updateProject(
@@ -296,15 +321,21 @@ export async function updateProject(
         shared_with?: string[];
     },
 ): Promise<Project> {
-    return apiRequest<Project>(`/projects/${projectId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}`),
+        {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(toServerProjectPatch(payload)),
+        },
+    );
+    return mapProjectFromServer(raw);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-    await apiRequest(`/projects/${projectId}`, { method: "DELETE" });
+    await apiRequest(appendWorkspaceQuery(`/projects/${projectId}`), {
+        method: "DELETE",
+    });
 }
 
 export interface ProjectPeople {
@@ -319,7 +350,9 @@ export interface ProjectPeople {
 export async function getProjectPeople(
     projectId: string,
 ): Promise<ProjectPeople> {
-    return apiRequest<ProjectPeople>(`/projects/${projectId}/people`);
+    return apiRequest<ProjectPeople>(
+        appendWorkspaceQuery(`/projects/${projectId}/people`),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -335,14 +368,18 @@ export async function createProjectFolder(
     name: string,
     parentFolderId?: string | null,
 ): Promise<Folder> {
-    return apiRequest<Folder>(`/projects/${projectId}/folders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name,
-            parent_folder_id: parentFolderId ?? null,
-        }),
-    });
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}/folders`),
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name,
+                parentFolderId: parentFolderId ?? null,
+            }),
+        },
+    );
+    return mapFolderFromServer(raw);
 }
 
 export async function renameProjectFolder(
@@ -350,23 +387,25 @@ export async function renameProjectFolder(
     folderId: string,
     name: string,
 ): Promise<Folder> {
-    return apiRequest<Folder>(
-        `/projects/${projectId}/folders/${folderId}`,
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}/folders/${folderId}`),
         {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name }),
         },
     );
+    return mapFolderFromServer(raw);
 }
 
 export async function deleteProjectFolder(
     projectId: string,
     folderId: string,
 ): Promise<void> {
-    await apiRequest(`/projects/${projectId}/folders/${folderId}`, {
-        method: "DELETE",
-    });
+    await apiRequest(
+        appendWorkspaceQuery(`/projects/${projectId}/folders/${folderId}`),
+        { method: "DELETE" },
+    );
 }
 
 export async function moveSubfolderToFolder(
@@ -374,14 +413,15 @@ export async function moveSubfolderToFolder(
     folderId: string,
     parentFolderId: string | null,
 ): Promise<Folder> {
-    return apiRequest<Folder>(
-        `/projects/${projectId}/folders/${folderId}`,
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}/folders/${folderId}`),
         {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ parent_folder_id: parentFolderId }),
+            body: JSON.stringify({ parentFolderId }),
         },
     );
+    return mapFolderFromServer(raw);
 }
 
 export async function moveDocumentToFolder(
@@ -389,14 +429,15 @@ export async function moveDocumentToFolder(
     documentId: string,
     folderId: string | null,
 ): Promise<Document> {
-    return apiRequest<Document>(
-        `/projects/${projectId}/documents/${documentId}/folder`,
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/projects/${projectId}/documents/${documentId}/folder`),
         {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ folder_id: folderId }),
+            body: JSON.stringify({ folderId }),
         },
     );
+    return mapDocumentFromServer(raw);
 }
 
 export async function renameProjectDocument(
@@ -540,7 +581,7 @@ export async function uploadProjectDocument(
     const form = new FormData();
     form.append("file", file);
     const response = await fetch(
-        `${API_BASE}/projects/${projectId}/documents`,
+        `${API_BASE}${appendWorkspaceQuery(`/projects/${projectId}/documents`)}`,
         {
             method: "POST",
             headers: { ...authHeaders },
@@ -548,7 +589,8 @@ export async function uploadProjectDocument(
         },
     );
     if (!response.ok) throw new Error(await response.text());
-    return response.json() as Promise<Document>;
+    const raw = (await response.json()) as Record<string, unknown>;
+    return mapDocumentFromServer(raw);
 }
 
 export async function uploadStandaloneDocument(
@@ -624,7 +666,7 @@ export async function listChats(options?: { limit?: number }): Promise<Chat[]> {
 }
 
 export async function listProjectChats(projectId: string): Promise<Chat[]> {
-    return apiRequest<Chat[]>(`/projects/${projectId}/chats`);
+    return apiRequest<Chat[]>(appendWorkspaceQuery(`/projects/${projectId}/chats`));
 }
 
 export async function getChat(chatId: string): Promise<ChatDetailOut> {
@@ -769,8 +811,12 @@ export async function streamProjectChat(payload: {
 export async function listTabularReviews(
     projectId?: string,
 ): Promise<TabularReview[]> {
-    const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-    return apiRequest<TabularReview[]>(`/tabular-review${qs}`);
+    const data = await apiRequest<Record<string, unknown>[]>(
+        appendWorkspaceQuery("/lpms/tabular-review", {
+            projectId: projectId ?? undefined,
+        }),
+    );
+    return (data ?? []).map((r) => mapTabularReviewFromServer(r));
 }
 
 export async function createTabularReview(payload: {
@@ -780,17 +826,24 @@ export async function createTabularReview(payload: {
     workflow_id?: string;
     project_id?: string;
 }): Promise<TabularReview> {
-    return apiRequest<TabularReview>("/tabular-review", {
+    const workspaceId = getLpmsWorkspaceId();
+    const raw = await apiRequest<Record<string, unknown>>("/lpms/tabular-review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(
+            toServerTabularReviewBody({ ...payload, workspaceId }),
+        ),
     });
+    return mapTabularReviewFromServer(raw);
 }
 
 export async function getTabularReview(
     reviewId: string,
 ): Promise<TabularReviewDetailOut> {
-    return apiRequest<TabularReviewDetailOut>(`/tabular-review/${reviewId}`);
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}`),
+    );
+    return mapTabularReviewDetailFromServer(raw);
 }
 
 export async function updateTabularReview(
@@ -803,33 +856,40 @@ export async function updateTabularReview(
         shared_with?: string[];
     },
 ): Promise<TabularReview> {
-    return apiRequest<TabularReview>(`/tabular-review/${reviewId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}`),
+        {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(toServerTabularReviewPatch(payload)),
+        },
+    );
+    return mapTabularReviewFromServer(raw);
 }
 
 export async function getTabularReviewPeople(
     reviewId: string,
 ): Promise<ProjectPeople> {
-    return apiRequest<ProjectPeople>(`/tabular-review/${reviewId}/people`);
+    return apiRequest<ProjectPeople>(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/people`),
+    );
 }
 
 export async function generateTabularColumnPrompt(
     title: string,
     options?: { format?: string; documentName?: string; tags?: string[] },
 ): Promise<{ prompt: string; source: "preset" | "llm" | "fallback" }> {
+    const workspaceId = getLpmsWorkspaceId();
     return apiRequest<{
         prompt: string;
         source: "preset" | "llm" | "fallback";
-    }>("/tabular-review/prompt", {
+    }>("/lpms/tabular-review/prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+            workspaceId,
             title,
-            format: options?.format,
-            documentName: options?.documentName,
+            format: options?.format ?? "text",
             tags: options?.tags,
         }),
     });
@@ -857,17 +917,22 @@ export async function uploadReviewDocument(
 }
 
 export async function deleteTabularReview(reviewId: string): Promise<void> {
-    await apiRequest(`/tabular-review/${reviewId}`, { method: "DELETE" });
+    await apiRequest(appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}`), {
+        method: "DELETE",
+    });
 }
 
 export async function streamTabularGeneration(
     reviewId: string,
 ): Promise<Response> {
     const authHeaders = await getAuthHeader();
-    return fetch(`${API_BASE}/tabular-review/${reviewId}/generate`, {
-        method: "POST",
-        headers: { ...authHeaders },
-    });
+    return fetch(
+        `${API_BASE}${appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/generate`)}`,
+        {
+            method: "POST",
+            headers: { ...authHeaders },
+        },
+    );
 }
 
 export async function streamTabularChat(
@@ -878,17 +943,19 @@ export async function streamTabularChat(
     context?: { reviewTitle?: string | null; projectName?: string | null },
 ): Promise<Response> {
     const authHeaders = await getAuthHeader();
-    return fetch(`${API_BASE}/tabular-review/${reviewId}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({
-            messages,
-            chat_id: chat_id ?? undefined,
-            review_title: context?.reviewTitle ?? undefined,
-            project_name: context?.projectName ?? undefined,
-        }),
-        signal: signal ?? undefined,
-    });
+    return fetch(
+        `${API_BASE}${appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/chat`)}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({
+                messages,
+                chatId: chat_id ?? undefined,
+                reviewTitle: context?.reviewTitle ?? undefined,
+            }),
+            signal: signal ?? undefined,
+        },
+    );
 }
 
 export interface TRCitationAnnotation {
@@ -950,7 +1017,9 @@ export function mapTRMessages(raw: RawTRMessage[]): TRDisplayMessage[] {
 }
 
 export async function getTabularChats(reviewId: string): Promise<TRChat[]> {
-    return apiRequest<TRChat[]>(`/tabular-review/${reviewId}/chats`);
+    return apiRequest<TRChat[]>(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/chats`),
+    );
 }
 
 export async function getTabularChatMessages(
@@ -958,7 +1027,9 @@ export async function getTabularChatMessages(
     chatId: string,
 ): Promise<RawTRMessage[]> {
     return apiRequest<RawTRMessage[]>(
-        `/tabular-review/${reviewId}/chats/${chatId}/messages`,
+        appendWorkspaceQuery(
+            `/lpms/tabular-review/${reviewId}/chats/${chatId}/messages`,
+        ),
     );
 }
 
@@ -966,9 +1037,10 @@ export async function deleteTabularChat(
     reviewId: string,
     chatId: string,
 ): Promise<void> {
-    await apiRequest(`/tabular-review/${reviewId}/chats/${chatId}`, {
-        method: "DELETE",
-    });
+    await apiRequest(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/chats/${chatId}`),
+        { method: "DELETE" },
+    );
 }
 
 export async function regenerateTabularCell(
@@ -980,25 +1052,28 @@ export async function regenerateTabularCell(
     flag: "green" | "grey" | "yellow" | "red";
     reasoning: string;
 }> {
-    return apiRequest(`/tabular-review/${reviewId}/regenerate-cell`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            document_id: documentId,
-            column_index: columnIndex,
-        }),
-    });
+    return apiRequest(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/regenerate-cell`),
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentId, columnIndex }),
+        },
+    );
 }
 
 export async function clearTabularCells(
     reviewId: string,
     documentIds: string[],
 ): Promise<void> {
-    await apiRequest(`/tabular-review/${reviewId}/clear-cells`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ document_ids: documentIds }),
-    });
+    await apiRequest(
+        appendWorkspaceQuery(`/lpms/tabular-review/${reviewId}/clear-cells`),
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentIds }),
+        },
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,11 +1085,17 @@ type WorkflowType = Workflow["type"];
 export async function listWorkflows(
     type: WorkflowType,
 ): Promise<Workflow[]> {
-    return apiRequest<Workflow[]>(`/workflows?type=${type}`);
+    const data = await apiRequest<Record<string, unknown>[]>(
+        appendWorkspaceQuery("/lpms/workflows", { type }),
+    );
+    return (data ?? []).map((w) => mapWorkflowFromServer(w));
 }
 
 export async function getWorkflow(workflowId: string): Promise<Workflow> {
-    return apiRequest<Workflow>(`/workflows/${workflowId}`);
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/lpms/workflows/${workflowId}`),
+    );
+    return mapWorkflowFromServer(raw);
 }
 
 export async function createWorkflow(payload: {
@@ -1024,11 +1105,13 @@ export async function createWorkflow(payload: {
     columns_config?: { index: number; name: string; prompt: string }[];
     practice?: string | null;
 }): Promise<Workflow> {
-    return apiRequest<Workflow>("/workflows", {
+    const workspaceId = getLpmsWorkspaceId();
+    const raw = await apiRequest<Record<string, unknown>>("/lpms/workflows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(toServerWorkflowBody({ ...payload, workspaceId })),
     });
+    return mapWorkflowFromServer(raw);
 }
 
 export async function updateWorkflow(
@@ -1040,42 +1123,57 @@ export async function updateWorkflow(
         practice?: string | null;
     },
 ): Promise<Workflow> {
-    return apiRequest<Workflow>(`/workflows/${workflowId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
+    const raw = await apiRequest<Record<string, unknown>>(
+        appendWorkspaceQuery(`/lpms/workflows/${workflowId}`),
+        {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(toServerWorkflowPatch(payload)),
+        },
+    );
+    return mapWorkflowFromServer(raw);
 }
 
 export async function deleteWorkflow(workflowId: string): Promise<void> {
-    await apiRequest(`/workflows/${workflowId}`, { method: "DELETE" });
+    await apiRequest(appendWorkspaceQuery(`/lpms/workflows/${workflowId}`), {
+        method: "DELETE",
+    });
 }
 
 export async function listHiddenWorkflows(): Promise<string[]> {
-    return apiRequest<string[]>("/workflows/hidden");
+    return apiRequest<string[]>(appendWorkspaceQuery("/lpms/workflows/hidden"));
 }
 
 export async function hideWorkflow(workflowId: string): Promise<void> {
-    await apiRequest("/workflows/hidden", {
+    await apiRequest(appendWorkspaceQuery("/lpms/workflows/hidden"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflow_id: workflowId }),
+        body: JSON.stringify({ workflowId }),
     });
 }
 
 export async function unhideWorkflow(workflowId: string): Promise<void> {
-    await apiRequest(`/workflows/hidden/${workflowId}`, { method: "DELETE" });
+    await apiRequest(
+        appendWorkspaceQuery(`/lpms/workflows/hidden/${workflowId}`),
+        { method: "DELETE" },
+    );
 }
 
 export async function shareWorkflow(
     workflowId: string,
     payload: { emails: string[]; allow_edit: boolean },
 ): Promise<void> {
-    await apiRequest<void>(`/workflows/${workflowId}/share`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
+    await apiRequest<void>(
+        appendWorkspaceQuery(`/lpms/workflows/${workflowId}/shares`),
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                emails: payload.emails,
+                allowEdit: payload.allow_edit,
+            }),
+        },
+    );
 }
 
 export async function listWorkflowShares(workflowId: string): Promise<
@@ -1086,14 +1184,17 @@ export async function listWorkflowShares(workflowId: string): Promise<
         created_at: string;
     }[]
 > {
-    return apiRequest(`/workflows/${workflowId}/shares`);
+    return apiRequest(
+        appendWorkspaceQuery(`/lpms/workflows/${workflowId}/shares`),
+    );
 }
 
 export async function deleteWorkflowShare(
     workflowId: string,
     shareId: string,
 ): Promise<void> {
-    await apiRequest(`/workflows/${workflowId}/shares/${shareId}`, {
-        method: "DELETE",
-    });
+    await apiRequest(
+        appendWorkspaceQuery(`/lpms/workflows/${workflowId}/shares/${shareId}`),
+        { method: "DELETE" },
+    );
 }

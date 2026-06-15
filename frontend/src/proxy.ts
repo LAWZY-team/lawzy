@@ -5,6 +5,7 @@ import {
   isAuthPage,
   hasAuthCookie,
   loginPathWithReturn,
+  parseReturnUrl,
 } from "@/lib/auth";
 
 const applyUatNoIndexHeader = (response: NextResponse, host: string): NextResponse => {
@@ -26,8 +27,9 @@ export function proxy(request: NextRequest) {
   }
 
   if (isAuthPage(pathname) && authenticated) {
+    const returnUrl = parseReturnUrl(request.nextUrl.searchParams);
     return applyUatNoIndexHeader(
-      NextResponse.redirect(new URL("/clm/dashboard", request.url)),
+      NextResponse.redirect(new URL(returnUrl, request.url)),
       host
     );
   }

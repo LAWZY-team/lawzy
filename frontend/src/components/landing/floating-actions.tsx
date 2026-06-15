@@ -13,6 +13,7 @@ export function FloatingActions() {
   const pathname = usePathname();
   const [showBackTop, setShowBackTop] = useState(false);
   const bookLabel = isLpmsContactPath(pathname) ? t("product_lpms_cta") : t("floating_book_demo");
+  const bookHref = isLpmsContactPath(pathname) ? "/lpms/dashboard" : "/clm/dashboard";
 
   useEffect(() => {
     const fn = () => setShowBackTop(window.scrollY > 600);
@@ -39,7 +40,7 @@ export function FloatingActions() {
         </button>
       )}
       <Link
-        href="/login"
+        href={bookHref}
         aria-label={bookLabel}
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-full bg-orange-600 text-white shadow-lg shadow-orange-900/25 transition-all hover:bg-orange-700 hover:shadow-xl hover:shadow-orange-900/30",

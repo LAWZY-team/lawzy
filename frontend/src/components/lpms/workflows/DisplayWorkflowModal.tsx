@@ -201,8 +201,8 @@ export function DisplayWorkflowModal({ workflows, workflow, onClose }: Props) {
             handleClose();
             router.push(
                 projectId
-                    ? `/projects/${projectId}/assistant/chat/${chatId}`
-                    : `/assistant/chat/${chatId}`,
+                    ? `/lpms/matters/${projectId}/assistant/chat/${chatId}`
+                    : `/lpms/assistant/chat/${chatId}`,
             );
         } finally {
             setSaving(false);
@@ -231,8 +231,8 @@ export function DisplayWorkflowModal({ workflows, workflow, onClose }: Props) {
             handleClose();
             router.push(
                 projectId
-                    ? `/projects/${projectId}/tabular-reviews/${review.id}`
-                    : `/tabular-reviews/${review.id}`,
+                    ? `/lpms/matters/${projectId}/tabular-analysis/${review.id}`
+                    : `/lpms/tabular-analysis/${review.id}`,
             );
         } finally {
             setSaving(false);

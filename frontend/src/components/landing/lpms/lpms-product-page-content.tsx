@@ -27,7 +27,7 @@ export function LpmsProductPageContent() {
             {t("product_lpms_page_subtitle")}
           </p>
           <Button size="lg" className="mt-8 shadow-md shadow-orange-900/10" asChild>
-            <Link href="/login?returnUrl=/lpms/dashboard">
+            <Link href="/lpms/dashboard">
               {t("product_lpms_cta")}
             </Link>
           </Button>
@@ -38,7 +38,7 @@ export function LpmsProductPageContent() {
         <div className={cn(sectionContainer, "flex flex-col items-center justify-between gap-6 sm:flex-row")}>
           <p className="max-w-xl text-center text-lg font-bold sm:text-left sm:text-xl">{t("product_footer_cta_title")}</p>
           <Button variant="secondary" size="lg" className="shrink-0 bg-white text-zinc-900 hover:bg-zinc-100" asChild>
-            <Link href="/login?returnUrl=/lpms/dashboard">
+            <Link href="/lpms/dashboard">
               {t("product_lpms_cta")}
             </Link>
           </Button>

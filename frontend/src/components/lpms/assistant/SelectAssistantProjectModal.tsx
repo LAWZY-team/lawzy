@@ -33,7 +33,7 @@ export function SelectAssistantProjectModal({ open, onClose }: Props) {
             const chatId = await saveChat(selectedId);
             if (!chatId) return;
             onClose();
-            router.push(`/projects/${selectedId}/assistant/chat/${chatId}`);
+            router.push(`/lpms/matters/${selectedId}/assistant/chat/${chatId}`);
         } finally {
             setCreating(false);
         }

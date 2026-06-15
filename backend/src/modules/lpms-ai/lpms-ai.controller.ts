@@ -51,6 +51,38 @@ export class LpmsAiController {
     return this.lpmsAiService.createWorkflow(userId, body.workspaceId, body);
   }
 
+  @Get('workflows/hidden')
+  async listHiddenWorkflows(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.listHiddenWorkflows(userId, workspaceId);
+  }
+
+  @Post('workflows/hidden')
+  async hideWorkflow(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Body() body: { workflowId: string },
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.hideWorkflow(userId, workspaceId, body.workflowId);
+  }
+
+  @Delete('workflows/hidden/:workflowId')
+  async unhideWorkflow(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Param('workflowId') workflowId: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.unhideWorkflow(userId, workspaceId, workflowId);
+  }
+
   @Get('workflows/:id')
   async getWorkflow(
     @Request() req: any,
@@ -83,6 +115,47 @@ export class LpmsAiController {
     if (!workspaceId) throw new BadRequestException('workspaceId is required');
     const userId = req.user.userId;
     return this.lpmsAiService.deleteWorkflow(userId, workspaceId, id);
+  }
+
+  @Get('workflows/:id/shares')
+  async listWorkflowShares(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.listWorkflowShares(userId, workspaceId, id);
+  }
+
+  @Post('workflows/:id/shares')
+  async shareWorkflow(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Param('id') id: string,
+    @Body() body: { emails: string[]; allowEdit?: boolean },
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.shareWorkflow(
+      userId,
+      workspaceId,
+      id,
+      body.emails ?? [],
+      body.allowEdit ?? false,
+    );
+  }
+
+  @Delete('workflows/:id/shares/:shareId')
+  async deleteWorkflowShare(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Param('id') id: string,
+    @Param('shareId') shareId: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.deleteWorkflowShare(userId, workspaceId, id, shareId);
   }
 
   // Tabular Reviews
@@ -142,6 +215,17 @@ export class LpmsAiController {
     if (!workspaceId) throw new BadRequestException('workspaceId is required');
     const userId = req.user.userId;
     return this.lpmsAiService.getReview(userId, workspaceId, id);
+  }
+
+  @Get('tabular-review/:id/people')
+  async getReviewPeople(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.getReviewPeople(userId, workspaceId, id);
   }
 
   @Patch('tabular-review/:id')

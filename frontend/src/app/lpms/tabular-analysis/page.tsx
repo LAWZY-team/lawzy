@@ -1,13 +1,13 @@
-import { TabularReviewView } from "@/components/lpms/tabular/tabular-review-view";
+import { TabularReviewsList } from "@/components/lpms/tabular/TabularReviewsList";
 
 export const metadata = {
-  title: "Bóc tách hợp đồng - Lawzy LPMS",
+    title: "Bóc tách hàng loạt - Lawzy LPMS",
 };
 
 export default function TabularAnalysisPage() {
-  return (
-    <div className="h-full bg-slate-50 flex flex-col">
-      <TabularReviewView />
-    </div>
-  );
+    return (
+        <div className="flex h-full flex-col bg-slate-50">
+            <TabularReviewsList />
+        </div>
+    );
 }

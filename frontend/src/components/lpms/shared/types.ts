@@ -14,6 +14,8 @@ export interface Project {
   id: string;
   user_id: string;
   is_owner?: boolean;
+  owner_display_name?: string | null;
+  owner_email?: string | null;
   name: string;
   cm_number: string | null;
   shared_with: string[];
@@ -62,6 +64,7 @@ export interface Chat {
   project_id: string | null;
   user_id: string;
   title: string | null;
+  creator_display_name?: string | null;
   created_at: string;
 }
 
