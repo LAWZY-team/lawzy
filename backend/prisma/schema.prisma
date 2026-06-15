@@ -37,6 +37,8 @@ model User {
   payments              Payment[]
   userCredit            UserCredit?
   documentVersions      DocumentVersion[]
+  tabularReviews        TabularReview[]
+  lpmsChats             LpmsChat[]
 
   @@map("users")
 }
@@ -99,6 +101,8 @@ model Workspace {
   templates      Template[]
   projects       Project[]
   obligations    Obligation[]
+  tabularReviews TabularReview[]
+  lpmsChats      LpmsChat[]
 
   @@map("workspaces")
 }
@@ -222,6 +226,7 @@ model Document {
   targetMappings   ClauseMapping[]  @relation("TargetClauseDoc")
   mismatchAlerts   MismatchAlert[]
   obligations      Obligation[]
+  tabularCells     TabularCell[]
 
   @@index([workspaceId])
   @@index([createdBy])
@@ -494,6 +499,86 @@ model PublicShareSession {
   @@map("public_share_sessions")
 }
 
+model TabularReview {
+  id            String    @id @default(uuid())
+  projectId     String?   @map("project_id")
+  userId        String    @map("user_id")
+  workspaceId   String    @map("workspace_id")
+  title         String?
+  columnsConfig Json?     @map("columns_config")
+  documentIds   Json?     @map("document_ids")
+  workflowId    String?   @map("workflow_id")
+  practice      String?
+  sharedWith    Json?     @map("shared_with")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cells         TabularCell[]
+  chats         TabularReviewChat[]
+
+  @@map("tabular_reviews")
+}
+
+model TabularCell {
+  id          String   @id @default(uuid())
+  reviewId    String   @map("review_id")
+  documentId  String   @map("document_id")
+  columnIndex Int      @map("column_index")
+  content     String?  @db.Text
+  citations   Json?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  review      TabularReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  document    Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("tabular_cells")
+}
+
+model TabularReviewChat {
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  review    TabularReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  messages  TabularReviewChatMessage[]
+
+  @@map("tabular_review_chats")
+}
+
+model TabularReviewChatMessage {
+  id          String   @id @default(uuid())
+  chatId      String   @map("chat_id")
+  role        String
+  content     Json?
+  annotations Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  chat        TabularReviewChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@map("tabular_review_chat_messages")
+}
+
+model LpmsWorkflow {
+  id            String   @id @default(uuid())
+  userId        String?  @map("user_id")
+  title         String
+  type          String
+  promptMd      String?  @db.Text @map("prompt_md")
+  columnsConfig Json?    @map("columns_config")
+  practice      String?
+  isSystem      Boolean  @default(false) @map("is_system")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("lpms_workflows")
+}
+
 model Project {
   id           String      @id @default(uuid())
   workspaceId  String      @map("workspace_id")
@@ -503,11 +588,43 @@ model Project {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  documents    Document[]
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents      Document[]
+  tabularReviews TabularReview[]
+  lpmsChats      LpmsChat[]
 
   @@unique([workspaceId, code])
   @@map("projects")
+}
+
+model LpmsChat {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  projectId   String?  @map("project_id")
+  userId      String   @map("user_id")
+  title       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    LpmsChatMessage[]
+
+  @@map("lpms_chats")
+}
+
+model LpmsChatMessage {
+  id          String   @id @default(uuid())
+  chatId      String   @map("chat_id")
+  role        String
+  content     Json?
+  annotations Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  chat        LpmsChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@map("lpms_chat_messages")
 }
 
 model DocumentLink {
