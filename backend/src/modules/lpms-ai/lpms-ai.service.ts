@@ -1376,4 +1376,131 @@ Response language: Respond in the same language the user uses (e.g., if the user
       res.end();
     }
   }
+
+  async getDashboardOverview(userId: string, workspaceId: string) {
+    await this.workspaceAccess.requireMembership(workspaceId, userId);
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [
+      totalMatters,
+      totalTabularReviews,
+      customWorkflowCount,
+      hiddenWorkflowRows,
+      lpmsUserMessagesThisMonth,
+      tabularUserMessagesThisMonth,
+      pendingTabularCells,
+      processingDocuments,
+      storage,
+      recentTabular,
+      recentChats,
+      recentProjects,
+    ] = await Promise.all([
+      this.prisma.project.count({ where: { workspaceId } }),
+      this.prisma.tabularReview.count({ where: { workspaceId } }),
+      this.prisma.lpmsWorkflow.count({
+        where: { userId, isSystem: false },
+      }),
+      this.prisma.lpmsHiddenWorkflow.findMany({
+        where: { userId },
+        select: { workflowId: true },
+      }),
+      this.prisma.lpmsChatMessage.count({
+        where: {
+          role: 'user',
+          createdAt: { gte: monthStart },
+          chat: { workspaceId, userId },
+        },
+      }),
+      this.prisma.tabularReviewChatMessage.count({
+        where: {
+          role: 'user',
+          createdAt: { gte: monthStart },
+          chat: { userId, review: { workspaceId } },
+        },
+      }),
+      this.prisma.tabularCell.count({
+        where: { status: 'pending', review: { workspaceId } },
+      }),
+      this.prisma.document.count({
+        where: {
+          workspaceId,
+          status: 'processing',
+          deletedAt: null,
+        },
+      }),
+      this.filesService.getStorageUsed(workspaceId, userId),
+      this.prisma.tabularReview.findMany({
+        where: { workspaceId },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: { id: true, title: true, updatedAt: true },
+      }),
+      this.prisma.lpmsChat.findMany({
+        where: { workspaceId, userId },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+          projectId: true,
+        },
+      }),
+      this.prisma.project.findMany({
+        where: { workspaceId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { id: true, name: true, createdAt: true },
+      }),
+    ]);
+
+    const hiddenIds = new Set(hiddenWorkflowRows.map((row) => row.workflowId));
+    const visibleBuiltinCount = BUILTIN_WORKFLOWS.filter(
+      (workflow) => !hiddenIds.has(workflow.id),
+    ).length;
+    const totalWorkflows = customWorkflowCount + visibleBuiltinCount;
+
+    const recentActivity = [
+      ...recentTabular.map((review) => ({
+        id: review.id,
+        type: 'tabular' as const,
+        title: review.title?.trim() || 'Phân tích tabular',
+        occurred_at: review.updatedAt.toISOString(),
+      })),
+      ...recentChats.map((chat) => ({
+        id: chat.id,
+        type: 'ai' as const,
+        title: chat.title?.trim() || 'Cuộc hội thoại mới',
+        occurred_at: chat.updatedAt.toISOString(),
+        project_id: chat.projectId,
+      })),
+      ...recentProjects.map((project) => ({
+        id: project.id,
+        type: 'matter' as const,
+        title: project.name,
+        occurred_at: project.createdAt.toISOString(),
+      })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+      )
+      .slice(0, 8);
+
+    return {
+      total_matters: totalMatters,
+      total_tabular_reviews: totalTabularReviews,
+      total_workflows: totalWorkflows,
+      ai_chat_messages_this_month:
+        lpmsUserMessagesThisMonth + tabularUserMessagesThisMonth,
+      storage_used_bytes: storage.bytes,
+      storage_limit_bytes: storage.limitBytes ?? 0,
+      pending_tabular_cells: pendingTabularCells,
+      processing_documents: processingDocuments,
+      recent_activity: recentActivity,
+    };
+  }
 }

@@ -1198,3 +1198,35 @@ export async function deleteWorkflowShare(
         { method: "DELETE" },
     );
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+export type LpmsRecentActivityType = "tabular" | "ai" | "matter";
+
+export interface LpmsRecentActivity {
+    id: string;
+    type: LpmsRecentActivityType;
+    title: string;
+    occurred_at: string;
+    project_id?: string | null;
+}
+
+export interface LpmsDashboardOverview {
+    total_matters: number;
+    total_tabular_reviews: number;
+    total_workflows: number;
+    ai_chat_messages_this_month: number;
+    storage_used_bytes: number;
+    storage_limit_bytes: number;
+    pending_tabular_cells: number;
+    processing_documents: number;
+    recent_activity: LpmsRecentActivity[];
+}
+
+export async function getLpmsDashboardOverview(): Promise<LpmsDashboardOverview> {
+    return apiRequest<LpmsDashboardOverview>(
+        appendWorkspaceQuery("/lpms/dashboard/overview"),
+    );
+}

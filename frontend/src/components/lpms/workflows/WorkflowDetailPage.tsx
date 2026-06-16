@@ -20,6 +20,8 @@ import { WFColumnViewModal } from "@/components/lpms/workflows/WFColumnViewModal
 import { AddColumnModal } from "@/components/lpms/tabular/AddColumnModal";
 import type { ColumnConfig, Workflow } from "@/components/lpms/shared/types";
 import { BUILT_IN_WORKFLOWS } from "@/components/lpms/workflows/builtinWorkflows";
+import { LPMS_WORKFLOWS_LIST_PATH } from "@/components/lpms/workflows/workflowRoutes";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
 import { formatIcon, formatLabel } from "@/components/lpms/tabular/columnFormat";
 import { ConfirmPopup } from "@/components/lpms/shared/ConfirmPopup";
 import { HeaderActionsMenu } from "@/components/lpms/shared/HeaderActionsMenu";
@@ -50,6 +52,7 @@ const NAME_COL_W = "w-[332px] shrink-0";
 // Page
 // ---------------------------------------------------------------------------
 export function WorkflowDetailPage({ id, workflowType }: Props) {
+    const { t } = useLpmsT();
     const router = useRouter();
     const { user } = useAuth();
     const { profile } = useUserProfile();
@@ -178,7 +181,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
         try {
             await deleteWorkflow(id);
             setDeleteStatus("complete");
-            setTimeout(() => router.push("/workflows"), 600);
+            setTimeout(() => router.push(LPMS_WORKFLOWS_LIST_PATH), 600);
         } catch {
             setDeleteStatus("idle");
         }
@@ -235,9 +238,9 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                     shrink
                     breadcrumbs={[
                         {
-                            label: "Workflows",
-                            onClick: () => router.push("/workflows"),
-                            title: "Back to Workflows",
+                            label: t("lpms_workflows_breadcrumb"),
+                            onClick: () => router.push(LPMS_WORKFLOWS_LIST_PATH),
+                            title: t("lpms_workflows_back"),
                         },
                         { loading: true, skeletonClassName: "w-40" },
                     ]}
@@ -269,9 +272,9 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                 actionGap="md"
                 breadcrumbs={[
                     {
-                        label: "Workflows",
-                        onClick: () => router.push("/workflows"),
-                        title: "Back to Workflows",
+                        label: t("lpms_workflows_breadcrumb"),
+                        onClick: () => router.push(LPMS_WORKFLOWS_LIST_PATH),
+                        title: t("lpms_workflows_back"),
                     },
                     {
                         label: (

@@ -21,6 +21,16 @@ import { LpmsAiService, ColumnConfig } from './lpms-ai.service';
 export class LpmsAiController {
   constructor(private readonly lpmsAiService: LpmsAiService) {}
 
+  @Get('dashboard/overview')
+  async getDashboardOverview(
+    @Request() req: any,
+    @Query('workspaceId') workspaceId: string,
+  ) {
+    if (!workspaceId) throw new BadRequestException('workspaceId is required');
+    const userId = req.user.userId;
+    return this.lpmsAiService.getDashboardOverview(userId, workspaceId);
+  }
+
   // Workflows
   @Get('workflows')
   async listWorkflows(

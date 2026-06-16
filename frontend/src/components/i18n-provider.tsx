@@ -9,10 +9,11 @@ import React, {
   useState,
 } from "react";
 import { viMessages, enMessages, type Locale } from "@/lib/i18n";
+import { lpmsVi, lpmsEn } from "@/lib/i18n/lpms";
 
 const dictionaries: Record<Locale, Record<string, string>> = {
-  vi: viMessages,
-  en: enMessages,
+  vi: { ...viMessages, ...lpmsVi },
+  en: { ...enMessages, ...lpmsEn },
 };
 
 const LOCALE_COOKIE = "lawzy_lang";

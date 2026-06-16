@@ -13,6 +13,7 @@ import {
 import type { ColumnConfig, Project, TabularReview } from "@/components/lpms/shared/types";
 import { AddNewTRModal } from "./AddNewTRModal";
 import { PageHeader } from "@/components/lpms/shared/PageHeader";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
 import {
     TableBody,
     TableCell,
@@ -24,14 +25,15 @@ import {
     TableStickyCell,
 } from "@/components/lpms/shared/TablePrimitive";
 
-const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("vi-VN", {
+const formatReviewDate = (iso: string, locale: "vi" | "en") =>
+    new Date(iso).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
     });
 
 export function TabularReviewsList() {
+    const { t, locale } = useLpmsT();
     const router = useRouter();
     const [reviews, setReviews] = useState<TabularReview[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -87,28 +89,28 @@ export function TabularReviewsList() {
                         type: "search",
                         value: search,
                         onChange: setSearch,
-                        placeholder: "Tìm bóc tách…",
+                        placeholder: t("lpms_tabular_search"),
                     },
                     {
                         type: "new",
                         onClick: () => setModalOpen(true),
                         loading: creating,
-                        title: "Bóc tách mới",
+                        title: t("lpms_tabular_new"),
                     },
                 ]}
             >
                 <h1 className="text-2xl font-medium font-serif text-gray-900">
-                    Bóc tách hàng loạt
+                    {t("lpms_tabular_title")}
                 </h1>
             </PageHeader>
 
             <TableScrollArea>
                 <TableHeaderRow>
-                    <TableStickyCell header>Tên</TableStickyCell>
-                    <TableHeaderCell className="w-24">Cột</TableHeaderCell>
-                    <TableHeaderCell className="w-24">Tài liệu</TableHeaderCell>
-                    <TableHeaderCell className="w-40">Vụ việc</TableHeaderCell>
-                    <TableHeaderCell className="w-32">Ngày tạo</TableHeaderCell>
+                    <TableStickyCell header>{t("lpms_tabular_col_name")}</TableStickyCell>
+                    <TableHeaderCell className="w-24">{t("lpms_tabular_col_columns")}</TableHeaderCell>
+                    <TableHeaderCell className="w-24">{t("lpms_tabular_col_docs")}</TableHeaderCell>
+                    <TableHeaderCell className="w-40">{t("lpms_tabular_col_matter")}</TableHeaderCell>
+                    <TableHeaderCell className="w-32">{t("lpms_tabular_col_created")}</TableHeaderCell>
                 </TableHeaderRow>
 
                 {loading ? (
@@ -148,7 +150,7 @@ export function TabularReviewsList() {
                                 >
                                     <TableStickyCell>
                                         <span className="min-w-0 flex-1 truncate text-sm text-gray-800">
-                                            {review.title ?? "Chưa đặt tên"}
+                                            {review.title ?? t("lpms_tabular_untitled")}
                                         </span>
                                     </TableStickyCell>
                                     <TableCell className="w-24">
@@ -161,7 +163,7 @@ export function TabularReviewsList() {
                                         {project?.name ?? "—"}
                                     </TableCell>
                                     <TableCell className="w-32">
-                                        {review.created_at ? formatDate(review.created_at) : "—"}
+                                        {review.created_at ? formatReviewDate(review.created_at, locale) : "—"}
                                     </TableCell>
                                 </TableRow>
                             );

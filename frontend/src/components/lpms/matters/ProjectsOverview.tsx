@@ -13,7 +13,6 @@ import {
     RowActionMenuItems,
     RowActions,
 } from "@/components/lpms/shared/RowActions";
-import { PageHeader } from "@/components/lpms/shared/PageHeader";
 import {
     TABLE_CHECKBOX_CLASS,
     TABLE_STICKY_CELL_BG,
@@ -29,27 +28,37 @@ import {
     TableScrollArea,
     TableStickyCell,
 } from "@/components/lpms/shared/TablePrimitive";
+import { PageHeader } from "@/components/lpms/shared/PageHeader";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
+import type { LpmsTranslationKey } from "@/lib/i18n/lpms";
 
-function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, {
+function formatDate(iso: string, locale: "vi" | "en") {
+    return new Date(iso).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-US", {
         day: "numeric",
         month: "short",
         year: "numeric",
     });
 }
 
-function getProjectOwnerLabel(project: Project, currentUserId?: string | null) {
-    if (project.is_owner ?? project.user_id === currentUserId) return "Me";
+function getProjectOwnerLabel(
+    project: Project,
+    currentUserId: string | null | undefined,
+    t: (key: LpmsTranslationKey) => string,
+) {
+    if (project.is_owner ?? project.user_id === currentUserId) {
+        return t("lpms_matters_owner_me");
+    }
     return (
         project.owner_display_name?.trim() ||
         project.owner_email?.trim() ||
-        "Shared"
+        t("lpms_matters_owner_shared")
     );
 }
 
 type ProjectFilter = "all" | "mine" | "shared-with-me";
 
 export function ProjectsOverview() {
+    const { t, locale } = useLpmsT();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -90,7 +99,7 @@ export function ProjectsOverview() {
                 console.error("[projects] failed to load projects", err);
                 if (!cancelled) {
                     setProjects([]);
-                    setLoadError("Could not load projects.");
+                    setLoadError(t("lpms_matters_load_error"));
                 }
             })
             .finally(() => {
@@ -153,9 +162,9 @@ export function ProjectsOverview() {
     }
 
     const filters: { id: ProjectFilter; label: string }[] = [
-        { id: "all", label: "All" },
-        { id: "mine", label: "Mine" },
-        { id: "shared-with-me", label: "Shared with me" },
+        { id: "all", label: t("lpms_matters_filter_all") },
+        { id: "mine", label: t("lpms_matters_filter_mine") },
+        { id: "shared-with-me", label: t("lpms_matters_filter_shared") },
     ];
 
     async function handleRenameSubmit(projectId: string) {
@@ -214,7 +223,7 @@ export function ProjectsOverview() {
                                 onClick={handleDeleteSelected}
                                 className="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 transition-colors"
                             >
-                                Delete
+                                {t("lpms_matters_delete_selected")}
                             </button>
                         </div>
                     )}
@@ -232,17 +241,17 @@ export function ProjectsOverview() {
                         type: "search",
                         value: search,
                         onChange: setSearch,
-                        placeholder: "Search projects…",
+                        placeholder: t("lpms_matters_search"),
                     },
                     {
                         type: "new",
                         onClick: () => setModalOpen(true),
-                        title: "New project",
+                        title: t("lpms_matters_new"),
                     },
                 ]}
             >
                 <h1 className="text-2xl font-medium font-serif text-gray-900">
-                    Projects
+                    {t("lpms_matters_title")}
                 </h1>
             </PageHeader>
 
@@ -269,16 +278,16 @@ export function ProjectsOverview() {
                                 className={TABLE_CHECKBOX_CLASS}
                             />
                         )}
-                        <span>Name</span>
+                        <span>{t("lpms_matters_col_name")}</span>
                     </TableStickyCell>
-                    <TableHeaderCell className="ml-auto w-32">CM</TableHeaderCell>
-                    <TableHeaderCell className="w-32">Owner</TableHeaderCell>
-                    <TableHeaderCell className="w-24">Files</TableHeaderCell>
-                    <TableHeaderCell className="w-24">Chats</TableHeaderCell>
+                    <TableHeaderCell className="ml-auto w-32">{t("lpms_matters_col_cm")}</TableHeaderCell>
+                    <TableHeaderCell className="w-32">{t("lpms_matters_col_owner")}</TableHeaderCell>
+                    <TableHeaderCell className="w-24">{t("lpms_matters_col_files")}</TableHeaderCell>
+                    <TableHeaderCell className="w-24">{t("lpms_matters_col_chats")}</TableHeaderCell>
                     <TableHeaderCell className="w-36">
-                        Tabular Reviews
+                        {t("lpms_matters_col_reviews")}
                     </TableHeaderCell>
-                    <TableHeaderCell className="w-32">Created</TableHeaderCell>
+                    <TableHeaderCell className="w-32">{t("lpms_matters_col_created")}</TableHeaderCell>
                     <TableHeaderCell className="w-8" />
                 </TableHeaderRow>
 
@@ -322,7 +331,7 @@ export function ProjectsOverview() {
                     <TableEmptyState>
                         <FolderOpen className="h-8 w-8 text-gray-300 mb-4" />
                         <p className="text-2xl font-medium font-serif text-gray-900">
-                            Projects
+                            {t("lpms_matters_title")}
                         </p>
                         <p className="mt-1 text-xs text-red-500 max-w-xs">
                             {loadError}
@@ -334,23 +343,21 @@ export function ProjectsOverview() {
                             <>
                                 <FolderOpen className="h-8 w-8 text-gray-300 mb-4" />
                                 <p className="text-2xl font-medium font-serif text-gray-900">
-                                    Projects
+                                    {t("lpms_matters_empty_title")}
                                 </p>
                                 <p className="mt-1 text-xs text-gray-400 max-w-xs">
-                                    Upload documents into projects and to
-                                    commence chats and tabular reviews with
-                                    them.
+                                    {t("lpms_matters_empty_desc")}
                                 </p>
                                 <button
                                     onClick={() => setModalOpen(true)}
                                     className="mt-4 inline-flex items-center gap-1 rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700 transition-colors shadow-md"
                                 >
-                                    + Create New
+                                    + {t("lpms_matters_empty_cta")}
                                 </button>
                             </>
                         ) : (
                             <p className="text-sm text-gray-400">
-                                No {activeFilter} projects
+                                {t("lpms_matters_empty_shared")}
                             </p>
                         )}
                     </TableEmptyState>
@@ -441,7 +448,7 @@ export function ProjectsOverview() {
                                             onBlur={() =>
                                                 handleCmSubmit(project.id)
                                             }
-                                            placeholder="CM #"
+                                            placeholder={t("lpms_matters_cm_placeholder")}
                                             className="w-full text-sm text-gray-800 bg-transparent outline-none"
                                         />
                                     ) : (
@@ -453,7 +460,7 @@ export function ProjectsOverview() {
                                     )}
                                 </TableCell>
                                 <TableCell className="w-32">
-                                    {getProjectOwnerLabel(project, user?.id)}
+                                    {getProjectOwnerLabel(project, user?.id, t)}
                                 </TableCell>
                                 <TableCell className="w-24">
                                     {project.document_count ?? 0}
@@ -465,7 +472,7 @@ export function ProjectsOverview() {
                                     {project.review_count ?? 0}
                                 </TableCell>
                                 <TableCell className="w-32">
-                                    {formatDate(project.created_at)}
+                                    {formatDate(project.created_at, locale)}
                                 </TableCell>
 
                                 <div

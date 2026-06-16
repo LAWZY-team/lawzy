@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { ChatInput } from "./ChatInput";
 import { SelectAssistantProjectModal } from "./SelectAssistantProjectModal";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
+
 import type { Message } from "../shared/types";
 
 interface InitialViewProps {
@@ -15,6 +17,7 @@ const ICON_SIZE = 30;
 const GAP = 12; // gap-4 = 1rem = 16px
 
 export function InitialView({ onSubmit }: InitialViewProps) {
+    const { t } = useLpmsT();
     const { user } = useAuth();
     const { profile } = useUserProfile();
     const [loaded, setLoaded] = useState(false);
@@ -53,7 +56,7 @@ export function InitialView({ onSubmit }: InitialViewProps) {
 
                     <div className="text-center">
                         <p className="text-xs py-3 mb-3 text-gray-500">
-                            AI can make mistakes. Answers are not legal advice.
+                            {t("lpms_assistant_disclaimer")}
                         </p>
                     </div>
                 </div>

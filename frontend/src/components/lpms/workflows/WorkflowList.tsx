@@ -26,19 +26,23 @@ import { RowActions } from "../shared/RowActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/lpms/shared/PageHeader";
 import { workflowDetailPath } from "./workflowRoutes";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
+import type { LpmsTranslationKey } from "@/lib/i18n/lpms";
 
 type Tab = "all" | "builtin" | "custom" | "hidden";
 
 const NAME_COL_W = "w-[332px] shrink-0";
 
-const TABS: { id: Tab; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "builtin", label: "Built-in" },
-    { id: "custom", label: "Custom" },
-    { id: "hidden", label: "Hidden" },
+const TAB_KEYS: { id: Tab; labelKey: LpmsTranslationKey }[] = [
+    { id: "all", labelKey: "lpms_workflows_tab_all" },
+    { id: "builtin", labelKey: "lpms_workflows_tab_builtin" },
+    { id: "custom", labelKey: "lpms_workflows_tab_custom" },
+    { id: "hidden", labelKey: "lpms_workflows_tab_hidden" },
 ];
 
 export function WorkflowList() {
+    const { t } = useLpmsT();
+    const tabs = TAB_KEYS.map((tab) => ({ id: tab.id, label: t(tab.labelKey) }));
     const router = useRouter();
     const { user } = useAuth();
     const stickyCellBg = "bg-[#fafbfc]";
@@ -200,9 +204,13 @@ export function WorkflowList() {
 
     const getTypeMeta = (type: Workflow["type"]) =>
         type === "tabular"
-            ? { label: "Tabular", Icon: Table2, className: "text-violet-700" }
+            ? {
+                  label: t("lpms_workflows_type_tabular"),
+                  Icon: Table2,
+                  className: "text-violet-700",
+              }
             : {
-                  label: "Assistant",
+                  label: t("lpms_workflows_type_assistant"),
                   Icon: MessageSquare,
                   className: "text-blue-700",
               };
@@ -218,10 +226,8 @@ export function WorkflowList() {
                 }`}
             >
                 {typeFilter
-                    ? typeFilter === "tabular"
-                        ? "Tabular"
-                        : "Assistant"
-                    : "Filter by type"}
+                    ? getTypeMeta(typeFilter).label
+                    : t("lpms_workflows_filter_type")}
                 <ChevronDown className="h-3 w-3" />
             </button>
             {typeFilterOpen && (
@@ -239,13 +245,13 @@ export function WorkflowList() {
                         )}
                     </button>
                     <div className="border-t border-gray-100" />
-                    {(["assistant", "tabular"] as const).map((t) => {
-                        const { label, Icon, className } = getTypeMeta(t);
+                    {(["assistant", "tabular"] as const).map((workflowType) => {
+                        const { label, Icon, className } = getTypeMeta(workflowType);
                         return (
                             <button
-                                key={t}
+                                key={workflowType}
                                 onClick={() => {
-                                    setTypeFilter(t);
+                                    setTypeFilter(workflowType);
                                     setTypeFilterOpen(false);
                                 }}
                                 className="flex items-center justify-between w-full px-3 py-2 text-xs hover:bg-gray-50 transition-colors"
@@ -256,7 +262,7 @@ export function WorkflowList() {
                                     <Icon className="h-3.5 w-3.5" />
                                     {label}
                                 </span>
-                                {typeFilter === t && (
+                                {typeFilter === workflowType && (
                                     <Check className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                                 )}
                             </button>
@@ -277,7 +283,7 @@ export function WorkflowList() {
                         : "text-gray-500 hover:text-gray-700"
                 }`}
             >
-                {practiceFilter ?? "Filter by practice"}
+                {practiceFilter ?? t("lpms_workflows_filter_practice")}
                 <ChevronDown className="h-3 w-3" />
             </button>
             {practiceFilterOpen && (
@@ -367,22 +373,22 @@ export function WorkflowList() {
                         type: "search",
                         value: search,
                         onChange: setSearch,
-                        placeholder: "Search workflows…",
+                        placeholder: t("lpms_workflows_search"),
                     },
                     {
                         type: "new",
                         onClick: () => setNewModalOpen(true),
-                        title: "New workflow",
+                        title: t("lpms_workflows_new"),
                     },
                 ]}
             >
                 <h1 className="text-2xl font-medium font-serif text-gray-900">
-                    Workflows
+                    {t("lpms_workflows_title")}
                 </h1>
             </PageHeader>
 
             <ToolbarTabs
-                tabs={TABS}
+                tabs={tabs}
                 active={activeTab}
                 onChange={setActiveTab}
                 actions={toolbarActions}

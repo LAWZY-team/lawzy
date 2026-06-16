@@ -40,16 +40,24 @@ import { cn } from "@/lib/utils";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { listProjects } from "@/app/lib/lpmsApi";
 import type { Project } from "@/components/lpms/shared/types";
+import { useLpmsT } from "@/hooks/lpms/use-lpms-t";
+import type { LpmsTranslationKey } from "@/lib/i18n/lpms";
 
-const lpmsNavItems = [
-    { title: "Tổng quan LPMS", href: "/lpms/dashboard", icon: LayoutDashboard },
-    { title: "Trợ lý & Án lệ", href: "/lpms/assistant", icon: Sparkles, collapsible: "assistant" as const },
-    { title: "Vụ việc (Matters)", href: "/lpms/matters", icon: FolderKanban, collapsible: "matters" as const },
-    { title: "Bóc tách hàng loạt", href: "/lpms/tabular-analysis", icon: TableProperties },
-    { title: "Quy trình (Workflows)", href: "/lpms/workflows", icon: Library },
+const lpmsNavItems: {
+    titleKey: LpmsTranslationKey;
+    href: string;
+    icon: typeof LayoutDashboard;
+    collapsible?: "assistant" | "matters";
+}[] = [
+    { titleKey: "lpms_nav_dashboard", href: "/lpms/dashboard", icon: LayoutDashboard },
+    { titleKey: "lpms_nav_assistant", href: "/lpms/assistant", icon: Sparkles, collapsible: "assistant" },
+    { titleKey: "lpms_nav_matters", href: "/lpms/matters", icon: FolderKanban, collapsible: "matters" },
+    { titleKey: "lpms_nav_tabular", href: "/lpms/tabular-analysis", icon: TableProperties },
+    { titleKey: "lpms_nav_workflows", href: "/lpms/workflows", icon: Library },
 ];
 
 export function LPMSSidebar() {
+    const { t } = useLpmsT();
     const pathname = usePathname();
     const router = useRouter();
     const { state, setOpenMobile } = useSidebar();
@@ -91,6 +99,7 @@ export function LPMSSidebar() {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {lpmsNavItems.map((item) => {
+                                const itemTitle = t(item.titleKey);
                                 const isActive =
                                     pathname === item.href ||
                                     (item.href !== "/lpms/assistant" &&
@@ -109,12 +118,12 @@ export function LPMSSidebar() {
                                             <SidebarMenuItem>
                                                 <CollapsibleTrigger asChild>
                                                     <SidebarMenuButton
-                                                        tooltip={item.title}
+                                                        tooltip={itemTitle}
                                                         isActive={isAssistantActive}
                                                         className="w-full"
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0" />
-                                                        <span className="truncate">{item.title}</span>
+                                                        <span className="truncate">{itemTitle}</span>
                                                         <ChevronRight className="ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                                                     </SidebarMenuButton>
                                                 </CollapsibleTrigger>
@@ -129,19 +138,19 @@ export function LPMSSidebar() {
                                                                 className="group mb-1.5 flex w-full cursor-pointer items-center gap-2 rounded-md border-b border-gray-100 px-3 py-1.5 pb-2 text-xs font-medium text-gray-900 transition-colors hover:bg-gray-100/80"
                                                             >
                                                                 <Plus className="h-3.5 w-3.5 text-gray-500 group-hover:text-gray-950" />
-                                                                <span>Tạo chat mới</span>
+                                                                <span>{t("lpms_sidebar_new_chat")}</span>
                                                             </div>
                                                         </SidebarMenuSubItem>
                                                         {!chats ? (
                                                             <SidebarMenuSubItem>
                                                                 <div className="px-3 py-1.5 text-xs text-gray-400">
-                                                                    Đang tải lịch sử...
+                                                                    {t("lpms_sidebar_loading_chats")}
                                                                 </div>
                                                             </SidebarMenuSubItem>
                                                         ) : chats.length === 0 ? (
                                                             <SidebarMenuSubItem>
                                                                 <div className="px-3 py-1.5 text-xs text-gray-400">
-                                                                    Chưa có hội thoại nào
+                                                                    {t("lpms_sidebar_no_chats")}
                                                                 </div>
                                                             </SidebarMenuSubItem>
                                                         ) : (
@@ -164,7 +173,7 @@ export function LPMSSidebar() {
                                                                                 onClick={() => setOpenMobile(false)}
                                                                                 className="flex-1 cursor-pointer truncate pr-2"
                                                                             >
-                                                                                {chat.title || "Cuộc trò chuyện mới"}
+                                                                                {chat.title || t("lpms_sidebar_default_chat_title")}
                                                                             </Link>
                                                                             <button
                                                                                 onClick={async (e) => {
@@ -176,7 +185,7 @@ export function LPMSSidebar() {
                                                                                     }
                                                                                 }}
                                                                                 className="cursor-pointer rounded p-0.5 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
-                                                                                title="Xóa"
+                                                                                title={t("lpms_sidebar_delete_chat")}
                                                                             >
                                                                                 <Trash2 className="h-3 w-3" />
                                                                             </button>
@@ -204,12 +213,12 @@ export function LPMSSidebar() {
                                             <SidebarMenuItem>
                                                 <CollapsibleTrigger asChild>
                                                     <SidebarMenuButton
-                                                        tooltip={item.title}
+                                                        tooltip={itemTitle}
                                                         isActive={isMattersActive}
                                                         className="w-full"
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0" />
-                                                        <span className="truncate">{item.title}</span>
+                                                        <span className="truncate">{itemTitle}</span>
                                                         <ChevronRight className="ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                                                     </SidebarMenuButton>
                                                 </CollapsibleTrigger>
@@ -222,7 +231,7 @@ export function LPMSSidebar() {
                                                                 className="mb-1.5 flex w-full items-center gap-2 rounded-md border-b border-gray-100 px-3 py-1.5 pb-2 text-xs font-medium text-gray-900 transition-colors hover:bg-gray-100/80"
                                                             >
                                                                 <Plus className="h-3.5 w-3.5 text-gray-500" />
-                                                                <span>Tất cả vụ việc</span>
+                                                                <span>{t("lpms_sidebar_all_matters")}</span>
                                                             </Link>
                                                         </SidebarMenuSubItem>
                                                         {recentMatters.map((matter) => (
@@ -255,11 +264,11 @@ export function LPMSSidebar() {
                                         <SidebarMenuButton
                                             asChild
                                             isActive={isActive}
-                                            tooltip={item.title}
+                                            tooltip={itemTitle}
                                         >
                                             <Link href={item.href} onClick={() => setOpenMobile(false)}>
                                                 <Icon className="h-4 w-4 shrink-0" />
-                                                <span className="truncate">{item.title}</span>
+                                                <span className="truncate">{itemTitle}</span>
                                             </Link>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
