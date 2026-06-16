@@ -129,7 +129,7 @@ export function CreateWorkspaceModal({
                 {t("common_cancel")}
               </Button>
               <Button asChild>
-                <Link href="/payment">{t("plan_btn_upgrade")}</Link>
+                <Link href="/clm/payment">{t("plan_btn_upgrade")}</Link>
               </Button>
             </DialogFooter>
           </>

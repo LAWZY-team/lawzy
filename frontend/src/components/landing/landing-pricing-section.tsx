@@ -26,7 +26,7 @@ export default function LandingPricingSection() {
       router.push("/contact");
       return;
     }
-    router.push(loginPathWithReturn("/payment"));
+    router.push(loginPathWithReturn("/clm/payment"));
   };
 
   if (isLoading) {

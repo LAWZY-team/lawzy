@@ -96,7 +96,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
       return () => clearTimeout(timer)
     } else if (status === "success" && countdown === 0) {
-      router.push("/payment")
+      router.push("/clm/payment")
     }
   }, [status, countdown, router])
 
@@ -204,7 +204,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
                 <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
                   <p className="text-sm">{t("payment_status_redirect", { n: countdown })}</p>
                 </div>
-                <Button className="w-full" onClick={() => router.push("/payment")}>
+                <Button className="w-full" onClick={() => router.push("/clm/payment")}>
                   {t("payment_btn_back_payment")}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -213,10 +213,10 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
 
             {status === "failed" && (
               <div className="flex gap-2">
-                <Button className="flex-1" onClick={() => router.push("/payment")}>
+                <Button className="flex-1" onClick={() => router.push("/clm/payment")}>
                   {t("payment_btn_try_again")}
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={() => router.push("/payment")}>
+                <Button variant="outline" className="flex-1" onClick={() => router.push("/clm/payment")}>
                   {t("payment_btn_back_payment")}
                 </Button>
               </div>
@@ -226,7 +226,7 @@ export default function PaymentStatusPage({ params }: { params: Promise<{ orderI
 
         {notFound && (
           <CardContent>
-            <Button className="w-full" onClick={() => router.push("/payment")}>
+            <Button className="w-full" onClick={() => router.push("/clm/payment")}>
               {t("payment_btn_back_payment")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

@@ -353,7 +353,7 @@ export default function WorkspacePage() {
               {t("common_cancel")}
             </Button>
             <Button asChild>
-              <Link href="/payment">
+              <Link href="/clm/payment">
                 {t("workspace_upgrade_cta")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

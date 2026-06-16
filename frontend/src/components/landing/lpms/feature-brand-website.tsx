@@ -23,7 +23,7 @@ export function FeatureBrandWebsite() {
   ];
 
   return (
-    <LpmsFeatureShell index={1} badge={t("lpms_partner_f3_badge")} title={t("lpms_partner_f3_title")}>
+    <LpmsFeatureShell index={1} title={t("lpms_partner_f3_title")}>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:gap-8 mt-2">
         {cards.map((card, i) => {
           const Icon = card.icon;

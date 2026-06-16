@@ -114,7 +114,7 @@ export default function UsagePage() {
                       : t("dash_ai_credit_used")}
                 </p>
                 <Link
-                  href="/payment"
+                  href="/clm/payment"
                   className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                 >
                   Nâng cấp gói để tăng quota

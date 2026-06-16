@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api/client"
 
 export interface AdminUserWorkspace {
@@ -21,7 +21,7 @@ export interface AdminUser {
   workspaces?: AdminUserWorkspace[]
 }
 
-interface PaginatedUsers {
+export interface PaginatedUsers {
   data: AdminUser[]
   total: number
   page: number
@@ -29,23 +29,48 @@ interface PaginatedUsers {
   totalPages: number
 }
 
-export function useAdminUsers(opts?: {
+type AdminUsersQueryOptions = {
+  limit?: number
+  q?: string
+  role?: string
+  verified?: boolean
+  scope?: "all" | "workspace"
+  workspaceId?: string
+  enabled?: boolean
+}
+
+const buildUsersParams = (opts?: {
   page?: number
   limit?: number
   q?: string
   role?: string
+  verified?: boolean
   scope?: "all" | "workspace"
   workspaceId?: string
-  /** Override to disable query (e.g. when tab doesn't need users) */
-  enabled?: boolean
-}) {
+}) => {
   const params = new URLSearchParams()
   if (opts?.page) params.set("page", String(opts.page))
   if (opts?.limit) params.set("limit", String(opts.limit))
   if (opts?.q) params.set("q", opts.q)
   if (opts?.role) params.set("role", opts.role)
+  if (opts?.verified !== undefined) params.set("verified", String(opts.verified))
   if (opts?.scope) params.set("scope", opts.scope)
   if (opts?.workspaceId) params.set("workspaceId", opts.workspaceId)
+  return params
+}
+
+export function useAdminUsers(opts?: {
+  page?: number
+  limit?: number
+  q?: string
+  role?: string
+  verified?: boolean
+  scope?: "all" | "workspace"
+  workspaceId?: string
+  /** Override to disable query (e.g. when tab doesn't need users) */
+  enabled?: boolean
+}) {
+  const params = buildUsersParams(opts)
 
   const scopeEnabled =
     !opts?.scope ||
@@ -55,7 +80,38 @@ export function useAdminUsers(opts?: {
 
   return useQuery<PaginatedUsers>({
     queryKey: ["admin", "users", opts],
-    queryFn: () => api.get(`/clm/admin/users?${params.toString()}`),
+    queryFn: () => api.get(`/admin/users?${params.toString()}`),
+    enabled,
+  })
+}
+
+export function useAdminUsersInfinite(opts?: AdminUsersQueryOptions) {
+  const scopeEnabled =
+    !opts?.scope ||
+    opts.scope !== "workspace" ||
+    !!opts?.workspaceId
+  const enabled = opts?.enabled !== undefined ? opts.enabled : scopeEnabled
+  const limit = opts?.limit ?? 20
+
+  return useInfiniteQuery<PaginatedUsers>({
+    queryKey: ["admin", "users", "infinite", opts],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const params = buildUsersParams({
+        page: Number(pageParam),
+        limit,
+        q: opts?.q,
+        role: opts?.role,
+        verified: opts?.verified,
+        scope: opts?.scope,
+        workspaceId: opts?.workspaceId,
+      })
+      return api.get(`/admin/users?${params.toString()}`)
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page >= lastPage.totalPages) return undefined
+      return lastPage.page + 1
+    },
     enabled,
   })
 }
@@ -63,7 +119,7 @@ export function useAdminUsers(opts?: {
 export function useDeleteAdminUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/clm/admin/users/${id}`),
+    mutationFn: (id: string) => api.delete(`/admin/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
     },

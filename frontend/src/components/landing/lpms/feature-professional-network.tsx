@@ -26,7 +26,7 @@ export function FeatureProfessionalNetwork() {
   ];
 
   return (
-    <LpmsFeatureShell index={4} badge={t("lpms_partner_f5_badge")} title={t("lpms_partner_f5_title")}>
+    <LpmsFeatureShell index={4} title={t("lpms_partner_f5_title")}>
       <div className="flex flex-col gap-6 lg:gap-8">
         {/* Intro text */}
         <div className="max-w-3xl space-y-4">

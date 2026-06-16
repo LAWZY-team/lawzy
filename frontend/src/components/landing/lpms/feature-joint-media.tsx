@@ -8,7 +8,7 @@ export function FeatureJointMedia() {
   const { t, locale } = useI18n();
 
   return (
-    <LpmsFeatureShell index={3} badge={t("lpms_partner_f4_badge")} title={t("lpms_partner_f4_title")}>
+    <LpmsFeatureShell index={3} title={t("lpms_partner_f4_title")}>
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center lg:gap-14 mt-2">
         {/* Left: Content */}
         <div className="space-y-6 lg:col-span-7">

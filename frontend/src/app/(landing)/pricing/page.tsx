@@ -16,7 +16,7 @@ function PricingPageContent() {
       router.push("/contact");
       return;
     }
-    router.push(loginPathWithReturn("/payment"));
+    router.push(loginPathWithReturn("/clm/payment"));
   };
 
   return (

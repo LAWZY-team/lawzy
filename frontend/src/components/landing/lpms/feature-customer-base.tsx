@@ -19,7 +19,6 @@ export function FeatureCustomerBase() {
   return (
     <LpmsFeatureShell
       index={2}
-      badge={t("lpms_partner_f1_badge")}
       title={t("lpms_partner_f1_title")}
     >
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-14 mt-2">

@@ -210,6 +210,7 @@ export class UsersService {
     limit?: number;
     q?: string;
     role?: string;
+    verified?: boolean;
     scope?: 'all' | 'workspace';
     workspaceId?: string;
   }) {
@@ -226,6 +227,9 @@ export class UsersService {
     if (opts?.role?.trim()) {
       const r = opts.role.trim().toLowerCase();
       baseWhere.roles = { string_contains: `"${r}"` };
+    }
+    if (opts?.verified !== undefined) {
+      baseWhere.isVerified = opts.verified;
     }
 
     if (scope === 'workspace' && opts?.workspaceId?.trim()) {

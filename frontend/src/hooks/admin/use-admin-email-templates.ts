@@ -22,14 +22,14 @@ export interface EmailTemplateCode {
 export function useAdminEmailTemplates() {
   return useQuery<EmailTemplate[]>({
     queryKey: ["admin", "email-templates"],
-    queryFn: () => api.get<EmailTemplate[]>("/clm/admin/email-templates"),
+    queryFn: () => api.get<EmailTemplate[]>("/admin/email-templates"),
   })
 }
 
 export function useAdminEmailTemplateCodes() {
   return useQuery<EmailTemplateCode[]>({
     queryKey: ["admin", "email-templates", "codes"],
-    queryFn: () => api.get<EmailTemplateCode[]>("/clm/admin/email-templates/codes"),
+    queryFn: () => api.get<EmailTemplateCode[]>("/admin/email-templates/codes"),
   })
 }
 
@@ -38,7 +38,7 @@ export function useAdminEmailTemplateByCode(code: string | null) {
     queryKey: ["admin", "email-templates", "by-code", code],
     queryFn: () =>
       code
-        ? api.get<EmailTemplate | null>(`/clm/admin/email-templates/by-code/${code}`)
+        ? api.get<EmailTemplate | null>(`/admin/email-templates/by-code/${code}`)
         : Promise.resolve(null),
     enabled: !!code,
   })
@@ -47,7 +47,7 @@ export function useAdminEmailTemplateByCode(code: string | null) {
 export function useAdminEmailTemplateById(id: string | null) {
   return useQuery<EmailTemplate>({
     queryKey: ["admin", "email-templates", id],
-    queryFn: () => api.get<EmailTemplate>(`/clm/admin/email-templates/${id!}`),
+    queryFn: () => api.get<EmailTemplate>(`/admin/email-templates/${id!}`),
     enabled: !!id,
   })
 }
@@ -70,7 +70,7 @@ export function useCreateEmailTemplate() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: CreateEmailTemplateInput) =>
-      api.post<EmailTemplate>("/clm/admin/email-templates", data),
+      api.post<EmailTemplate>("/admin/email-templates", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "email-templates"] })
     },
@@ -81,7 +81,7 @@ export function useUpdateEmailTemplate(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: UpdateEmailTemplateInput) =>
-      api.patch<EmailTemplate>(`/clm/admin/email-templates/${id}`, data),
+      api.patch<EmailTemplate>(`/admin/email-templates/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "email-templates"] })
     },
@@ -92,7 +92,7 @@ export function useDeleteEmailTemplate() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      api.delete(`/clm/admin/email-templates/${id}`),
+      api.delete(`/admin/email-templates/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "email-templates"] })
     },
@@ -103,7 +103,7 @@ export function useSendTestEmail(templateId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: { toEmail: string; variables?: Record<string, string> }) =>
-      api.post(`/clm/admin/email-templates/${templateId}/test`, data),
+      api.post(`/admin/email-templates/${templateId}/test`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "email-templates"] })
     },

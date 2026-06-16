@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useI18n } from "./language-provider";
 import { Section, SectionHeader, sectionContainer } from "./landing-section";
@@ -71,6 +71,7 @@ type DiagnosticStepProps = {
   value: number;
   onChange: (value: number) => void;
   isLast: boolean;
+  locale: string;
 };
 
 const DiagnosticStep = ({
@@ -79,9 +80,26 @@ const DiagnosticStep = ({
   value,
   onChange,
   isLast,
+  locale,
 }: DiagnosticStepProps) => {
   const { t } = useI18n();
-  const config = HOOK_DIAGNOSTIC_CONFIG.inputs[inputKey];
+  const isEn = locale === "en";
+
+  const config = useMemo(() => {
+    if (inputKey === "contractsPerMonth") {
+      return HOOK_DIAGNOSTIC_CONFIG.inputs.contractsPerMonth;
+    }
+    if (inputKey === "annualRevenueBillionVnd") {
+      return isEn
+        ? { min: 1, max: 20, default: 2, snapStep: 1 }
+        : { min: 1, max: 500, default: 50, snapStep: 10 };
+    }
+    // avgSalaryMillionVndPerMonth
+    return isEn
+      ? { min: 300, max: 2000, default: 600, snapStep: 50 }
+      : { min: 8, max: 50, default: 15, snapStep: 1 };
+  }, [inputKey, isEn]);
+
   const ticks = useMemo(
     () =>
       buildHookTicks({
@@ -91,13 +109,16 @@ const DiagnosticStep = ({
       }),
     [config.min, config.max, config.snapStep],
   );
+
   const atMax = value >= config.max;
+
   const handleChange = useCallback(
     (next: number) => {
       onChange(Math.min(config.max, Math.max(config.min, next)));
     },
     [config.max, config.min, onChange],
   );
+
   const handlePointerUp = useCallback(() => {
     onChange(
       snapHookValue({
@@ -108,7 +129,17 @@ const DiagnosticStep = ({
       }),
     );
   }, [config.max, config.min, config.snapStep, onChange, value]);
+
   const percent = ((value - config.min) / (config.max - config.min)) * 100;
+
+  const unitStr = useMemo(() => {
+    if (isEn) {
+      if (inputKey === "annualRevenueBillionVnd") return "Million USD/year";
+      if (inputKey === "avgSalaryMillionVndPerMonth") return "USD/month";
+    }
+    return t(STEP_UNIT_KEYS[inputKey]);
+  }, [inputKey, isEn, t]);
+
   return (
     <div className="relative flex gap-4">
       <div className="flex flex-col items-center">
@@ -127,10 +158,10 @@ const DiagnosticStep = ({
           {t(STEP_LABEL_KEYS[inputKey])}
         </p>
         <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-[1.65rem]">
-          {value}
+          {value.toLocaleString(isEn ? "en-US" : "vi-VN")}
           {atMax ? "+" : ""}{" "}
           <span className="text-base font-medium text-muted-foreground">
-            {t(STEP_UNIT_KEYS[inputKey])}
+            {unitStr}
           </span>
         </p>
         <div className="relative mt-4">
@@ -174,8 +205,8 @@ const DiagnosticStep = ({
             }
           />
           <div className="mt-2 flex justify-between text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
-            <span>{config.min}</span>
-            <span>{config.max}+</span>
+            <span>{config.min.toLocaleString(isEn ? "en-US" : "vi-VN")}</span>
+            <span>{config.max.toLocaleString(isEn ? "en-US" : "vi-VN")}+</span>
           </div>
         </div>
       </div>
@@ -268,7 +299,7 @@ const AnimatedMoney = ({ amountVnd, className }: AnimatedMoneyProps) => {
   );
   const formatted = formatHookMoney({
     amountVnd: animated,
-    currency: HOOK_DIAGNOSTIC_CONFIG.displayCurrency,
+    currency: locale === "en" ? "USD" : "VND",
     locale,
   });
   return (
@@ -320,12 +351,27 @@ const ResultCard = ({
 );
 
 export default function HookSection() {
-  const { t } = useI18n();
-  const [inputs, setInputs] = useState<HookInputState>(DEFAULT_INPUTS);
+  const { t, locale } = useI18n();
+  const [inputs, setInputs] = useState<HookInputState>(() => ({
+    contractsPerMonth: HOOK_DIAGNOSTIC_CONFIG.inputs.contractsPerMonth.default,
+    annualRevenueBillionVnd: locale === "en" ? 2 : 50,
+    avgSalaryMillionVndPerMonth: locale === "en" ? 600 : 15,
+  }));
   const setInput = useCallback((key: HookInputKey, value: number) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   }, []);
-  const metrics = useMemo(() => computeHookDiagnosticMetrics(inputs), [inputs]);
+  const prevLocale = useRef(locale);
+  useEffect(() => {
+    if (prevLocale.current !== locale) {
+      setInputs({
+        contractsPerMonth: HOOK_DIAGNOSTIC_CONFIG.inputs.contractsPerMonth.default,
+        annualRevenueBillionVnd: locale === "en" ? 2 : 50,
+        avgSalaryMillionVndPerMonth: locale === "en" ? 600 : 15,
+      });
+      prevLocale.current = locale;
+    }
+  }, [locale]);
+  const metrics = useMemo(() => computeHookDiagnosticMetrics(inputs, locale), [inputs, locale]);
   const zoneLabel =
     metrics.zone === "healthy"
       ? t("hook_gauge_healthy")
@@ -365,6 +411,7 @@ export default function HookSection() {
                   value={inputs[key]}
                   onChange={(v) => setInput(key, v)}
                   isLast={index === HOOK_INPUT_ORDER.length - 1}
+                  locale={locale}
                 />
               ))}
               <p className="border-t border-stone-100 pt-4 text-xs leading-relaxed text-muted-foreground">
@@ -436,7 +483,7 @@ export default function HookSection() {
               className="h-auto min-h-12 w-full whitespace-normal shadow-md shadow-orange-900/10"
               asChild
             >
-              <Link href="/login" className="px-6 py-3 text-center text-sm font-semibold leading-snug sm:text-base">
+              <Link href="/contact" className="px-6 py-3 text-center text-sm font-semibold leading-snug sm:text-base">
                 {t("hook_cta")}
               </Link>
             </Button>

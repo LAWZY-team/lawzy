@@ -12,7 +12,7 @@ export const PROTECTED_PREFIXES = [
   "/clm/templates",
   "/clm/workspace",
   "/clm/files",
-  "/payment",
+  "/clm/payment",
   "/clm/sources",
   "/clm/admin",
 ] as const;

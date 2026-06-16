@@ -19,6 +19,6 @@ export function useAdminStorageOverview(opts?: { fromR2?: boolean }) {
   const params = opts?.fromR2 ? "?from=r2" : ""
   return useQuery<AdminStorageOverview>({
     queryKey: ["admin", "storage", "overview", opts?.fromR2],
-    queryFn: () => api.get(`/clm/admin/storage/overview${params}`),
+    queryFn: () => api.get(`/admin/storage/overview${params}`),
   })
 }

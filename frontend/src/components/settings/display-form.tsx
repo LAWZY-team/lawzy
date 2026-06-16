@@ -33,7 +33,7 @@ const HREF_TO_LABEL: Record<SidebarItemHref, string> = {
   "/clm/templates": "sidebar_templates",
   "/clm/sources": "sidebar_sources",
   "/clm/files": "sidebar_storage",
-  "/payment": "sidebar_payment_short",
+  "/clm/payment": "sidebar_payment_short",
   "/clm/workspace": "sidebar_workspace",
   "/clm/settings": "sidebar_settings",
 }

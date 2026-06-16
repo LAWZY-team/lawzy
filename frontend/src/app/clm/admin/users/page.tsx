@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Users, Trash2, MoreVertical } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Users, Trash2, MoreVertical, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAdminUsers, useDeleteAdminUser } from "@/hooks/admin/use-admin-users"
+import { useAdminUsersInfinite, useDeleteAdminUser } from "@/hooks/admin/use-admin-users"
 import { useWorkspaceStore } from "@/stores/workspace-store"
 import { useT } from "@/components/i18n-provider"
 import { formatDistanceToNow } from "date-fns"
@@ -50,14 +50,15 @@ import { toast } from "sonner"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 const ALL_VALUE = "__all__"
+const VERIFIED_ALL = "__verified_all__"
 
 function UsersTable({
   users,
   isLoading,
   showWorkspacesColumn,
-  totalPages,
-  page,
-  onPageChange,
+  hasMore,
+  isFetchingNextPage,
+  loadMoreRef,
   t,
 }: {
   users: Array<{
@@ -72,9 +73,9 @@ function UsersTable({
   }>
   isLoading: boolean
   showWorkspacesColumn: boolean
-  totalPages: number
-  page: number
-  onPageChange: (p: number) => void
+  hasMore: boolean
+  isFetchingNextPage: boolean
+  loadMoreRef: { current: HTMLDivElement | null }
   t: (k: string, params?: Record<string, string | number>) => string
 }) {
   const { mutateAsync: deleteUser } = useDeleteAdminUser()
@@ -233,66 +234,84 @@ function UsersTable({
           </TableBody>
         </Table>
       </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onPageChange(Math.max(1, page - 1))}
-            disabled={page <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-muted-foreground text-sm">
-            {t("pagination_page")} {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <div ref={loadMoreRef} className="flex items-center justify-center py-3">
+        {isFetchingNextPage ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t("common_loading")}
+          </div>
+        ) : hasMore ? (
+          <span className="text-xs text-muted-foreground">Cuộn xuống để tải thêm người dùng</span>
+        ) : users.length > 0 ? (
+          <span className="text-xs text-muted-foreground">Đã hiển thị hết danh sách</span>
+        ) : null}
+      </div>
     </>
   )
 }
 
 export default function AdminUsersPage() {
   const { t } = useT()
-  const [search, setSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState(ALL_VALUE)
+  const [searchInput, setSearchInput] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [verifiedFilter, setVerifiedFilter] = useState(VERIFIED_ALL)
   const [activeTab, setActiveTab] = useState<"users" | "workspaces">("users")
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>("")
-  const [page, setPage] = useState(1)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   const { workspaces, fetchWorkspaces } = useWorkspaceStore()
   useEffect(() => {
     fetchWorkspaces()
   }, [fetchWorkspaces])
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const fetchWorkspaceUsers =
     activeTab === "workspaces" && !!selectedWorkspaceId
-  const { data: usersData, isLoading } = useAdminUsers({
-    q: search || undefined,
-    role: roleFilter === ALL_VALUE ? undefined : roleFilter || undefined,
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useAdminUsersInfinite({
+    q: debouncedSearch || undefined,
+    verified:
+      verifiedFilter === VERIFIED_ALL
+        ? undefined
+        : verifiedFilter === "verified",
     scope: fetchWorkspaceUsers ? "workspace" : "all",
     workspaceId: fetchWorkspaceUsers ? selectedWorkspaceId : undefined,
-    page,
     limit: 20,
     enabled: activeTab === "users" || fetchWorkspaceUsers,
   })
 
-  const users = activeTab === "workspaces" && !selectedWorkspaceId
-    ? []
-    : (usersData?.data ?? [])
-  const totalPages = activeTab === "workspaces" && !selectedWorkspaceId
-    ? 1
-    : (usersData?.totalPages ?? 1)
+  const users = useMemo(() => {
+    if (activeTab === "workspaces" && !selectedWorkspaceId) return []
+    return data?.pages.flatMap((p) => p.data) ?? []
+  }, [activeTab, selectedWorkspaceId, data])
+
+  const totalUsers = useMemo(() => {
+    if (activeTab === "workspaces" && !selectedWorkspaceId) return 0
+    return data?.pages?.[0]?.total ?? 0
+  }, [activeTab, selectedWorkspaceId, data])
+
+  useEffect(() => {
+    if (!hasNextPage || !loadMoreRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void fetchNextPage()
+        }
+      },
+      { rootMargin: "200px 0px 300px 0px" },
+    )
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasNextPage, fetchNextPage, users.length, debouncedSearch, verifiedFilter, activeTab, selectedWorkspaceId])
 
   return (
     <ScrollArea>
@@ -307,7 +326,6 @@ export default function AdminUsersPage() {
       <Tabs value={activeTab} onValueChange={(v) => {
         setActiveTab(v as "users" | "workspaces")
         setSelectedWorkspaceId("")
-        setPage(1)
       }}>
         <TabsList>
           <TabsTrigger value="users">{t("admin_users_tab_by_users")}</TabsTrigger>
@@ -315,40 +333,45 @@ export default function AdminUsersPage() {
         </TabsList>
 
         <TabsContent value="users" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Có tất cả <span className="font-medium text-foreground">{totalUsers.toLocaleString("vi-VN")}</span> người dùng
+          </p>
           <div className="flex flex-wrap gap-2">
             <Input
               placeholder={t("admin_users_search_placeholder")}
-              value={search}
+              value={searchInput}
               onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
+                setSearchInput(e.target.value)
               }}
               className="max-w-xs"
             />
-            <Select
-              value={roleFilter}
-              onValueChange={(v) => {
-                setRoleFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder={t("admin_users_roles")} />
+            <Select value={verifiedFilter} onValueChange={setVerifiedFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder={t("admin_users_verified_label")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>{t("admin_users_all")}</SelectItem>
-                <SelectItem value="admin">{t("admin_users_admin")}</SelectItem>
-                <SelectItem value="user">{t("admin_users_user")}</SelectItem>
+                <SelectItem value={VERIFIED_ALL}>{t("admin_users_all")}</SelectItem>
+                <SelectItem value="verified">{t("admin_users_verified")}</SelectItem>
+                <SelectItem value="unverified">{t("admin_users_unverified")}</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchInput("")
+                setVerifiedFilter(VERIFIED_ALL)
+              }}
+            >
+              Reset
+            </Button>
           </div>
           <UsersTable
             users={users}
             isLoading={isLoading}
             showWorkspacesColumn={true}
-            totalPages={totalPages}
-            page={page}
-            onPageChange={setPage}
+            hasMore={Boolean(hasNextPage)}
+            isFetchingNextPage={isFetchingNextPage}
+            loadMoreRef={loadMoreRef}
             t={t}
           />
         </TabsContent>
@@ -372,7 +395,6 @@ export default function AdminUsersPage() {
                     )}
                     onClick={() => {
                       setSelectedWorkspaceId(selectedWorkspaceId === ws.id ? "" : ws.id)
-                      setPage(1)
                     }}
                   >
                     <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
@@ -405,34 +427,45 @@ export default function AdminUsersPage() {
               <h3 className="font-semibold">
                 {t("admin_users_workspaces")} — {workspaces.find((w) => w.id === selectedWorkspaceId)?.name}
               </h3>
+              <p className="text-sm text-muted-foreground">
+                Có tất cả <span className="font-medium text-foreground">{totalUsers.toLocaleString("vi-VN")}</span> người dùng
+              </p>
               <div className="flex flex-wrap gap-2">
                 <Input
                   placeholder={t("admin_users_search_placeholder")}
-                  value={search}
+                  value={searchInput}
                   onChange={(e) => {
-                    setSearch(e.target.value)
-                    setPage(1)
+                    setSearchInput(e.target.value)
                   }}
                   className="max-w-xs"
                 />
-                <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1) }}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder={t("admin_users_roles")} />
+                <Select value={verifiedFilter} onValueChange={setVerifiedFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder={t("admin_users_verified_label")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL_VALUE}>{t("admin_users_all")}</SelectItem>
-                    <SelectItem value="admin">{t("admin_users_admin")}</SelectItem>
-                    <SelectItem value="user">{t("admin_users_user")}</SelectItem>
+                    <SelectItem value={VERIFIED_ALL}>{t("admin_users_all")}</SelectItem>
+                    <SelectItem value="verified">{t("admin_users_verified")}</SelectItem>
+                    <SelectItem value="unverified">{t("admin_users_unverified")}</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchInput("")
+                    setVerifiedFilter(VERIFIED_ALL)
+                  }}
+                >
+                  Reset
+                </Button>
               </div>
               <UsersTable
                 users={users}
                 isLoading={isLoading}
                 showWorkspacesColumn={false}
-                totalPages={totalPages}
-                page={page}
-                onPageChange={setPage}
+                hasMore={Boolean(hasNextPage)}
+                isFetchingNextPage={isFetchingNextPage}
+                loadMoreRef={loadMoreRef}
                 t={t}
               />
             </div>

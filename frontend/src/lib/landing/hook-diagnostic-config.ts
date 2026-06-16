@@ -7,8 +7,8 @@ export type HookCurrencyCode = "USD" | "VND";
 export const HOOK_DIAGNOSTIC_CONFIG = {
   /** Default currency for monetary results on the right panel */
   displayCurrency: "USD" as HookCurrencyCode,
-  /** Placeholder FX — replace when finance team confirms */
-  vndPerUsd: 25_000,
+  /** FX Rate: 1 USD = 26000 VND */
+  vndPerUsd: 26_000,
   inputs: {
     contractsPerMonth: {
       min: 5,

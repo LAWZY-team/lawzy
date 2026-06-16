@@ -63,7 +63,7 @@ const baseNavGroups: NavGroup[] = [
     labelKey: "sidebar_management",
     items: [
       { titleKey: "sidebar_storage", href: "/clm/usage", icon: HardDrive },
-      { titleKey: "sidebar_payment_short", href: "/payment", icon: CreditCard },
+      { titleKey: "sidebar_payment_short", href: "/clm/payment", icon: CreditCard },
       { titleKey: "sidebar_workspace", href: "/clm/workspace", icon: Building2 },
       { titleKey: "sidebar_settings", href: "/clm/settings", icon: Settings },
     ],

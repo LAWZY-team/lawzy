@@ -68,7 +68,7 @@ export function QuotaCard({
                       : t("dash_ai_credit_used")}
                 </p>
                 <Link
-                  href="/payment"
+                  href="/clm/payment"
                   className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                 >
                   <ArrowUpCircle className="h-3.5 w-3.5" />

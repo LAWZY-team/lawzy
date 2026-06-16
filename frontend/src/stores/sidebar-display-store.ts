@@ -13,7 +13,7 @@ export const SIDEBAR_ITEM_HREFS = [
   "/clm/templates",
   "/clm/sources",
   "/clm/files",
-  "/payment",
+  "/clm/payment",
   "/clm/workspace",
   "/clm/settings",
 ] as const
@@ -29,7 +29,7 @@ const DEFAULT_VISIBLE: SidebarItemHref[] = [
   "/clm/templates",
   "/clm/sources",
   "/clm/files",
-  "/payment",
+  "/clm/payment",
   "/clm/workspace",
   "/clm/settings",
 ]

@@ -28,14 +28,14 @@ const queryKey = ["admin", "workspaces"]
 export function useAdminWorkspaces() {
   return useQuery<AdminWorkspace[]>({
     queryKey,
-    queryFn: () => api.get("/clm/admin/workspaces"),
+    queryFn: () => api.get("/admin/workspaces"),
   })
 }
 
 export function useAdminWorkspace(id: string | null) {
   return useQuery<WorkspaceWithMembers>({
     queryKey: [...queryKey, id],
-    queryFn: () => api.get(`/clm/admin/workspaces/${id}`),
+    queryFn: () => api.get(`/admin/workspaces/${id}`),
     enabled: !!id,
   })
 }
@@ -44,7 +44,7 @@ export function useCreateAdminWorkspace() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { name: string; plan?: string }) =>
-      api.post("/clm/admin/workspaces", body),
+      api.post("/admin/workspaces", body),
     onSuccess: () => qc.invalidateQueries({ queryKey }),
   })
 }
@@ -53,7 +53,7 @@ export function useUpdateAdminWorkspace(id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { name?: string; plan?: string }) =>
-      api.patch(`/clm/admin/workspaces/${id}`, body),
+      api.patch(`/admin/workspaces/${id}`, body),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey })
       qc.invalidateQueries({ queryKey: [...queryKey, id] })
@@ -67,7 +67,7 @@ export function useUpdateAdminWorkspace(id: string) {
 export function useDeleteAdminWorkspace() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/clm/admin/workspaces/${id}`),
+    mutationFn: (id: string) => api.delete(`/admin/workspaces/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey }),
   })
 }
@@ -76,7 +76,7 @@ export function useAddWorkspaceMember(workspaceId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { email: string; role?: string }) =>
-      api.post(`/clm/admin/workspaces/${workspaceId}/members`, body),
+      api.post(`/admin/workspaces/${workspaceId}/members`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey })
       qc.invalidateQueries({ queryKey: [...queryKey, workspaceId] })
@@ -88,7 +88,7 @@ export function useRemoveWorkspaceMember(workspaceId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (userId: string) =>
-      api.delete(`/clm/admin/workspaces/${workspaceId}/members/${userId}`),
+      api.delete(`/admin/workspaces/${workspaceId}/members/${userId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey })
       qc.invalidateQueries({ queryKey: [...queryKey, workspaceId] })

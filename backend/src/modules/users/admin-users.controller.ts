@@ -16,14 +16,18 @@ export class AdminUsersController {
     @Query('limit') limit?: string,
     @Query('q') q?: string,
     @Query('role') role?: string,
+    @Query('verified') verified?: string,
     @Query('scope') scope?: 'all' | 'workspace',
     @Query('workspaceId') workspaceId?: string,
   ) {
+    const verifiedFilter =
+      verified === 'true' ? true : verified === 'false' ? false : undefined;
     return this.usersService.findManyForAdmin({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       q,
       role,
+      verified: verifiedFilter,
       scope: scope === 'workspace' ? 'workspace' : 'all',
       workspaceId: scope === 'workspace' ? workspaceId : undefined,
     });
