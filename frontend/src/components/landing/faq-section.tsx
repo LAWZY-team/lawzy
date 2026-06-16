@@ -61,7 +61,7 @@ export default function FaqSection() {
   return (
     <Section id="faq" spacing="compact" className="border-t border-gray-100/80 bg-white/50">
       <div className={sectionContainer}>
-        <SectionHeader title={t("faq_title")} subtitle={t("faq_subtitle")} margin="tight" align="left" className="mx-0 max-w-3xl" />
+        <SectionHeader title={t("faq_title")} margin="tight" align="left" className="mx-0 max-w-3xl" />
         <div className="mx-auto mt-10 max-w-3xl border-t border-gray-200/90">
           {FAQ_ITEMS.map((item, index) => (
             <FaqItem

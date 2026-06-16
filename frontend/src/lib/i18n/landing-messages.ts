@@ -152,7 +152,7 @@ export const landingVi = {
     "LAWZY nằm trong mạng lưới liên kết của Golden Gate Ventures, BLOCK71, Google và các trường đại học Luật hàng đầu trong và ngoài nước.",
   lpms_partner_f5_benefit:
     "Ưu tiên mời tham gia hội thảo quốc tế, kết nối giao thương với hãng luật nước ngoài để xử lý vụ việc xuyên biên giới.",
-  lpms_partner_f5_tooltip_ggv: "Cơ hội kết nối Thung lũng Silicon",
+  lpms_partner_f5_tooltip_ggv: "Mở rộng cơ hội phát triển",
   lpms_partner_f5_tooltip_block71: "Chương trình Univenture & đổi mới sáng tạo",
   lpms_partner_f5_tooltip_google: "Mạng lưới startup & công nghệ toàn cầu",
   lpms_partner_f5_tooltip_ulaw: "Đối tác học thuật pháp lý hàng đầu VN",
@@ -396,20 +396,19 @@ export const landingVi = {
   hook_gauge_zone_warning: "Báo động",
   hook_gauge_zone_healthy: "Khỏe mạnh",
   faq_title: "Câu hỏi thường gặp",
-  faq_subtitle: "Placeholder — bạn có thể cập nhật nội dung sau",
   faq_q1: "Lawzy là gì?",
   faq_a1:
-    "Placeholder: Lawzy là nền tảng legal tech giúp doanh nghiệp và law firm quản lý hợp đồng và vận hành pháp lý hiệu quả hơn.",
+    "Lawzy là nền tảng legal tech giúp doanh nghiệp và law firm quản lý hợp đồng và vận hành pháp lý hiệu quả hơn.",
   faq_q2: "CLM và LPMS khác nhau như thế nào?",
   faq_a2:
-    "Placeholder: CLM dành cho doanh nghiệp quản lý vòng đời hợp đồng; LPMS dành cho law firm quản lý vụ việc và vận hành.",
+    "CLM dành cho doanh nghiệp quản lý vòng đời hợp đồng; LPMS dành cho law firm quản lý vụ việc và vận hành.",
   faq_q3: "Lawzy có hỗ trợ tiếng Việt không?",
-  faq_a3: "Placeholder: Có, Lawzy hỗ trợ tiếng Việt và tiếng Anh.",
+  faq_a3: "Có, Lawzy hỗ trợ tiếng Việt và tiếng Anh.",
   faq_q4: "Làm sao để đặt lịch demo?",
-  faq_a4: "Placeholder: Nhấn nút Đặt lịch demo hoặc liên hệ qua trang Liên hệ.",
+  faq_a4: "Nhấn nút Đặt lịch demo hoặc liên hệ qua trang Liên hệ.",
   faq_q5: "Dữ liệu có được bảo mật không?",
   faq_a5:
-    "Placeholder: Lawzy tuân thủ các tiêu chuẩn bảo mật và không lưu dữ liệu chẩn đoán trên hệ thống.",
+    "Lawzy tuân thủ các tiêu chuẩn bảo mật và không lưu dữ liệu chẩn đoán trên hệ thống.",
   footer_contact: "Liên hệ",
   footer_tagline: "An tâm. Kịp thời. Đồng hành cùng bạn",
   footer_description:
@@ -649,7 +648,7 @@ export const landingEn = {
     "LAWZY is connected through Golden Gate Ventures, BLOCK71, Google, and leading law schools locally and abroad.",
   lpms_partner_f5_benefit:
     "Priority invitations to international forums and cross-border referrals with foreign law firms.",
-  lpms_partner_f5_tooltip_ggv: "Silicon Valley connection opportunities",
+  lpms_partner_f5_tooltip_ggv: "Expand development opportunities",
   lpms_partner_f5_tooltip_block71: "Univenture & innovation programs",
   lpms_partner_f5_tooltip_google: "Global startup & tech network",
   lpms_partner_f5_tooltip_ulaw: "Leading Vietnamese legal academic partner",
@@ -891,21 +890,20 @@ export const landingEn = {
   hook_gauge_zone_warning: "Warning",
   hook_gauge_zone_healthy: "Healthy",
   faq_title: "FAQs",
-  faq_subtitle: "Placeholder — you can update content later",
   faq_q1: "What is Lawzy?",
   faq_a1:
-    "Placeholder: Lawzy is a legal tech platform helping businesses and law firms manage contracts and legal operations more efficiently.",
+    "Lawzy is a legal tech platform helping businesses and law firms manage contracts and legal operations more efficiently.",
   faq_q2: "How do CLM and LPMS differ?",
   faq_a2:
-    "Placeholder: CLM is for businesses managing contract lifecycles; LPMS is for law firms managing matters and operations.",
+    "CLM is for businesses managing contract lifecycles; LPMS is for law firms managing matters and operations.",
   faq_q3: "Does Lawzy support Vietnamese?",
-  faq_a3: "Placeholder: Yes, Lawzy supports Vietnamese and English.",
+  faq_a3: "Yes, Lawzy supports Vietnamese and English.",
   faq_q4: "How do I book a demo?",
   faq_a4:
-    "Placeholder: Click Request a Demo or contact us via the Contact page.",
+    "Click Request a Demo or contact us via the Contact page.",
   faq_q5: "Is my data secure?",
   faq_a5:
-    "Placeholder: Lawzy follows security standards and does not store diagnostic data on our systems.",
+    "Lawzy follows security standards and does not store diagnostic data on our systems.",
   footer_contact: "Contact",
   footer_tagline: "Peace of mind. On time. By your side",
   footer_description:

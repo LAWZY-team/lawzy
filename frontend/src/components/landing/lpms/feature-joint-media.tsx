@@ -1,64 +1,57 @@
 "use client";
 
-import { useRef, type MouseEvent } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useI18n } from "../language-provider";
 import { LpmsFeatureShell } from "./lpms-feature-shell";
-import { Award, Building2 } from "lucide-react";
+import { Award } from "lucide-react";
 
 export function FeatureJointMedia() {
-  const { t } = useI18n();
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useSpring(useTransform(y, [-80, 80], [10, -10]), { stiffness: 300, damping: 30 });
-  const rotateY = useSpring(useTransform(x, [-80, 80], [-10, 10]), { stiffness: 300, damping: 30 });
-
-  const handleMove = (event: MouseEvent<HTMLDivElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    x.set(event.clientX - rect.left - rect.width / 2);
-    y.set(event.clientY - rect.top - rect.height / 2);
-  };
-
-  const handleLeave = () => {
-    x.set(0);
-    y.set(0);
-  };
+  const { t, locale } = useI18n();
 
   return (
-    <LpmsFeatureShell index={3} badge={t("lpms_partner_f4_badge")} title={t("lpms_partner_f4_title")} dark>
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
-        <div className="space-y-5 text-base leading-relaxed text-zinc-400 sm:text-lg">
-          <p>{t("lpms_partner_f4_mechanism")}</p>
-          <p className="text-zinc-300">{t("lpms_partner_f4_benefit")}</p>
+    <LpmsFeatureShell index={3} badge={t("lpms_partner_f4_badge")} title={t("lpms_partner_f4_title")}>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center lg:gap-14 mt-2">
+        {/* Left: Content */}
+        <div className="space-y-6 lg:col-span-7">
+          <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+            {t("lpms_partner_f4_mechanism")}
+          </p>
+          <div className="rounded-3xl border border-orange-100 bg-orange-50/50 p-6 text-base leading-relaxed text-orange-950">
+            <p className="font-semibold text-orange-850 mb-1 flex items-center gap-2">
+              <Award className="h-5 w-5 text-orange-600 shrink-0" />
+              {locale === "vi" ? "Giá trị truyền thông" : "Media Value"}
+            </p>
+            <p className="text-orange-900/95 text-sm sm:text-base">{t("lpms_partner_f4_benefit")}</p>
+          </div>
         </div>
-        <div className="flex justify-center [perspective:1000px]">
-          <motion.div
-            ref={ref}
-            onMouseMove={handleMove}
-            onMouseLeave={handleLeave}
-            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-            className="lpms-shimmer-card w-full max-w-md rounded-3xl border border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 p-8 shadow-2xl shadow-black/50 transition-transform duration-300 hover:scale-[1.02]"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-700/80 text-white">
-                <Building2 className="h-8 w-8" />
+
+        {/* Right: Premium Trust Stamp Card */}
+        <div className="lg:col-span-5 flex justify-center w-full">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+            {/* Subtle decorative glow */}
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-orange-500/5 blur-3xl pointer-events-none" />
+            
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-500/10">
+                <Award className="h-8 w-8" />
               </div>
-              <div>
-                <p className="text-lg font-bold text-white">{t("lpms_partner_f4_partner_name")}</p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-orange-300">
-                  <Award className="h-4 w-4" />
+              
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-widest text-orange-655 font-bold text-orange-600">
                   {t("lpms_partner_f4_partner_badge")}
                 </p>
+                <h4 className="text-xl font-bold text-foreground tracking-tight mt-1">
+                  {t("lpms_partner_f4_partner_name")}
+                </h4>
+              </div>
+
+              <div className="w-full border-t border-gray-100 my-2" />
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-mono tracking-wider">LAWYER SYNERGY NETWORK</p>
+                <p>{locale === "vi" ? "Vinh danh đối tác chiến lược trên lawzy.vn" : "Strategic partner spotlight on lawzy.vn"}</p>
               </div>
             </div>
-            <div className="mt-8 rounded-xl border border-zinc-700/80 bg-zinc-900/60 p-4">
-              <p className="text-xs uppercase tracking-widest text-zinc-500">Featured on lawzy.vn</p>
-              <p className="mt-2 text-sm text-zinc-300">Strategic Legal Partner spotlight</p>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </LpmsFeatureShell>
