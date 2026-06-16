@@ -13,6 +13,10 @@ import {
   Res,
   BadRequestException,
   NotFoundException,
+  HttpException,
+  InternalServerErrorException,
+  Logger,
+  ServiceUnavailableException,
   UseInterceptors,
   UploadedFile,
   Inject,
@@ -37,6 +41,8 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller('single-documents')
 export class SingleDocumentsController {
+  private readonly logger = new Logger(SingleDocumentsController.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly filesService: FilesService,
@@ -197,11 +203,19 @@ export class SingleDocumentsController {
 
       return this.mapDocumentToFrontend(updatedDoc);
     } catch (e) {
+      this.logger.error(`Upload failed for document ${doc.id}`, e);
       await this.prisma.document.update({
         where: { id: doc.id },
         data: { status: 'error' },
       });
-      throw e;
+      if (e instanceof HttpException) throw e;
+      const message = e instanceof Error ? e.message : 'Upload failed';
+      if (message.includes('R2/S3 is not configured')) {
+        throw new ServiceUnavailableException(
+          'File storage (R2) is not configured. Set R2_ENDPOINT_URL, R2_ACCESS_KEY, R2_SECRET_KEY, R2_BUCKET, R2_REGION on the backend.',
+        );
+      }
+      throw new InternalServerErrorException(message);
     }
   }
 

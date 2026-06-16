@@ -2,7 +2,7 @@ import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common
 import { GoogleGenAI } from '@google/genai';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getLlmConfig } from '../../config/env';
+import { getLlmConfig, getEffectiveLlmProvider } from '../../config/env';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -54,21 +54,25 @@ export class AiProviderService {
    */
   public getClient(): GoogleGenAI {
     const config = getLlmConfig();
-    
-    if (config.provider === 'VERTEX_AI' && !this.vertexAuthFailed) {
+    const effectiveProvider = getEffectiveLlmProvider(config);
+
+    if (effectiveProvider === 'VERTEX_AI' && !this.vertexAuthFailed) {
       if (!this.vertexClient) {
         this.logger.warn('Vertex AI client not available, falling back to AI Studio');
         if (!this.aiStudioClient) {
-          throw new InternalServerErrorException('No GenAI client available');
+          throw new InternalServerErrorException(
+            'No GenAI client available. Configure GEMINI_API_KEY or valid GOOGLE_CREDS_JSON.',
+          );
         }
         return this.aiStudioClient;
       }
       return this.vertexClient;
     }
 
-    // Default to AI_STUDIO
     if (!this.aiStudioClient) {
-      throw new InternalServerErrorException('AI Studio client not available');
+      throw new InternalServerErrorException(
+        'AI Studio client not available. Set GEMINI_API_KEY on the backend.',
+      );
     }
     return this.aiStudioClient;
   }

@@ -64,3 +64,23 @@ export function hasAuthCookieClient(): boolean {
   if (typeof document === "undefined") return false;
   return document.cookie.split("; ").some((c) => c.startsWith(`${AUTH_COOKIE}=`));
 }
+
+/** Mirror server auth_session so middleware sees login before client navigation. */
+export function markAuthSessionClient(): void {
+  if (typeof document === "undefined") return;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${AUTH_COOKIE}=1; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+}
+
+/**
+ * Full-page redirect after login so cookies + middleware stay in sync (avoids LPMS soft-nav races).
+ */
+export function redirectAfterLogin(returnUrl: string): void {
+  markAuthSessionClient();
+  window.location.assign(returnUrl);
+}
+
+/** Full-page redirect after logout — homepage, not CLM login bounce. */
+export function redirectAfterLogout(): void {
+  window.location.assign("/");
+}

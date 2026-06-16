@@ -101,13 +101,7 @@ export default async function RootLayout({
         className={`${lora.variable} font-sans antialiased`}
       >
         <Analytics />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
-          disableTransitionOnChange
-          forcedTheme="light"
-        >
+        <ThemeProvider>
           <Providers initialLocale={initialLocale}>{children}</Providers>
           <Toaster />
         </ThemeProvider>

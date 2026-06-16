@@ -170,15 +170,9 @@ export function LPMSSidebar() {
                                                                                 onClick={async (e) => {
                                                                                     e.preventDefault();
                                                                                     e.stopPropagation();
-                                                                                    if (
-                                                                                        confirm(
-                                                                                            "Bạn có chắc chắn muốn xóa cuộc trò chuyện này?",
-                                                                                        )
-                                                                                    ) {
-                                                                                        await deleteChat(chat.id);
-                                                                                        if (isChatActive) {
-                                                                                            router.push("/lpms/assistant");
-                                                                                        }
+                                                                                    await deleteChat(chat.id);
+                                                                                    if (isChatActive) {
+                                                                                        router.push("/lpms/assistant");
                                                                                     }
                                                                                 }}
                                                                                 className="cursor-pointer rounded p-0.5 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"

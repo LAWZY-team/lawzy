@@ -1,10 +1,22 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
+import * as React from "react";
 
-type ThemeProviderProps = Parameters<typeof NextThemesProvider>[0]
+type ThemeProviderProps = {
+  children: React.ReactNode;
+};
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+/**
+ * App uses fixed light theme (see root layout). Avoid next-themes inline script —
+ * React 19 warns when <script> is rendered inside client component trees.
+ */
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove("dark");
+    root.classList.add("light");
+    root.style.colorScheme = "light";
+  }, []);
+
+  return <>{children}</>;
 }

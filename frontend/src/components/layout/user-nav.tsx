@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronsUpDown, LogOut, Settings, User, Globe } from "lucide-react"
 
@@ -19,13 +18,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useAuthStore } from "@/stores/auth-store"
+import { redirectAfterLogout } from "@/lib/auth";
+import { useAuthStore } from "@/stores/auth-store";
 import { useT } from "@/components/i18n-provider"
 import useStore from "@/lib/zustand/use-store"
 
 export function UserNav() {
   const { isMobile } = useSidebar()
-  const router = useRouter()
   const { user, logout } = useAuthStore()
   const { t, locale, setLocale } = useT()
 
@@ -42,9 +41,9 @@ export function UserNav() {
     } catch {
       /* proceed with client-side logout regardless */
     }
-    logout()
-    router.push("/login")
-  }
+    logout();
+    redirectAfterLogout();
+  };
 
   const toggleLocale = () => setLocale(locale === "vi" ? "en" : "vi")
 

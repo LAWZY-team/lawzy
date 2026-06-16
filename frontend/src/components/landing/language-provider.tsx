@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { viMessages, enMessages, type Locale } from "@/lib/i18n";
 
 type I18nContextValue = {
@@ -14,17 +21,55 @@ const dictionaries: Record<Locale, Record<string, string>> = {
   en: enMessages,
 };
 
+const LOCALE_COOKIE = "lawzy_lang";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function persistLocaleClient(next: Locale): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("lawzy_lang", next);
+  document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=${COOKIE_MAX_AGE};SameSite=Lax`;
+}
+
+function readLocaleFromDocumentCookie(): Locale | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(/(?:^|;\s*)lawzy_lang=(en|vi)(?:\s|;|$)/);
+  if (m?.[1] === "en" || m?.[1] === "vi") return m[1] as Locale;
+  return null;
+}
+
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-export function LandingLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window !== "undefined") {
+export function LandingLanguageProvider({
+  children,
+  initialLocale = "vi",
+}: {
+  children: React.ReactNode;
+  /** Must match server cookie (landing layout) to avoid hydration mismatch. */
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
       const stored = localStorage.getItem("lawzy_lang") as Locale | null;
-      if (stored === "en" || stored === "vi") return stored;
-      return navigator.language.startsWith("vi") ? "vi" : "en";
-    }
-    return "vi";
-  });
+      if (stored === "en" || stored === "vi") {
+        if (stored !== initialLocale) setLocaleState(stored);
+        persistLocaleClient(stored);
+        return;
+      }
+      const cookieLang = readLocaleFromDocumentCookie();
+      if (cookieLang) {
+        if (cookieLang !== initialLocale) setLocaleState(cookieLang);
+        return;
+      }
+      const nav = navigator.language.startsWith("vi") ? "vi" : "en";
+      if (nav !== initialLocale) {
+        setLocaleState(nav);
+        persistLocaleClient(nav);
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [initialLocale]);
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>) => {
@@ -36,14 +81,11 @@ export function LandingLanguageProvider({ children }: { children: React.ReactNod
       }
       return text;
     },
-    [locale]
+    [locale],
   );
 
   const setLocale = useCallback((next: Locale) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("lawzy_lang", next);
-      document.cookie = `lawzy_lang=${next};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
-    }
+    persistLocaleClient(next);
     setLocaleState(next);
   }, []);
 

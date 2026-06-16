@@ -17,7 +17,10 @@ import { AIJobObligationService } from '../obligations/services/ai-job-obligatio
 @Injectable()
 export class SourceProcessingService {
   private readonly logger = new Logger(SourceProcessingService.name);
-  private readonly bucket = getR2Env().bucket;
+
+  private get bucket(): string {
+    return getR2Env().bucket;
+  }
   /**
    * Chain jobs per sourceId so concurrent reprocess calls serialize (avoids Prisma deadlocks).
    */
@@ -33,7 +36,7 @@ export class SourceProcessingService {
     private readonly chunker: ChunkerService,
     private readonly embedding: EmbeddingService,
     private readonly aiObligation: AIJobObligationService,
-    @Inject(R2_S3_CLIENT) private readonly s3: S3Client,
+    @Inject(R2_S3_CLIENT) private readonly s3: S3Client | null,
   ) {}
 
   /**
@@ -238,6 +241,10 @@ export class SourceProcessingService {
 
     if (!source.s3Key) {
       throw new Error('Source has no S3 key and no URL');
+    }
+
+    if (!this.s3) {
+      throw new Error('R2/S3 is not configured');
     }
 
     const s3Params = { s3: this.s3, bucket: this.bucket, key: source.s3Key };
