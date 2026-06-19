@@ -53,14 +53,14 @@ export function usePlans() {
 export function usePlansAdmin() {
   return useQuery<Plan[]>({
     queryKey: ['plans', 'admin'],
-    queryFn: () => api.get<Plan[]>('/clm/admin/plans'),
+    queryFn: () => api.get<Plan[]>('/admin/plans'),
   });
 }
 
 export function usePlanById(id: string | null) {
   return useQuery<Plan>({
     queryKey: ['plans', id],
-    queryFn: () => api.get<Plan>(`/clm/admin/plans/${id!}`),
+    queryFn: () => api.get<Plan>(`/admin/plans/${id!}`),
     enabled: !!id,
   });
 }
@@ -74,7 +74,7 @@ export interface PlanWorkspace {
 export function usePlanWorkspaces(planId: string | null) {
   return useQuery<PlanWorkspace[]>({
     queryKey: ['plans', planId, 'workspaces'],
-    queryFn: () => api.get<PlanWorkspace[]>(`/clm/admin/plans/${planId!}/workspaces`),
+    queryFn: () => api.get<PlanWorkspace[]>(`/admin/plans/${planId!}/workspaces`),
     enabled: !!planId,
   });
 }
@@ -83,7 +83,7 @@ export function useCreatePlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Parameters<typeof api.post>[1]) =>
-      api.post<Plan>('/clm/admin/plans', data),
+      api.post<Plan>('/admin/plans', data),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['plans'] }),
   });
@@ -93,7 +93,7 @@ export function useUpdatePlan(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: Parameters<typeof api.patch>[1]) =>
-      api.patch<Plan>(`/clm/admin/plans/${id}`, data),
+      api.patch<Plan>(`/admin/plans/${id}`, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
   });
 }
@@ -101,7 +101,7 @@ export function useUpdatePlan(id: string) {
 export function useDeletePlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/clm/admin/plans/${id}`),
+    mutationFn: (id: string) => api.delete(`/admin/plans/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['plans'] }),
   });
 }
