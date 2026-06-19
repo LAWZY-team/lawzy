@@ -450,7 +450,7 @@ export class WorkspacesService {
 
     const where: Prisma.WorkspaceWhereInput = {};
     if (opts?.q?.trim()) {
-      where.name = { contains: opts.q.trim(), mode: 'insensitive' };
+      where.name = { contains: opts.q.trim() };
     }
     if (opts?.plan?.trim()) {
       where.plan = opts.plan.trim();
