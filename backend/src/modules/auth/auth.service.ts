@@ -121,18 +121,22 @@ export class AuthService {
       },
     });
 
+    await this.ensureDefaultWorkspace(user.id, user.name ?? email);
+
+    return this.usersService.sanitize(user);
+  }
+
+  private async ensureDefaultWorkspace(userId: string, userName: string) {
     try {
-      const userWorkspaces = await this.workspacesService.findByUser(user.id);
+      const userWorkspaces = await this.workspacesService.findByUser(userId);
       if (userWorkspaces.length === 0) {
-        await this.workspacesService.create(user.id, {
-          name: `${user.name}'s Workspace`,
+        await this.workspacesService.create(userId, {
+          name: `${userName}'s Workspace`,
         });
       }
     } catch (e) {
       console.error('Failed to create workspace for user', e);
     }
-
-    return this.usersService.sanitize(user);
   }
 
   async login(
@@ -165,6 +169,8 @@ export class AuthService {
       }
       return { user: sanitized, activeWorkspaceId: workspace.id };
     }
+
+    await this.ensureDefaultWorkspace(user.id, user.name ?? email);
     return { user: sanitized };
   }
 
@@ -194,6 +200,7 @@ export class AuthService {
 
     let user = await this.usersService.findByProviderId('google', providerId);
     if (user) {
+      await this.ensureDefaultWorkspace(user.id, user.name ?? email);
       return this.usersService.sanitize(user);
     }
 
@@ -203,6 +210,10 @@ export class AuthService {
         where: { id: existingByEmail.id },
         data: { provider: 'google', providerId, avatar: picture ?? undefined },
       });
+      await this.ensureDefaultWorkspace(
+        existingByEmail.id,
+        existingByEmail.name ?? email,
+      );
       return this.usersService.sanitize(existingByEmail);
     }
 

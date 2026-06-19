@@ -438,17 +438,43 @@ export class WorkspacesService {
     };
   }
 
-  async findAllForAdmin() {
-    return this.prisma.workspace.findMany({
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        plan: true,
-        createdAt: true,
-        _count: { select: { members: true } },
-      },
-    });
+  async findAllForAdmin(opts?: {
+    page?: number;
+    limit?: number;
+    q?: string;
+    plan?: string;
+  }) {
+    const page = opts?.page ?? 1;
+    const limit = Math.min(opts?.limit ?? 20, 100);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.WorkspaceWhereInput = {};
+    if (opts?.q?.trim()) {
+      where.name = { contains: opts.q.trim(), mode: 'insensitive' };
+    }
+    if (opts?.plan?.trim()) {
+      where.plan = opts.plan.trim();
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.workspace.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          plan: true,
+          createdAt: true,
+          _count: { select: { members: true } },
+        },
+      }),
+      this.prisma.workspace.count({ where }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    return { data, total, page, limit, totalPages };
   }
 
   async getCustomFields(workspaceId: string) {

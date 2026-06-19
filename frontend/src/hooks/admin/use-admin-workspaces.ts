@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/lib/api/client"
 
 export interface AdminWorkspace {
@@ -23,12 +23,66 @@ export interface WorkspaceWithMembers extends AdminWorkspace {
   }>
 }
 
+export interface PaginatedWorkspaces {
+  data: AdminWorkspace[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+type AdminWorkspacesQueryOptions = {
+  limit?: number
+  q?: string
+  plan?: string
+  enabled?: boolean
+}
+
 const queryKey = ["admin", "workspaces"]
 
-export function useAdminWorkspaces() {
-  return useQuery<AdminWorkspace[]>({
-    queryKey,
-    queryFn: () => api.get("/admin/workspaces"),
+const buildWorkspacesParams = (opts?: {
+  page?: number
+  limit?: number
+  q?: string
+  plan?: string
+}) => {
+  const params = new URLSearchParams()
+  if (opts?.page) params.set("page", String(opts.page))
+  if (opts?.limit) params.set("limit", String(opts.limit))
+  if (opts?.q) params.set("q", opts.q)
+  if (opts?.plan) params.set("plan", opts.plan)
+  return params
+}
+
+export function useAdminWorkspacesInfinite(opts?: AdminWorkspacesQueryOptions) {
+  const limit = opts?.limit ?? 20
+  const enabled = opts?.enabled !== undefined ? opts.enabled : true
+
+  return useInfiniteQuery<PaginatedWorkspaces>({
+    queryKey: [...queryKey, "infinite", opts],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const params = buildWorkspacesParams({
+        page: Number(pageParam),
+        limit,
+        q: opts?.q,
+        plan: opts?.plan,
+      })
+      return api.get(`/admin/workspaces?${params.toString()}`)
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page >= lastPage.totalPages) return undefined
+      return lastPage.page + 1
+    },
+    enabled,
+  })
+}
+
+export function useAdminWorkspaces(opts?: { q?: string; plan?: string }) {
+  const params = buildWorkspacesParams({ page: 1, limit: 100, q: opts?.q, plan: opts?.plan })
+  return useQuery<PaginatedWorkspaces>({
+    queryKey: [...queryKey, opts],
+    queryFn: () => api.get(`/admin/workspaces?${params.toString()}`),
   })
 }
 

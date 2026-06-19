@@ -41,7 +41,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAdminUsersInfinite, useDeleteAdminUser } from "@/hooks/admin/use-admin-users"
-import { useWorkspaceStore } from "@/stores/workspace-store"
+import { useAdminWorkspacesInfinite } from "@/hooks/admin/use-admin-workspaces"
+import { usePlansAdmin } from "@/hooks/plans/use-plans"
 import { useT } from "@/components/i18n-provider"
 import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -254,20 +255,46 @@ export default function AdminUsersPage() {
   const { t } = useT()
   const [searchInput, setSearchInput] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [workspaceSearchInput, setWorkspaceSearchInput] = useState("")
+  const [debouncedWorkspaceSearch, setDebouncedWorkspaceSearch] = useState("")
   const [verifiedFilter, setVerifiedFilter] = useState(VERIFIED_ALL)
+  const [planFilter, setPlanFilter] = useState(ALL_VALUE)
   const [activeTab, setActiveTab] = useState<"users" | "workspaces">("users")
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>("")
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const workspaceLoadMoreRef = useRef<HTMLDivElement | null>(null)
 
-  const { workspaces, fetchWorkspaces } = useWorkspaceStore()
-  useEffect(() => {
-    fetchWorkspaces()
-  }, [fetchWorkspaces])
+  const { data: plans } = usePlansAdmin()
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350)
     return () => clearTimeout(timer)
   }, [searchInput])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedWorkspaceSearch(workspaceSearchInput.trim()), 350)
+    return () => clearTimeout(timer)
+  }, [workspaceSearchInput])
+
+  const {
+    data: workspacesData,
+    isLoading: workspacesLoading,
+    fetchNextPage: fetchNextWorkspaces,
+    hasNextPage: hasMoreWorkspaces,
+    isFetchingNextPage: isFetchingMoreWorkspaces,
+  } = useAdminWorkspacesInfinite({
+    q: debouncedWorkspaceSearch || undefined,
+    plan: planFilter !== ALL_VALUE ? planFilter : undefined,
+    limit: 20,
+    enabled: activeTab === "workspaces",
+  })
+
+  const workspaces = useMemo(
+    () => workspacesData?.pages.flatMap((p) => p.data) ?? [],
+    [workspacesData],
+  )
+
+  const totalWorkspaces = workspacesData?.pages?.[0]?.total ?? 0
 
   const fetchWorkspaceUsers =
     activeTab === "workspaces" && !!selectedWorkspaceId
@@ -312,6 +339,20 @@ export default function AdminUsersPage() {
     observer.observe(loadMoreRef.current)
     return () => observer.disconnect()
   }, [hasNextPage, fetchNextPage, users.length, debouncedSearch, verifiedFilter, activeTab, selectedWorkspaceId])
+
+  useEffect(() => {
+    if (!hasMoreWorkspaces || !workspaceLoadMoreRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void fetchNextWorkspaces()
+        }
+      },
+      { rootMargin: "200px 0px 300px 0px" },
+    )
+    observer.observe(workspaceLoadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasMoreWorkspaces, fetchNextWorkspaces, workspaces.length, debouncedWorkspaceSearch, planFilter, activeTab])
 
   return (
     <ScrollArea>
@@ -377,15 +418,51 @@ export default function AdminUsersPage() {
         </TabsContent>
 
         <TabsContent value="workspaces" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Có tất cả <span className="font-medium text-foreground">{totalWorkspaces.toLocaleString("vi-VN")}</span> workspace
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              placeholder={t("admin_workspaces_search_placeholder") || "Tìm theo tên workspace..."}
+              value={workspaceSearchInput}
+              onChange={(e) => setWorkspaceSearchInput(e.target.value)}
+              className="max-w-xs"
+            />
+            <Select value={planFilter} onValueChange={setPlanFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder={t("admin_workspaces_plan")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t("admin_users_all")}</SelectItem>
+                {(plans ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.slug}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWorkspaceSearchInput("")
+                setPlanFilter(ALL_VALUE)
+              }}
+            >
+              Reset
+            </Button>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {workspaces.length === 0 ? (
+            {workspacesLoading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+              ))
+            ) : workspaces.length === 0 ? (
               <div className="col-span-full rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-                {t("admin_storage_empty")}
+                {t("admin_workspaces_empty")}
               </div>
             ) : (
               workspaces.map((ws) => {
-                const memberCount =
-                  ws._count?.members ?? (ws as { memberCount?: number }).memberCount ?? 0
+                const memberCount = ws._count?.members ?? 0
                 return (
                   <Card
                     key={ws.id}
@@ -399,7 +476,6 @@ export default function AdminUsersPage() {
                   >
                     <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
                       <Avatar className="h-10 w-10 shrink-0 rounded-lg">
-                        <AvatarImage src={ws.logo} alt={ws.name} />
                         <AvatarFallback className="rounded-lg">
                           {ws.name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -420,6 +496,18 @@ export default function AdminUsersPage() {
                 )
               })
             )}
+          </div>
+          <div ref={workspaceLoadMoreRef} className="flex items-center justify-center py-3">
+            {isFetchingMoreWorkspaces ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("common_loading")}
+              </div>
+            ) : hasMoreWorkspaces ? (
+              <span className="text-xs text-muted-foreground">Cuộn xuống để tải thêm workspace</span>
+            ) : workspaces.length > 0 ? (
+              <span className="text-xs text-muted-foreground">Đã hiển thị hết danh sách workspace</span>
+            ) : null}
           </div>
 
           {selectedWorkspaceId && (

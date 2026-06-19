@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ChevronRight, MoreVertical, Pencil, Plus, Trash2, Users } from "lucide-react"
+import { ChevronRight, Loader2, MoreVertical, Pencil, Plus, Trash2, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,9 +36,10 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { ConfirmDialog } from "@/components/admin/confirm-dialog"
 import {
-  useAdminWorkspaces,
+  useAdminWorkspacesInfinite,
   useCreateAdminWorkspace,
   useUpdateAdminWorkspace,
   useDeleteAdminWorkspace,
@@ -50,6 +51,8 @@ import { formatDistanceToNow } from "date-fns"
 import { vi } from "date-fns/locale"
 import { toast } from "sonner"
 
+const ALL_VALUE = "__all__"
+
 export default function AdminWorkspacesPage() {
   const { t } = useT()
   const [createOpen, setCreateOpen] = useState(false)
@@ -59,8 +62,48 @@ export default function AdminWorkspacesPage() {
   const [createPlan, setCreatePlan] = useState("")
   const [editName, setEditName] = useState("")
   const [editPlan, setEditPlan] = useState("")
+  const [searchInput, setSearchInput] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [planFilter, setPlanFilter] = useState(ALL_VALUE)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
-  const { data: workspaces, isLoading } = useAdminWorkspaces()
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useAdminWorkspacesInfinite({
+    q: debouncedSearch || undefined,
+    plan: planFilter !== ALL_VALUE ? planFilter : undefined,
+    limit: 20,
+  })
+
+  const workspaces = useMemo(
+    () => data?.pages.flatMap((p) => p.data) ?? [],
+    [data],
+  )
+  const totalWorkspaces = data?.pages?.[0]?.total ?? 0
+
+  useEffect(() => {
+    if (!hasNextPage || !loadMoreRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void fetchNextPage()
+        }
+      },
+      { rootMargin: "200px 0px 300px 0px" },
+    )
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasNextPage, fetchNextPage, workspaces.length, debouncedSearch, planFilter])
+
   const { data: plans } = usePlansAdmin()
   const createMutation = useCreateAdminWorkspace()
   const deleteMutation = useDeleteAdminWorkspace()
@@ -103,6 +146,7 @@ export default function AdminWorkspacesPage() {
   }
 
   return (
+    <ScrollArea>
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -115,6 +159,41 @@ export default function AdminWorkspacesPage() {
         </Button>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Có tất cả <span className="font-medium text-foreground">{totalWorkspaces.toLocaleString("vi-VN")}</span> workspace
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <Input
+          placeholder={t("admin_workspaces_search_placeholder") || "Tìm theo tên workspace..."}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={planFilter} onValueChange={setPlanFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder={t("admin_workspaces_plan")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_VALUE}>{t("admin_users_all")}</SelectItem>
+            {planOptions.map((p) => (
+              <SelectItem key={p.id} value={p.slug}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchInput("")
+            setPlanFilter(ALL_VALUE)
+          }}
+        >
+          Reset
+        </Button>
+      </div>
+
       {isLoading ? (
         <div className="rounded-lg border">
           <div className="p-4 space-y-3">
@@ -123,11 +202,12 @@ export default function AdminWorkspacesPage() {
             ))}
           </div>
         </div>
-      ) : !workspaces?.length ? (
+      ) : workspaces.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
           {t("admin_workspaces_empty")}
         </div>
       ) : (
+        <>
         <div className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
@@ -207,6 +287,19 @@ export default function AdminWorkspacesPage() {
             </TableBody>
           </Table>
         </div>
+        <div ref={loadMoreRef} className="flex items-center justify-center py-3">
+          {isFetchingNextPage ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("common_loading")}
+            </div>
+          ) : hasNextPage ? (
+            <span className="text-xs text-muted-foreground">Cuộn xuống để tải thêm workspace</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">Đã hiển thị hết danh sách</span>
+          )}
+        </div>
+        </>
       )}
 
       {/* Create Dialog */}
@@ -286,6 +379,7 @@ export default function AdminWorkspacesPage() {
         confirmText={t("admin_workspaces_delete")}
       />
     </div>
+    </ScrollArea>
   )
 }
 

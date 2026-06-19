@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   BadRequestException,
   Request,
@@ -26,8 +27,18 @@ export class AdminWorkspacesController {
   ) {}
 
   @Get()
-  async listAll() {
-    return this.workspacesService.findAllForAdmin();
+  async listAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('plan') plan?: string,
+  ) {
+    return this.workspacesService.findAllForAdmin({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      q,
+      plan,
+    });
   }
 
   @Get(':id')
