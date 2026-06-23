@@ -373,7 +373,7 @@ export default function EditorPage({
 
   const applySystemTemplateById = useCallback(async (templateIdToLoad: string) => {
     resetTemplateEntryState()
-    const template = await api.get<EditorTemplate>(`/clm/templates/${templateIdToLoad}`)
+    const template = await api.get<EditorTemplate>(`/templates/${templateIdToLoad}`)
     if (!template?.contentJSON) return
     applyTemplateState({
       title: template.title,

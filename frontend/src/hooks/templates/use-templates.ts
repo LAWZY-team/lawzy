@@ -17,7 +17,7 @@ export function useTemplates(scope?: string) {
 export function useTemplate(id: string | null) {
   return useQuery<Template>({
     queryKey: ["template", id],
-    queryFn: () => api.get<Template>(`/clm/templates/${id}`),
+    queryFn: () => api.get<Template>(`/templates/${id}`),
     enabled: !!id,
   });
 }

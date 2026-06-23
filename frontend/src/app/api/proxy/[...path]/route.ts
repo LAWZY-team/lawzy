@@ -13,7 +13,9 @@ function isJsonRequestContentType(contentType: string | null): boolean {
 async function proxyRequest(req: NextRequest, params: Promise<{ path: string[] }>) {
   const backendBase = getBackendBaseUrl();
   const { path } = await params;
-  const backendPath = `/${path.join("/")}`;
+  // Strip 'clm' prefix if present since NestJS backend controllers are not prefixed with it
+  const cleanPath = path[0] === "clm" ? path.slice(1) : path;
+  const backendPath = `/${cleanPath.join("/")}`;
   const searchParams = req.nextUrl.searchParams.toString();
   const url = `${backendBase}${backendPath}${searchParams ? `?${searchParams}` : ""}`;
 
