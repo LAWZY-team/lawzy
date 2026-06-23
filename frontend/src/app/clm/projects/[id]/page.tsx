@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, use, useRef } from "react"
+import { useT } from "@/components/i18n-provider"
 import Link from "next/link"
 import { 
   Folder, 
@@ -76,13 +77,7 @@ interface TreeNode {
   children: TreeNode[]
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  capacity: "Công suất",
-  location: "Địa điểm",
-  developerName: "Chủ đầu tư",
-  contractorName: "Nhà thầu",
-  projectName: "Tên dự án",
-}
+// Field labels localized dynamically
 
 function buildTree(documents: ProjectDocument[]): TreeNode[] {
   const nodeMap = new Map<string, TreeNode>()
@@ -105,6 +100,16 @@ function buildTree(documents: ProjectDocument[]): TreeNode[] {
 }
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = useT()
+
+  const FIELD_LABELS: Record<string, string> = {
+    capacity: t("proj_field_capacity"),
+    location: t("proj_field_location"),
+    developerName: t("proj_field_developer"),
+    contractorName: t("proj_field_contractor"),
+    projectName: t("proj_field_project_name"),
+  }
+
   const resolvedParams = use(params)
   const projectId = resolvedParams.id
 
@@ -124,7 +129,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setAlerts(alertsData)
     } catch (err) {
       console.error("Failed to load project details", err)
-      toast.error("Không thể tải thông tin dự án")
+      toast.error(t("proj_detail_load_failed"))
     } finally {
       setIsLoading(false)
     }
@@ -136,14 +141,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const handleValidate = async () => {
     setIsScanning(true)
-    const toastId = toast.loading("Đang quét và đối chiếu chéo thông số chéo...")
+    const toastId = toast.loading(t("proj_scanning_toast"))
     try {
       await api.post(`/clm/projects/${projectId}/validate-consistency`)
-      toast.success("Quét nhất quán thông số thành công", { id: toastId })
+      toast.success(t("proj_scan_success"), { id: toastId })
       await fetchData()
     } catch (err) {
       console.error("Scan error", err)
-      toast.error("Quét nhất quán thất bại", { id: toastId })
+      toast.error(t("proj_scan_failed"), { id: toastId })
     } finally {
       setIsScanning(false)
     }
@@ -173,10 +178,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 gap-4">
         <Folder className="h-16 w-16 text-muted-foreground/50" />
-        <h2 className="text-xl font-bold">Không tìm thấy dự án</h2>
-        <p className="text-muted-foreground">Dự án không tồn tại hoặc bạn không có quyền truy cập.</p>
+        <h2 className="text-xl font-bold">{t("proj_not_found")}</h2>
+        <p className="text-muted-foreground">{t("proj_not_found_desc")}</p>
         <Button asChild>
-          <Link href="/dashboard">Quay lại Tổng quan</Link>
+          <Link href="/dashboard">{t("proj_back_overview")}</Link>
         </Button>
       </div>
     )
@@ -221,11 +226,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   {doc.title}
                 </span>
                 <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
-                  {doc.type === "contract" ? "Hợp đồng gốc" : "Phụ lục"}
+                  {doc.type === "contract" ? t("proj_doc_type_contract") : t("proj_doc_type_addendum")}
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
-                Cập nhật lần cuối: {new Date(doc.updatedAt).toLocaleDateString("vi-VN")}
+                {t("recent_docs_updated")}: {new Date(doc.updatedAt).toLocaleDateString("vi-VN")}
               </p>
             </div>
           </div>
@@ -235,11 +240,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               variant={doc.status === "completed" || doc.status === "signed" ? "default" : "secondary"}
               className="text-xs"
             >
-              {doc.status === "completed" || doc.status === "signed" ? "Hoàn thành" : "Nháp"}
+              {doc.status === "completed" || doc.status === "signed" ? t("status_completed") : t("status_draft")}
             </Badge>
             <Button size="sm" variant="ghost" asChild className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <Link href={`/clm/editor/${doc.id}`} className="flex items-center gap-1">
-                Mở Editor
+                {t("proj_btn_open_editor")}
                 <ArrowUpRight className="h-3 w-3" />
               </Link>
             </Button>
@@ -268,7 +273,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               href="/dashboard" 
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
             >
-              <ArrowLeft className="h-3 w-3" /> Quay lại danh sách
+              <ArrowLeft className="h-3 w-3" /> {t("proj_back_list")}
             </Link>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-3xl font-extrabold tracking-tight">{project.name}</h1>
@@ -289,7 +294,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               className="border-border/60 text-foreground hover:bg-muted active:scale-95 transition-all duration-200"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${isScanning ? "animate-spin" : ""}`} />
-              Đối chiếu thông số
+              {t("proj_btn_validate")}
             </Button>
 
             <Button 
@@ -297,7 +302,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 active:scale-95 transition-all duration-200"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Nhập tài liệu
+              {t("proj_btn_import")}
             </Button>
           </div>
         </div>
@@ -306,36 +311,36 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tài liệu liên kết</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("proj_stat_docs")}</CardTitle>
               <FileText className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{project.documents.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">Hợp đồng & Phụ lục</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("proj_stat_docs_desc")}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cảnh báo sai lệch</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("proj_stat_alerts")}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-amber-500">
                 {alerts.filter(a => a.status === "unresolved").length}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Chưa được giải quyết</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("proj_stat_alerts_desc")}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trạng thái Nhất quán</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("proj_stat_consistency")}</CardTitle>
               <Activity className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-emerald-500">
-                {alerts.filter(a => a.status === "unresolved").length === 0 ? "Nhất quán" : "Mâu thuẫn"}
+                {alerts.filter(a => a.status === "unresolved").length === 0 ? t("proj_consistency_ok") : t("proj_consistency_conflict")}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Độ chính xác pháp lý</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("proj_stat_consistency_desc")}</p>
             </CardContent>
           </Card>
         </div>
@@ -348,7 +353,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Layers className="h-5 w-5 text-primary" />
-                Cây Tài Liệu Dự Án
+                {t("proj_tree_title")}
               </h2>
             </div>
             
@@ -357,8 +362,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {documentTree.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                     <Folder className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                    <p className="font-semibold text-sm">Chưa có tài liệu nào</p>
-                    <p className="text-xs mt-1">Hãy thêm tài liệu vào dự án này từ trang quản lý tài liệu.</p>
+                    <p className="font-semibold text-sm">{t("proj_tree_empty_title")}</p>
+                    <p className="text-xs mt-1">{t("proj_tree_empty_desc")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -375,7 +380,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <div className="space-y-4">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Cảnh Báo Sai Lệch
+              {t("proj_alerts_title")}
             </h2>
 
             <div className="space-y-3">
@@ -387,8 +392,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     className="p-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center text-emerald-600 dark:text-emerald-400 backdrop-blur-sm"
                   >
                     <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-                    <p className="font-semibold text-sm">Hồ sơ hoàn toàn nhất quán!</p>
-                    <p className="text-xs mt-1 text-muted-foreground">Không phát hiện mâu thuẫn chéo nào giữa các tài liệu.</p>
+                    <p className="font-semibold text-sm">{t("proj_alerts_empty_title")}</p>
+                    <p className="text-xs mt-1 text-muted-foreground">{t("proj_alerts_empty_desc")}</p>
                   </motion.div>
                 ) : (
                   alerts.map((alert) => {
@@ -442,7 +447,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                       : "bg-amber-500/10 text-amber-600 border-amber-500/20"
                                 }`}
                               >
-                                {isUnresolved ? (alert.severity === "high" ? "Cao" : "Trung bình") : "Đã sửa"}
+                                {isUnresolved ? (alert.severity === "high" ? t("proj_severity_high") : t("proj_severity_medium")) : t("proj_alert_resolved")}
                               </Badge>
                             </div>
 
@@ -452,13 +457,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
                             <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/20 p-2 rounded-lg border border-border/40 mt-1">
                               <div className="min-w-0">
-                                <span className="text-[10px] text-muted-foreground block font-medium">Gốc:</span>
+                                <span className="text-[10px] text-muted-foreground block font-medium">{t("proj_alert_original_label")}</span>
                                 <span className="font-mono font-semibold block truncate" title={alert.sourceValue}>
                                   {alert.sourceValue || "—"}
                                 </span>
                               </div>
                               <div className="min-w-0 border-l border-border/50 pl-2">
-                                <span className="text-[10px] text-muted-foreground block font-medium">Lệch:</span>
+                                <span className="text-[10px] text-muted-foreground block font-medium">{t("proj_alert_mismatch_label")}</span>
                                 <span className={`font-mono font-semibold block truncate ${
                                   isUnresolved ? "text-destructive" : ""
                                 }`} title={alert.mismatchValue}>
@@ -472,7 +477,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                 href={`/clm/editor/${alert.documentId}`}
                                 className="hover:underline flex items-center gap-0.5 font-medium hover:text-foreground transition-colors"
                               >
-                                Xem tài liệu phát sinh
+                                {t("proj_alert_view_doc")}
                                 <ArrowUpRight className="h-2.5 w-2.5" />
                               </Link>
                             </div>
@@ -518,6 +523,7 @@ function AddProjectDocumentsModal({
   projectId: string
   onSuccess: () => void
 }) {
+  const { t } = useT()
   const [files, setFiles] = useState<UploadQueueFile[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -583,7 +589,7 @@ function AddProjectDocumentsModal({
         setFiles((prev) =>
           prev.map((f, i) => (
             i === index
-              ? { ...f, status: "error", errorMsg: err.message || "Tải lên thất bại" }
+              ? { ...f, status: "error", errorMsg: err.message || t("proj_upload_failed") }
               : f
           ))
         )
@@ -607,7 +613,7 @@ function AddProjectDocumentsModal({
 
     setIsUploading(false)
     if (successCount > 0) {
-      toast.success(`Đã nhập thành công ${successCount} tài liệu vào dự án`)
+      toast.success(t("proj_import_success", { n: successCount }))
       onSuccess()
     }
   }
@@ -618,10 +624,10 @@ function AddProjectDocumentsModal({
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Upload className="h-5 w-5 text-primary" />
-            Nhập tài liệu vào dự án
+            {t("proj_modal_import_title")}
           </DialogTitle>
           <DialogDescription>
-            Tải lên các file (PDF, Word, TXT) hoặc chọn nguyên thư mục chứa hồ sơ dự án. Hệ thống AI sẽ tự động phân tích quan hệ pháp lý.
+            {t("proj_modal_import_desc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -648,7 +654,7 @@ function AddProjectDocumentsModal({
             disabled={isUploading}
             className="flex-1 border-border/60 hover:bg-muted/50"
           >
-            <Upload className="mr-2 h-4 w-4" /> Chọn nhiều files
+            <Upload className="mr-2 h-4 w-4" /> {t("proj_modal_btn_select_files")}
           </Button>
           <Button
             variant="outline"
@@ -656,7 +662,7 @@ function AddProjectDocumentsModal({
             disabled={isUploading}
             className="flex-1 border-border/60 hover:bg-muted/50"
           >
-            <Folder className="mr-2 h-4 w-4" /> Chọn cả thư mục
+            <Folder className="mr-2 h-4 w-4" /> {t("proj_modal_btn_select_folder")}
           </Button>
         </div>
 
@@ -669,8 +675,8 @@ function AddProjectDocumentsModal({
           {files.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground p-6">
               <Upload className="h-10 w-10 text-muted-foreground/30 mb-2" />
-              <p className="text-sm font-medium">Chưa chọn tài liệu nào</p>
-              <p className="text-xs mt-1">Kéo thả file vào đây hoặc bấm nút chọn file phía trên</p>
+              <p className="text-sm font-medium">{t("proj_modal_queue_empty_title")}</p>
+              <p className="text-xs mt-1">{t("proj_modal_queue_empty_desc")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -680,7 +686,7 @@ function AddProjectDocumentsModal({
                   className="flex items-center justify-between p-2.5 rounded-lg border border-border/50 bg-card/60 text-sm hover:border-muted-foreground/20 transition-all duration-200"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
-                    <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                     <FileText className="h-4 w-4 text-blue-500 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-xs truncate" title={item.file.name}>
                         {item.file.name}
@@ -697,12 +703,12 @@ function AddProjectDocumentsModal({
                     )}
                     {item.status === "success" && (
                       <Badge variant="default" className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/10 text-[10px]">
-                        Xong
+                        {t("proj_badge_done")}
                       </Badge>
                     )}
                     {item.status === "error" && (
                       <Badge variant="destructive" className="text-[10px]" title={item.errorMsg}>
-                        Lỗi
+                        {t("proj_badge_error")}
                       </Badge>
                     )}
                     {item.status === "pending" && (
@@ -729,12 +735,12 @@ function AddProjectDocumentsModal({
             disabled={isUploading || files.length === 0}
             className="text-xs hover:bg-muted"
           >
-            Xóa hàng đợi
+            {t("proj_modal_btn_clear")}
           </Button>
 
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={isUploading}>
-              Đóng
+              {t("common_close")}
             </Button>
             <Button
               onClick={uploadAll}
@@ -744,10 +750,10 @@ function AddProjectDocumentsModal({
               {isUploading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang nhập...
+                  {t("proj_modal_btn_importing")}
                 </>
               ) : (
-                "Bắt đầu Nhập"
+                t("proj_modal_btn_start_import")
               )}
             </Button>
           </div>

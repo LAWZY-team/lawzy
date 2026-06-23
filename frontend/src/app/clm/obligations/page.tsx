@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "@/stores/workspace-store"
 import { api } from "@/lib/api/client"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
+import { useT } from "@/components/i18n-provider"
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -69,14 +70,6 @@ interface WorkspaceDetails {
 
 const COLUMN_KEYS: Array<Obligation["status"]> = ["pending", "in_progress", "completed", "overdue", "escalated"]
 
-const COLUMN_LABELS: Record<Obligation["status"], string> = {
-  pending: "AI Đề Xuất / Chờ Duyệt",
-  in_progress: "Đang Thực Hiện",
-  completed: "Đã Hoàn Thành",
-  overdue: "Quá Hạn",
-  escalated: "Leo Thang SLA"
-}
-
 const COLUMN_COLORS: Record<Obligation["status"], string> = {
   pending: "border-border bg-muted/40 text-muted-foreground",
   in_progress: "border-border bg-muted/20 text-foreground font-medium",
@@ -85,15 +78,24 @@ const COLUMN_COLORS: Record<Obligation["status"], string> = {
   escalated: "border-amber-500/20 bg-amber-500/5 text-amber-600 font-bold"
 }
 
-const OBLIGATION_TYPE_LABELS: Record<string, string> = {
-  warranty: "Bảo hành",
-  payment: "Thanh toán",
-  inspection: "Nghiệm thu / Kiểm tra",
-  delivery: "Bàn giao / Vận chuyển",
-  other: "Khác"
-}
-
 export default function ObligationsPage() {
+  const { t } = useT()
+
+  const COLUMN_LABELS: Record<Obligation["status"], string> = {
+    pending: t("ob_status_pending"),
+    in_progress: t("ob_status_in_progress"),
+    completed: t("ob_status_completed"),
+    overdue: t("ob_status_overdue"),
+    escalated: t("ob_status_escalated")
+  }
+
+  const OBLIGATION_TYPE_LABELS: Record<string, string> = {
+    warranty: t("ob_type_warranty"),
+    payment: t("ob_type_payment"),
+    inspection: t("ob_type_inspection"),
+    delivery: t("ob_type_delivery"),
+    other: t("ob_type_other")
+  }
   const { currentWorkspace } = useWorkspaceStore()
   const workspaceId = currentWorkspace?.id
 
@@ -121,7 +123,7 @@ export default function ObligationsPage() {
       setMembers(wsData.members || [])
     } catch (err) {
       console.error("Failed to load obligations or members", err)
-      toast.error("Không thể tải thông tin nghĩa vụ hợp đồng")
+      toast.error(t("ob_load_failed"))
     } finally {
       setIsLoading(false)
     }
@@ -148,12 +150,12 @@ export default function ObligationsPage() {
 
     try {
       await api.patch(`/clm/obligations/${id}`, { status: newStatus })
-      toast.success(`Cập nhật trạng thái nghĩa vụ thành công`)
+      toast.success(t("ob_status_update_success"))
       // Cập nhật state local
       setObligations(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o))
     } catch (err) {
       console.error("Failed to update status", err)
-      toast.error("Cập nhật trạng thái thất bại")
+      toast.error(t("ob_status_update_failed"))
     }
   }
 
@@ -167,24 +169,24 @@ export default function ObligationsPage() {
         dueDate: new Date(approveDueDate).toISOString(),
         status: "in_progress"
       })
-      toast.success("Đã duyệt nghĩa vụ và phân bổ người chịu trách nhiệm thành công")
+      toast.success(t("ob_approve_success"))
       setApprovingObligation(null)
       fetchData()
     } catch (err) {
       console.error("Approve error", err)
-      toast.error("Duyệt nghĩa vụ thất bại")
+      toast.error(t("ob_approve_failed"))
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa nghĩa vụ này không?")) return
+    if (!confirm(t("ob_delete_confirm"))) return
     try {
       await api.delete(`/clm/obligations/${id}`)
-      toast.success("Xóa nghĩa vụ thành công")
+      toast.success(t("ob_delete_success"))
       setObligations(prev => prev.filter(o => o.id !== id))
     } catch (err) {
       console.error("Delete error", err)
-      toast.error("Xóa nghĩa vụ thất bại")
+      toast.error(t("ob_delete_failed"))
     }
   }
 
@@ -219,9 +221,9 @@ export default function ObligationsPage() {
 
   // Tìm tên PIC
   const getPicName = (picId: string | null) => {
-    if (!picId) return "Chưa phân bổ"
+    if (!picId) return t("ob_unassigned")
     const m = members.find(member => member.userId === picId)
-    return m?.user.name || "Không xác định"
+    return m?.user.name || t("ob_unknown")
   }
 
   return (
@@ -232,7 +234,7 @@ export default function ObligationsPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl border border-border/80 bg-card/30 backdrop-blur-md relative overflow-hidden shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-3xl font-extrabold tracking-tight">Bảng Quản Lý Nghĩa Vụ Hợp Đồng</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight">{t("ob_title")}</h1>
             </div>
           </div>
 
@@ -244,7 +246,7 @@ export default function ObligationsPage() {
               className="rounded-lg text-xs"
             >
               <Layers className="h-3 w-3 mr-1" />
-              Kanban Board
+              {t("ob_tab_kanban")}
             </Button>
             <Button 
               size="sm" 
@@ -253,7 +255,7 @@ export default function ObligationsPage() {
               className="rounded-lg text-xs"
             >
               <DollarSign className="h-3 w-3 mr-1" />
-              Nghĩa vụ Tài chính
+              {t("ob_tab_financial")}
             </Button>
             <Button 
               size="sm" 
@@ -262,7 +264,7 @@ export default function ObligationsPage() {
               className="rounded-lg text-xs"
             >
               <ListTodo className="h-3 w-3 mr-1" />
-              Phi Tài chính
+              {t("ob_tab_non_financial")}
             </Button>
           </div>
         </div>
@@ -271,7 +273,7 @@ export default function ObligationsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tổng nghĩa vụ</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("ob_stat_total")}</CardTitle>
               <Layers className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -280,7 +282,7 @@ export default function ObligationsPage() {
           </Card>
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cần duyệt (AI Đề xuất)</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("ob_stat_pending")}</CardTitle>
               <Sparkles className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -291,7 +293,7 @@ export default function ObligationsPage() {
           </Card>
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Đã hoàn thành</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("ob_stat_completed")}</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -302,7 +304,7 @@ export default function ObligationsPage() {
           </Card>
           <Card className="bg-card/20 backdrop-blur-sm border-border/60">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quá hạn & Leo thang</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("ob_stat_overdue")}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -325,12 +327,12 @@ export default function ObligationsPage() {
               >
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="h-5 w-5 text-foreground" />
-                  <h3 className="text-lg font-bold">Duyệt gợi ý nghĩa vụ của AI</h3>
+                  <h3 className="text-lg font-bold">{t("ob_modal_title")}</h3>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Tiêu đề nghĩa vụ:</label>
+                    <label className="text-xs text-muted-foreground block mb-1">{t("ob_modal_field_title")}</label>
                     <Input 
                       value={approveTitle} 
                       onChange={(e) => setApproveTitle(e.target.value)} 
@@ -338,7 +340,7 @@ export default function ObligationsPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1">Mô tả nghĩa vụ:</label>
+                    <label className="text-xs text-muted-foreground block mb-1">{t("ob_modal_field_desc")}</label>
                     <textarea 
                       className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                       value={approveDesc} 
@@ -348,7 +350,7 @@ export default function ObligationsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Thời hạn thực hiện (Due Date):</label>
+                      <label className="text-xs text-muted-foreground block mb-1">{t("ob_modal_field_due_date")}</label>
                       <Input 
                         type="date"
                         value={approveDueDate} 
@@ -357,13 +359,13 @@ export default function ObligationsPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Người phụ trách (PIC):</label>
+                      <label className="text-xs text-muted-foreground block mb-1">{t("ob_modal_field_pic")}</label>
                       <select
                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                         value={approvePicId}
                         onChange={(e) => setApprovePicId(e.target.value)}
                       >
-                        <option value="">-- Chọn PIC chịu trách nhiệm --</option>
+                        <option value="">{t("ob_modal_field_pic_placeholder")}</option>
                         {members.map((member) => (
                           <option key={member.userId} value={member.userId}>
                             {member.user.name} ({member.user.email})
@@ -375,9 +377,9 @@ export default function ObligationsPage() {
                 </div>
 
                 <div className="flex items-center justify-end gap-3 mt-6">
-                  <Button variant="ghost" onClick={() => setApprovingObligation(null)}>Hủy bỏ</Button>
+                  <Button variant="ghost" onClick={() => setApprovingObligation(null)}>{t("common_cancel")}</Button>
                   <Button className="bg-foreground text-background hover:bg-muted-foreground" onClick={handleApprove}>
-                    Duyệt & Bắt đầu
+                    {t("ob_modal_btn_approve")}
                   </Button>
                 </div>
               </motion.div>
@@ -415,7 +417,7 @@ export default function ObligationsPage() {
                     {colObligations.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground/30 border border-dashed border-border/20 rounded-xl min-h-[120px]">
                         <Clock className="h-6 w-6 mb-2" />
-                        <span className="text-[10px]">Kéo thả thẻ vào đây</span>
+                        <span className="text-[10px]">{t("ob_kanban_drop_here")}</span>
                       </div>
                     ) : (
                       colObligations.map((ob) => (
@@ -473,7 +475,7 @@ export default function ObligationsPage() {
 
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-                                <span>Hạn: {new Date(ob.dueDate).toLocaleDateString("vi-VN")}</span>
+                                <span>{t("ob_due_label")} {new Date(ob.dueDate).toLocaleDateString("vi-VN")}</span>
                               </div>
 
                               {ob.amount !== null && (
@@ -497,7 +499,7 @@ export default function ObligationsPage() {
                                 className="w-full mt-2 bg-secondary hover:bg-foreground hover:text-background border border-border text-[10px] h-7 rounded-lg transition-colors flex items-center justify-center gap-1"
                               >
                                 <Sparkles className="h-3 w-3" />
-                                Phê duyệt Nghĩa vụ
+                                {t("ob_btn_approve")}
                               </Button>
                             )}
                           </div>
@@ -516,12 +518,12 @@ export default function ObligationsPage() {
               {activeTab === "financial" ? (
                 <>
                   <DollarSign className="h-5 w-5 text-primary" />
-                  Danh Sách Nghĩa Vụ Tài Chính Hợp Đồng
+                  {t("ob_list_financial_title")}
                 </>
               ) : (
                 <>
                   <ListTodo className="h-5 w-5 text-muted-foreground" />
-                  Danh Sách Nghĩa Vụ Phi Tài Chính Hợp Đồng
+                  {t("ob_list_non_financial_title")}
                 </>
               )}
             </h2>
@@ -531,8 +533,8 @@ export default function ObligationsPage() {
                 {filteredObligations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
                     <Clock className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                    <p className="font-semibold text-sm">Chưa có nghĩa vụ nào thuộc nhóm này</p>
-                    <p className="text-xs mt-1">Các nghĩa vụ sẽ được AI tự động bóc tách từ các hợp đồng đã ký duyệt.</p>
+                    <p className="font-semibold text-sm">{t("ob_list_empty_title")}</p>
+                    <p className="text-xs mt-1">{t("ob_list_empty_desc")}</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border/30">
@@ -561,7 +563,7 @@ export default function ObligationsPage() {
                             </span>
                             <span className="flex items-center gap-0.5">
                               <Calendar className="h-3 w-3 shrink-0" />
-                              Hạn: <strong>{new Date(ob.dueDate).toLocaleDateString("vi-VN")}</strong>
+                              {t("ob_due_label")} <strong>{new Date(ob.dueDate).toLocaleDateString("vi-VN")}</strong>
                             </span>
                             {ob.obligationType && (
                               <span className="flex items-center gap-0.5">
@@ -576,19 +578,19 @@ export default function ObligationsPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-muted/20 p-2.5 rounded-xl border border-border/40 max-w-xl mt-2">
                               {ob.amount !== null && (
                                 <div>
-                                  <span className="text-[10px] text-muted-foreground block font-medium">Số tiền:</span>
+                                  <span className="text-[10px] text-muted-foreground block font-medium">{t("ob_financial_amount")}</span>
                                   <span className="font-semibold text-primary">{ob.amount.toLocaleString("vi-VN")} VND</span>
                                 </div>
                               )}
                               {ob.percentage !== null && (
                                 <div>
-                                  <span className="text-[10px] text-muted-foreground block font-medium">Phần trăm thanh toán:</span>
+                                  <span className="text-[10px] text-muted-foreground block font-medium">{t("ob_financial_percentage")}</span>
                                   <span className="font-semibold text-primary">{ob.percentage}%</span>
                                 </div>
                               )}
                               {ob.triggerCondition && (
                                 <div className="col-span-full border-t border-border/30 pt-1.5 mt-1.5">
-                                  <span className="text-[10px] text-muted-foreground block font-medium">Điều kiện kích hoạt đợt thanh toán:</span>
+                                  <span className="text-[10px] text-muted-foreground block font-medium">{t("ob_financial_trigger")}</span>
                                   <span className="font-medium text-card-foreground leading-normal">{ob.triggerCondition}</span>
                                 </div>
                               )}
@@ -600,13 +602,13 @@ export default function ObligationsPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-muted/20 p-2.5 rounded-xl border border-border/40 max-w-xl mt-2">
                               {ob.effectivePeriod && (
                                 <div>
-                                  <span className="text-[10px] text-muted-foreground block font-medium">Thời gian bảo hành / Hiệu lực:</span>
+                                  <span className="text-[10px] text-muted-foreground block font-medium">{t("ob_non_financial_period")}</span>
                                   <span className="font-semibold text-foreground">{ob.effectivePeriod}</span>
                                 </div>
                               )}
                               {ob.responsibleVendor && (
                                 <div>
-                                  <span className="text-[10px] text-muted-foreground block font-medium">Đơn vị chịu trách nhiệm chính:</span>
+                                  <span className="text-[10px] text-muted-foreground block font-medium">{t("ob_non_financial_vendor")}</span>
                                   <span className="font-semibold text-foreground">{ob.responsibleVendor}</span>
                                 </div>
                               )}
@@ -628,7 +630,7 @@ export default function ObligationsPage() {
                               className="bg-foreground text-background hover:bg-muted-foreground gap-1"
                             >
                               <Sparkles className="h-3 w-3" />
-                              Duyệt & Phân PIC
+                              {t("ob_btn_approve_pic")}
                             </Button>
                           ) : (
                             <select

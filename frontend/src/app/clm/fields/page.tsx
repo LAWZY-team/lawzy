@@ -62,6 +62,277 @@ function slugifyKey(input: string): string {
     .slice(0, 50)
 }
 
+function EditableCellInput({
+  value,
+  onChange,
+  disabled,
+  className,
+  placeholder,
+}: {
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+  className?: string
+  placeholder?: string
+}) {
+  const [localValue, setLocalValue] = useState(value)
+  const isFocused = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!isFocused.current) {
+      setLocalValue(value)
+    }
+  }, [value])
+
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  const save = useCallback((val: string) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    onChangeRef.current(val)
+  }, [])
+
+  useEffect(() => {
+    if (localValue === value) return
+
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      save(localValue)
+    }, 500)
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [localValue, value, save])
+
+  const handleBlur = () => {
+    isFocused.current = false
+    save(localValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
+    }
+  }
+
+  return (
+    <Input
+      value={localValue}
+      disabled={disabled}
+      className={className}
+      placeholder={placeholder}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onFocus={() => {
+        isFocused.current = true
+      }}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+    />
+  )
+}
+
+function InlineAddRow({
+  onSave,
+  onCancel,
+  t,
+}: {
+  onSave: (label: string, defaultValue: string) => void
+  onCancel: () => void
+  t: any
+}) {
+  const [label, setLabel] = useState("")
+  const [defaultValue, setDefaultValue] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const id = setTimeout(() => inputRef.current?.focus(), 30)
+    return () => clearTimeout(id)
+  }, [])
+
+  const keyPreview = useMemo(() => {
+    return label.trim() ? (slugifyKey(label) || '...') : '...'
+  }, [label])
+
+  const handleSave = () => {
+    if (!label.trim()) return
+    onSave(label, defaultValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSave()
+    if (e.key === 'Escape') onCancel()
+  }
+
+  return (
+    <TableRow className="bg-muted/30">
+      <TableCell>
+        <span className="text-sm text-muted-foreground">{t("settings_fields_user")}</span>
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground/60">
+        {keyPreview}
+      </TableCell>
+      <TableCell>
+        <Input
+          ref={inputRef}
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder={t("fields_placeholder_label")}
+          className="h-8 text-sm max-w-[280px]"
+          onKeyDown={handleKeyDown}
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          value={defaultValue}
+          onChange={(e) => setDefaultValue(e.target.value)}
+          placeholder={t("fields_placeholder_default")}
+          className="h-8 text-sm max-w-[320px]"
+          onKeyDown={handleKeyDown}
+        />
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-primary hover:text-primary"
+            onClick={handleSave}
+            disabled={!label.trim()}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground"
+            onClick={onCancel}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function AddFieldDialogContent({
+  currentWorkspace,
+  canEditWs,
+  onCancel,
+  onSaveUser,
+  onSaveWorkspace,
+  wsSaving,
+  t,
+}: {
+  currentWorkspace: any
+  canEditWs: boolean
+  onCancel: () => void
+  onSaveUser: (label: string, defaultValue: string, category: string) => void
+  onSaveWorkspace: (label: string, defaultValue: string) => Promise<void>
+  wsSaving: boolean
+  t: any
+}) {
+  const [source, setSource] = useState<"user" | "workspace">("user")
+  const [label, setLabel] = useState("")
+  const [defaultValue, setDefaultValue] = useState("")
+  const [category, setCategory] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!label.trim()) return
+    setIsSaving(true)
+    try {
+      if (source === "user") {
+        onSaveUser(label, defaultValue, category)
+      } else {
+        await onSaveWorkspace(label, defaultValue)
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{t("fields_add_custom")}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        {currentWorkspace && canEditWs && (
+          <div className="space-y-2">
+            <Label>{t("settings_fields_source")}</Label>
+            <Select
+              value={source}
+              onValueChange={(v: "user" | "workspace") => setSource(v)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">{t("settings_fields_user")}</SelectItem>
+                <SelectItem value="workspace">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    {currentWorkspace.name}
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label>{t("settings_fields_label")}</Label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={t("fields_placeholder_example_label")}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("settings_fields_default")}</Label>
+          <Input
+            value={defaultValue}
+            onChange={(e) => setDefaultValue(e.target.value)}
+            placeholder={t("fields_placeholder_default")}
+          />
+        </div>
+        {source === "user" && (
+          <div className="space-y-2">
+            <Label>
+              {t("fields_category_name")}
+              <span className="ml-1 text-xs text-muted-foreground font-normal">{t("fields_optional")}</span>
+            </Label>
+            <Input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder={t("fields_placeholder_example_category")}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("fields_category_hint")}
+            </p>
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel} disabled={isSaving || wsSaving}>
+          {t("common_cancel")}
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={!label.trim() || isSaving || wsSaving}
+        >
+          {isSaving || wsSaving ? "..." : t("common_save")}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+}
+
 export default function FieldsPage() {
   const { t } = useT()
   const workspaceStore = useStore(useWorkspaceStore, (s) => s)
@@ -76,7 +347,6 @@ export default function FieldsPage() {
   const [addDialog, setAddDialog] = useState<"user" | "workspace" | null>(null)
   const wsFieldsRef = useRef<WorkspaceFieldItem[]>([])
   const wsPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [newField, setNewField] = useState({ label: "", defaultValue: "", category: "" })
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: "user" | "workspace"
     key: string
@@ -86,7 +356,6 @@ export default function FieldsPage() {
     label: string
     defaultValue: string
   }>({ groupId: null, label: '', defaultValue: '' })
-  const inlineLabelRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setUserFields(
@@ -141,7 +410,7 @@ export default function FieldsPage() {
         })),
       })
     } catch {
-      toast.error("Lưu thất bại")
+      toast.error(t("fields_save_failed"))
     } finally {
       setWsSaving(false)
     }
@@ -161,45 +430,7 @@ export default function FieldsPage() {
     }
   }, [])
 
-  const handleAddUserField = () => {
-    if (!newField.label.trim()) return
-    const key = slugifyKey(newField.label) || "field"
-    addCustomField({
-      key,
-      label: newField.label.trim(),
-      defaultValue: newField.defaultValue.trim(),
-      ...(newField.category.trim() ? { category: newField.category.trim() } : {}),
-    })
-    setAddDialog(null)
-    setNewField({ label: "", defaultValue: "", category: "" })
-  }
 
-  const handleAddWsField = async () => {
-    if (!currentWorkspace?.id || !newField.label.trim()) return
-    const key = slugifyKey(newField.label) || "field"
-    const updated = [
-      ...wsFields,
-      { key, label: newField.label.trim(), defaultValue: newField.defaultValue.trim() },
-    ]
-    setWsSaving(true)
-    try {
-      await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
-        fields: updated.map((f) => ({
-          key: f.key,
-          label: f.label,
-          defaultValue: f.defaultValue || null,
-        })),
-      })
-      setWsFields(updated)
-      setAddDialog(null)
-      setNewField({ label: "", defaultValue: "", category: "" })
-      toast.success(t("common_save") + "!")
-    } catch {
-      toast.error("Lưu thất bại")
-    } finally {
-      setWsSaving(false)
-    }
-  }
 
   const handleDeleteUserField = () => {
     if (deleteConfirm?.type === "user") {
@@ -224,29 +455,21 @@ export default function FieldsPage() {
       setDeleteConfirm(null)
       toast.success(t("common_delete") + "!")
     } catch {
-      toast.error("Xóa thất bại")
+      toast.error(t("fields_delete_failed"))
     } finally {
       setWsSaving(false)
     }
   }
 
-  useEffect(() => {
-    if (inlineAdd.groupId !== null) {
-      const id = setTimeout(() => inlineLabelRef.current?.focus(), 30)
-      return () => clearTimeout(id)
-    }
-  }, [inlineAdd.groupId])
-
-  const handleInlineAddSave = useCallback(() => {
-    if (!inlineAdd.label.trim()) return
-    const key = slugifyKey(inlineAdd.label) || 'field'
+  const handleInlineAddSave = useCallback((label: string, defaultValue: string) => {
+    const key = slugifyKey(label) || 'field'
     addCustomField({
       key,
-      label: inlineAdd.label.trim(),
-      defaultValue: inlineAdd.defaultValue.trim(),
+      label: label.trim(),
+      defaultValue: defaultValue.trim(),
     })
     setInlineAdd({ groupId: null, label: '', defaultValue: '' })
-  }, [inlineAdd, addCustomField])
+  }, [addCustomField])
 
   const handleInlineAddCancel = useCallback(() => {
     setInlineAdd({ groupId: null, label: '', defaultValue: '' })
@@ -311,24 +534,23 @@ export default function FieldsPage() {
         <TableCell className="font-mono text-sm align-middle">{item.key}</TableCell>
         <TableCell className="align-middle">
           {type === "user" ? (
-            <Input
+            <EditableCellInput
               value={item.label}
               disabled={!canEditRow}
               className="h-9 max-w-[280px]"
-              onChange={(e) =>
-                updateCustomField(item.key, { label: e.target.value })
+              onChange={(newVal) =>
+                updateCustomField(item.key, { label: newVal })
               }
             />
           ) : (
-            <Input
+            <EditableCellInput
               value={item.label}
               disabled={!canEditRow}
               className="h-9 max-w-[280px]"
-              onChange={(e) => {
-                const v = e.target.value
+              onChange={(newVal) => {
                 setWsFields((prev) => {
                   const next = prev.map((f) =>
-                    f.key === item.key ? { ...f, label: v } : f
+                    f.key === item.key ? { ...f, label: newVal } : f
                   )
                   wsFieldsRef.current = next
                   return next
@@ -340,23 +562,23 @@ export default function FieldsPage() {
         </TableCell>
         <TableCell className="align-middle">
           {type === "user" ? (
-            <Input
+            <EditableCellInput
               value={item.defaultValue}
               disabled={!canEditRow}
               className="h-9 max-w-[320px]"
               placeholder="—"
-              onChange={(e) =>
-                updateCustomField(item.key, { defaultValue: e.target.value })
+              onChange={(newVal) =>
+                updateCustomField(item.key, { defaultValue: newVal })
               }
             />
           ) : (
-            <Input
+            <EditableCellInput
               value={item.defaultValue}
               disabled={!canEditRow}
               className="h-9 max-w-[320px]"
               placeholder="—"
-              onChange={(e) => {
-                const v = e.target.value
+              onChange={(newVal) => {
+                const v = newVal
                 setWsFields((prev) => {
                   const next = prev.map((f) =>
                     f.key === item.key ? { ...f, defaultValue: v } : f
@@ -401,7 +623,7 @@ export default function FieldsPage() {
             onClick={() => setInlineAdd({ groupId: gid, label: '', defaultValue: '' })}
           >
             <Plus className="h-3.5 w-3.5" />
-            Thêm trường
+            {t("fields_add_btn")}
           </Button>
         </div>
         <Table>
@@ -417,60 +639,11 @@ export default function FieldsPage() {
           <TableBody>
             {items.map((item) => renderFieldRow("user", item))}
             {isAddingHere && (
-              <TableRow className="bg-muted/30">
-                <TableCell>
-                  <span className="text-sm text-muted-foreground">{t("settings_fields_user")}</span>
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground/60">
-                  {keyPreview}
-                </TableCell>
-                <TableCell>
-                  <Input
-                    ref={inlineLabelRef}
-                    value={inlineAdd.label}
-                    onChange={(e) => setInlineAdd((p) => ({ ...p, label: e.target.value }))}
-                    placeholder="Nhãn trường"
-                    className="h-8 text-sm max-w-[280px]"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleInlineAddSave()
-                      if (e.key === 'Escape') handleInlineAddCancel()
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    value={inlineAdd.defaultValue}
-                    onChange={(e) => setInlineAdd((p) => ({ ...p, defaultValue: e.target.value }))}
-                    placeholder="Giá trị mặc định (tùy chọn)"
-                    className="h-8 text-sm max-w-[320px]"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleInlineAddSave()
-                      if (e.key === 'Escape') handleInlineAddCancel()
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-0.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-primary hover:text-primary"
-                      onClick={handleInlineAddSave}
-                      disabled={!inlineAdd.label.trim()}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                      onClick={handleInlineAddCancel}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <InlineAddRow
+                onSave={handleInlineAddSave}
+                onCancel={handleInlineAddCancel}
+                t={t}
+              />
             )}
           </TableBody>
         </Table>
@@ -487,7 +660,7 @@ export default function FieldsPage() {
         </div>
         <Button onClick={() => setAddDialog("user")} disabled={wsLoading}>
           <Plus className="mr-2 h-4 w-4" />
-          Thêm trường tùy chỉnh
+          {t("fields_add_custom")}
         </Button>
       </div>
 
@@ -566,7 +739,7 @@ export default function FieldsPage() {
                     onClick={() => setInlineAdd({ groupId: 'other', label: '', defaultValue: '' })}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Thêm trường
+                    {t("fields_add_btn")}
                   </Button>
                 </div>
                 <Table>
@@ -615,101 +788,53 @@ export default function FieldsPage() {
       <Dialog
         open={!!addDialog}
         onOpenChange={(o) => {
-          if (!o) {
-            setAddDialog(null)
-            setNewField({ label: "", defaultValue: "", category: "" })
-          }
+          if (!o) setAddDialog(null)
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm trường tùy chỉnh</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {currentWorkspace && canEditWs && (
-              <div className="space-y-2">
-                <Label>{t("settings_fields_source")}</Label>
-                <Select
-                  value={addDialog ?? "user"}
-                  onValueChange={(v: "user" | "workspace") => setAddDialog(v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">{t("settings_fields_user")}</SelectItem>
-                    <SelectItem value="workspace">
-                      <span className="flex items-center gap-1.5">
-                        <Building2 className="h-4 w-4" />
-                        {currentWorkspace.name}
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>{t("settings_fields_label")}</Label>
-              <Input
-                value={newField.label}
-                onChange={(e) =>
-                  setNewField((n) => ({ ...n, label: e.target.value }))
-                }
-                placeholder="Ví dụ: Tên doanh nghiệp"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("settings_fields_default")}</Label>
-              <Input
-                value={newField.defaultValue}
-                onChange={(e) =>
-                  setNewField((n) => ({ ...n, defaultValue: e.target.value }))
-                }
-                placeholder="Giá trị mặc định (tùy chọn)"
-              />
-            </div>
-            {addDialog === "user" && (
-              <div className="space-y-2">
-                <Label>
-                  Tên danh mục
-                  <span className="ml-1 text-xs text-muted-foreground font-normal">(tùy chọn)</span>
-                </Label>
-                <Input
-                  value={newField.category}
-                  onChange={(e) =>
-                    setNewField((n) => ({ ...n, category: e.target.value }))
-                  }
-                  placeholder="Ví dụ: Thông tin thanh toán"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Trường sẽ được nhóm vào danh mục này trên trang cài đặt.
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
+        {addDialog && (
+          <AddFieldDialogContent
+            currentWorkspace={currentWorkspace}
+            canEditWs={canEditWs}
+            onCancel={() => setAddDialog(null)}
+            onSaveUser={(label, defaultValue, category) => {
+              const key = slugifyKey(label) || "field"
+              addCustomField({
+                key,
+                label: label.trim(),
+                defaultValue: defaultValue.trim(),
+                ...(category.trim() ? { category: category.trim() } : {}),
+              })
+              setAddDialog(null)
+            }}
+            onSaveWorkspace={async (label, defaultValue) => {
+              if (!currentWorkspace?.id) return
+              const key = slugifyKey(label) || "field"
+              const updated = [
+                ...wsFields,
+                { key, label: label.trim(), defaultValue: defaultValue.trim() },
+              ]
+              setWsSaving(true)
+              try {
+                await api.put(`/workspaces/${currentWorkspace.id}/custom-fields`, {
+                  fields: updated.map((f) => ({
+                    key: f.key,
+                    label: f.label,
+                    defaultValue: f.defaultValue || null,
+                  })),
+                })
+                setWsFields(updated)
                 setAddDialog(null)
-                setNewField({ label: "", defaultValue: "", category: "" })
-              }}
-            >
-              {t("common_cancel")}
-            </Button>
-            <Button
-              onClick={() =>
-                addDialog === "user" ? handleAddUserField() : handleAddWsField()
+                toast.success(t("common_save") + "!")
+              } catch {
+                toast.error(t("fields_save_failed"))
+              } finally {
+                setWsSaving(false)
               }
-              disabled={
-                !newField.label.trim() ||
-                (addDialog === "workspace" && wsSaving)
-              }
-            >
-              {addDialog === "workspace" && wsSaving ? "..." : t("common_save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+            }}
+            wsSaving={wsSaving}
+            t={t}
+          />
+        )}
       </Dialog>
 
       {/* Delete confirm */}
@@ -721,7 +846,7 @@ export default function FieldsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("common_delete")}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Xóa trường này? Giá trị đã điền trong hợp đồng sẽ không bị xóa.
+              {t("fields_delete_desc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

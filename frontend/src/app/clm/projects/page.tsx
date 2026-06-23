@@ -59,7 +59,7 @@ export default function ProjectsPage() {
       setProjects(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error("Failed to load projects", err)
-      toast.error("Không thể tải danh sách dự án")
+      toast.error(t("proj_load_failed"))
     } finally {
       setIsLoading(false)
     }
@@ -73,7 +73,7 @@ export default function ProjectsPage() {
     e.preventDefault()
     if (!workspaceId) return
     if (!projName.trim() || !projCode.trim()) {
-      toast.error("Vui lòng điền đầy đủ Tên và Mã dự án")
+      toast.error(t("proj_form_validation"))
       return
     }
 
@@ -86,7 +86,7 @@ export default function ProjectsPage() {
         description: projDesc.trim() || undefined,
         workspaceId,
       })
-      toast.success("Tạo dự án mới thành công")
+      toast.success(t("proj_create_success"))
       setIsOpen(false)
       // Reset form
       setProjName("")
@@ -96,7 +96,7 @@ export default function ProjectsPage() {
       fetchProjects()
     } catch (err: any) {
       console.error("Failed to create project", err)
-      const errMsg = err?.message || "Không thể tạo dự án. Vui lòng kiểm tra lại thông tin."
+      const errMsg = err?.message || t("proj_create_failed")
       toast.error(errMsg)
     } finally {
       setIsCreating(false)
@@ -121,9 +121,9 @@ export default function ProjectsPage() {
         {/* Header Block */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div className="space-y-1">
-            <h1 className="text-3xl font-extrabold tracking-tight">Dự án Pháp lý</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight">{t("proj_title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Quản lý hồ sơ, phụ lục, cấu trúc cây tài liệu và kiểm tra mâu thuẫn chéo theo từng dự án.
+              {t("proj_subtitle")}
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function ProjectsPage() {
             className="bg-black hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90 shadow-sm self-start md:self-auto"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Tạo dự án mới
+            {t("proj_btn_create")}
           </Button>
         </div>
 
@@ -140,7 +140,7 @@ export default function ProjectsPage() {
         <div className="flex items-center w-full max-w-md relative">
           <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm kiếm dự án theo tên hoặc mã..."
+            placeholder={t("proj_search_placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 bg-card/40 border-border/80 rounded-xl"
@@ -168,16 +168,16 @@ export default function ProjectsPage() {
             <div className="p-4 rounded-full bg-muted/40 text-muted-foreground mb-4">
               <FolderOpen className="h-10 w-10 text-muted-foreground/50" />
             </div>
-            <h3 className="font-semibold text-lg">Không tìm thấy dự án</h3>
+            <h3 className="font-semibold text-lg">{t("proj_not_found")}</h3>
             <p className="text-sm text-muted-foreground max-w-xs mt-1">
               {searchQuery 
-                ? "Thử tìm kiếm với từ khóa khác hoặc tạo mới dự án."
-                : "Chưa có dự án nào trong workspace của bạn. Hãy tạo mới một dự án để bắt đầu quản lý hồ sơ pháp lý."}
+                ? t("proj_search_empty_desc")
+                : t("proj_empty_desc")}
             </p>
             {!searchQuery && (
               <Button onClick={() => setIsOpen(true)} variant="outline" className="mt-5 rounded-xl">
                 <Plus className="mr-2 h-4 w-4" />
-                Tạo dự án đầu tiên
+                {t("proj_btn_create_first")}
               </Button>
             )}
           </div>
@@ -206,7 +206,7 @@ export default function ProjectsPage() {
                       
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <FileText className="h-3.5 w-3.5" />
-                        <span>{project._count?.documents ?? 0} văn bản</span>
+                        <span>{t("proj_doc_count", { n: project._count?.documents ?? 0 })}</span>
                       </div>
                     </div>
 
@@ -215,7 +215,7 @@ export default function ProjectsPage() {
                     </CardTitle>
 
                     <CardDescription className="line-clamp-2 text-xs leading-relaxed min-h-[32px]">
-                      {project.description || "Chưa có mô tả dự án."}
+                      {project.description || t("proj_no_desc")}
                     </CardDescription>
                   </CardHeader>
 
@@ -226,7 +226,7 @@ export default function ProjectsPage() {
                       className="w-full text-xs font-semibold hover:bg-muted justify-between rounded-xl group-hover:text-primary border border-border/40"
                     >
                       <Link href={`/clm/projects/${project.id}`}>
-                        <span>Xem chi tiết sơ đồ</span>
+                        <span>{t("proj_btn_view_details")}</span>
                         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                       </Link>
                     </Button>
@@ -251,8 +251,8 @@ export default function ProjectsPage() {
             >
               <div className="flex items-center justify-between p-6 border-b border-border/60">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold">Tạo dự án pháp lý mới</h3>
-                  <p className="text-xs text-muted-foreground">Khởi tạo một container để nhóm các hợp đồng & phụ lục.</p>
+                  <h3 className="text-lg font-bold">{t("proj_modal_title")}</h3>
+                  <p className="text-xs text-muted-foreground">{t("proj_modal_subtitle")}</p>
                 </div>
                 <Button 
                   variant="ghost" 
@@ -266,11 +266,11 @@ export default function ProjectsPage() {
 
               <form onSubmit={handleCreate} className="p-6 space-y-4 flex-1">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Tên dự án</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">{t("proj_modal_field_name")}</label>
                   <Input 
                     value={projName}
                     onChange={(e) => setProjName(e.target.value)}
-                    placeholder="VD: Điện mặt trời Lộc Ninh 3"
+                    placeholder={t("proj_modal_field_name_placeholder")}
                     required
                     disabled={isCreating}
                     className="h-10 border-border/80 bg-background/50 rounded-xl"
@@ -279,13 +279,13 @@ export default function ProjectsPage() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Mã dự án</label>
-                    <span className="text-[10px] text-muted-foreground">Chỉ gồm chữ cái, số, dấu gạch ngang/dưới</span>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">{t("proj_modal_field_code")}</label>
+                    <span className="text-[10px] text-muted-foreground">{t("proj_modal_field_code_hint")}</span>
                   </div>
                   <Input 
                     value={projCode}
                     onChange={(e) => setProjCode(e.target.value)}
-                    placeholder="VD: GP-LOCNINH-3"
+                    placeholder={t("proj_modal_field_code_placeholder")}
                     required
                     disabled={isCreating}
                     className="h-10 border-border/80 bg-background/50 font-mono text-sm uppercase rounded-xl"
@@ -293,11 +293,11 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Mô tả dự án</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">{t("proj_modal_field_desc")}</label>
                   <textarea
                     value={projDesc}
                     onChange={(e) => setProjDesc(e.target.value)}
-                    placeholder="Mô tả tóm tắt quy mô dự án, các thông số pháp lý ban đầu..."
+                    placeholder={t("proj_modal_field_desc_placeholder")}
                     disabled={isCreating}
                     rows={3}
                     className="w-full text-sm p-3 bg-background/50 border border-border/80 rounded-xl focus:outline-none focus:ring-1 focus:ring-ring resize-none"
@@ -312,7 +312,7 @@ export default function ProjectsPage() {
                     disabled={isCreating}
                     className="rounded-xl h-10 px-4"
                   >
-                    Hủy bỏ
+                    {t("common_cancel")}
                   </Button>
                   <Button 
                     type="submit" 
@@ -322,10 +322,10 @@ export default function ProjectsPage() {
                     {isCreating ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang tạo...
+                        {t("proj_modal_btn_creating")}
                       </>
                     ) : (
-                      "Khởi tạo dự án"
+                      t("proj_modal_btn_submit")
                     )}
                   </Button>
                 </div>
