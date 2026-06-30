@@ -25,6 +25,14 @@ const NEWSPAPERS: NewspaperItem[] = [
     url: "https://www.businesstimes.com.sg/international/asean/vietnam-singapore-partnership-seen-catalyst-scaling-sustainable-innovation",
   },
   {
+    name: "NUS Enterprise",
+    logo: "/partners_logo/newpaper/nusenterprise-logo.avif",
+    logo_alt: "NUS Enterprise",
+    title: "Singapore and Vietnam to boost cross-border start-up innovation pipeline through BLOCK71 UniVentures ",
+    url: "https://enterprise.nus.edu.sg/news/singapore-and-vietnam-to-boost-cross-border-start-up-innovation-pipeline-through-block71-univentures/",
+    logoMaxWidthClass: "max-w-[150px]",
+  },
+  {
     name: "VnEconomy",
     logo: "/partners_logo/newpaper/vneconomy.svg",
     logo_alt: "VnEconomy",
