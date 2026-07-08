@@ -10,6 +10,7 @@ import {
     User,
     ChevronsUpDown,
     ChevronDown,
+    FileCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
     { href: "/projects", label: "Projects", icon: FolderOpen },
     { href: "/tabular-reviews", label: "Tabular Review", icon: Table2 },
     { href: "/workflows", label: "Workflows", icon: Library },
+    { href: "/autofill", label: "Autofill Hồ Sơ", icon: FileCheck },
 ];
 
 interface AppSidebarProps {

@@ -13,6 +13,7 @@ import {
     Trash2,
     Plus,
     ChevronRight,
+    FileCheck,
 } from "lucide-react";
 
 import {
@@ -54,6 +55,7 @@ const lpmsNavItems: {
     { titleKey: "lpms_nav_matters", href: "/lpms/matters", icon: FolderKanban, collapsible: "matters" },
     { titleKey: "lpms_nav_tabular", href: "/lpms/tabular-analysis", icon: TableProperties },
     { titleKey: "lpms_nav_workflows", href: "/lpms/workflows", icon: Library },
+    { titleKey: "lpms_nav_autofill", href: "/lpms/autofill", icon: FileCheck },
 ];
 
 export function LPMSSidebar() {

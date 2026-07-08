@@ -6,6 +6,7 @@ export const lpmsEn: Record<LpmsTranslationKey, string> = {
   lpms_nav_matters: "Matters",
   lpms_nav_tabular: "Tabular Extraction",
   lpms_nav_workflows: "Workflows",
+  lpms_nav_autofill: "Autofill Hồ Sơ",
   lpms_sidebar_new_chat: "New chat",
   lpms_sidebar_loading_chats: "Loading chat history…",
   lpms_sidebar_no_chats: "No conversations yet",

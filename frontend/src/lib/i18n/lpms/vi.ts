@@ -5,6 +5,7 @@ export const lpmsVi = {
   lpms_nav_matters: "Vụ việc (Matters)",
   lpms_nav_tabular: "Bóc tách hàng loạt",
   lpms_nav_workflows: "Quy trình (Workflows)",
+  lpms_nav_autofill: "Autofill Hồ Sơ",
   lpms_sidebar_new_chat: "Tạo chat mới",
   lpms_sidebar_loading_chats: "Đang tải lịch sử...",
   lpms_sidebar_no_chats: "Chưa có hội thoại nào",
