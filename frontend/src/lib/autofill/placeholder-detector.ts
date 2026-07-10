@@ -81,25 +81,10 @@ const COMMON_ALIASES: Record<string, string[]> = {
   representative_phone: ['[SĐT NGƯỜI ĐẠI DIỆN]', '[ĐIỆN THOẠI ĐẠI DIỆN]', '{{sdt_nguoi_dai_dien}}'],
   position: ['[CHỨC VỤ]', '{{chuc_vu}}', '[CHỨC DANH]', '[CHỨC VỤ ĐẠI DIỆN]', '<<Chức vụ>>'],
 
-  // Cá nhân
-  f_cn_hoten: ['[HỌ TÊN NHÀ ĐẦU TƯ]', '{{ho_ten_nha_dau_tu}}', '[HỌ VÀ TÊN]', '[TÊN CÁ NHÂN]'],
-  f_cn_gioitinh: ['[GIỚI TÍNH]', '{{gioi_tinh}}'],
-  f_cn_ngaysinh: ['[NGÀY SINH]', '{{ngay_sinh}}', '[NGÀY THÁNG NĂM SINH]'],
-  f_cn_quoctich: ['[QUỐC TỊCH]', '{{quoc_tich}}'],
-  f_cn_cccd: ['[SỐ CCCD]', '[SỐ HỘ CHIẾU]', '{{cccd}}', '[MÃ ĐỊNH DANH CÁ NHÂN]', '[CCCD/CMND]'],
-  f_cn_diachi: ['[ĐỊA CHỈ LIÊN HỆ]', '{{dia_chi_lien_he}}', '[ĐỊA CHỈ THƯỜNG TRÚ]'],
-  f_cn_dienthoai: ['[ĐIỆN THOẠI]', '{{dien_thoai}}', '[SỐ ĐIỆN THOẠI]'],
-  f_cn_email: ['[EMAIL]', '{{email}}', '[ĐỊA CHỈ EMAIL]'],
-
-  // Hợp đồng / Lao động
+  // Hợp đồng
   contract_number: ['[SỐ HỢP ĐỒNG]', '{{so_hop_dong}}'],
   signing_date: ['[NGÀY KÝ]', '{{ngay_ky}}', '[NGÀY KÝ HỢP ĐỒNG]'],
   signing_location: ['[ĐỊA ĐIỂM KÝ]', '{{dia_diem_ky}}'],
-  employee_name: ['[TÊN NGƯỜI LAO ĐỘNG]', '{{ten_nld}}', '[HỌ TÊN NLĐ]'],
-  employee_cccd: ['[CCCD NLĐ]', '{{cccd_nld}}'],
-  work_location: ['[ĐỊA ĐIỂM LÀM VIỆC]', '{{dia_diem_lam_viec}}'],
-  job_description: ['[MÔ TẢ CÔNG VIỆC]', '{{mo_ta_cong_viec}}'],
-  department: ['[PHÒNG BAN]', '{{phong_ban}}'],
 }
 
 /**

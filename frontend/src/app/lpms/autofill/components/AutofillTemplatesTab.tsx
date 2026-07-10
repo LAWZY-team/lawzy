@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAutofillStore } from "@/stores/autofill-store"
 import { useUserFieldsStore } from "@/stores/user-fields-store"
@@ -8,15 +8,29 @@ import { extractDocxPlainText, extractPlaceholders, guessCanonicalMapping } from
 import { AutofillLiveEditorModal } from "./AutofillLiveEditorModal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FolderOpen, Plus, Trash2, Eye, FileText, Upload } from "lucide-react"
+import { FolderOpen, Plus, Trash2, Eye, FileText, Upload, ArrowRight, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
+import { DEFAULT_LABEL_BY_KEY } from "@/lib/editor/user-field-profile"
 import mammoth from "mammoth"
 
-export function AutofillTemplatesTab() {
+interface AutofillTemplatesTabProps {
+  onNavigateTab?: (tab: "profile" | "templates" | "fill") => void
+}
+
+export function AutofillTemplatesTab({ onNavigateTab }: AutofillTemplatesTabProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { bundles, currentBundleId, setCurrentBundleId, createBundle, deleteBundle, addDocToBundle, removeDocFromBundle } = useAutofillStore()
-  const { customFields, updateCustomField, addCustomField } = useUserFieldsStore()
+  const {
+    customFields,
+    updateCustomField,
+    addCustomField,
+    clientProfiles = [],
+    currentProfileId,
+    setCurrentProfileId,
+    createProfile,
+    updateProfile,
+  } = useUserFieldsStore()
 
   const [isCreatingBundle, setIsCreatingBundle] = useState(false)
   const [newBundleName, setNewBundleName] = useState("")
@@ -25,10 +39,54 @@ export function AutofillTemplatesTab() {
 
   const [activeDocForPreview, setActiveDocForPreview] = useState<{ bundleId: string; docId: string } | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [isQuickFillModalOpen, setIsQuickFillModalOpen] = useState(false)
-  const [quickFillValues, setQuickFillValues] = useState<Record<string, string>>({})
 
   const currentBundle = bundles.find((b) => b.id === currentBundleId) || bundles[0] || null
+  const activeProfile = (clientProfiles || []).find((p) => p.id === currentProfileId) || (clientProfiles || [])[0] || null
+
+  const bundleUniqueKeys = useMemo(() => {
+    if (!currentBundle) return []
+    const map = new Map<string, { key: string; rawPlaceholder: string; docCount: number }>()
+    for (const doc of currentBundle.documents) {
+      if (doc.fileType !== "docx") continue
+      for (const f of doc.fields) {
+        const key = f.mappedKey || f.placeholder.replace(/^\[|\]$|^\{\{|\}\}$/g, "").trim()
+        if (!key) continue
+        if (!map.has(key)) {
+          map.set(key, { key, rawPlaceholder: f.placeholder, docCount: 1 })
+        } else {
+          map.get(key)!.docCount += 1
+        }
+      }
+    }
+    return Array.from(map.values())
+  }, [currentBundle])
+
+  const handleCreateClientProfileFromBundle = () => {
+    if (!currentBundle) return
+    const allKeys = new Set<string>()
+    for (const doc of currentBundle.documents) {
+      if (doc.fileType !== "docx") continue
+      for (const f of doc.fields) {
+        const keyToUse = f.mappedKey || f.placeholder.replace(/^\[|\]$|^\{\{|\}\}$/g, "").trim()
+        if (keyToUse) allKeys.add(keyToUse)
+      }
+    }
+    if (allKeys.size === 0) {
+      toast.error("Bộ hồ sơ này chưa có biểu mẫu .docx hoặc chưa bóc tách được từ khóa nào!")
+      return
+    }
+    const initialValues: Record<string, string> = {}
+    for (const k of allKeys) {
+      initialValues[k] = activeProfile?.values?.[k] || ""
+    }
+    const newId = createProfile(
+      `${currentBundle.name} - Khách Hàng ${clientProfiles.length + 1}`,
+      `Đóng gói cho bộ mẫu "${currentBundle.name}" ngày ${new Date().toLocaleDateString("vi-VN")}`,
+      initialValues
+    )
+    setCurrentProfileId(newId)
+    toast.success(`Đã khởi tạo Bộ Khách Hàng mới (${allKeys.size} từ khóa)! Bạn có thể nhập liệu ngay bên dưới.`)
+  }
 
   const handleCreateNewBundle = () => {
     if (!newBundleName.trim()) return
@@ -98,37 +156,6 @@ export function AutofillTemplatesTab() {
     e.target.value = ""
   }
 
-  const handleOpenQuickFill = () => {
-    if (!currentBundle) return
-    const initial: Record<string, string> = {}
-    for (const doc of currentBundle.documents) {
-      for (const f of doc.fields) {
-        if (f.mappedKey && !initial[f.mappedKey]) {
-          const cf = customFields.find((x) => x.key === f.mappedKey)
-          initial[f.mappedKey] = cf?.defaultValue || ""
-        }
-      }
-    }
-    setQuickFillValues(initial)
-    setIsQuickFillModalOpen(true)
-  }
-
-  const handleSaveQuickFillToProfile = () => {
-    let count = 0
-    for (const [key, val] of Object.entries(quickFillValues)) {
-      if (!val.trim()) continue
-      const existing = customFields.find((x) => x.key === key)
-      if (existing) {
-        updateCustomField(key, { defaultValue: val })
-      } else {
-        addCustomField({ key, label: key, defaultValue: val })
-      }
-      count++
-    }
-    setIsQuickFillModalOpen(false)
-    toast.success(`Đã cập nhật ${count} trường thông tin vào Profile Khách hàng!`)
-  }
-
   return (
     <div className="flex flex-col gap-6 p-8 max-w-7xl mx-auto">
       {/* Top Controls */}
@@ -144,7 +171,7 @@ export function AutofillTemplatesTab() {
                   onClick={() => setCurrentBundleId(bundle.id)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     active
-                      ? "bg-foreground text-background font-semibold"
+                      ? "bg-foreground text-background font-semibold shadow-2xs"
                       : "border border-border/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   }`}
                 >
@@ -167,22 +194,21 @@ export function AutofillTemplatesTab() {
         </div>
 
         {currentBundle && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
-              onClick={handleOpenQuickFill}
-              variant="outline"
+              onClick={handleCreateClientProfileFromBundle}
               size="sm"
-              className="text-xs h-8 px-3 border-border/80 text-foreground hover:bg-muted/60 font-medium rounded-md gap-1.5"
+              className="bg-foreground text-background hover:bg-foreground/90 font-semibold text-xs h-8 px-3 rounded-md shadow-2xs gap-1.5"
             >
-              Điền nhanh cho bộ này
+              ⚡ Khởi tạo Khách Hàng từ Bộ mẫu này
             </Button>
             {bundles.length > 1 && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => deleteBundle(currentBundle.id)}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Xóa bộ hồ sơ này"
+                className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-md"
+                title="Xóa bộ hồ sơ mẫu này"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -193,9 +219,29 @@ export function AutofillTemplatesTab() {
 
       {/* Current Bundle Workspace */}
       {!currentBundle ? (
-        <div className="text-center py-16 text-muted-foreground text-xs">Chưa chọn bộ hồ sơ mẫu.</div>
+        <div className="p-10 rounded-xl border border-dashed border-border/80 bg-muted/10 flex flex-col items-center justify-center text-center max-w-2xl mx-auto my-8 space-y-4">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-foreground">
+            <FolderOpen className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base font-serif font-bold text-foreground">
+              Bạn chưa có Bộ Hồ Sơ Mẫu nào
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed font-sans">
+              Đây là nơi quản lý các biểu mẫu Word (<code className="font-mono text-[11px] bg-muted px-1 py-0.5 rounded border border-border/40">.docx</code>) chứa từ khóa trong cặp ngoặc vuông <code className="font-mono text-[11px] bg-muted px-1 py-0.5 rounded border border-border/40">[...]</code> hoặc <code className="font-mono text-[11px] bg-muted px-1 py-0.5 rounded border border-border/40">{"{{...}}"}</code>. Hãy tạo Bộ mẫu mới đầu tiên của bạn để tải file lên.
+            </p>
+          </div>
+          <div className="flex items-center justify-center pt-3">
+            <Button
+              onClick={() => setIsCreatingBundle(true)}
+              className="bg-foreground text-background hover:bg-foreground/90 font-medium text-xs h-9 px-5 rounded-md shadow-2xs gap-2"
+            >
+              <Plus className="h-3.5 w-3.5" /> + Tạo Bộ Hồ Sơ Mẫu Mới Ngay
+            </Button>
+          </div>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold font-serif text-foreground">{currentBundle.name}</h3>
@@ -282,6 +328,109 @@ export function AutofillTemplatesTab() {
               })}
             </div>
           )}
+
+          {/* Integrated Live Placeholders & Profile Filler */}
+          {currentBundle.documents.length > 0 && (
+            <div className="pt-6 border-t border-border/60 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-muted/20 border border-border/60">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-serif font-bold text-foreground flex items-center gap-2">
+                    <span>📝 Bảng Theo Dõi Từ Khóa & Điền Liệu Cho Bộ Mẫu</span>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-foreground text-background font-semibold">
+                      {bundleUniqueKeys.length} từ khóa
+                    </span>
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Toàn bộ từ khóa bóc tách từ các file .docx trên. Chọn Khách Hàng để điền liệu trực tiếp theo bộ mẫu này:
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <span className="text-xs font-semibold text-muted-foreground">Khách Hàng:</span>
+                  <select
+                    value={activeProfile?.id || ""}
+                    onChange={(e) => setCurrentProfileId(e.target.value)}
+                    className="h-8 text-xs bg-background border border-border/60 rounded-md px-3 font-medium focus:outline-hidden focus:ring-1 focus:ring-foreground max-w-[220px]"
+                  >
+                    <option value="" disabled>--- Chọn Khách Hàng ---</option>
+                    {(clientProfiles || []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({Object.keys(p.values || {}).length} trường)
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    onClick={handleCreateClientProfileFromBundle}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-semibold px-3 rounded-md gap-1 border-border/80 hover:bg-muted"
+                  >
+                    ⚡ Khởi tạo Bộ mới
+                  </Button>
+                  <Button
+                    onClick={() => onNavigateTab?.("fill")}
+                    size="sm"
+                    className="bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold px-3.5 rounded-md shadow-2xs gap-1.5"
+                  >
+                    Ghép & Xuất .ZIP <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {bundleUniqueKeys.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground border border-dashed border-border/40 rounded-lg bg-muted/10">
+                  Bộ mẫu này chưa bóc tách được từ khóa nào. Hãy tải lên file .docx có chứa từ khóa trong ngoặc vuông <code className="font-mono bg-muted px-1 py-0.5 rounded">[...]</code>.
+                </div>
+              ) : !activeProfile ? (
+                <div className="p-8 text-center text-xs text-muted-foreground border border-dashed border-border/40 rounded-lg bg-muted/10 flex flex-col items-center gap-3">
+                  <CheckCircle2 className="h-8 w-8 text-muted-foreground/40" />
+                  <span>Bạn có <strong>{bundleUniqueKeys.length} từ khóa</strong> sẵn sàng điền. Hãy chọn 1 Bộ Khách Hàng ở menu trên hoặc bấm <strong>⚡ Khởi tạo Khách Hàng từ Bộ mẫu này</strong> để bắt đầu nhập liệu ngay.</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {bundleUniqueKeys.map((item) => {
+                    const currentVal = activeProfile.values?.[item.key] ?? ""
+                    return (
+                      <div
+                        key={item.key}
+                        className="p-4 rounded-lg border border-border/60 bg-background hover:border-foreground/40 transition-colors flex flex-col justify-between space-y-2.5"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                            <span className="text-xs font-semibold text-foreground truncate" title={item.key}>
+                              {DEFAULT_LABEL_BY_KEY[item.key] || item.key}
+                            </span>
+                            <code className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-muted text-foreground font-semibold shrink-0 border border-border/40">
+                              {item.rawPlaceholder}
+                            </code>
+                          </div>
+                          <div>
+                            <Input
+                              value={currentVal}
+                              onChange={(e) => {
+                                const newVals = { ...(activeProfile.values || {}), [item.key]: e.target.value }
+                                updateProfile(activeProfile.id, { values: newVals })
+                              }}
+                              placeholder="Chưa nhập giá trị..."
+                              className="h-8 text-xs font-medium bg-background border-border/60 rounded-md focus-visible:ring-1 focus-visible:ring-foreground"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/30 text-[11px] text-muted-foreground">
+                          <span>Xuất hiện trong <strong className="text-foreground">{item.docCount}</strong> biểu mẫu</span>
+                          {currentVal ? (
+                            <span className="text-foreground font-mono font-semibold">✓ Đã điền</span>
+                          ) : (
+                            <span className="text-muted-foreground/60 italic">Chưa điền</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -323,53 +472,6 @@ export function AutofillTemplatesTab() {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={() => setIsCreatingBundle(false)} className="h-8 text-xs rounded-md border-border/80">Hủy</Button>
               <Button size="sm" onClick={handleCreateNewBundle} disabled={!newBundleName.trim()} className="bg-foreground text-background hover:bg-foreground/90 h-8 text-xs rounded-md">Tạo & Chọn</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Fill Modal */}
-      {isQuickFillModalOpen && currentBundle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4">
-          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl bg-background shadow-xl border border-border overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b border-border/60 bg-muted/20">
-              <h3 className="text-base font-bold font-serif text-foreground">
-                Điền nhanh thông tin cho "{currentBundle.name}"
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Các giá trị nhập ở đây sẽ tự động lưu thẳng vào Profile Khách hàng.
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 divide-y divide-border/40">
-              {Object.keys(quickFillValues).length === 0 ? (
-                <div className="text-center py-8 text-xs text-muted-foreground">
-                  Bộ hồ sơ này chưa có trường placeholder nào được ánh xạ.
-                </div>
-              ) : (
-                Object.entries(quickFillValues).map(([key, val]) => {
-                  const cf = customFields.find((x) => x.key === key)
-                  return (
-                    <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 first:pt-0">
-                      <div className="min-w-0">
-                        <span className="text-xs font-semibold text-foreground block">{cf?.label || key}</span>
-                        <code className="text-[10px] font-mono text-muted-foreground">{key}</code>
-                      </div>
-                      <Input
-                        value={val}
-                        onChange={(e) => setQuickFillValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                        placeholder="Nhập giá trị..."
-                        className="h-8 text-xs w-full sm:w-64 border-border/60 rounded-md focus-visible:ring-1 focus-visible:ring-foreground"
-                      />
-                    </div>
-                  )
-                })
-              )}
-            </div>
-            <div className="p-4 border-t border-border/60 bg-muted/10 flex justify-end gap-2 shrink-0">
-              <Button variant="outline" size="sm" onClick={() => setIsQuickFillModalOpen(false)} className="h-8 text-xs rounded-md border-border/80">Hủy</Button>
-              <Button size="sm" onClick={handleSaveQuickFillToProfile} className="bg-foreground text-background hover:bg-foreground/90 h-8 text-xs rounded-md">
-                Lưu vào Profile Khách hàng
-              </Button>
             </div>
           </div>
         </div>

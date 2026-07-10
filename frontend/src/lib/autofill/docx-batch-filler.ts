@@ -79,17 +79,66 @@ export async function fillOneDocx(
     if (!entry) continue
 
     let content = await entry.async('string')
-    for (const rep of replacements) {
+
+    // Sort replacements by longest alias first to ensure more specific placeholders are replaced before shorter ones
+    const sortedReps = [...replacements].map((rep) => {
+      const aliases = Array.from(
+        new Set(
+          rep.aliases
+            .filter((a) => Boolean(a && a.trim()))
+            .map((a) => a.trim())
+        )
+      ).sort((a, b) => b.length - a.length)
+      return { value: rep.value, aliases }
+    })
+
+    for (const rep of sortedReps) {
       const safeVal = escapeXml(rep.value)
+      if (safeVal === undefined || safeVal === null) continue
+
       for (const alias of rep.aliases) {
-        if (!alias || !alias.trim()) continue
-        const trimmedAlias = alias.trim()
-        const escapedRe = trimmedAlias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const re = new RegExp(escapedRe, 'g')
-        const matches = content.match(re)
-        if (matches) {
-          total += matches.length
-          content = content.split(re).join(safeVal)
+        const cleanAlias = alias.replace(/^[\[\{\<]+|[\]\}\>]+$/g, '').trim()
+        if (!cleanAlias) continue
+
+        // Build regex patterns across optional XML tags (<[^>]+>)*
+        const chars = Array.from(cleanAlias)
+        const innerPattern = chars
+          .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('(?:<[^>]+>)*')
+
+        // Priority 1: Match [cleanAlias] across XML tags & strip square brackets
+        const squareRe = new RegExp('\\[(?:<[^>]+>)*' + innerPattern + '(?:<[^>]+>)*\\]', 'gi')
+        const squareMatches = content.match(squareRe)
+        if (squareMatches) {
+          total += squareMatches.length
+          content = content.replace(squareRe, safeVal)
+        }
+
+        // Priority 2: Match {{cleanAlias}} across XML tags & strip curly brackets
+        const curlyRe = new RegExp('\\{\\{(?:<[^>]+>)*' + innerPattern + '(?:<[^>]+>)*\\}\\}', 'gi')
+        const curlyMatches = content.match(curlyRe)
+        if (curlyMatches) {
+          total += curlyMatches.length
+          content = content.replace(curlyRe, safeVal)
+        }
+
+        // Priority 3: Match <<cleanAlias>> across XML tags & strip angle brackets
+        const angleRe = new RegExp('<<(?:<[^>]+>)*' + innerPattern + '(?:<[^>]+>)*>>', 'gi')
+        const angleMatches = content.match(angleRe)
+        if (angleMatches) {
+          total += angleMatches.length
+          content = content.replace(angleRe, safeVal)
+        }
+
+        // Priority 4: Match exact alias (e.g. if alias itself has brackets or if exact match needed)
+        const exactPattern = Array.from(alias)
+          .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('(?:<[^>]+>)*')
+        const exactRe = new RegExp(exactPattern, 'gi')
+        const exactMatches = content.match(exactRe)
+        if (exactMatches) {
+          total += exactMatches.length
+          content = content.replace(exactRe, safeVal)
         }
       }
     }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useUserFieldsStore } from "@/stores/user-fields-store"
 import { AutofillProfileTab } from "./components/AutofillProfileTab"
 import { AutofillTemplatesTab } from "./components/AutofillTemplatesTab"
 import { AutofillBatchFillTab } from "./components/AutofillBatchFillTab"
@@ -8,7 +9,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, FolderOpen, Download } from "lucide-react"
 
 export default function AutofillWorkspacePage() {
-  const [activeTab, setActiveTab] = useState<"profile" | "templates" | "fill">("profile")
+  const { clientProfiles } = useUserFieldsStore()
+  const [activeTab, setActiveTab] = useState<"profile" | "templates" | "fill">(() => {
+    return (!clientProfiles || clientProfiles.length === 0) ? "templates" : "profile"
+  })
 
   return (
     <div className="flex flex-1 flex-col min-h-0 bg-background text-foreground">
@@ -52,9 +56,9 @@ export default function AutofillWorkspacePage() {
 
       {/* Main Content Area */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {activeTab === "profile" && <AutofillProfileTab />}
-        {activeTab === "templates" && <AutofillTemplatesTab />}
-        {activeTab === "fill" && <AutofillBatchFillTab />}
+        {activeTab === "profile" && <AutofillProfileTab onNavigateTab={(t) => setActiveTab(t)} />}
+        {activeTab === "templates" && <AutofillTemplatesTab onNavigateTab={(t) => setActiveTab(t)} />}
+        {activeTab === "fill" && <AutofillBatchFillTab onNavigateTab={(t) => setActiveTab(t)} />}
       </div>
     </div>
   )

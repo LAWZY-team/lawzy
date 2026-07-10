@@ -13,56 +13,32 @@ export interface UserCustomField {
 }
 
 /** Trường mẫu tiêu chuẩn trong hợp đồng & thủ tục hành chính — người dùng có thể chỉnh sửa sau */
-export const DEFAULT_SAMPLE_FIELDS: UserCustomField[] = [
-  { key: "company_name", label: "Tên doanh nghiệp", defaultValue: "", category: "Doanh nghiệp" },
-  { key: "address", label: "Địa chỉ trụ sở", defaultValue: "", category: "Doanh nghiệp" },
-  { key: "tax_id", label: "Mã số thuế / MSDN", defaultValue: "", category: "Doanh nghiệp" },
-  { key: "website", label: "Website doanh nghiệp", defaultValue: "", category: "Doanh nghiệp" },
-  { key: "charter_capital", label: "Vốn điều lệ", defaultValue: "", category: "Doanh nghiệp" },
-  { key: "representative", label: "Người đại diện theo pháp luật", defaultValue: "", category: "Người đại diện" },
-  { key: "representative_cccd", label: "CCCD/Hộ chiếu người đại diện", defaultValue: "", category: "Người đại diện" },
-  { key: "representative_phone", label: "SĐT người đại diện", defaultValue: "", category: "Người đại diện" },
-  { key: "position", label: "Chức danh / Chức vụ", defaultValue: "", category: "Người đại diện" },
-  { key: "phone", label: "Điện thoại cơ quan", defaultValue: "", category: "Doanh nghiệp" },
-  // Taxonomy Hành chính (Tổ chức - ĐKKD)
-  { key: "f_to_ten", label: "Tên tổ chức / Doanh nghiệp (ĐKKD)", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_loaihinh", label: "Loại hình tổ chức (TNHH, CP...)", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_mst", label: "Mã số thuế / MSDN tổ chức", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_ngaycap", label: "Ngày cấp Giấy ĐKKD", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_noicap", label: "Nơi cấp / Cơ quan cấp ĐKKD", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_diachi", label: "Địa chỉ trụ sở tổ chức", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_dienthoai", label: "Điện thoại liên hệ tổ chức", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_email", label: "Email tổ chức", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  { key: "f_to_vondl", label: "Vốn điều lệ tổ chức", defaultValue: "", category: "Tổ chức / ĐKKD" },
-  // Taxonomy Hành chính (Cá nhân - Nhà đầu tư)
-  { key: "f_cn_hoten", label: "Họ và tên cá nhân / Nhà đầu tư", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_gioitinh", label: "Giới tính cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_ngaysinh", label: "Ngày sinh cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_quoctich", label: "Quốc tịch cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_cccd", label: "Số CCCD / Hộ chiếu cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_diachi", label: "Địa chỉ liên hệ cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_dienthoai", label: "Điện thoại cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  { key: "f_cn_email", label: "Email cá nhân", defaultValue: "", category: "Cá nhân / Nhà đầu tư" },
-  // Các trường lao động / hợp đồng
-  { key: "employee_name", label: "Tên người lao động (cá nhân)", defaultValue: "", category: "Hợp đồng" },
-  { key: "employee_cccd", label: "CCCD người lao động", defaultValue: "", category: "Hợp đồng" },
-  { key: "employee_address", label: "Địa chỉ thường trú (NLĐ)", defaultValue: "", category: "Hợp đồng" },
-  { key: "counterparty_company_name", label: "Tên đối tác / công ty đối tác", defaultValue: "", category: "Đối tác" },
-  { key: "counterparty_address", label: "Địa chỉ đối tác", defaultValue: "", category: "Đối tác" },
-  { key: "counterparty_tax_id", label: "MST đối tác", defaultValue: "", category: "Đối tác" },
-  { key: "counterparty_representative", label: "Người đại diện đối tác", defaultValue: "", category: "Đối tác" },
-  { key: "work_location", label: "Địa điểm làm việc (mặc định)", defaultValue: "", category: "Hợp đồng" },
-  { key: "job_description", label: "Mô tả công việc (mẫu)", defaultValue: "", category: "Hợp đồng" },
-  { key: "department", label: "Phòng ban (mặc định)", defaultValue: "", category: "Hợp đồng" },
-  { key: "contract_number", label: "Số hợp đồng", defaultValue: "", category: "Hợp đồng" },
-  { key: "signing_date", label: "Ngày ký", defaultValue: "", category: "Hợp đồng" },
-  { key: "signing_location", label: "Địa điểm ký", defaultValue: "", category: "Hợp đồng" },
-]
+export const DEFAULT_SAMPLE_FIELDS: UserCustomField[] = []
+
+export interface AutofillClientProfile {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  values: Record<string, string>
+  createdAt: string
+  updatedAt: string
+}
 
 interface UserFieldsState {
   customFields: UserCustomField[]
   /** Keys that should be hidden/masked in UI + export/print */
   hiddenFieldKeys: string[]
+
+  clientProfiles: AutofillClientProfile[]
+  currentProfileId: string | null
+
+  createProfile: (name: string, description?: string, initialValues?: Record<string, string>) => string
+  updateProfile: (id: string, updates: Partial<AutofillClientProfile>) => void
+  deleteProfile: (id: string) => void
+  setCurrentProfileId: (id: string | null) => void
+  duplicateAndSupplementProfile: (originalId: string, newName: string, deltaValues: Record<string, string>) => string
+  addSampleProfileIfEmpty: () => void
 
   addCustomField: (field: Omit<UserCustomField, 'key'> & { key?: string }) => string
   addSampleFields: () => void
@@ -170,6 +146,68 @@ export const useUserFieldsStore = create<UserFieldsState>()(
       customFields: [],
       hiddenFieldKeys: [],
 
+      clientProfiles: [],
+      currentProfileId: null,
+
+      createProfile: (name, description, initialValues = {}) => {
+        const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        const newProfile: AutofillClientProfile = {
+          id,
+          name,
+          description: description || '',
+          values: initialValues,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        set({
+          clientProfiles: [newProfile, ...(get().clientProfiles || [])],
+          currentProfileId: id,
+        })
+        return id
+      },
+
+      updateProfile: (id, updates) => {
+        set({
+          clientProfiles: (get().clientProfiles || []).map((p) =>
+            p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+          ),
+        })
+      },
+
+      deleteProfile: (id) => {
+        const next = (get().clientProfiles || []).filter((p) => p.id !== id)
+        set({
+          clientProfiles: next,
+          currentProfileId: get().currentProfileId === id ? (next[0]?.id || null) : get().currentProfileId,
+        })
+      },
+
+      setCurrentProfileId: (id) => set({ currentProfileId: id }),
+
+      duplicateAndSupplementProfile: (originalId, newName, deltaValues) => {
+        const original = (get().clientProfiles || []).find((p) => p.id === originalId)
+        const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        const newValues = { ...(original?.values || {}), ...deltaValues }
+        const newProfile: AutofillClientProfile = {
+          id,
+          name: newName,
+          description: `Nhân bản & bổ sung từ "${original?.name || 'Gốc'}"`,
+          category: original?.category || 'Bổ sung',
+          values: newValues,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        set({
+          clientProfiles: [newProfile, ...(get().clientProfiles || [])],
+          currentProfileId: id,
+        })
+        return id
+      },
+
+      addSampleProfileIfEmpty: () => {
+        // Không tạo bộ hồ sơ giả lập nữa, để người dùng hoàn toàn bắt đầu từ đầu
+      },
+
       addCustomField: (field) => {
         const existing = new Set(get().customFields.map((f) => f.key))
         const base = slugifyKey(field.key || field.label || 'field') || 'field'
@@ -190,26 +228,23 @@ export const useUserFieldsStore = create<UserFieldsState>()(
       },
 
       addSampleFields: () => {
-        const { customFields } = get()
-        const existingKeys = new Set(customFields.map((f) => f.key))
-        const toAdd = DEFAULT_SAMPLE_FIELDS.filter((f) => !existingKeys.has(f.key))
-        if (toAdd.length === 0) {
-          scheduleServerSync()
-          return
-        }
-        set({
-          customFields: [...get().customFields, ...toAdd],
-        })
-        scheduleServerSync()
+        // Không thêm trường mẫu định sẵn nào
       },
 
       updateCustomField: (key, updates) =>
         set(() => {
-          const next = {
-            customFields: get().customFields.map((f) => (f.key === key ? { ...f, ...updates } : f)),
+          const nextFields = get().customFields.map((f) => (f.key === key ? { ...f, ...updates } : f))
+          let nextProfiles = get().clientProfiles || []
+          const currentId = get().currentProfileId
+          if (typeof updates.defaultValue === 'string' && currentId) {
+            nextProfiles = nextProfiles.map((p) =>
+              p.id === currentId
+                ? { ...p, values: { ...p.values, [key]: updates.defaultValue as string }, updatedAt: new Date().toISOString() }
+                : p
+            )
           }
           queueMicrotask(scheduleServerSync)
-          return next
+          return { customFields: nextFields, clientProfiles: nextProfiles }
         }),
 
       removeCustomField: (key) =>
@@ -250,13 +285,23 @@ export const useUserFieldsStore = create<UserFieldsState>()(
   )
 )
 
-function parsePersistedState(raw: string | null): { customFields: UserCustomField[]; hiddenFieldKeys: string[] } | null {
+function parsePersistedState(raw: string | null): {
+  customFields: UserCustomField[]
+  hiddenFieldKeys: string[]
+  clientProfiles: AutofillClientProfile[]
+  currentProfileId: string | null
+} | null {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
+    const profiles: AutofillClientProfile[] = parsed.state?.clientProfiles || []
+    const currentId = parsed.state?.currentProfileId || (profiles[0]?.id || null)
+
     return {
       customFields: parsed.state?.customFields ?? [],
       hiddenFieldKeys: parsed.state?.hiddenFieldKeys ?? [],
+      clientProfiles: profiles,
+      currentProfileId: currentId,
     }
   } catch {
     return null
@@ -297,10 +342,16 @@ function runAuthenticatedUserFieldsHydration(): void {
       const mergedHidden = Array.from(
         new Set([...(server.hiddenFieldKeys ?? []), ...(guest?.hiddenFieldKeys ?? [])])
       )
+
+      const profiles = useUserFieldsStore.getState().clientProfiles || []
+      const currentId = useUserFieldsStore.getState().currentProfileId || (profiles[0]?.id || null)
+
       suppressNextSync = true
       useUserFieldsStore.setState({
         customFields: mergedCustom,
         hiddenFieldKeys: mergedHidden,
+        clientProfiles: profiles,
+        currentProfileId: currentId,
       })
       suppressNextSync = false
       await api.put('/users/me/custom-fields', {
@@ -332,6 +383,9 @@ function applyGuestUserFieldsFromStorage(): void {
   useUserFieldsStore.setState({
     customFields: guestFields,
     hiddenFieldKeys: guest?.hiddenFieldKeys ?? [],
+    ...(guest?.clientProfiles?.length
+      ? { clientProfiles: guest.clientProfiles, currentProfileId: guest.currentProfileId }
+      : {}),
   })
 }
 
