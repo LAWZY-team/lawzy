@@ -99,8 +99,13 @@ export function AutofillBatchFillTab() {
       if (currentBundle) {
         for (const doc of currentBundle.documents) {
           if (doc.fileType !== "docx") continue
-          if (doc._fileBuffer) {
-            filesToProcess.push({ name: doc.fileName, bufferOrBlob: doc._fileBuffer })
+          if (doc._base64 || doc._fileBase64 || doc._fileBuffer) {
+            filesToProcess.push({
+              name: doc.fileName,
+              bufferOrBlob: doc._fileBuffer,
+              _base64: doc._base64,
+              _fileBase64: doc._fileBase64,
+            })
           }
         }
       }
@@ -288,14 +293,27 @@ export function AutofillBatchFillTab() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-mono font-medium text-foreground px-1.5 py-0.5 rounded bg-muted/40 border border-border/40">
-                      ✓ ĐÃ ĐIỀN
+                    <span
+                      className={`text-[11px] font-mono font-medium px-1.5 py-0.5 rounded border ${
+                        res.error
+                          ? "bg-red-500/10 text-red-600 border-red-500/20"
+                          : "bg-muted/40 text-foreground border-border/40"
+                      }`}
+                    >
+                      {res.error ? "× LỖI ĐỌC FILE" : "✓ ĐÃ ĐIỀN"}
                     </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">Thay thế {res.count} vị trí</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {res.error ? "0 vị trí" : `Thay thế ${res.count} vị trí`}
+                    </span>
                   </div>
                   <h5 className="text-xs font-semibold text-foreground mt-2 truncate" title={`DA_DIEN_${res.name}`}>
                     DA_DIEN_{res.name}
                   </h5>
+                  {res.error && (
+                    <p className="text-[11px] text-red-600 mt-1.5 leading-relaxed">
+                      {(res as any).errorMessage || "Vui lòng sang Tab 2 tải lại file .docx này lên."}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-border/30">
@@ -303,7 +321,7 @@ export function AutofillBatchFillTab() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleDownloadSingleBlob(res.blob, res.name)}
-                    disabled={!res.blob}
+                    disabled={!res.blob || res.error}
                     className="text-xs h-7 px-2.5 gap-1 font-medium border-border/80 hover:bg-muted/60 rounded-md"
                   >
                     <FileCheck className="h-3.5 w-3.5 text-muted-foreground" /> Tải file (.docx)

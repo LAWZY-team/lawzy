@@ -29,10 +29,47 @@ export interface FillOneDocxResult {
  * Replaces string occurrences of aliases with target values inside all word/*.xml components of a .docx file.
  */
 export async function fillOneDocx(
-  bufferOrBlob: ArrayBuffer | Blob,
+  bufferOrBlob: ArrayBuffer | Blob | string | any,
   replacements: ReplacementItem[]
 ): Promise<FillOneDocxResult> {
-  const zip = await JSZip.loadAsync(bufferOrBlob)
+  let input: any = bufferOrBlob
+  const options: JSZip.JSZipLoadOptions = {}
+
+  if (typeof input === 'string') {
+    options.base64 = true
+  } else if (
+    input &&
+    typeof input === 'object' &&
+    !(input instanceof Blob) &&
+    !(input instanceof ArrayBuffer) &&
+    !(typeof input.byteLength === 'number') &&
+    !(typeof input.size === 'number')
+  ) {
+    if (input._base64 || input._fileBase64 || input.base64) {
+      input = input._base64 || input._fileBase64 || input.base64
+      options.base64 = true
+    } else {
+      throw new Error(
+        "Dữ liệu file Word (.docx) không hợp lệ hoặc đã bị mất khi tải lại trang (do localStorage không lưu được nhị phân). Vui lòng vào Tab 2 'Bộ Hồ Sơ Mẫu' để tải lại file Word lên."
+      )
+    }
+  }
+
+  let zip: JSZip
+  try {
+    zip = await JSZip.loadAsync(input, options)
+  } catch (err: any) {
+    if (
+      String(err?.message || '').includes("Can't read the data") ||
+      !(input instanceof Blob || input instanceof ArrayBuffer || typeof input === 'string' || typeof input?.byteLength === 'number')
+    ) {
+      throw new Error(
+        "Dữ liệu file Word (.docx) không đọc được (có thể do trang web tải lại và mất buffer nhị phân). Vui lòng vào Tab 2 'Bộ Hồ Sơ Mẫu', tải lại file .docx lên để làm mới dữ liệu!"
+      )
+    }
+    throw err
+  }
+
   const targetRe = /^word\/(document|header[0-9]*|footer[0-9]*|footnotes|endnotes)\.xml$/
   let total = 0
 
@@ -65,7 +102,9 @@ export async function fillOneDocx(
 
 export interface BatchFileItem {
   name: string
-  bufferOrBlob: ArrayBuffer | Blob
+  bufferOrBlob?: ArrayBuffer | Blob | string | any
+  _base64?: string
+  _fileBase64?: string
 }
 
 export interface BatchFillResult {
@@ -76,6 +115,7 @@ export interface BatchFillResult {
     blob: Blob | null
     count: number
     error?: boolean
+    errorMessage?: string
   }>
 }
 
@@ -96,16 +136,23 @@ export async function batchFillAndZip(
     if (onProgress) onProgress(i + 1, f.name)
 
     try {
-      const { blob, count } = await fillOneDocx(f.bufferOrBlob, replacements)
+      const inputData = f._base64 || f._fileBase64 || f.bufferOrBlob
+      const { blob, count } = await fillOneDocx(inputData, replacements)
       totalReplacements += count
       results.push({ name: f.name, blob, count })
 
       // Add to ZIP with prefix DA_DIEN_
       const cleanName = f.name.replace(/^DA_DIEN_/i, '')
       zip.file(`DA_DIEN_${cleanName}`, blob)
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error processing docx file ${f.name}:`, err)
-      results.push({ name: f.name, blob: null, count: 0, error: true })
+      results.push({
+        name: f.name,
+        blob: null,
+        count: 0,
+        error: true,
+        errorMessage: err?.message || 'Lỗi đọc file Word'
+      })
     }
   }
 

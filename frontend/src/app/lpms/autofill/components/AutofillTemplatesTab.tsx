@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { useAutofillStore } from "@/stores/autofill-store"
 import { useUserFieldsStore } from "@/stores/user-fields-store"
 import { extractDocxPlainText, extractPlaceholders, guessCanonicalMapping } from "@/lib/autofill/placeholder-detector"
@@ -12,6 +13,8 @@ import { toast } from "sonner"
 import mammoth from "mammoth"
 
 export function AutofillTemplatesTab() {
+  const router = useRouter()
+  const pathname = usePathname()
   const { bundles, currentBundleId, setCurrentBundleId, createBundle, deleteBundle, addDocToBundle, removeDocFromBundle } = useAutofillStore()
   const { customFields, updateCustomField, addCustomField } = useUserFieldsStore()
 
@@ -65,6 +68,16 @@ export function AutofillTemplatesTab() {
           }
         })
 
+        let base64Str = ""
+        try {
+          const bytes = new Uint8Array(buffer)
+          let binary = ""
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i])
+          }
+          base64Str = window.btoa(binary)
+        } catch {}
+
         addDocToBundle(currentBundle.id, {
           fileName: file.name,
           fileType: file.name.endsWith(".pdf") ? "pdf" : "docx",
@@ -73,6 +86,8 @@ export function AutofillTemplatesTab() {
           plainText,
           previewHtml,
           _fileBuffer: buffer,
+          _base64: base64Str,
+          _fileBase64: base64Str,
         })
       } catch (err) {
         toast.error(`Không thể đọc tài liệu: ${file.name}`)
@@ -244,7 +259,10 @@ export function AutofillTemplatesTab() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setActiveDocForPreview({ bundleId: currentBundle.id, docId: doc.id })}
+                        onClick={() => {
+                          const basePath = pathname.startsWith("/lpms") ? "/lpms/autofill" : "/autofill"
+                          router.push(`${basePath}/editor/${currentBundle.id}/${doc.id}`)
+                        }}
                         className="flex-1 text-xs h-8 gap-1.5 font-medium border-border/80 hover:bg-muted/60"
                       >
                         <Eye className="h-3.5 w-3.5 text-muted-foreground" />

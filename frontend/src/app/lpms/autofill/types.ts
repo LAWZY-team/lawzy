@@ -19,6 +19,7 @@ export interface AutofillTemplateDoc {
   _fileBuffer?: ArrayBuffer | null
   /** Base64 if small enough for localStorage persistence */
   _base64?: string
+  _fileBase64?: string
 }
 
 export interface AutofillTemplateBundle {
