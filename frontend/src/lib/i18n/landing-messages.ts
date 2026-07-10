@@ -258,7 +258,7 @@ export const landingVi = {
   member_quan_huynh_status_2: "@Heineken",
   newspaper_title: "Lawzy trên báo chí",
   newspaper_title_highlight: "Lawzy",
-  newspaper_subtitle: "Các bài báo và truyề thông đã đưa tin về Lawzy",
+  newspaper_subtitle: "Các bài báo và truyền thông đã đưa tin về Lawzy",
   blog_section_empty: "Chưa có bài viết. Quay lại sau để cập nhật tin mới.",
   blog_section_title: "Tin tức & Bài viết",
   blog_section_subtitle:
