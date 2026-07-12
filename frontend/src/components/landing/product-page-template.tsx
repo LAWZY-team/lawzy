@@ -62,46 +62,66 @@ export default function ProductPageTemplate({ productKey }: ProductPageTemplateP
             {t(subtitleKey)}
           </p>
           <Button size="lg" className="mt-8 shadow-md shadow-orange-900/10" asChild>
-            <Link href={productKey === "clm" ? "/clm/dashboard" : "/lpms/dashboard"}>
-              {productKey === "clm" ? t("product_request_demo") : t("product_lpms_cta")}
+            <Link href="/contact">
+              {t("floating_book_demo")}
             </Link>
           </Button>
         </div>
       </section>
       <section className="bg-zinc-950 py-16 text-white sm:py-20 md:py-24">
         <div className={sectionContainer}>
-          <h2 className="mb-10 text-center text-2xl font-bold sm:text-3xl md:mb-14">{t("product_how_teams_use")}</h2>
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-            <div>
-              {useCases.map((useCase, index) => {
-                const isActive = index === activeIndex;
-                return (
-                  <button
-                    key={useCase.titleKey}
-                    type="button"
-                    onClick={() => handleSelect(index)}
-                    className={cn(
-                      "w-full border-b py-5 text-left transition-colors",
-                      isActive ? "border-orange-500" : "border-zinc-700"
-                    )}
-                  >
-                    <h3 className={cn("text-lg font-semibold", isActive ? "text-white" : "text-zinc-400")}>
+          <h2 className="mb-12 text-center text-3xl font-bold tracking-tight sm:text-4xl md:mb-16">
+            {t("product_how_teams_use")}
+          </h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
+            {useCases.map((useCase, index) => {
+              const isActive = index === activeIndex;
+              const stepNum = String(index + 1).padStart(2, "0");
+              return (
+                <div
+                  key={useCase.titleKey}
+                  onClick={() => handleSelect(index)}
+                  onMouseEnter={() => handleSelect(index)}
+                  className={cn(
+                    "group relative flex flex-col justify-between rounded-2xl border p-6 sm:p-8 transition-all duration-300 ease-out cursor-pointer",
+                    isActive
+                      ? "border-orange-500/80 bg-zinc-900/90 shadow-[0_0_30px_-5px_rgba(249,115,22,0.25)] scale-[1.015]"
+                      : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/70"
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={cn(
+                          "font-mono text-3xl sm:text-4xl font-black tracking-tighter transition-colors duration-300",
+                          isActive
+                            ? "text-orange-500 drop-shadow-[0_0_12px_rgba(249,115,22,0.5)]"
+                            : "text-zinc-700 group-hover:text-zinc-500"
+                        )}
+                      >
+                        {stepNum}
+                      </span>
+                    </div>
+                    <h3
+                      className={cn(
+                        "mt-6 text-xl sm:text-2xl font-bold tracking-tight transition-colors duration-300",
+                        isActive ? "text-white" : "text-zinc-300 group-hover:text-white"
+                      )}
+                    >
                       {t(useCase.titleKey)}
                     </h3>
-                    {isActive ? (
-                      <p className="mt-2 text-sm leading-relaxed text-zinc-400">{t(useCase.descKey)}</p>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8">
-              <div className="text-center">
-                <p className="text-sm uppercase tracking-widest text-zinc-500">Preview</p>
-                <p className="mt-4 text-xl font-semibold text-white">{t(useCases[activeIndex].titleKey)}</p>
-                <p className="mt-3 max-w-md text-sm text-zinc-400">{t(useCases[activeIndex].descKey)}</p>
-              </div>
-            </div>
+                    <p
+                      className={cn(
+                        "mt-3 text-sm sm:text-base leading-relaxed transition-colors duration-300",
+                        isActive ? "text-zinc-300" : "text-zinc-500 group-hover:text-zinc-400"
+                      )}
+                    >
+                      {t(useCase.descKey)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -109,8 +129,8 @@ export default function ProductPageTemplate({ productKey }: ProductPageTemplateP
         <div className={cn(sectionContainer, "flex flex-col items-center justify-between gap-6 sm:flex-row")}>
           <p className="max-w-xl text-center text-lg font-bold sm:text-left sm:text-xl">{t("product_footer_cta_title")}</p>
           <Button variant="secondary" size="lg" className="shrink-0 bg-white text-zinc-900 hover:bg-zinc-100" asChild>
-            <Link href={productKey === "clm" ? "/clm/dashboard" : "/lpms/dashboard"}>
-              {productKey === "clm" ? t("product_request_demo") : t("product_lpms_cta")}
+            <Link href="/contact">
+              {t("floating_book_demo")}
             </Link>
           </Button>
         </div>

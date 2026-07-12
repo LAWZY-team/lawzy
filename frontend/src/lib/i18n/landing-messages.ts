@@ -30,8 +30,8 @@ export const landingVi = {
     "Bridging the legal gap|Kết nối pháp lý và vận hành|Mở rộng năng lực pháp lý cho mọi tổ chức",
   hero_subtitle:
     "Lawzy xây dựng hệ sinh thái sản phẩm pháp lý số, giúp doanh nghiệp và hãng luật vận hành hiệu quả hơn trong kỷ nguyên AI.",
-  hero_cta_clm: "Khám phá Contract Lifecycle Management",
-  hero_cta_lpms: "Khám phá Legal Practice Management",
+  hero_cta_clm: "Dành cho doanh nghiệp",
+  hero_cta_lpms: "Dành cho Law firm",
   products_title: "Hai sản phẩm chủ lực của Lawzy",
   products_subtitle:
     "Từ doanh nghiệp SME đến law firm, Lawzy cung cấp nền tảng phù hợp cho từng mô hình vận hành pháp lý.",
@@ -57,16 +57,16 @@ export const landingVi = {
   product_how_teams_use: "Cách đội ngũ sử dụng Lawzy",
   product_use_case_1_title: "Tổng hợp thông tin",
   product_use_case_1_desc:
-    "Placeholder: Tổng hợp và phân tích thông tin pháp lý nhanh chóng.",
+    "Tổng hợp và phân tích thông tin pháp lý nhanh chóng.",
   product_use_case_2_title: "Quản lý tranh tụng & rủi ro",
   product_use_case_2_desc:
-    "Placeholder: Theo dõi vụ việc và rủi ro pháp lý tập trung.",
+    "Theo dõi vụ việc và rủi ro pháp lý tập trung.",
   product_use_case_3_title: "Tuân thủ quy định",
   product_use_case_3_desc:
-    "Placeholder: Đảm bảo tuân thủ quy định và chính sách nội bộ.",
+    "Đảm bảo tuân thủ quy định và chính sách nội bộ.",
   product_use_case_4_title: "Phối hợp liên phòng ban",
   product_use_case_4_desc:
-    "Placeholder: Kết nối pháp lý và vận hành trên một nền tảng.",
+    "Kết nối pháp lý và vận hành trên một nền tảng.",
   product_footer_cta_title:
     "Vận hành pháp lý chuyên nghiệp cho tổ chức của bạn",
   lpms_highlights_title: "Năng lực chính của LPMS",
@@ -527,8 +527,8 @@ export const landingEn = {
     "Bridging the legal gap|Connecting legal and operations|Scaling legal capability for every team",
   hero_subtitle:
     "Lawzy builds a digital legal product ecosystem that helps businesses and law firms operate better in the AI era.",
-  hero_cta_clm: "Explore Contract Lifecycle Management",
-  hero_cta_lpms: "Explore Legal Practice Management",
+  hero_cta_clm: "For business",
+  hero_cta_lpms: "For law firm",
   products_title: "Lawzy's two core products",
   products_subtitle:
     "From SMEs to law firms, Lawzy provides products tailored to each legal operating model.",
@@ -553,16 +553,16 @@ export const landingEn = {
   product_how_teams_use: "How teams use Lawzy",
   product_use_case_1_title: "Information synthesis",
   product_use_case_1_desc:
-    "Placeholder: Synthesize and analyze legal information quickly.",
+    "Synthesize and analyze legal information quickly.",
   product_use_case_2_title: "Litigation & risk management",
   product_use_case_2_desc:
-    "Placeholder: Track matters and legal risk in one place.",
+    "Track matters and legal risk in one place.",
   product_use_case_3_title: "Regulatory compliance",
   product_use_case_3_desc:
-    "Placeholder: Ensure compliance with regulations and internal policies.",
+    "Ensure compliance with regulations and internal policies.",
   product_use_case_4_title: "Cross-team collaboration",
   product_use_case_4_desc:
-    "Placeholder: Connect legal and operations on one platform.",
+    "Connect legal and operations on one platform.",
   product_footer_cta_title:
     "Unlock professional-class AI for your organization",
   lpms_highlights_title: "Core LPMS capabilities",

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { AuthLayout } from "@/components/auth/auth-layout";
@@ -44,6 +45,29 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [botProtectionToken, setBotProtectionToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
+  const [targetProduct, setTargetProduct] = useState<"clm" | "lpms">(() =>
+    returnUrl.includes("/lpms") ? "lpms" : "clm"
+  );
+
+  const handleRedirect = useCallback(
+    (productChoice: "clm" | "lpms", currentReturnUrl: string) => {
+      const defaultDest = productChoice === "clm" ? "/clm/dashboard" : "/lpms/dashboard";
+      if (!currentReturnUrl || currentReturnUrl === "/" || currentReturnUrl === "/login" || currentReturnUrl === "/clm/dashboard" || currentReturnUrl === "/lpms/dashboard") {
+        redirectAfterLogin(defaultDest);
+        return;
+      }
+      if (productChoice === "clm" && currentReturnUrl.startsWith("/clm")) {
+        redirectAfterLogin(currentReturnUrl);
+        return;
+      }
+      if (productChoice === "lpms" && currentReturnUrl.startsWith("/lpms")) {
+        redirectAfterLogin(currentReturnUrl);
+        return;
+      }
+      redirectAfterLogin(defaultDest);
+    },
+    []
+  );
 
   const isBusinessBlocked = accountType === "business" && !companyCode.trim();
   const isSubmitBlocked =
@@ -88,7 +112,7 @@ function LoginForm() {
         setLoginScopedWorkspaceId(data.activeWorkspaceId);
       }
       toast.success(t("auth_toast_success"));
-      redirectAfterLogin(returnUrl);
+      handleRedirect(targetProduct, returnUrl);
     } catch {
       setError(t("auth_error_connection"));
       setBotProtectionToken(null);
@@ -118,14 +142,14 @@ function LoginForm() {
           setLoginScopedWorkspaceId(data.activeWorkspaceId);
         }
         toast.success(t("auth_toast_success"));
-        redirectAfterLogin(returnUrl);
+        handleRedirect(targetProduct, returnUrl);
       } catch {
         setError(t("auth_error_connection"));
       } finally {
         setIsLoading(false);
       }
     },
-    [returnUrl, setLoginScopedWorkspaceId, setUser, t]
+    [handleRedirect, returnUrl, setLoginScopedWorkspaceId, setUser, t, targetProduct]
   );
 
   return (
@@ -142,6 +166,18 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Sản phẩm truy cập</Label>
+              <Select value={targetProduct} onValueChange={(v) => setTargetProduct(v as "clm" | "lpms")} disabled={isLoading}>
+                <SelectTrigger className="w-full bg-card">
+                  <SelectValue placeholder="Chọn sản phẩm" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="clm">CLM - Quản lý Vòng đời Hợp đồng</SelectItem>
+                  <SelectItem value="lpms">LPMS - Quản lý Tranh tụng & Vụ việc</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <AccountTypeSelector value={accountType} onChange={setAccountType} />
             {accountType === "business" && (
               <div className="space-y-2">

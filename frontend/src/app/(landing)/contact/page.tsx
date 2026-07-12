@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Phone, MapPin, ChevronRight } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { useI18n } from "@/components/landing/language-provider";
 import { ContactForm } from "@/components/landing/contact-form";
 import { sectionContainer } from "@/components/landing/landing-section";
 import LandingHeader from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
-import { Cta } from "@/components/landing/cta";
-import { ROUTES } from "@/lib/routes";
 
 export default function ContactPage() {
   const { t } = useI18n();
@@ -52,11 +50,7 @@ export default function ContactPage() {
                 {t("contact_page_subtitle")}
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3 sm:mt-10">
-                <Cta href={ROUTES.login} label={t("try_free")} icon={ChevronRight} variant="primary" className="sm:min-w-[11rem]" />
-              </div>
-
-              <div className="mt-10 max-w-xl rounded-2xl border border-gray-100/90 bg-white/80 p-6 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.04] backdrop-blur-sm sm:mt-12 sm:p-8">
+              <div className="mt-8 max-w-xl rounded-2xl border border-gray-100/90 bg-white/80 p-6 shadow-sm shadow-black/[0.04] ring-1 ring-black/[0.04] backdrop-blur-sm sm:mt-10 sm:p-8">
                 <ContactForm onSubmit={handleSubmit} status={status} onRetry={() => setStatus("idle")} variant="page" />
               </div>
             </div>
