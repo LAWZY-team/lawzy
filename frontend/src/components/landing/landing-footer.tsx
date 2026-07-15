@@ -52,6 +52,15 @@ export function LandingFooter() {
                 <Youtube className="h-4 w-4" />
               </a>
               <a
+                href="https://www.tiktok.com/@lawzyvn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 transition-colors hover:border-orange-500/50 hover:text-orange-400 sm:h-10 sm:w-10"
+                aria-label="TikTok"
+              >
+                <Tiktok className="h-4 w-4" />
+              </a>
+              <a
                 href="https://www.linkedin.com/company/lawzy-vn"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -139,5 +148,24 @@ export function LandingFooter() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function Tiktok(props: React.ComponentProps<"svg">) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+    </svg>
   );
 }
