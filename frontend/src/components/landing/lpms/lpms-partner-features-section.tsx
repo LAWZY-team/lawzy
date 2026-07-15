@@ -6,6 +6,7 @@ import { useI18n } from "../language-provider";
 import { FeatureCustomerBase } from "./feature-customer-base";
 import { FeatureOperations } from "./feature-operations";
 import { FeatureBrandWebsite } from "./feature-brand-website";
+import { FeatureWebsitePricing } from "./feature-website-pricing";
 import { FeatureJointMedia } from "./feature-joint-media";
 import { FeatureProfessionalNetwork } from "./feature-professional-network";
 
@@ -27,6 +28,7 @@ export function LpmsPartnerFeaturesSection() {
       </section>
       <FeatureOperations />
       <FeatureBrandWebsite />
+      <FeatureWebsitePricing />
       <FeatureCustomerBase />
       <FeatureJointMedia />
       <FeatureProfessionalNetwork />
