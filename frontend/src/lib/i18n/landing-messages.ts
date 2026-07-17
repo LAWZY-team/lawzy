@@ -30,8 +30,8 @@ export const landingVi = {
     "Bridging the legal gap|Kết nối pháp lý và vận hành|Mở rộng năng lực pháp lý cho mọi tổ chức",
   hero_subtitle:
     "Lawzy xây dựng hệ sinh thái sản phẩm pháp lý số, giúp doanh nghiệp và hãng luật vận hành hiệu quả hơn trong kỷ nguyên AI.",
-  hero_cta_clm: "Dành cho doanh nghiệp",
-  hero_cta_lpms: "Dành cho Law firm",
+  hero_cta_clm: "Dành cho Doanh nghiệp",
+  hero_cta_lpms: "Dành cho law firm",
   products_title: "Hai sản phẩm chủ lực của Lawzy",
   products_subtitle:
     "Từ doanh nghiệp SME đến law firm, Lawzy cung cấp nền tảng phù hợp cho từng mô hình vận hành pháp lý.",
