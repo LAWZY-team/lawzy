@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useI18n } from "../language-provider";
@@ -192,9 +191,8 @@ export function FeatureWebsitePricing() {
       {/* --- GIAO DIỆN MOBILE (md:hidden) --- */}
       <div className="block md:hidden">
         {/* Tab chuyển đổi giữa các gói */}
-        <div className="relative mb-6 flex rounded-2xl border border-gray-200/80 bg-gray-100/80 p-1.5 shadow-inner">
+        <div className="mb-6 flex rounded-2xl border border-gray-200/80 bg-gray-100/80 p-1.5 shadow-inner">
           {PLAN_ORDER.map((planId) => {
-            const plan = PLAN_META[planId];
             const isActive = activePlan === planId;
             return (
               <button
@@ -202,31 +200,16 @@ export function FeatureWebsitePricing() {
                 type="button"
                 onClick={() => setActivePlan(planId)}
                 className={cn(
-                  "relative flex-1 rounded-xl py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm",
+                  "flex-1 rounded-xl py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm",
                   isActive
-                    ? "text-orange-950"
+                    ? "bg-white text-orange-950 shadow-sm ring-1 ring-black/5"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="mobilePricingTab"
-                    className="absolute inset-0 rounded-xl bg-white shadow-sm ring-1 ring-black/5"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center justify-center gap-1">
+                <span className="flex items-center justify-center gap-1">
                   {planId === "showcase" && "Showcase"}
                   {planId === "admin" && "Admin"}
                   {planId === "professional" && "Professional"}
-                  {plan.highlight && (
-                    <span
-                      className={cn(
-                        "ml-0.5 inline-block h-1.5 w-1.5 rounded-full",
-                        isActive ? "bg-orange-500" : "bg-orange-400/60"
-                      )}
-                    />
-                  )}
                 </span>
               </button>
             );
@@ -234,43 +217,28 @@ export function FeatureWebsitePricing() {
         </div>
 
         {/* Thẻ tóm tắt gói đang chọn */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activePlan}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2 }}
-            className={cn(
-              "rounded-2xl border p-5 transition-all sm:p-6",
-              currentPlanMeta.highlight
-                ? "border-orange-300 bg-gradient-to-br from-orange-50/70 via-white to-orange-50/30 shadow-md shadow-orange-500/5"
-                : "border-gray-200/80 bg-white shadow-xs"
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-foreground sm:text-lg">
-                    {t(currentPlanMeta.nameKey)}
-                  </h3>
-
-                </div>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                  {t(currentPlanMeta.priceKey)}
-                </p>
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-foreground sm:text-lg">
+                  {t(currentPlanMeta.nameKey)}
+                </h3>
               </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {t(currentPlanMeta.priceKey)}
+              </p>
             </div>
+          </div>
 
-            <Button
-              size="default"
-              className="mt-5 w-full bg-orange-600 font-semibold text-white shadow-sm hover:bg-orange-700"
-              asChild
-            >
-              <Link href="/contact">{t("lpms_web_pricing_cta")}</Link>
-            </Button>
-          </motion.div>
-        </AnimatePresence>
+          <Button
+            size="default"
+            className="mt-5 w-full bg-orange-600 font-semibold text-white shadow-sm hover:bg-orange-700"
+            asChild
+          >
+            <Link href="/contact">{t("lpms_web_pricing_cta")}</Link>
+          </Button>
+        </div>
 
         {/* Danh sách tính năng theo từng nhóm cho gói đang active */}
         <div className="mt-6 space-y-4">
