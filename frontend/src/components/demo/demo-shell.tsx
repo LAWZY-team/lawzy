@@ -10,6 +10,8 @@ import {
   Folder,
   LayoutDashboard,
   Library,
+  MessageCircle,
+  PhoneCall,
   Plus,
   RotateCcw,
   Search,
@@ -46,6 +48,7 @@ type DemoView =
   | "templates"
   | "knowledge"
   | "parties"
+  | "advisory"
   | "new"
   | "workspace";
 
@@ -76,9 +79,76 @@ const navItems: Array<{
   { id: "calendar", label: "Lịch", icon: CalendarDays },
   { id: "search", label: "Tìm kiếm", icon: Search },
   { id: "templates", label: "Mẫu hợp đồng", icon: FileText },
+  { id: "advisory", label: "Tư vấn luật sư", icon: PhoneCall },
   { id: "knowledge", label: "Kho tri thức", icon: BookOpen },
   { id: "parties", label: "Đối tác", icon: Users },
 ];
+
+const retainerPlans = [
+  {
+    id: "basic",
+    name: "Gói Cơ bản",
+    priceLabel: "5.000.000đ / tháng",
+    hours: 5,
+    sla: "Phản hồi trong 24 giờ làm việc",
+    description:
+      "Phù hợp doanh nghiệp mới bắt đầu chuẩn hóa hợp đồng, ít phát sinh vấn đề phức tạp.",
+    features: [
+      "5 giờ tư vấn mỗi tháng",
+      "Trả lời qua email hoặc tin nhắn",
+      "Rà soát hợp đồng theo mẫu có sẵn",
+      "Không bao gồm buổi họp định kỳ",
+    ],
+  },
+  {
+    id: "standard",
+    name: "Gói Tiêu chuẩn",
+    priceLabel: "10.000.000đ / tháng",
+    hours: 10,
+    sla: "Phản hồi trong 8 giờ làm việc",
+    recommended: true,
+    description:
+      "Phù hợp doanh nghiệp chưa có pháp chế nhưng cần luật sư cố định hiểu hồ sơ.",
+    features: [
+      "10 giờ tư vấn mỗi tháng",
+      "Rà soát hợp đồng theo mẫu không giới hạn",
+      "1 buổi họp tư vấn định kỳ mỗi tháng",
+      "Luật sư phụ trách cố định",
+    ],
+  },
+  {
+    id: "premium",
+    name: "Gói Mở rộng",
+    priceLabel: "18.000.000đ / tháng",
+    hours: 20,
+    sla: "Phản hồi trong 4 giờ làm việc",
+    description:
+      "Phù hợp khi số lượng hợp đồng tăng nhanh hoặc có nhiều yêu cầu cần xử lý gấp.",
+    features: [
+      "20 giờ tư vấn mỗi tháng",
+      "Đường dây ưu tiên cho yêu cầu khẩn cấp",
+      "2 buổi họp tư vấn định kỳ mỗi tháng",
+      "Hỗ trợ hợp đồng phức tạp ngoài mẫu",
+    ],
+  },
+];
+
+const advisoryChips = [
+  "Đối tác muốn chấm dứt hợp đồng trước hạn",
+  "Cần rà soát điều khoản phạt vi phạm",
+  "Nhân sự nghỉ việc trước khi hết hạn hợp đồng",
+  "Khách hàng yêu cầu điều khoản độc quyền",
+];
+
+const lawyer = {
+  initials: "BT",
+  name: "LS. Nguyễn Bảo Trâm",
+  title: "Luật sư phụ trách - Đoàn Luật sư TP.HCM",
+};
+
+const advisoryRenewDate = new Date(Date.now() + 18 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
 
 const contractTabs = [
   { id: "fill", label: "Điền dữ liệu" },
@@ -311,6 +381,7 @@ export function DemoShell() {
           )}
           {view === "knowledge" && <KnowledgeBaseView />}
           {view === "parties" && <PartiesView contracts={contracts} onOpen={openContract} />}
+          {view === "advisory" && <AdvisoryView />}
           {view === "workspace" && selectedContract && (
             <ContractWorkspace
               contract={selectedContract}
@@ -401,7 +472,7 @@ function Dashboard({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-6 lg:px-8">
       <PageHeader
-        eyebrow="Không cần đăng nhập"
+        eyebrow="LAWZY"
         title="Quản lý hợp đồng đơn giản cho đội vận hành"
         description="Tạo bản thảo từ mẫu, điền thông tin cần thiết, xem bản hợp đồng và theo dõi việc cần làm sau khi ký."
         action={
@@ -884,6 +955,307 @@ function PartiesView({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type AdvisoryRequest = {
+  id: string;
+  text: string;
+  urgency: "normal" | "urgent";
+  hours: number;
+  status: "processing" | "answered";
+  date: string;
+  reply?: string;
+};
+
+const initialAdvisoryRequests: AdvisoryRequest[] = [
+  {
+    id: "adv-1",
+    text: "Đối tác muốn đơn phương chấm dứt hợp đồng trước hạn, cần kiểm tra điều khoản phạt.",
+    urgency: "urgent",
+    hours: 1.5,
+    status: "answered",
+    date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    reply:
+      "Nên bổ sung thời hạn báo trước tối thiểu 30 ngày và cách tính khoản phạt để tránh tranh chấp.",
+  },
+  {
+    id: "adv-2",
+    text: "Nhân sự xin nghỉ trước khi hết hạn hợp đồng lao động, cần hướng dẫn quy trình.",
+    urgency: "normal",
+    hours: 1,
+    status: "answered",
+    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    reply:
+      "Có thể xử lý theo quy trình thông báo nghỉ việc, bàn giao tài sản và chốt các khoản thanh toán còn lại.",
+  },
+  {
+    id: "adv-3",
+    text: "Khách hàng yêu cầu thêm điều khoản độc quyền thương hiệu trong hợp đồng dịch vụ.",
+    urgency: "normal",
+    hours: 1,
+    status: "processing",
+    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  },
+];
+
+function AdvisoryView() {
+  const [planId, setPlanId] = useState("standard");
+  const [hoursUsed, setHoursUsed] = useState(4.5);
+  const [urgency, setUrgency] = useState<"normal" | "urgent">("normal");
+  const [text, setText] = useState("");
+  const [requests, setRequests] = useState<AdvisoryRequest[]>(initialAdvisoryRequests);
+  const plan = retainerPlans.find((item) => item.id === planId) ?? retainerPlans[1];
+  const estimatedHours = urgency === "urgent" ? 1.5 : 1;
+  const remainingHours = Math.max(0, plan.hours - hoursUsed);
+  const usagePercent = Math.min(100, Math.round((hoursUsed / plan.hours) * 100));
+
+  const submitRequest = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const next: AdvisoryRequest = {
+      id: `adv-${Date.now()}`,
+      text: trimmed,
+      urgency,
+      hours: estimatedHours,
+      status: "processing",
+      date: new Date().toISOString().slice(0, 10),
+    };
+    setRequests((current) => [next, ...current]);
+    setHoursUsed((current) => Number((current + estimatedHours).toFixed(1)));
+    setText("");
+  };
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-6 lg:px-8">
+      <PageHeader
+        eyebrow="Tư vấn luật sư"
+        title="Kết nối luật sư theo gói retainer"
+        description="Doanh nghiệp không có pháp chế có thể gửi câu hỏi, theo dõi giờ tư vấn đã dùng và biết luật sư nào đang phụ trách."
+      />
+
+      <section className="rounded-md border border-zinc-200 bg-white">
+        <div className="grid gap-0 divide-y divide-zinc-200 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:divide-x lg:divide-y-0">
+          <div className="p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase text-zinc-500">
+                  Gói retainer hiện tại
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold">{plan.name}</h2>
+                <p className="mt-2 text-sm text-zinc-600">{plan.priceLabel}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-50"
+                onClick={() => {
+                  const field = document.getElementById("advisory-request");
+                  field?.focus();
+                }}
+              >
+                <MessageCircle className="size-4" />
+                Gửi yêu cầu mới
+              </Button>
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="text-zinc-600">Giờ tư vấn đã dùng tháng này</span>
+                <span className="font-medium tabular-nums">
+                  {hoursUsed}/{plan.hours} giờ
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-zinc-100">
+                <div
+                  className="h-2 rounded-full bg-zinc-950"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <RetainerMeta label="Cam kết phản hồi" value={plan.sla} />
+              <RetainerMeta label="Chu kỳ mới bắt đầu" value={formatDate(advisoryRenewDate)} />
+              <RetainerMeta label="Yêu cầu kỳ này" value={`${requests.length} yêu cầu`} />
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-full border border-zinc-300 bg-zinc-50 text-sm font-semibold">
+                {lawyer.initials}
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{lawyer.name}</p>
+                <p className="mt-1 text-xs text-zinc-500">{lawyer.title}</p>
+              </div>
+            </div>
+            <div className="mt-5 rounded-md border border-zinc-200 p-3 text-sm leading-6 text-zinc-600">
+              Luật sư phụ trách sẽ xem lịch sử hợp đồng, câu hỏi và mức độ khẩn cấp để phản hồi theo SLA của gói.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-md border border-zinc-200 bg-white">
+          <div className="border-b border-zinc-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Gửi yêu cầu tư vấn</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Mỗi yêu cầu sẽ trừ giờ tư vấn dự kiến trong gói hiện tại.
+            </p>
+          </div>
+          <div className="p-4">
+            <textarea
+              id="advisory-request"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder="Ví dụ: Đối tác muốn thêm điều khoản độc quyền, rủi ro là gì?"
+              className="min-h-32 w-full rounded-md border border-zinc-300 bg-white p-3 text-sm outline-none focus:border-zinc-950"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {advisoryChips.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setText(chip)}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-zinc-950 hover:text-zinc-950"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUrgency("normal")}
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-sm font-medium",
+                    urgency === "normal"
+                      ? "border-zinc-950 bg-zinc-950 text-white"
+                      : "border-zinc-300 bg-white text-zinc-700",
+                  )}
+                >
+                  Thường
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUrgency("urgent")}
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-sm font-medium",
+                    urgency === "urgent"
+                      ? "border-zinc-950 bg-zinc-950 text-white"
+                      : "border-zinc-300 bg-white text-zinc-700",
+                  )}
+                >
+                  Khẩn cấp
+                </button>
+              </div>
+              <p className="text-sm text-zinc-600">
+                Ước tính {estimatedHours} giờ. Còn {remainingHours.toFixed(1)} giờ trong gói.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={submitRequest}
+              className="mt-4 bg-zinc-950 text-white hover:bg-zinc-800"
+            >
+              Gửi luật sư
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-zinc-200 bg-white">
+          <div className="border-b border-zinc-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Lịch sử tư vấn</h2>
+          </div>
+          <div className="divide-y divide-zinc-200">
+            {requests.map((request) => (
+              <article key={request.id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge variant="outline" className="rounded-md border-zinc-300">
+                    {request.status === "answered" ? "Đã phản hồi" : "Đang xử lý"}
+                  </Badge>
+                  <span className="text-xs text-zinc-500">{formatDate(request.date)}</span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-zinc-700">{request.text}</p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {request.urgency === "urgent" ? "Khẩn cấp" : "Thường"} - {request.hours} giờ
+                </p>
+                {request.reply && (
+                  <p className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm leading-6 text-zinc-600">
+                    <span className="font-medium text-zinc-950">{lawyer.name}: </span>
+                    {request.reply}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white">
+        <div className="border-b border-zinc-200 px-4 py-3">
+          <h2 className="text-sm font-semibold">So sánh gói retainer</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Phần này đặt cuối trang để người dùng xem sau khi đã hiểu trạng thái gói hiện tại.
+          </p>
+        </div>
+        <div className="grid gap-0 divide-y divide-zinc-200 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          {retainerPlans.map((item) => (
+            <article key={item.id} className="flex flex-col p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold">{item.name}</h3>
+                  <p className="mt-1 text-sm text-zinc-600">{item.priceLabel}</p>
+                </div>
+                {item.recommended && (
+                  <Badge className="rounded-md border-zinc-950 bg-zinc-950 text-white">
+                    Phù hợp
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-3 min-h-16 text-sm leading-6 text-zinc-600">
+                {item.description}
+              </p>
+              <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm text-zinc-700">
+                {item.features.map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <span className="mt-1 size-1.5 rounded-full bg-zinc-950" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                variant={planId === item.id ? "outline" : "default"}
+                className={cn(
+                  "mt-5",
+                  planId === item.id
+                    ? "border-zinc-300 bg-white text-zinc-950"
+                    : "bg-zinc-950 text-white hover:bg-zinc-800",
+                )}
+                onClick={() => setPlanId(item.id)}
+                disabled={planId === item.id}
+              >
+                {planId === item.id ? "Đang dùng" : "Chọn gói này"}
+              </Button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RetainerMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-zinc-200 px-3 py-2">
+      <p className="text-xs font-medium uppercase text-zinc-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-zinc-950">{value}</p>
     </div>
   );
 }

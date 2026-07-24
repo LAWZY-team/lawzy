@@ -186,3 +186,33 @@ Validation:
 - `frontend/node_modules/.bin/tsc.cmd --noEmit`
 - `frontend/node_modules/.bin/eslint.cmd src/app/demo/page.tsx src/components/demo/demo-shell.tsx src/components/demo/demo-data.ts src/components/demo/demo-utils.ts src/components/demo/demo-types.ts`
 - `Invoke-WebRequest http://localhost:3000/demo` returns HTTP 200.
+
+## 2026-07-24 Lawyer Advisory Pass
+
+Reference:
+
+- Read `D:\lawzy-demo (1).html`
+- Only the "Tư vấn luật sư" feature was used as requested.
+
+Implemented:
+
+- Added `Tư vấn luật sư` item to the standalone route sidebar.
+- Added a retainer dashboard for business users:
+  - current retainer package
+  - hours used this month
+  - response SLA
+  - renewal cycle date
+  - assigned lawyer profile
+- Added advisory request form:
+  - quick prompt chips
+  - normal/urgent urgency selector
+  - estimated retainer hour usage
+  - request history and mock lawyer replies
+- Kept monochrome, simple tracking theme.
+- Placed `So sánh gói retainer` at the bottom of the advisory page.
+
+Validation:
+
+- `frontend/node_modules/.bin/tsc.cmd --noEmit`
+- `frontend/node_modules/.bin/eslint.cmd src/app/demo/page.tsx src/components/demo/demo-shell.tsx src/components/demo/demo-data.ts src/components/demo/demo-utils.ts src/components/demo/demo-types.ts`
+- `Invoke-WebRequest http://localhost:3000/demo` returns HTTP 200.
