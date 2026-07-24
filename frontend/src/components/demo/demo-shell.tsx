@@ -79,9 +79,9 @@ const navItems: Array<{
   { id: "calendar", label: "Lịch", icon: CalendarDays },
   { id: "search", label: "Tìm kiếm", icon: Search },
   { id: "templates", label: "Mẫu hợp đồng", icon: FileText },
-  { id: "advisory", label: "Tư vấn luật sư", icon: PhoneCall },
   { id: "knowledge", label: "Kho tri thức", icon: BookOpen },
   { id: "parties", label: "Đối tác", icon: Users },
+  { id: "advisory", label: "Tư vấn luật sư", icon: PhoneCall },
 ];
 
 const retainerPlans = [
