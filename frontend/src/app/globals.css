@@ -446,3 +446,35 @@
   outline: 2px solid oklch(0.55 0.12 45);
   outline-offset: 3px;
 }
+
+/* Lawfirm demo: document HTML generated from uploaded DOCX files. */
+.lawfirm-document-preview p {
+  margin: 0 0 0.75rem;
+}
+
+.lawfirm-document-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.lawfirm-document-preview td,
+.lawfirm-document-preview th {
+  border: 1px solid oklch(0.82 0 0);
+  padding: 0.4rem 0.55rem;
+  vertical-align: top;
+}
+
+.lawfirm-document-preview ul,
+.lawfirm-document-preview ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.lawfirm-document-preview ul {
+  list-style: disc;
+}
+
+.lawfirm-document-preview ol {
+  list-style: decimal;
+}
