@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { FillPanel } from "./fill-panel";
 import { ProfilePanel } from "./profile-panel";
 import { TemplatePanel } from "./template-panel";
+import { UsageGuideDialog } from "./usage-guide-dialog";
 import { useLawfirmDemoWorkspace } from "./use-lawfirm-demo-workspace";
 
 type View = "profiles" | "templates" | "fill";
@@ -89,6 +90,9 @@ export function LawfirmDemoShell() {
             </nav>
 
             <div className="mt-auto hidden border-t border-zinc-200 p-3 lg:block">
+              <div className="mb-2">
+                <UsageGuideDialog locale={locale} />
+              </div>
               <Button
                 type="button"
                 variant="outline"
@@ -124,6 +128,7 @@ export function LawfirmDemoShell() {
 
         <section className="min-w-0">
           <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-5 py-2 lg:hidden">
+            <UsageGuideDialog locale={locale} compact />
             <Button
               type="button"
               variant="outline"
