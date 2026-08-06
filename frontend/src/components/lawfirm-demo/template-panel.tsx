@@ -7,14 +7,17 @@ import {
   FileText,
   Highlighter,
   PencilLine,
+  HelpCircle,
   Plus,
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   analyzeDocument,
+  buildDocumentPreviewFromFileId,
   cleanPlaceholderLabel,
   countOccurrences,
 } from "./lawfirm-demo-document-service";
@@ -82,6 +85,13 @@ const copy = {
     auto: "Tự nhận diện",
     manual: "Thủ công",
     highlighted: "Bôi đen",
+    ai: "AI đề xuất",
+    aiScanning: "AI đang quét tài liệu để tìm trường cần điền…",
+    aiScanError: "Không thể quét bằng AI lúc này.",
+    aiScanRetry: "Quét lại bằng AI",
+    aiApproveSelected: "Phê duyệt đã chọn",
+    aiDismissAll: "Bỏ qua tất cả",
+    aiDismissRow: "Bỏ qua gợi ý này",
     aggregated: "Danh sách trường trong bộ hồ sơ",
     aggregatedDescription: "Mỗi thông tin chỉ cần nhập một lần dù xuất hiện trong nhiều tài liệu.",
     target: "Lưu dữ liệu vào hồ sơ",
@@ -138,6 +148,13 @@ const copy = {
     auto: "Detected",
     manual: "Manual",
     highlighted: "Selected",
+    ai: "AI suggested",
+    aiScanning: "AI is scanning the document for fields to fill in…",
+    aiScanError: "Could not run the AI scan right now.",
+    aiScanRetry: "Retry AI scan",
+    aiApproveSelected: "Approve selected",
+    aiDismissAll: "Dismiss all",
+    aiDismissRow: "Dismiss this suggestion",
     aggregated: "Fields in this template set",
     aggregatedDescription: "Enter each piece of information once even when it appears in multiple documents.",
     target: "Save data to profile",
@@ -162,6 +179,14 @@ type AggregatedField = {
   refs: Array<{ documentId: string; fieldId: string }>;
 };
 
+type AiSuggestion = {
+  id: string;
+  label: string;
+  placeholder: string;
+  mappedKey: string;
+  checked: boolean;
+};
+
 function aggregateFields(template: TemplateSet): AggregatedField[] {
   const entries = new Map<string, AggregatedField>();
   template.documents.forEach((documentItem) => {
@@ -183,6 +208,7 @@ function aggregateFields(template: TemplateSet): AggregatedField[] {
 
 export function TemplatePanel({
   locale,
+  mode,
   profiles,
   templates,
   activeTemplate,
@@ -192,23 +218,52 @@ export function TemplatePanel({
   onAddTemplate,
   onDeleteTemplate,
   onUpdateTemplate,
+  onModeChange,
   onAddProfile,
   onUpdateProfile,
+  onUpdateDocument,
+  onScanDocument,
+  onUploadDocument,
+  onRemoveDocument,
 }: {
   locale: Locale;
+  mode: "library" | "editor";
   profiles: ClientProfile[];
   templates: TemplateSet[];
   activeTemplate: TemplateSet;
   activeProfileId: string;
   onSelectTemplate: (id: string) => void;
   onSelectProfile: (id: string) => void;
-  onAddTemplate: () => void;
+  onAddTemplate: () => void | Promise<void>;
   onDeleteTemplate: (id: string) => void;
-  onUpdateTemplate: (id: string, updater: (template: TemplateSet) => TemplateSet) => void;
-  onAddProfile: (name?: string) => ClientProfile;
+  onUpdateTemplate: (
+    id: string,
+    updater: (template: TemplateSet) => TemplateSet,
+  ) => void | Promise<void>;
+  onModeChange: (next: "library" | "editor") => void;
+  onAddProfile: (name?: string) => ClientProfile | Promise<ClientProfile>;
   onUpdateProfile: (id: string, updater: (profile: ClientProfile) => ClientProfile) => void;
+  onUpdateDocument?: (
+    docId: string,
+    updater: (documentItem: TemplateDocument) => TemplateDocument,
+  ) => void | Promise<void>;
+  onScanDocument?: (docId: string) => Promise<{
+    ai: Array<{
+      placeholder: string;
+      mappedKey: string;
+      label: string;
+      confidence: number;
+      source: "deterministic" | "ai";
+    }>;
+  }>;
+  onUploadDocument?: (file: File) => Promise<void>;
+  onRemoveDocument?: (docId: string) => Promise<void>;
 }) {
   const t = copy[locale];
+  const [draftName, setDraftName] = useState(activeTemplate.name);
+  const draftNameRef = useRef(activeTemplate.name);
+  const isNameDirtyRef = useRef(false);
+  const isNameSavingRef = useRef(false);
   const [activeDocumentId, setActiveDocumentId] = useState(
     activeTemplate.documents[0]?.id ?? "",
   );
@@ -217,12 +272,54 @@ export function TemplatePanel({
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!isNameDirtyRef.current && !isNameSavingRef.current) {
+      draftNameRef.current = activeTemplate.name;
+      setDraftName(activeTemplate.name);
+    }
+  }, [activeTemplate.id, activeTemplate.name]);
+
   const activeDocument =
     activeTemplate.documents.find((item) => item.id === activeDocumentId) ??
     activeTemplate.documents[0];
 
-  const update = (updater: (template: TemplateSet) => TemplateSet) =>
-    onUpdateTemplate(activeTemplate.id, updater);
+  const update = (updater: (template: TemplateSet) => TemplateSet): void => {
+    void Promise.resolve(onUpdateTemplate(activeTemplate.id, updater)).catch(
+      (error: unknown) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : locale === "vi"
+              ? "Không thể lưu bộ hồ sơ."
+              : "Could not save template set.",
+        );
+      },
+    );
+  };
+
+  const saveTemplateName = async (): Promise<void> => {
+    if (!isNameDirtyRef.current) return;
+    const nameToSave = draftNameRef.current;
+    isNameDirtyRef.current = false;
+    isNameSavingRef.current = true;
+    try {
+      await onUpdateTemplate(activeTemplate.id, (template) => ({
+        ...template,
+        name: nameToSave,
+      }));
+    } catch (error: unknown) {
+      isNameDirtyRef.current = true;
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : locale === "vi"
+            ? "Không thể lưu tên bộ hồ sơ."
+            : "Could not save template set name.",
+      );
+    } finally {
+      isNameSavingRef.current = false;
+    }
+  };
 
   const updateDocument = (
     documentId: string,
@@ -242,15 +339,19 @@ export function TemplatePanel({
     for (const file of files) {
       setProcessing(file.name);
       try {
-        const result = await analyzeDocument(file);
-        if (result.document.storageKey) {
-          await saveDocumentBytes(result.document.storageKey, result.bytes);
+        if (onUploadDocument) {
+          await onUploadDocument(file);
+        } else {
+          const result = await analyzeDocument(file);
+          if (result.document.storageKey) {
+            await saveDocumentBytes(result.document.storageKey, result.bytes);
+          }
+          update((template) => ({
+            ...template,
+            documents: [...template.documents, result.document],
+          }));
+          setActiveDocumentId(result.document.id);
         }
-        update((template) => ({
-          ...template,
-          documents: [...template.documents, result.document],
-        }));
-        setActiveDocumentId(result.document.id);
       } catch {
         setError(`${t.uploadError} (${file.name})`);
       }
@@ -259,6 +360,10 @@ export function TemplatePanel({
   };
 
   const removeDocument = async (documentItem: TemplateDocument) => {
+    if (onRemoveDocument) {
+      await onRemoveDocument(documentItem.id);
+      return;
+    }
     if (documentItem.storageKey) await deleteDocumentBytes(documentItem.storageKey);
     update((template) => ({
       ...template,
@@ -275,6 +380,101 @@ export function TemplatePanel({
     );
     onDeleteTemplate(activeTemplate.id);
   };
+
+  const handleCreateTemplate = async () => {
+    await onAddTemplate();
+    onModeChange("editor");
+  };
+
+  if (mode === "library") {
+    const docCount = activeTemplate.documents.length;
+    const title = activeTemplate.name || (locale === "vi" ? "Chưa đặt tên" : "Untitled set");
+    const isDraft = activeTemplate.status === "draft";
+    return (
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
+        <header className="border-b border-zinc-200 pb-6">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-semibold tracking-normal text-zinc-950">
+              {locale === "vi" ? "THƯ VIỆN MẪU HỒ SƠ" : "TEMPLATE SET LIBRARY"}
+            </h1>
+            <Button type="button" onClick={() => void handleCreateTemplate()}>
+              <Plus className="size-4" />
+              {t.new}
+            </Button>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
+            {locale === "vi"
+              ? 'Duyệt các bộ hồ sơ mẫu đã chuẩn bị sẵn. Bấm "Xem trước" để xem nội dung bên trong và hướng dẫn sử dụng trước khi dùng để điền hồ sơ.'
+              : "Review prepared template sets. Use preview to see details and usage guidance before filling documents."}
+          </p>
+        </header>
+
+        <div className="rounded-md border border-zinc-200 bg-white p-4">
+          <div className="mx-auto mb-4 max-w-3xl">
+            <input
+              type="text"
+              placeholder={
+                locale === "vi"
+                  ? "Tìm theo tên bộ hồ sơ, mô tả, nguồn luật..."
+                  : "Search by template set name, description, legal source..."
+              }
+              className={inputClass}
+            />
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <button
+              type="button"
+              onClick={() => void handleCreateTemplate()}
+              className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-dashed border-zinc-300 bg-white transition hover:border-zinc-950"
+            >
+              <Plus className="size-8 text-zinc-950" />
+              <div className="mt-3 text-sm font-medium text-zinc-700">
+                {locale === "vi" ? "Tạo bộ hồ sơ mẫu mới" : "Create new template set"}
+              </div>
+            </button>
+
+            <div className="rounded-md border border-zinc-200 bg-white p-5">
+              <div className="relative flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-zinc-100">
+                    <HelpCircle className="size-5 text-zinc-700" />
+                  </div>
+                </div>
+                <div className="rounded-full bg-zinc-950 px-2 py-1 text-xs font-medium text-white">
+                  {docCount} tài liệu
+                </div>
+              </div>
+
+              <h2 className="mt-4 text-lg font-semibold text-zinc-950">{title}</h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                {locale === "vi" ? "Chưa có hướng dẫn sử dụng." : "No usage guidance yet."}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <StatusBadge strong={isDraft}>{isDraft ? "DANG SOAN" : "HOAN TAT"}</StatusBadge>
+                <StatusBadge>{locale === "vi" ? "CON HIEU LUC" : "EFFECTIVE"}</StatusBadge>
+                <StatusBadge>{locale === "vi" ? "RIENG TU" : "UNIQUE"}</StatusBadge>
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
+                  {locale === "vi" ? "Xem trước" : "Preview"}
+                </Button>
+                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
+                  {locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => void handleDeleteTemplate()}>
+                  <Trash2 className="size-4" />
+                  {locale === "vi" ? "Xóa" : "Delete"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
@@ -314,10 +514,13 @@ export function TemplatePanel({
             <FieldLabel htmlFor="template-name">{t.name}</FieldLabel>
             <input
               id="template-name"
-              value={activeTemplate.name}
-              onChange={(event) =>
-                update((template) => ({ ...template, name: event.target.value }))
-              }
+              value={draftName}
+              onChange={(event) => {
+                draftNameRef.current = event.target.value;
+                isNameDirtyRef.current = true;
+                setDraftName(event.target.value);
+              }}
+              onBlur={() => void saveTemplateName()}
               placeholder={t.namePlaceholder}
               className={inputClass}
             />
@@ -439,7 +642,16 @@ export function TemplatePanel({
             profileFields={
               profiles.find((profile) => profile.id === activeProfileId)?.fields ?? []
             }
-            onUpdate={(updater) => updateDocument(activeDocument.id, updater)}
+            onPersist={(updater) =>
+              Promise.resolve(
+                onUpdateDocument
+                  ? onUpdateDocument(activeDocument.id, updater)
+                  : updateDocument(activeDocument.id, updater),
+              )
+            }
+            onScanDocument={
+              onScanDocument ? () => onScanDocument(activeDocument.id) : undefined
+            }
           />
         ) : (
           <SectionCard title={t.preview}>
@@ -468,37 +680,203 @@ function DocumentEditor({
   locale,
   documentItem,
   profileFields,
-  onUpdate,
+  onPersist,
+  onScanDocument,
 }: {
   locale: Locale;
   documentItem: TemplateDocument;
   profileFields: ProfileField[];
-  onUpdate: (updater: (documentItem: TemplateDocument) => TemplateDocument) => void;
+  onPersist: (updater: (documentItem: TemplateDocument) => TemplateDocument) => Promise<void>;
+  onScanDocument?: () => Promise<{
+    ai: Array<{
+      placeholder: string;
+      mappedKey: string;
+      label: string;
+      confidence: number;
+      source: "deterministic" | "ai";
+    }>;
+  }>;
 }) {
   const t = copy[locale];
-  const updateField = (id: string, patch: Partial<TemplateField>) => {
-    onUpdate((documentValue) => ({
-      ...documentValue,
-      fields: documentValue.fields.map((field) =>
-        field.id === id ? { ...field, ...patch } : field,
-      ),
-    }));
+  const [draftDocument, setDraftDocument] = useState(documentItem);
+  const draftDocumentRef = useRef(documentItem);
+  const isDirtyRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const isRestoringPreviewRef = useRef(false);
+  const [aiStatus, setAiStatus] = useState<"idle" | "scanning" | "error" | "done">("idle");
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+
+  useEffect(() => {
+    if (!isDirtyRef.current && !isSavingRef.current) {
+      draftDocumentRef.current = documentItem;
+      setDraftDocument(documentItem);
+    }
+  }, [documentItem]);
+
+  useEffect(() => {
+    setAiStatus("idle");
+    setAiSuggestions([]);
+  }, [documentItem.id]);
+
+  useEffect(() => {
+    const currentDocument = draftDocumentRef.current;
+    const needsDocxPreview = currentDocument.fileType === "docx" && !currentDocument.previewHtml;
+    const needsPdfPreview = currentDocument.fileType === "pdf" && !currentDocument.previewImage;
+    if ((!needsDocxPreview && !needsPdfPreview) || !currentDocument.fileId || isRestoringPreviewRef.current) {
+      return;
+    }
+    isRestoringPreviewRef.current = true;
+    void (async () => {
+      try {
+        const restored = await buildDocumentPreviewFromFileId(
+          currentDocument.fileId!,
+          currentDocument.fileName,
+        );
+        applyDraft(
+          (documentValue) => ({
+            ...documentValue,
+            previewHtml: restored.previewHtml,
+            previewImage: restored.previewImage,
+            plainText: restored.plainText,
+            fields:
+              documentValue.fields.length > 0
+                ? documentValue.fields
+                : restored.fields,
+          }),
+          currentDocument.fileType === "docx",
+        );
+      } catch (error: unknown) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : locale === "vi"
+              ? "Không thể khôi phục bản xem trước."
+              : "Could not restore the preview.",
+        );
+      } finally {
+        isRestoringPreviewRef.current = false;
+      }
+    })();
+  }, [draftDocument.fileId, draftDocument.fileName, draftDocument.fileType, draftDocument.previewHtml, draftDocument.previewImage, locale]);
+
+  const applyDraft = (
+    updater: (documentValue: TemplateDocument) => TemplateDocument,
+    saveImmediately = false,
+  ): void => {
+    const next = updater(draftDocumentRef.current);
+    draftDocumentRef.current = next;
+    isDirtyRef.current = true;
+    setDraftDocument(next);
+    if (saveImmediately) {
+      void saveDocument(next);
+    }
+  };
+
+  const saveDocument = async (documentValue: TemplateDocument = draftDocumentRef.current): Promise<void> => {
+    if (!isDirtyRef.current) return;
+    isDirtyRef.current = false;
+    isSavingRef.current = true;
+    try {
+      await onPersist(() => documentValue);
+    } catch (error: unknown) {
+      isDirtyRef.current = true;
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : locale === "vi"
+            ? "Không thể lưu tài liệu."
+            : "Could not save document.",
+      );
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
+
+  const updateField = (id: string, patch: Partial<TemplateField>, saveImmediately = false) => {
+    applyDraft(
+      (documentValue) => ({
+        ...documentValue,
+        fields: documentValue.fields.map((field) =>
+          field.id === id ? { ...field, ...patch } : field,
+        ),
+      }),
+      saveImmediately,
+    );
   };
   const addField = (placeholder = "") => {
     const normalized = placeholder.replace(/\s+/g, " ").trim();
-    if (normalized && documentItem.fields.some((field) => field.placeholder === normalized)) return;
+    if (normalized && draftDocumentRef.current.fields.some((field) => field.placeholder === normalized)) return;
     const field: TemplateField = {
       id: `field-${crypto.randomUUID()}`,
       label: cleanPlaceholderLabel(normalized) || (locale === "vi" ? "Trường mới" : "New field"),
       placeholder: normalized,
       mappedKey: guessMapping(normalized),
       source: normalized ? "highlight" : "manual",
-      count: normalized ? Math.max(1, countOccurrences(documentItem.plainText, normalized)) : 0,
+      count: normalized ? Math.max(1, countOccurrences(draftDocumentRef.current.plainText, normalized)) : 0,
     };
-    onUpdate((documentValue) => ({
-      ...documentValue,
-      fields: [...documentValue.fields, field],
-    }));
+    applyDraft(
+      (documentValue) => ({
+        ...documentValue,
+        fields: [...documentValue.fields, field],
+      }),
+      true,
+    );
+  };
+
+  const runAiScan = async (): Promise<void> => {
+    if (!onScanDocument) return;
+    setAiStatus("scanning");
+    try {
+      const result = await onScanDocument();
+      const existing = new Set(
+        draftDocumentRef.current.fields.map((field) => field.placeholder.trim()),
+      );
+      const suggestions = result.ai
+        .filter((item) => item.placeholder.trim() && !existing.has(item.placeholder.trim()))
+        .map(
+          (item): AiSuggestion => ({
+            id: `ai-${crypto.randomUUID()}`,
+            label: item.label.trim() || cleanPlaceholderLabel(item.placeholder),
+            placeholder: item.placeholder.trim(),
+            mappedKey: item.mappedKey,
+            checked: true,
+          }),
+        );
+      setAiSuggestions(suggestions);
+      setAiStatus("done");
+    } catch {
+      setAiStatus("error");
+      setAiSuggestions([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!onScanDocument || draftDocument.fileType !== "docx") return;
+    if (draftDocument.fields.length > 0 || aiStatus !== "idle") return;
+    void runAiScan();
+  }, [draftDocument.fileType, draftDocument.fields.length, aiStatus, onScanDocument]);
+
+  const approveAiSuggestions = (): void => {
+    const selected = aiSuggestions.filter((item) => item.checked);
+    if (!selected.length) return;
+    applyDraft(
+      (documentValue) => ({
+        ...documentValue,
+        fields: [
+          ...documentValue.fields,
+          ...selected.map((item) => ({
+            id: `field-${crypto.randomUUID()}`,
+            label: item.label,
+            placeholder: item.placeholder,
+            mappedKey: item.mappedKey,
+            source: "ai" as const,
+            count: Math.max(1, countOccurrences(documentValue.plainText, item.placeholder)),
+          })),
+        ],
+      }),
+      true,
+    );
+    setAiSuggestions((current) => current.filter((item) => !item.checked));
   };
 
   return (
@@ -507,17 +885,17 @@ function DocumentEditor({
       action={
         <Button
           type="button"
-          variant={documentItem.status === "done" ? "outline" : "default"}
+          variant={draftDocument.status === "done" ? "outline" : "default"}
           onClick={() =>
-            onUpdate((documentValue) => ({
+            applyDraft((documentValue) => ({
               ...documentValue,
               status: documentValue.status === "done" ? "draft" : "done",
-            }))
+            }), true)
           }
-          className={documentItem.status === "draft" ? "bg-zinc-950 text-white hover:bg-zinc-800" : ""}
+          className={draftDocument.status === "draft" ? "bg-zinc-950 text-white hover:bg-zinc-800" : ""}
         >
           <Check className="size-4" />
-          {documentItem.status === "done" ? t.markDraft : t.markDone}
+          {draftDocument.status === "done" ? t.markDraft : t.markDone}
         </Button>
       }
     >
@@ -534,10 +912,10 @@ function DocumentEditor({
               <div className="inline-flex rounded-md border border-zinc-300 p-1">
                 <button
                   type="button"
-                  onClick={() => onUpdate((value) => ({ ...value, previewMode: "highlight" }))}
+                  onClick={() => applyDraft((value) => ({ ...value, previewMode: "highlight" }), true)}
                   className={cn(
                     "flex h-8 items-center gap-2 rounded px-3 text-xs font-medium",
-                    documentItem.previewMode === "highlight"
+                    draftDocument.previewMode === "highlight"
                       ? "bg-zinc-950 text-white"
                       : "text-zinc-600 hover:bg-zinc-100",
                   )}
@@ -547,10 +925,10 @@ function DocumentEditor({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onUpdate((value) => ({ ...value, previewMode: "edit" }))}
+                  onClick={() => applyDraft((value) => ({ ...value, previewMode: "edit" }), true)}
                   className={cn(
                     "flex h-8 items-center gap-2 rounded px-3 text-xs font-medium",
-                    documentItem.previewMode === "edit"
+                    draftDocument.previewMode === "edit"
                       ? "bg-zinc-950 text-white"
                       : "text-zinc-600 hover:bg-zinc-100",
                   )}
@@ -561,17 +939,17 @@ function DocumentEditor({
               </div>
             )}
           </div>
-          {documentItem.previewMode === "edit" && (
+          {draftDocument.previewMode === "edit" && (
             <p className="mb-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs text-zinc-600">
               {t.editHint}
             </p>
           )}
           <PreviewPane
-            documentItem={documentItem}
+            documentItem={draftDocument}
             noPreview={t.noPreview}
             onSelectText={addField}
             onEdit={(html) =>
-              onUpdate((value) => ({ ...value, previewHtml: DOMPurify.sanitize(html) }))
+              applyDraft((value) => ({ ...value, previewHtml: DOMPurify.sanitize(html) }), true)
             }
           />
         </div>
@@ -581,7 +959,7 @@ function DocumentEditor({
             <div>
               <h3 className="text-sm font-semibold">{t.fields}</h3>
               <p className="mt-1 text-xs text-zinc-500">
-                {documentItem.fields.length} {t.occurrences}
+                {draftDocument.fields.length} {t.occurrences}
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={() => addField()}>
@@ -590,7 +968,125 @@ function DocumentEditor({
             </Button>
           </div>
           <div className="max-h-[580px] space-y-3 overflow-y-auto pr-1">
-            {documentItem.fields.map((field) => (
+            {aiStatus === "scanning" ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-zinc-800">
+                {t.aiScanning}
+              </div>
+            ) : null}
+            {aiStatus === "error" ? (
+              <div className="rounded-md border border-zinc-300 bg-zinc-50 p-3">
+                <p className="text-sm text-zinc-700">{t.aiScanError}</p>
+                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void runAiScan()}>
+                  {t.aiScanRetry}
+                </Button>
+              </div>
+            ) : null}
+            {aiSuggestions.length ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                <div className="space-y-2">
+                  {aiSuggestions.map((suggestion) => (
+                    <article key={suggestion.id} className="rounded-md border border-zinc-200 bg-white p-3">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={suggestion.checked}
+                          onChange={(event) =>
+                            setAiSuggestions((current) =>
+                              current.map((item) =>
+                                item.id === suggestion.id
+                                  ? { ...item, checked: event.target.checked }
+                                  : item,
+                              ),
+                            )
+                          }
+                          className="mt-1"
+                        />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <input
+                            value={suggestion.label}
+                            onChange={(event) =>
+                              setAiSuggestions((current) =>
+                                current.map((item) =>
+                                  item.id === suggestion.id
+                                    ? { ...item, label: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={inputClass}
+                          />
+                          <input
+                            value={suggestion.placeholder}
+                            onChange={(event) =>
+                              setAiSuggestions((current) =>
+                                current.map((item) =>
+                                  item.id === suggestion.id
+                                    ? { ...item, placeholder: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={cn(inputClass, "font-mono text-xs")}
+                          />
+                          <select
+                            value={suggestion.mappedKey}
+                            onChange={(event) =>
+                              setAiSuggestions((current) =>
+                                current.map((item) =>
+                                  item.id === suggestion.id
+                                    ? { ...item, mappedKey: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={inputClass}
+                          >
+                            <option value="">{t.noMapping}</option>
+                            {profileFields.map((profileField) => (
+                              <option key={profileField.id} value={profileField.id}>
+                                {profileField.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAiSuggestions((current) =>
+                              current.filter((item) => item.id !== suggestion.id),
+                            )
+                          }
+                          className="flex size-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950"
+                          aria-label={t.aiDismissRow}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-zinc-950 text-white hover:bg-zinc-800"
+                    onClick={approveAiSuggestions}
+                    disabled={!aiSuggestions.some((item) => item.checked)}
+                  >
+                    {t.aiApproveSelected}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiSuggestions([])}
+                  >
+                    {t.aiDismissAll}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {draftDocument.fields.map((field) => (
               <article key={field.id} className="rounded-md border border-zinc-200 p-3">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
@@ -598,16 +1094,17 @@ function DocumentEditor({
                     <input
                       value={field.label}
                       onChange={(event) => updateField(field.id, { label: event.target.value })}
+                      onBlur={() => void saveDocument()}
                       className={inputClass}
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() =>
-                      onUpdate((value) => ({
+                      applyDraft((value) => ({
                         ...value,
                         fields: value.fields.filter((item) => item.id !== field.id),
-                      }))
+                      }), true)
                     }
                     className="mt-6 flex size-9 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950"
                     aria-label="Delete field"
@@ -622,9 +1119,10 @@ function DocumentEditor({
                     onChange={(event) =>
                       updateField(field.id, {
                         placeholder: event.target.value,
-                        count: countOccurrences(documentItem.plainText, event.target.value),
+                          count: countOccurrences(draftDocument.plainText, event.target.value),
                       })
                     }
+                      onBlur={() => void saveDocument()}
                     className={cn(inputClass, "font-mono text-xs")}
                   />
                 </div>
@@ -632,7 +1130,7 @@ function DocumentEditor({
                   <FieldLabel>{t.mapping}</FieldLabel>
                   <select
                     value={field.mappedKey}
-                    onChange={(event) => updateField(field.id, { mappedKey: event.target.value })}
+                    onChange={(event) => updateField(field.id, { mappedKey: event.target.value }, true)}
                     className={inputClass}
                   >
                     <option value="">{t.noMapping}</option>
@@ -644,12 +1142,20 @@ function DocumentEditor({
                   </select>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
-                  <span>{field.source === "auto" ? t.auto : field.source === "highlight" ? t.highlighted : t.manual}</span>
+                  <span>
+                    {field.source === "auto"
+                      ? t.auto
+                      : field.source === "highlight"
+                        ? t.highlighted
+                        : field.source === "ai"
+                          ? "AI"
+                          : t.manual}
+                  </span>
                   <span>{field.count} {t.occurrences}</span>
                 </div>
               </article>
             ))}
-            {!documentItem.fields.length && (
+            {!draftDocument.fields.length && (
               <EmptyState title={t.noFields} description={t.noFieldsDescription} />
             )}
           </div>
@@ -779,7 +1285,7 @@ function AggregatedFieldsPanel({
   profiles: ClientProfile[];
   activeProfileId: string;
   onSelectProfile: (id: string) => void;
-  onAddProfile: (name?: string) => ClientProfile;
+  onAddProfile: (name?: string) => ClientProfile | Promise<ClientProfile>;
   onUpdateProfile: (id: string, updater: (profile: ClientProfile) => ClientProfile) => void;
   onUpdateTemplate: (updater: (template: TemplateSet) => TemplateSet) => void;
 }) {
@@ -803,14 +1309,14 @@ function AggregatedFieldsPanel({
     return () => window.clearTimeout(handle);
   }, [selectedProfile, entries]);
 
-  const save = () => {
+  const save = async () => {
     let profile = selectedProfile;
     if (target === "__new__") {
       if (!newName.trim()) {
         setMessage(t.needName);
         return;
       }
-      profile = onAddProfile(newName.trim());
+      profile = await Promise.resolve(onAddProfile(newName.trim()));
       setTarget(profile.id);
       onSelectProfile(profile.id);
     }

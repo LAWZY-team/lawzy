@@ -25,7 +25,7 @@ export type TemplateField = {
   label: string;
   placeholder: string;
   mappedKey: string;
-  source: "auto" | "highlight" | "manual";
+  source: "auto" | "highlight" | "manual" | "ai";
   count: number;
 };
 
@@ -40,6 +40,7 @@ export type TemplateDocument = {
   previewImage?: string;
   plainText: string;
   storageKey?: string;
+  fileId?: string;
 };
 
 export type TemplateSet = {

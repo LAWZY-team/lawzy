@@ -17,7 +17,15 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { isBotProtectionEnabled } from "@/lib/bot-protection";
-import { parseReturnUrl, redirectAfterLogin } from "@/lib/auth";
+import {
+  isLawfirmLoginContext,
+  parseLoginProduct,
+  parseReturnUrl,
+  registerPathWithReturn,
+  redirectAfterLogin,
+  resolvePostLoginRedirect,
+  type LoginProduct,
+} from "@/lib/auth";
 import { useT } from "@/components/i18n-provider";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,8 +41,10 @@ export default function LoginPage() {
 function LoginForm() {
   const searchParams = useSearchParams();
   const returnUrl = parseReturnUrl(searchParams);
+  const loginProduct = parseLoginProduct(searchParams);
+  const isLawfirmLogin = isLawfirmLoginContext(returnUrl) || loginProduct === "lawfirm";
   const { t } = useT();
-  const { setUser } = useAuthStore();
+  const { setUser, setLoginProduct } = useAuthStore();
   const setLoginScopedWorkspaceId = useWorkspaceStore((s) => s.setLoginScopedWorkspaceId);
   const [accountType, setAccountType] = useState<AccountType>("personal");
   const [companyCode, setCompanyCode] = useState("");
@@ -49,27 +59,28 @@ function LoginForm() {
     returnUrl.includes("/lpms") ? "lpms" : "clm"
   );
 
+  const effectiveLoginProduct: LoginProduct | undefined = isLawfirmLogin
+    ? "lawfirm"
+    : loginProduct ?? undefined;
+
   const handleRedirect = useCallback(
     (productChoice: "clm" | "lpms", currentReturnUrl: string) => {
-      const defaultDest = productChoice === "clm" ? "/clm/dashboard" : "/lpms/dashboard";
-      if (!currentReturnUrl || currentReturnUrl === "/" || currentReturnUrl === "/login" || currentReturnUrl === "/clm/dashboard" || currentReturnUrl === "/lpms/dashboard") {
-        redirectAfterLogin(defaultDest);
-        return;
-      }
-      if (productChoice === "clm" && currentReturnUrl.startsWith("/clm")) {
-        redirectAfterLogin(currentReturnUrl);
-        return;
-      }
-      if (productChoice === "lpms" && currentReturnUrl.startsWith("/lpms")) {
-        redirectAfterLogin(currentReturnUrl);
-        return;
-      }
-      redirectAfterLogin(defaultDest);
+      redirectAfterLogin(
+        resolvePostLoginRedirect({ returnUrl: currentReturnUrl, productChoice }),
+      );
     },
-    []
+    [],
   );
 
-  const isBusinessBlocked = accountType === "business" && !companyCode.trim();
+  const applyLoginProduct = useCallback(
+    (product?: LoginProduct | null) => {
+      setLoginProduct(product ?? null);
+    },
+    [setLoginProduct],
+  );
+
+  const isBusinessBlocked =
+    !isLawfirmLogin && accountType === "business" && !companyCode.trim();
   const isSubmitBlocked =
     (isBotProtectionEnabled && !botProtectionToken) || isBusinessBlocked;
 
@@ -84,10 +95,11 @@ function LoginForm() {
 
     try {
       const payload: Record<string, unknown> = { email, password };
-      if (accountType === "business" && companyCode.trim()) {
+      if (!isLawfirmLogin && accountType === "business" && companyCode.trim()) {
         payload.accountType = "business";
         payload.companyCode = companyCode.trim();
       }
+      if (effectiveLoginProduct) payload.loginProduct = effectiveLoginProduct;
       if (botProtectionToken) payload.turnstileToken = botProtectionToken;
 
       const res = await fetch("/api/auth/login", {
@@ -108,6 +120,7 @@ function LoginForm() {
       }
 
       setUser(data.user);
+      applyLoginProduct(data.loginProduct ?? effectiveLoginProduct ?? null);
       if (data.activeWorkspaceId) {
         setLoginScopedWorkspaceId(data.activeWorkspaceId);
       }
@@ -130,7 +143,10 @@ function LoginForm() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({
+            idToken,
+            ...(effectiveLoginProduct ? { loginProduct: effectiveLoginProduct } : {}),
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -138,6 +154,7 @@ function LoginForm() {
           return;
         }
         setUser(data.user);
+        applyLoginProduct(data.loginProduct ?? effectiveLoginProduct ?? null);
         if (data.activeWorkspaceId) {
           setLoginScopedWorkspaceId(data.activeWorkspaceId);
         }
@@ -149,54 +166,78 @@ function LoginForm() {
         setIsLoading(false);
       }
     },
-    [handleRedirect, returnUrl, setLoginScopedWorkspaceId, setUser, t, targetProduct]
+    [
+      applyLoginProduct,
+      effectiveLoginProduct,
+      handleRedirect,
+      returnUrl,
+      setLoginScopedWorkspaceId,
+      setUser,
+      t,
+      targetProduct,
+    ],
   );
 
   return (
-    <AuthLayout leftPanel={<BenefitsPanel />}>
+    <AuthLayout
+      leftPanel={isLawfirmLogin ? undefined : <BenefitsPanel />}
+      centerContent={isLawfirmLogin}
+    >
       <Card className="border-0 shadow-none">
         <CardHeader className="space-y-4 items-center text-center pb-2">
           <div>
-            <CardTitle className="text-2xl font-bold">{t("auth_login_title")}</CardTitle>
-            <CardDescription className="mt-1">
-              {t("auth_login_subtitle")}
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold">
+              {isLawfirmLogin ? "Đăng nhập Lawzy" : t("auth_login_title")}
+            </CardTitle>
+            {!isLawfirmLogin ? (
+              <CardDescription className="mt-1">
+                {t("auth_login_subtitle")}
+              </CardDescription>
+            ) : null}
           </div>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Sản phẩm truy cập</Label>
-              <Select value={targetProduct} onValueChange={(v) => setTargetProduct(v as "clm" | "lpms")} disabled={isLoading}>
-                <SelectTrigger className="w-full bg-card">
-                  <SelectValue placeholder="Chọn sản phẩm" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="clm">CLM - Quản lý Vòng đời Hợp đồng</SelectItem>
-                  <SelectItem value="lpms">LPMS - Quản lý Tranh tụng & Vụ việc</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <AccountTypeSelector value={accountType} onChange={setAccountType} />
-            {accountType === "business" && (
-              <div className="space-y-2">
-                <Label htmlFor="companyCode">{t("auth_company_code")}</Label>
-                <Input
-                  id="companyCode"
-                  type="text"
-                  placeholder={t("auth_company_code_placeholder")}
-                  value={companyCode}
-                  onChange={(e) => setCompanyCode(e.target.value)}
-                  required={accountType === "business"}
-                  autoComplete="organization"
-                  disabled={isLoading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("auth_company_code_hint")}
-                </p>
-              </div>
-            )}
+            {!isLawfirmLogin ? (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Sản phẩm truy cập</Label>
+                  <Select
+                    value={targetProduct}
+                    onValueChange={(v) => setTargetProduct(v as "clm" | "lpms")}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="w-full bg-card">
+                      <SelectValue placeholder="Chọn sản phẩm" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="clm">CLM - Quản lý Vòng đời Hợp đồng</SelectItem>
+                      <SelectItem value="lpms">LPMS - Quản lý Tranh tụng & Vụ việc</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <AccountTypeSelector value={accountType} onChange={setAccountType} />
+                {accountType === "business" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="companyCode">{t("auth_company_code")}</Label>
+                    <Input
+                      id="companyCode"
+                      type="text"
+                      placeholder={t("auth_company_code_placeholder")}
+                      value={companyCode}
+                      onChange={(e) => setCompanyCode(e.target.value)}
+                      required={accountType === "business"}
+                      autoComplete="organization"
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("auth_company_code_hint")}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : null}
             {error && (
               <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
@@ -247,7 +288,11 @@ function LoginForm() {
                   onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -262,7 +307,12 @@ function LoginForm() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full mt-3" size="lg" disabled={isLoading || isSubmitBlocked}>
+            <Button
+              type="submit"
+              className="w-full mt-3"
+              size="lg"
+              disabled={isLoading || isSubmitBlocked}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -293,7 +343,10 @@ function LoginForm() {
 
             <p className="text-sm text-muted-foreground text-center">
               {t("auth_no_account")}{" "}
-              <Link href="/register" className="text-primary font-medium hover:underline">
+              <Link
+                href={registerPathWithReturn(returnUrl)}
+                className="text-primary font-medium hover:underline"
+              >
                 {t("auth_register_now")}
               </Link>
             </p>

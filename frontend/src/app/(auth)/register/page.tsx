@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,15 @@ import { Eye, EyeOff, Loader2, Lock, Mail, UserCircle, CheckCircle2 } from "luci
 import { toast } from "sonner";
 import { validatePassword } from "@/lib/utils/password-validator";
 import { PasswordRequirements } from "@/components/password-requirements";
+import {
+  isLawfirmLoginContext,
+  loginPathWithReturn,
+  parseLoginProduct,
+  parseReturnUrl,
+  redirectAfterLogin,
+  resolvePostLoginRedirect,
+  type LoginProduct,
+} from "@/lib/auth";
 import {
   Select,
   SelectContent,
@@ -45,8 +54,12 @@ const POSITION_OPTIONS = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = parseReturnUrl(searchParams);
+  const loginProduct = parseLoginProduct(searchParams);
+  const isLawfirmRegister = isLawfirmLoginContext(returnUrl) || loginProduct === "lawfirm";
   const { t } = useT();
-  const { setUser } = useAuthStore();
+  const { setUser, setLoginProduct } = useAuthStore();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [accountType, setAccountType] = useState<AccountType>("personal");
   const [name, setName] = useState("");
@@ -66,8 +79,14 @@ export default function RegisterPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [botProtectionToken, setBotProtectionToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
+  const [targetProduct, setTargetProduct] = useState<"clm" | "lpms">(() =>
+    returnUrl.includes("/lpms") ? "lpms" : "clm"
+  );
 
   const isStep2SubmitBlocked = isBotProtectionEnabled && !botProtectionToken;
+  const effectiveLoginProduct: LoginProduct | undefined = isLawfirmRegister
+    ? "lawfirm"
+    : loginProduct ?? undefined;
 
   const registerSteps = useMemo(
     () => [
@@ -165,7 +184,10 @@ export default function RegisterPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({
+            idToken,
+            ...(effectiveLoginProduct ? { loginProduct: effectiveLoginProduct } : {}),
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -173,15 +195,18 @@ export default function RegisterPage() {
           return;
         }
         setUser(data.user);
+        setLoginProduct(data.loginProduct ?? effectiveLoginProduct ?? null);
         toast.success(t("auth_register_toast_google_success"));
-        router.push("/clm/dashboard");
+        redirectAfterLogin(
+          resolvePostLoginRedirect({ returnUrl, productChoice: targetProduct }),
+        );
       } catch {
         setError(t("auth_error_connection"));
       } finally {
         setIsLoading(false);
       }
     },
-    [router, setUser, t]
+    [effectiveLoginProduct, returnUrl, setLoginProduct, setUser, t, targetProduct]
   );
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -220,7 +245,11 @@ export default function RegisterPage() {
 
   if (step === 4) {
     return (
-      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={4} />} contentMaxWidth="max-w-lg">
+      <AuthLayout
+        leftPanel={isLawfirmRegister ? undefined : <ProgressStepsVertical steps={registerSteps} currentStep={4} />}
+        contentMaxWidth="max-w-lg"
+        centerContent={isLawfirmRegister}
+      >
         <div className="w-full">
           <div className="mb-4 lg:hidden">
             <ProgressSteps steps={registerSteps} currentStep={4} />
@@ -239,7 +268,7 @@ export default function RegisterPage() {
             </CardHeader>
             <CardFooter>
               <Button asChild className="w-full" size="lg">
-                <Link href="/login">Đăng nhập</Link>
+                <Link href={loginPathWithReturn(returnUrl)}>Đăng nhập</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -250,7 +279,11 @@ export default function RegisterPage() {
 
   if (step === 3) {
     return (
-      <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={3} />} contentMaxWidth="max-w-lg">
+      <AuthLayout
+        leftPanel={isLawfirmRegister ? undefined : <ProgressStepsVertical steps={registerSteps} currentStep={3} />}
+        contentMaxWidth="max-w-lg"
+        centerContent={isLawfirmRegister}
+      >
         <div className="w-full">
           <div className="mb-4 lg:hidden">
             <ProgressSteps steps={registerSteps} currentStep={3} />
@@ -321,7 +354,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout leftPanel={<ProgressStepsVertical steps={registerSteps} currentStep={step} />} contentMaxWidth="max-w-lg">
+    <AuthLayout
+      leftPanel={isLawfirmRegister ? undefined : <ProgressStepsVertical steps={registerSteps} currentStep={step} />}
+      contentMaxWidth="max-w-lg"
+      centerContent={isLawfirmRegister}
+    >
       <div className="w-full">
         <div className="mb-4 lg:hidden">
           <ProgressSteps steps={registerSteps} currentStep={step} />
@@ -365,7 +402,9 @@ export default function RegisterPage() {
                   </div>
                 </CardContent>
                 <CardContent className="space-y-4 pt-0">
-                  <AccountTypeSelector value={accountType} onChange={setAccountType} />
+                  {!isLawfirmRegister ? (
+                    <AccountTypeSelector value={accountType} onChange={setAccountType} />
+                  ) : null}
                   <div className="space-y-2">
                     <Label htmlFor="email">{t("auth_email")} <span className="text-destructive">*</span></Label>
                     <Input
@@ -486,7 +525,7 @@ export default function RegisterPage() {
                 currentStep={step}
                 totalSteps={4}
                 onPrevious={step > 1 ? () => setStep((s) => (s - 1) as 1 | 2 | 3 | 4) : undefined}
-                previousHref={step === 1 ? "/login" : undefined}
+                previousHref={step === 1 ? loginPathWithReturn(returnUrl) : undefined}
                 onNext={step < 3 ? handleNext : undefined}
                 nextLabel={step === 2 ? t("auth_register_send_otp") : t("auth_register_next")}
                 nextLoading={step === 2 && isLoading}

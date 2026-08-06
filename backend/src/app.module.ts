@@ -26,6 +26,7 @@ import { SourceProcessingModule } from './modules/source-processing/source-proce
 import { ProjectsModule } from './modules/projects/projects.module';
 import { ObligationsModule } from './modules/obligations/obligations.module';
 import { LpmsAiModule } from './modules/lpms-ai/lpms-ai.module';
+import { LawfirmModule } from './modules/lawfirm/lawfirm.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { LpmsAiModule } from './modules/lpms-ai/lpms-ai.module';
     ProjectsModule,
     ObligationsModule,
     LpmsAiModule,
+    LawfirmModule,
   ],
   controllers: [AppController],
   providers: [AppService],

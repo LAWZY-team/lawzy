@@ -17,6 +17,10 @@ import { EmailService } from '../email/email.service';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { validatePassword } from '../../utils/password-validator';
 import type { Response } from 'express';
+import {
+  type LoginProduct,
+  normalizeLoginProduct,
+} from './login-product';
 
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRES = '15m';
@@ -240,8 +244,13 @@ export class AuthService {
     return this.usersService.sanitize(user);
   }
 
-  async generateTokens(userId: string, email: string) {
+  async generateTokens(
+    userId: string,
+    email: string,
+    loginProduct?: LoginProduct | null,
+  ) {
     const payload = { sub: userId, email };
+    const product = normalizeLoginProduct(loginProduct);
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: ACCESS_TOKEN_EXPIRES,
@@ -257,14 +266,20 @@ export class AuthService {
       data: {
         token: refreshToken,
         userId,
+        loginProduct: product,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_MAX_AGE),
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, loginProduct: product };
   }
 
-  setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+  setAuthCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+    loginProduct?: LoginProduct | null,
+  ) {
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -286,6 +301,18 @@ export class AuthService {
       maxAge: REFRESH_TOKEN_MAX_AGE,
       path: '/',
     });
+    const product = normalizeLoginProduct(loginProduct);
+    if (product) {
+      res.cookie('login_product', product, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: REFRESH_TOKEN_MAX_AGE,
+        path: '/',
+      });
+    } else {
+      res.clearCookie('login_product', { path: '/' });
+    }
   }
 
   clearAuthCookies(res: Response) {
@@ -293,6 +320,7 @@ export class AuthService {
     res.clearCookie('access_token', opts);
     res.clearCookie('refresh_token', opts);
     res.clearCookie('auth_session', opts);
+    res.clearCookie('login_product', opts);
   }
 
   async refreshTokens(refreshToken: string) {
@@ -310,7 +338,11 @@ export class AuthService {
 
       await this.prisma.refreshToken.delete({ where: { id: stored.id } });
 
-      return this.generateTokens(payload.sub, payload.email);
+      return this.generateTokens(
+        payload.sub,
+        payload.email,
+        normalizeLoginProduct(stored.loginProduct),
+      );
     } catch {
       throw new UnauthorizedException('Refresh token không hợp lệ');
     }
@@ -324,12 +356,19 @@ export class AuthService {
     const tokens = await this.prisma.refreshToken.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, token: true, createdAt: true, expiresAt: true },
+      select: {
+        id: true,
+        token: true,
+        loginProduct: true,
+        createdAt: true,
+        expiresAt: true,
+      },
     });
     return tokens.map((t) => ({
       id: t.id,
       createdAt: t.createdAt,
       expiresAt: t.expiresAt,
+      loginProduct: normalizeLoginProduct(t.loginProduct),
       isCurrent: !!currentToken && t.token === currentToken,
     }));
   }

@@ -17,6 +17,7 @@ import { getR2Env } from '../../config/env';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { PlansService } from '../plans/plans.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
+import { fixUploadFilename } from '../../common/fix-upload-filename';
 
 const DEFAULT_STORAGE_BYTES =
   parseInt(process.env.DEFAULT_STORAGE_BYTES || '524288000', 10) ||
@@ -75,9 +76,7 @@ export class FilesService {
     const client = this.ensureClient();
     const bucket = this.getBucket();
     const uuid = randomUUID();
-    const originalName = this.fixUploadFilename(
-      data.file.originalname || 'file',
-    );
+    const originalName = fixUploadFilename(data.file.originalname || 'file');
     const safeName = originalName
       .replace(/[^a-zA-Z0-9._\u00C0-\u024F\s-]/g, '_')
       .trim();
@@ -117,57 +116,6 @@ export class FilesService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data: createData,
     });
-  }
-
-  private fixUploadFilename(input: string): string {
-    const str = typeof input === 'string' && input.trim() ? input : 'file';
-
-    // Some multipart parsers treat header params as latin1 and may produce mojibake
-    // for UTF-8 filenames (common for Vietnamese).
-    const candidates: string[] = [str];
-
-    // 1) Common fix: interpret original string bytes as latin1 then decode as utf8.
-    try {
-      candidates.push(Buffer.from(str, 'latin1').toString('utf8'));
-    } catch {
-      // ignore
-    }
-
-    // 2) Sometimes the string is percent-encoded (RFC5987-ish) - decode if it looks like it.
-    if (/%[0-9A-Fa-f]{2}/.test(str)) {
-      try {
-        candidates.push(decodeURIComponent(str));
-      } catch {
-        // ignore
-      }
-    }
-
-    // Choose the "best" candidate by heuristic scoring.
-    const score = (s: string) => {
-      const repl = (s.match(/\uFFFD/g) ?? []).length;
-      const mojibake = (s.match(/[ÃÂÄÅÆ]/g) ?? []).length;
-      const viLetters = (s.match(/[\u0100-\u024F\u1E00-\u1EFF]/g) ?? []).length;
-      let control = 0;
-      for (let i = 0; i < s.length; i++) {
-        const code = s.charCodeAt(i);
-        if (code >= 0x0000 && code <= 0x001f) control++;
-      }
-      // lower is better except viLetters.
-      return viLetters * 3 - repl * 10 - mojibake * 2 - control * 5;
-    };
-
-    let best = str;
-    let bestScore = score(str);
-    for (const c of candidates) {
-      if (!c || typeof c !== 'string') continue;
-      const sc = score(c);
-      if (sc > bestScore) {
-        best = c;
-        bestScore = sc;
-      }
-    }
-
-    return best;
   }
 
   async findByWorkspace(
@@ -246,6 +194,42 @@ export class FilesService {
       contentType: file.mimeType,
       name: file.name,
     };
+  }
+
+  async getBufferByKey(s3Key: string): Promise<Buffer> {
+    const client = this.ensureClient();
+    const bucket = this.getBucket();
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: s3Key }),
+    );
+    const body = response.Body;
+    if (!body) throw new NotFoundException('File not found in storage');
+    const chunks: Buffer[] = [];
+    for await (const chunk of body as AsyncIterable<Buffer>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  async uploadBuffer(data: {
+    buffer: Buffer;
+    fileName: string;
+    mimeType: string;
+    userId: string;
+    workspaceId: string;
+    category?: 'input_upload' | 'template' | 'export_output';
+  }) {
+    return this.upload({
+      file: {
+        buffer: data.buffer,
+        originalname: data.fileName,
+        mimetype: data.mimeType,
+        size: data.buffer.byteLength,
+      } as Express.Multer.File,
+      userId: data.userId,
+      workspaceId: data.workspaceId,
+      category: data.category ?? 'export_output',
+    });
   }
 
   async delete(id: string, userId?: string) {

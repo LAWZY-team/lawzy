@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useGuestEditorSessionStore } from "./guest-editor-session-store";
 import { useWorkspaceStore } from "./workspace-store";
-import { clearAuthCookie } from "@/lib/auth";
+import { clearAuthCookie, type LoginProduct } from "@/lib/auth";
 
 export interface User {
   id: string
@@ -23,8 +23,10 @@ interface AuthState {
    * Prevents UI flicker (e.g. showing settings sidebar briefly) while auth is unknown.
    */
   authResolved: boolean
+  loginProduct: LoginProduct | null
   setUser: (user: User | null) => void
   setAuthResolved: (resolved: boolean) => void
+  setLoginProduct: (product: LoginProduct | null) => void
   logout: () => void
   fetchUser: () => Promise<void>
 }
@@ -33,11 +35,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   authResolved: false,
+  loginProduct: null,
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setAuthResolved: (resolved) => set({ authResolved: resolved }),
+  setLoginProduct: (loginProduct) => set({ loginProduct }),
   logout: () => {
     clearAuthCookie();
-    set({ user: null, isAuthenticated: false, authResolved: true });
+    set({ user: null, isAuthenticated: false, authResolved: true, loginProduct: null });
 
     if (typeof window !== "undefined") {
       (window as { __isLoggingOut?: boolean }).__isLoggingOut = true;

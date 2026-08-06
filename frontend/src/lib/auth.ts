@@ -1,8 +1,13 @@
 export const AUTH_COOKIE = "auth_session" as const;
+export const LOGIN_PRODUCT_COOKIE = "login_product" as const;
 export const DEFAULT_AFTER_LOGIN = "/clm/dashboard" as const;
 export const LOGIN_PATH = "/login" as const;
 
+export const LOGIN_PRODUCTS = ["clm", "lpms", "lawfirm"] as const;
+export type LoginProduct = (typeof LOGIN_PRODUCTS)[number];
+
 export const PROTECTED_PREFIXES = [
+  "/lawfirm",
   "/lpms",
   "/clm/dashboard",
   "/clm/documents",
@@ -42,7 +47,46 @@ export function hasAuthCookie(request: { cookies: { has: (name: string) => boole
 
 export function loginPathWithReturn(returnPath?: string): string {
   if (!returnPath || returnPath === LOGIN_PATH) return LOGIN_PATH;
-  return `${LOGIN_PATH}?returnUrl=${encodeURIComponent(returnPath)}`;
+  const product = inferLoginProduct(returnPath);
+  const params = new URLSearchParams({ returnUrl: returnPath });
+  if (product) params.set("product", product);
+  return `${LOGIN_PATH}?${params.toString()}`;
+}
+
+export function registerPathWithReturn(returnPath?: string): string {
+  if (!returnPath) return "/register";
+  const safeReturnPath = isSafeReturnUrl(returnPath) ? returnPath : DEFAULT_AFTER_LOGIN;
+  const product = inferLoginProduct(safeReturnPath);
+  const params = new URLSearchParams({ returnUrl: safeReturnPath });
+  if (product) params.set("product", product);
+  return `/register?${params.toString()}`;
+}
+
+export function inferLoginProduct(path: string): LoginProduct | null {
+  if (path.startsWith("/lawfirm")) return "lawfirm";
+  if (path.startsWith("/lpms")) return "lpms";
+  if (path.startsWith("/clm")) return "clm";
+  return null;
+}
+
+export function isLawfirmLoginContext(returnUrl: string): boolean {
+  return inferLoginProduct(returnUrl) === "lawfirm";
+}
+
+export function parseLoginProduct(
+  params: { get: (k: string) => string | null } | Record<string, string | null>,
+): LoginProduct | null {
+  const get = (k: string) =>
+    typeof (params as { get: (k: string) => string | null }).get === "function"
+      ? (params as { get: (k: string) => string | null }).get(k)
+      : (params as Record<string, string | null>)[k];
+  const raw = get("product");
+  if (raw && LOGIN_PRODUCTS.includes(raw as LoginProduct)) {
+    return raw as LoginProduct;
+  }
+  const returnUrl = get("returnUrl") ?? get("callbackUrl");
+  if (returnUrl) return inferLoginProduct(returnUrl);
+  return null;
 }
 
 export function parseReturnUrl(
@@ -52,12 +96,39 @@ export function parseReturnUrl(
     typeof (params as { get: (k: string) => string | null }).get === "function"
       ? (params as { get: (k: string) => string | null }).get(k)
       : (params as Record<string, string | null>)[k];
-  return get("returnUrl") ?? get("callbackUrl") ?? DEFAULT_AFTER_LOGIN;
+  const raw = get("returnUrl") ?? get("callbackUrl") ?? DEFAULT_AFTER_LOGIN;
+  return isSafeReturnUrl(raw) ? raw : DEFAULT_AFTER_LOGIN;
+}
+
+/** Reject open redirects; allow same-origin relative paths only. */
+export function isSafeReturnUrl(path: string): boolean {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return false;
+  if (path.includes("://") || path.includes("\\")) return false;
+  return true;
+}
+
+export function resolvePostLoginRedirect({
+  returnUrl,
+  productChoice = "clm",
+}: {
+  returnUrl: string;
+  productChoice?: "clm" | "lpms";
+}): string {
+  const safe = isSafeReturnUrl(returnUrl) ? returnUrl : DEFAULT_AFTER_LOGIN;
+  if (
+    safe !== "/" &&
+    safe !== LOGIN_PATH &&
+    (safe.startsWith("/clm") || safe.startsWith("/lpms") || safe.startsWith("/lawfirm"))
+  ) {
+    return safe;
+  }
+  return productChoice === "lpms" ? "/lpms/dashboard" : "/clm/dashboard";
 }
 
 export function clearAuthCookie(): void {
   if (typeof document === "undefined") return;
   document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0`;
+  document.cookie = `${LOGIN_PRODUCT_COOKIE}=; path=/; max-age=0`;
 }
 
 export function hasAuthCookieClient(): boolean {

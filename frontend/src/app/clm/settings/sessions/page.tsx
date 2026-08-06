@@ -26,6 +26,13 @@ interface Session {
   createdAt: string
   expiresAt: string
   isCurrent: boolean
+  loginProduct?: "clm" | "lpms" | "lawfirm" | null
+}
+
+const LOGIN_PRODUCT_LABELS: Record<string, string> = {
+  clm: "CLM",
+  lpms: "LPMS",
+  lawfirm: "Điền hồ sơ",
 }
 
 async function fetchSessions(): Promise<Session[]> {
@@ -130,6 +137,11 @@ export default function SettingsSessionsPage() {
                         {t("settings_sessions_current")}
                       </Badge>
                     )}
+                    {session.loginProduct ? (
+                      <Badge variant="outline" className="ml-2">
+                        {LOGIN_PRODUCT_LABELS[session.loginProduct] ?? session.loginProduct}
+                      </Badge>
+                    ) : null}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {t("settings_sessions_expires")} {new Date(session.expiresAt).toLocaleString()}

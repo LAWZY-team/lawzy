@@ -2,11 +2,6 @@
 
 import { useMemo } from "react";
 import { Check, X } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverAnchor,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useT } from "@/components/i18n-provider";
 
@@ -20,7 +15,6 @@ interface PasswordRequirementsProps {
 export function PasswordRequirements({
   password,
   open,
-  onOpenChange,
   children,
 }: PasswordRequirementsProps) {
   const { t } = useT();
@@ -47,13 +41,15 @@ export function PasswordRequirements({
   }, [password, t]);
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverAnchor asChild>{children}</PopoverAnchor>
-      <PopoverContent
-        align="start"
-        side="bottom"
-        sideOffset={8}
-        className="w-64 p-3"
+    <div className="relative">
+      {children}
+      <div
+        className={cn(
+          "absolute left-0 top-full z-20 mt-2 w-64 rounded-md border bg-popover p-3 text-popover-foreground shadow-md transition-all duration-150",
+          open
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-1 opacity-0",
+        )}
       >
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("auth_password_requirements_title")}</p>
@@ -78,7 +74,7 @@ export function PasswordRequirements({
             ))}
           </ul>
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </div>
   );
 }

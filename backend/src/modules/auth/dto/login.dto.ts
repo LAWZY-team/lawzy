@@ -1,10 +1,12 @@
 import {
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
+import { LOGIN_PRODUCTS } from '../login-product';
 
 export class LoginDto {
   @IsEmail()
@@ -22,4 +24,9 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   accountType?: string;
+
+  /** clm | lpms | lawfirm — ghi nhận ngữ cảnh đăng nhập, không phải sản phẩm mặc định */
+  @IsOptional()
+  @IsIn(LOGIN_PRODUCTS)
+  loginProduct?: (typeof LOGIN_PRODUCTS)[number];
 }

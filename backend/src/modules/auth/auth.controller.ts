@@ -76,13 +76,19 @@ export class AuthController {
     const tokens = await this.authService.generateTokens(
       result.user.id,
       result.user.email,
+      dto.loginProduct,
     );
     this.authService.setAuthCookies(
       res,
       tokens.accessToken,
       tokens.refreshToken,
+      tokens.loginProduct,
     );
-    return { user: result.user, activeWorkspaceId: result.activeWorkspaceId };
+    return {
+      user: result.user,
+      activeWorkspaceId: result.activeWorkspaceId,
+      loginProduct: tokens.loginProduct,
+    };
   }
 
   @Post('google')
@@ -92,13 +98,18 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.loginWithGoogle(dto.idToken);
-    const tokens = await this.authService.generateTokens(user.id, user.email);
+    const tokens = await this.authService.generateTokens(
+      user.id,
+      user.email,
+      dto.loginProduct,
+    );
     this.authService.setAuthCookies(
       res,
       tokens.accessToken,
       tokens.refreshToken,
+      tokens.loginProduct,
     );
-    return { user };
+    return { user, loginProduct: tokens.loginProduct };
   }
 
   @Post('refresh')
@@ -117,6 +128,7 @@ export class AuthController {
       res,
       tokens.accessToken,
       tokens.refreshToken,
+      tokens.loginProduct,
     );
     return { success: true };
   }

@@ -92,11 +92,11 @@ async function extractPdf(bytes: ArrayBuffer): Promise<{ text: string; image?: s
   return { text, image: canvas.toDataURL("image/png") };
 }
 
-export async function analyzeDocument(
-  file: File,
-): Promise<{ document: TemplateDocument; bytes: ArrayBuffer }> {
-  const bytes = await file.arrayBuffer();
-  const fileType = file.name.toLowerCase().endsWith(".pdf") ? "pdf" : "docx";
+export async function buildDocumentPreviewFromBytes(
+  fileName: string,
+  bytes: ArrayBuffer,
+): Promise<Pick<TemplateDocument, "fileType" | "previewHtml" | "previewImage" | "plainText" | "fields">> {
+  const fileType = fileName.toLowerCase().endsWith(".pdf") ? "pdf" : "docx";
   let plainText = "";
   let previewHtml: string | undefined;
   let previewImage: string | undefined;
@@ -119,19 +119,47 @@ export async function analyzeDocument(
     count: countOccurrences(plainText, placeholder),
   }));
 
+  return {
+    fileType,
+    previewHtml,
+    previewImage,
+    plainText,
+    fields,
+  };
+}
+
+export async function buildDocumentPreviewFromFileId(
+  fileId: string,
+  fileName: string,
+): Promise<Pick<TemplateDocument, "fileType" | "previewHtml" | "previewImage" | "plainText" | "fields">> {
+  const response = await fetch(`/api/proxy/files/${fileId}/download`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`Could not load document bytes (${response.status})`);
+  }
+  return buildDocumentPreviewFromBytes(fileName, await response.arrayBuffer());
+}
+
+export async function analyzeDocument(
+  file: File,
+): Promise<{ document: TemplateDocument; bytes: ArrayBuffer }> {
+  const bytes = await file.arrayBuffer();
+  const preview = await buildDocumentPreviewFromBytes(file.name, bytes);
+
   const id = uid("document");
   return {
     bytes,
     document: {
       id,
       fileName: file.name,
-      fileType,
+      fileType: preview.fileType,
       status: "draft",
-      fields,
+      fields: preview.fields,
       previewMode: "highlight",
-      previewHtml,
-      previewImage,
-      plainText,
+      previewHtml: preview.previewHtml,
+      previewImage: preview.previewImage,
+      plainText: preview.plainText,
       storageKey: `lawfirm-document:${id}`,
     },
   };

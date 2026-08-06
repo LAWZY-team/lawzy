@@ -15,22 +15,22 @@ function uid(prefix: string): string {
 }
 
 function seedProfile(): ClientProfile {
-  const profile = createProfile("vi", "Công ty TNHH An Phú");
+  const profile = createProfile("vi", "Hồ sơ khách hàng mẫu");
   profile.investorType = "organization";
   const values: Record<string, string> = {
-    f_to_ten: "Công ty TNHH An Phú",
-    f_to_loaihinh: "Công ty trách nhiệm hữu hạn",
-    f_to_mst: "0318123456",
-    f_to_ngaycap: "15/03/2021",
-    f_to_noicap: "Sở Kế hoạch và Đầu tư TP.HCM",
-    f_to_diachi: "128 Nguyễn Đình Chiểu, Phường Xuân Hòa, TP.HCM",
-    f_to_dienthoai: "028 3822 0918",
-    f_to_email: "phapche@anphu.vn",
-    f_to_website: "anphu.vn",
-    f_to_vondl: "5.000.000.000 đồng",
-    f_dd_hoten: "Nguyễn Minh Anh",
-    f_dd_chucdanh: "Giám đốc",
-    f_dd_madinhdanh: "079091001234",
+    f_to_ten: "",
+    f_to_loaihinh: "",
+    f_to_mst: "",
+    f_to_ngaycap: "",
+    f_to_noicap: "",
+    f_to_diachi: "",
+    f_to_dienthoai: "",
+    f_to_email: "",
+    f_to_website: "",
+    f_to_vondl: "",
+    f_dd_hoten: "",
+    f_dd_chucdanh: "",
+    f_dd_madinhdanh: "",
   };
   profile.fields = profile.fields.map((field) => ({
     ...field,

@@ -21,9 +21,17 @@ export interface AuthLayoutProps {
   className?: string;
   /** Override content max-width, e.g. "max-w-lg" for wider forms like register */
   contentMaxWidth?: string;
+  centerContent?: boolean;
 }
 
-export function AuthLayout({ children, leftPanel, rightPanel, className, contentMaxWidth = "max-w-md" }: AuthLayoutProps) {
+export function AuthLayout({
+  children,
+  leftPanel,
+  rightPanel,
+  className,
+  contentMaxWidth = "max-w-md",
+  centerContent = false,
+}: AuthLayoutProps) {
   const { t, locale, setLocale } = useT();
 
   return (
@@ -53,7 +61,12 @@ export function AuthLayout({ children, leftPanel, rightPanel, className, content
       </header>
 
       <div className={cn("flex flex-1 min-h-0 overflow-hidden", className)}>
-        <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-0">
+        <div
+          className={cn(
+            "h-full w-full grid grid-cols-1 gap-0",
+            leftPanel ? "lg:grid-cols-[320px_1fr]" : "lg:grid-cols-1",
+          )}
+        >
           {leftPanel && (
             <div className="hidden lg:flex p-3 pb-3">
               <div className="flex flex-col justify-center w-full rounded-2xl bg-gradient-to-b from-gray-50/80 to-gray-100/60 dark:from-gray-900/50 dark:to-gray-800/40 px-6 py-8">
@@ -62,8 +75,19 @@ export function AuthLayout({ children, leftPanel, rightPanel, className, content
             </div>
           )}
 
-          <div className="flex flex-col justify-start overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8">
-            <div className={cn("w-full mx-auto flex flex-col justify-center min-h-0 py-4 sm:py-6", contentMaxWidth)}>
+          <div
+            className={cn(
+              "flex min-h-0 flex-col overflow-y-auto p-4 sm:p-6 lg:p-8",
+              centerContent ? "justify-center" : "justify-start",
+            )}
+          >
+            <div
+              className={cn(
+                "flex min-h-0 w-full flex-col py-4 sm:py-6",
+                centerContent ? "mx-auto justify-center" : "mx-auto justify-center",
+                contentMaxWidth,
+              )}
+            >
               {children}
             </div>
           </div>

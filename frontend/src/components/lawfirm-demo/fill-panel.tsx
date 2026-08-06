@@ -117,6 +117,8 @@ export function FillPanel({
   activeTemplateId,
   onSelectProfile,
   onSelectTemplate,
+  onRunServerFill,
+  getDownloadUrl,
 }: {
   locale: Locale;
   profiles: ClientProfile[];
@@ -125,6 +127,8 @@ export function FillPanel({
   activeTemplateId: string;
   onSelectProfile: (id: string) => void;
   onSelectTemplate: (id: string) => void;
+  onRunServerFill?: (profileId: string, templateSetId: string) => Promise<{ id: string }>;
+  getDownloadUrl?: (runId: string) => string;
 }) {
   const t = copy[locale];
   const readyTemplates = templates.filter((template) => template.status === "ready");
@@ -167,6 +171,31 @@ export function FillPanel({
     }
     setError("");
     setResults([]);
+
+    if (onRunServerFill && selectedTemplate) {
+      try {
+        setProgress(t.processing);
+        const run = await onRunServerFill(profile.id, selectedTemplate.id);
+        setProgress("");
+        if (getDownloadUrl) {
+          window.open(getDownloadUrl(run.id), "_blank");
+        }
+        setResults([
+          {
+            id: run.id,
+            name: "ho_so_da_dien.zip",
+            count: selectedTemplate.documents.length,
+            state: "success",
+          },
+        ]);
+        return;
+      } catch {
+        setProgress("");
+        setError(t.error);
+        return;
+      }
+    }
+
     const nextResults: FillResult[] = [];
 
     if (selectedTemplate) {
