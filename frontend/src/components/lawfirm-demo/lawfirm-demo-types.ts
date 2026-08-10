@@ -16,6 +16,8 @@ export type ProfileField = {
 export type ClientProfile = {
   id: string;
   name: string;
+  description?: string;
+  createdAt?: string;
   investorType: InvestorType;
   fields: ProfileField[];
 };
@@ -46,6 +48,8 @@ export type TemplateDocument = {
 export type TemplateSet = {
   id: string;
   name: string;
+  description?: string;
+  createdAt?: string;
   status: TemplateStatus;
   documents: TemplateDocument[];
 };

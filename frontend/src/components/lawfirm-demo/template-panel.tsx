@@ -15,6 +15,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   analyzeDocument,
@@ -212,7 +219,7 @@ export function TemplatePanel({
   mode,
   profiles,
   templates,
-  activeTemplate,
+  activeTemplate: activeTemplateProp,
   activeProfileId,
   onSelectTemplate,
   onSelectProfile,
@@ -224,6 +231,10 @@ export function TemplatePanel({
   onUpdateProfile,
   onUpdateDocument,
   onScanDocument,
+  aiScanSuggestions = [],
+  onApproveSuggestions,
+  onDismissSuggestion,
+  onDismissAllSuggestions,
   onUploadDocument,
   onRemoveDocument,
 }: {
@@ -231,7 +242,7 @@ export function TemplatePanel({
   mode: "library" | "editor";
   profiles: ClientProfile[];
   templates: TemplateSet[];
-  activeTemplate: TemplateSet;
+  activeTemplate?: TemplateSet;
   activeProfileId: string;
   onSelectTemplate: (id: string) => void;
   onSelectProfile: (id: string) => void;
@@ -257,14 +268,43 @@ export function TemplatePanel({
       source: "deterministic" | "ai";
     }>;
   }>;
+  aiScanSuggestions?: Array<{
+    documentId: string;
+    documentName: string;
+    suggestions: Array<{
+      placeholder: string;
+      mappedKey: string;
+      label: string;
+      confidence: number;
+      source: "deterministic" | "ai";
+    }>;
+  }>;
+  onApproveSuggestions?: (
+    docId: string,
+    approved: Array<{ placeholder: string; mappedKey: string; label: string }>,
+  ) => void;
+  onDismissSuggestion?: (docId: string, placeholder: string) => void;
+  onDismissAllSuggestions?: (docId: string) => void;
   onUploadDocument?: (file: File) => Promise<void>;
   onRemoveDocument?: (docId: string) => Promise<void>;
 }) {
   const t = copy[locale];
+  const activeTemplate =
+    activeTemplateProp ??
+    templates.find((item) => item.id === templates[0]?.id) ??
+    templates[0];
+
   const [draftName, setDraftName] = useState(activeTemplate.name);
   const draftNameRef = useRef(activeTemplate.name);
   const isNameDirtyRef = useRef(false);
   const isNameSavingRef = useRef(false);
+
+  const [draftDescription, setDraftDescription] = useState(activeTemplate.description ?? "");
+  const draftDescriptionRef = useRef(activeTemplate.description ?? "");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [previewModalTpl, setPreviewModalTpl] = useState<TemplateSet | null>(null);
+
   const [activeDocumentId, setActiveDocumentId] = useState(
     activeTemplate.documents[0]?.id ?? "",
   );
@@ -278,24 +318,16 @@ export function TemplatePanel({
       draftNameRef.current = activeTemplate.name;
       setDraftName(activeTemplate.name);
     }
-  }, [activeTemplate.id, activeTemplate.name]);
+    draftDescriptionRef.current = activeTemplate.description ?? "";
+    setDraftDescription(activeTemplate.description ?? "");
+  }, [activeTemplate.id, activeTemplate.name, activeTemplate.description]);
 
   const activeDocument =
     activeTemplate.documents.find((item) => item.id === activeDocumentId) ??
     activeTemplate.documents[0];
 
   const update = (updater: (template: TemplateSet) => TemplateSet): void => {
-    void Promise.resolve(onUpdateTemplate(activeTemplate.id, updater)).catch(
-      (error: unknown) => {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : locale === "vi"
-              ? "Không thể lưu bộ hồ sơ."
-              : "Could not save template set.",
-        );
-      },
-    );
+    onUpdateTemplate(activeTemplate.id, updater);
   };
 
   const saveTemplateName = async (): Promise<void> => {
@@ -320,6 +352,49 @@ export function TemplatePanel({
     } finally {
       isNameSavingRef.current = false;
     }
+  };
+
+  const saveTemplateDescription = async (): Promise<void> => {
+    const currentDesc = draftDescriptionRef.current;
+    if (currentDesc === (activeTemplate.description ?? "")) return;
+    try {
+      await onUpdateTemplate(activeTemplate.id, (template) => ({
+        ...template,
+        description: currentDesc,
+      }));
+    } catch {
+      // Ignore
+    }
+  };
+
+  const sortedTemplates = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    let list = templates;
+    if (q) {
+      list = templates.filter(
+        (tpl) =>
+          (tpl.name || "").toLowerCase().includes(q) ||
+          (tpl.description || "").toLowerCase().includes(q) ||
+          tpl.documents.some((d) => d.fileName.toLowerCase().includes(q)),
+      );
+    }
+    return [...list].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [templates, searchQuery]);
+
+  const formatTemplateDate = (dateStr?: string) => {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      return `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+    }
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const updateDocument = (
@@ -373,7 +448,6 @@ export function TemplatePanel({
   };
 
   const handleDeleteTemplate = async () => {
-    if (!window.confirm(t.deleteConfirm)) return;
     await Promise.all(
       activeTemplate.documents.map((item) =>
         item.storageKey ? deleteDocumentBytes(item.storageKey) : Promise.resolve(),
@@ -388,32 +462,31 @@ export function TemplatePanel({
   };
 
   if (mode === "library") {
-    const docCount = activeTemplate.documents.length;
-    const title = activeTemplate.name || (locale === "vi" ? "Chưa đặt tên" : "Untitled set");
-    const isDraft = activeTemplate.status === "draft";
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
         <header className="border-b border-zinc-200 pb-6">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-semibold tracking-normal text-zinc-950">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
               {locale === "vi" ? "THƯ VIỆN MẪU HỒ SƠ" : "TEMPLATE SET LIBRARY"}
             </h1>
-            <Button type="button" onClick={() => void handleCreateTemplate()}>
+            <Button type="button" onClick={() => void handleCreateTemplate()} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
               <Plus className="size-4" />
               {t.new}
             </Button>
           </div>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
             {locale === "vi"
               ? 'Duyệt các bộ hồ sơ mẫu đã chuẩn bị sẵn. Bấm "Xem trước" để xem nội dung bên trong và hướng dẫn sử dụng trước khi dùng để điền hồ sơ.'
               : "Review prepared template sets. Use preview to see details and usage guidance before filling documents."}
           </p>
         </header>
 
-        <div className="rounded-md border border-zinc-200 bg-white p-4">
-          <div className="mx-auto mb-4 max-w-3xl">
+        <div className="rounded-lg border border-zinc-200 bg-white p-5 space-y-5">
+          <div className="mx-auto max-w-3xl">
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={
                 locale === "vi"
                   ? "Tìm theo tên bộ hồ sơ, mô tả, nguồn luật..."
@@ -423,56 +496,160 @@ export function TemplatePanel({
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="grid gap-5 md:grid-cols-2">
             <button
               type="button"
               onClick={() => void handleCreateTemplate()}
-              className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-dashed border-zinc-300 bg-white transition hover:border-zinc-950"
+              className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-6 transition hover:border-zinc-950 hover:bg-zinc-100/60 group"
             >
-              <Plus className="size-8 text-zinc-950" />
-              <div className="mt-3 text-sm font-medium text-zinc-700">
+              <div className="flex size-12 items-center justify-center rounded-full bg-white border border-zinc-200 shadow-2xs group-hover:scale-105 transition">
+                <Plus className="size-6 text-zinc-950" />
+              </div>
+              <div className="mt-3 text-sm font-bold text-zinc-900">
                 {locale === "vi" ? "Tạo bộ hồ sơ mẫu mới" : "Create new template set"}
               </div>
+              <p className="mt-1 text-xs text-zinc-500 text-center">
+                {locale === "vi" ? "Thêm tài liệu mẫu DOCX / PDF mới vào hệ thống" : "Add new template documents to library"}
+              </p>
             </button>
 
-            <div className="rounded-md border border-zinc-200 bg-white p-5">
-              <div className="relative flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-zinc-100">
-                    <HelpCircle className="size-5 text-zinc-700" />
+            {sortedTemplates.map((tpl) => {
+              const title = tpl.name || (locale === "vi" ? "Bộ chưa đặt tên" : "Untitled set");
+              const desc = tpl.description || (locale === "vi" ? "Chưa có mô tả." : "No description.");
+              const dateFormatted = formatTemplateDate(tpl.createdAt);
+
+              return (
+                <div
+                  key={tpl.id}
+                  className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-2xs hover:border-zinc-300 hover:shadow-xs transition"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
+                      <div>
+                        <span className="text-[11px] font-medium text-zinc-400">
+                          {dateFormatted}
+                        </span>
+                        <h2 className="text-base font-bold text-zinc-950 mt-0.5 line-clamp-1">{title}</h2>
+                      </div>
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-zinc-950 px-2.5 py-0.5 text-xs font-semibold text-white">
+                        {tpl.documents.length} {locale === "vi" ? "tài liệu" : "docs"}
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-xs leading-relaxed text-zinc-600 line-clamp-3">
+                      {desc}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => {
+                        onSelectTemplate(tpl.id);
+                        setPreviewModalTpl(tpl);
+                      }}
+                    >
+                      {locale === "vi" ? "Xem trước" : "Preview"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
+                      onClick={() => {
+                        onSelectTemplate(tpl.id);
+                        onModeChange("editor");
+                      }}
+                    >
+                      {locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        if (window.confirm(locale === "vi" ? `Xóa bộ hồ sơ "${title}"?` : `Delete template set "${title}"?`)) {
+                          onDeleteTemplate(tpl.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
                 </div>
-                <div className="rounded-full bg-zinc-950 px-2 py-1 text-xs font-medium text-white">
-                  {docCount} tài liệu
-                </div>
-              </div>
-
-              <h2 className="mt-4 text-lg font-semibold text-zinc-950">{title}</h2>
-              <p className="mt-1 text-sm text-zinc-600">
-                {locale === "vi" ? "Chưa có hướng dẫn sử dụng." : "No usage guidance yet."}
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatusBadge strong={isDraft}>{isDraft ? "DANG SOAN" : "HOAN TAT"}</StatusBadge>
-                <StatusBadge>{locale === "vi" ? "CON HIEU LUC" : "EFFECTIVE"}</StatusBadge>
-                <StatusBadge>{locale === "vi" ? "RIENG TU" : "UNIQUE"}</StatusBadge>
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
-                  {locale === "vi" ? "Xem trước" : "Preview"}
-                </Button>
-                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
-                  {locale === "vi" ? "Chỉnh sửa" : "Edit"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void handleDeleteTemplate()}>
-                  <Trash2 className="size-4" />
-                  {locale === "vi" ? "Xóa" : "Delete"}
-                </Button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
+
+        <Dialog open={!!previewModalTpl} onOpenChange={(open) => !open && setPreviewModalTpl(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-6">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-zinc-950">
+                {previewModalTpl?.name || (locale === "vi" ? "Bộ chưa đặt tên" : "Untitled set")}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-zinc-500">
+                Tạo ngày: {formatTemplateDate(previewModalTpl?.createdAt)} • {previewModalTpl?.documents.length || 0} tài liệu
+              </DialogDescription>
+            </DialogHeader>
+
+            {previewModalTpl?.description && (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50/80 p-3 text-xs text-zinc-700 leading-relaxed">
+                <span className="font-semibold text-zinc-900">Mô tả: </span>
+                {previewModalTpl.description}
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto space-y-3 mt-2">
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Danh sách tài liệu:</h3>
+              {previewModalTpl?.documents.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic p-4 text-center">Chưa có tài liệu nào trong bộ mẫu này.</p>
+              ) : (
+                previewModalTpl?.documents.map((doc) => (
+                  <div key={doc.id} className="rounded-md border border-zinc-200 bg-white p-3.5 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-zinc-950">{doc.fileName}</span>
+                      <span className="text-[11px] font-medium text-zinc-500">{doc.fields.length} trường thông tin</span>
+                    </div>
+                    {doc.fields.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {doc.fields.map((f) => (
+                          <span key={f.id} className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[10px] text-zinc-700">
+                            {f.placeholder}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 mt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setPreviewModalTpl(null)}>
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-zinc-950 text-white hover:bg-zinc-800"
+                onClick={() => {
+                  const tplId = previewModalTpl?.id;
+                  setPreviewModalTpl(null);
+                  if (tplId) {
+                    onSelectTemplate(tplId);
+                    onModeChange("editor");
+                  }
+                }}
+              >
+                Chỉnh sửa bộ này
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -511,20 +688,42 @@ export function TemplatePanel({
           ))}
         </div>
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(280px,1fr)_auto] xl:items-end">
-          <div>
-            <FieldLabel htmlFor="template-name">{t.name}</FieldLabel>
-            <input
-              id="template-name"
-              value={draftName}
-              onChange={(event) => {
-                draftNameRef.current = event.target.value;
-                isNameDirtyRef.current = true;
-                setDraftName(event.target.value);
-              }}
-              onBlur={() => void saveTemplateName()}
-              placeholder={t.namePlaceholder}
-              className={inputClass}
-            />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FieldLabel htmlFor="template-name">{t.name}</FieldLabel>
+              <input
+                id="template-name"
+                value={draftName}
+                onChange={(event) => {
+                  draftNameRef.current = event.target.value;
+                  isNameDirtyRef.current = true;
+                  setDraftName(event.target.value);
+                }}
+                onBlur={() => void saveTemplateName()}
+                placeholder={t.namePlaceholder}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="template-description">
+                {locale === "vi" ? "Mô tả bộ hồ sơ" : "Description"}
+              </FieldLabel>
+              <input
+                id="template-description"
+                value={draftDescription}
+                onChange={(event) => {
+                  draftDescriptionRef.current = event.target.value;
+                  setDraftDescription(event.target.value);
+                }}
+                onBlur={() => void saveTemplateDescription()}
+                placeholder={
+                  locale === "vi"
+                    ? "Nhập mô tả bộ hồ sơ (ví dụ: Dùng cho hợp đồng mua bán, thành lập công ty...)"
+                    : "Enter description for this template set..."
+                }
+                className={inputClass}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge strong={activeTemplate.status === "ready"}>

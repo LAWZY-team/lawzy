@@ -5,7 +5,7 @@ export interface ExtractedContractTemplateText {
   text: string;
   pageCount: number;
   detectedMimeType: string;
-  fileExtension: '.pdf' | '.docx';
+  fileExtension: '.pdf' | '.docx' | '.doc';
 }
 
 function decodeHtmlEntities(input: string): string {

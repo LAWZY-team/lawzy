@@ -88,6 +88,7 @@ export class LawfirmTemplateSetsService {
         workspaceId: dto.workspaceId,
         createdBy: userId,
         name: dto.name.trim(),
+        description: dto.description?.trim() ?? null,
         status: dto.status ?? 'draft',
         visibility: dto.visibility ?? 'private',
       },
@@ -116,6 +117,7 @@ export class LawfirmTemplateSetsService {
       where: { id, revision: dto.revision },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.description !== undefined && { description: dto.description.trim() }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.visibility !== undefined && { visibility: dto.visibility }),
         revision: { increment: 1 },

@@ -22,6 +22,10 @@ export class CreateTemplateSetDto {
   name!: string;
 
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsIn(['draft', 'ready'])
   status?: 'draft' | 'ready';
 
@@ -39,6 +43,10 @@ export class UpdateTemplateSetDto {
   @IsString()
   @MaxLength(200)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @IsOptional()
   @IsIn(['draft', 'ready'])

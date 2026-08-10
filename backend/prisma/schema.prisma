@@ -777,6 +777,7 @@ model LawfirmClientProfile {
   workspaceId  String   @map("workspace_id")
   createdBy    String   @map("created_by")
   name         String
+  description  String?
   investorType String   @default("organization") @map("investor_type")
   revision     Int      @default(1)
   status       String   @default("active")
@@ -816,6 +817,7 @@ model LawfirmTemplateSet {
   workspaceId String   @map("workspace_id")
   createdBy   String   @map("created_by")
   name        String
+  description String?
   status      String   @default("draft")
   visibility  String   @default("private")
   revision    Int      @default(1)

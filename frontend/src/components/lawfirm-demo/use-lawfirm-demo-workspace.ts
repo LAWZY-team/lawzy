@@ -22,6 +22,8 @@ function createTemplateSet(): TemplateSet {
   return {
     id: uid("template"),
     name: "",
+    description: "",
+    createdAt: new Date().toISOString(),
     status: "draft",
     documents: [],
   };

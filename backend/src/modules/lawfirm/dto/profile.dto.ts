@@ -51,6 +51,10 @@ export class CreateProfileDto {
   name!: string;
 
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsIn(['individual', 'organization'])
   investorType?: 'individual' | 'organization';
 
@@ -69,6 +73,10 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(200)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @IsOptional()
   @IsIn(['individual', 'organization'])

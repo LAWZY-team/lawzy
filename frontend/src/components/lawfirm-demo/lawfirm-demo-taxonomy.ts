@@ -58,6 +58,8 @@ export function createProfile(locale: Locale, name = ""): ClientProfile {
   return {
     id: `profile-${crypto.randomUUID()}`,
     name,
+    description: "",
+    createdAt: new Date().toISOString(),
     investorType: "individual",
     fields: createDefaultFields(locale),
   };

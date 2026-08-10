@@ -59,6 +59,7 @@ export class LawfirmProfilesService {
           workspaceId: dto.workspaceId,
           createdBy: userId,
           name: dto.name.trim(),
+          description: dto.description?.trim() ?? null,
           investorType: dto.investorType ?? 'organization',
           fields: {
             create: dto.fields.map((field, index) => ({
@@ -97,6 +98,7 @@ export class LawfirmProfilesService {
         where: { id, revision: dto.revision },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
+          ...(dto.description !== undefined && { description: dto.description.trim() }),
           ...(dto.investorType !== undefined && { investorType: dto.investorType }),
           ...(dto.status !== undefined && { status: dto.status }),
           revision: { increment: 1 },

@@ -256,149 +256,236 @@ export function ProfilePanel({
     onModeChange("editor");
   };
 
+  const [searchQuery, setSearchQuery] = React.useState("");
+
+  const sortedProfiles = React.useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    let list = profiles;
+    if (q) {
+      list = profiles.filter(
+        (p) =>
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.description || "").toLowerCase().includes(q) ||
+          p.fields.some(
+            (f) =>
+              f.label.toLowerCase().includes(q) ||
+              f.value.toLowerCase().includes(q),
+          ),
+      );
+    }
+    return [...list].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [profiles, searchQuery]);
+
+  const formatProfileDate = (dateStr?: string) => {
+    const d = dateStr ? new Date(dateStr) : new Date();
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      return `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+    }
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   // --- 1. LIBRARY VIEW ---
   if (mode === "library") {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-5 lg:px-6 overflow-x-hidden">
-        <header className="border-b border-zinc-200 pb-4">
-          <h1 className="text-lg font-bold tracking-tight text-zinc-950">
-            {t.libraryTitle}
-          </h1>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8 overflow-x-hidden">
+        <header className="border-b border-zinc-200 pb-6">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
+              {t.libraryTitle}
+            </h1>
+            <Button type="button" onClick={() => void handleCreateProfile()} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
+              <Plus className="size-4" />
+              {t.createFirst}
+            </Button>
+          </div>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
             {t.libraryDesc}
           </p>
         </header>
 
-        {profiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center">
-            <div className="flex size-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
-              <Building2 className="size-5" />
-            </div>
-            <h3 className="mt-3 text-sm font-bold text-zinc-950">{t.emptyLibrary}</h3>
-            <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500">
-              {t.emptyLibraryDesc}
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <Button type="button" size="sm" onClick={() => void handleCreateProfile()} className="bg-zinc-950 text-white hover:bg-zinc-800">
-                <Plus className="size-4" />
-                {t.createFirst}
-              </Button>
-              {onUploadIdentity && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => identityInputRef.current?.click()}
-                >
-                  <Sparkles className="size-4 text-amber-600" />
-                  {t.aiScanFirst}
-                </Button>
-              )}
-            </div>
+        <div className="rounded-lg border border-zinc-200 bg-white p-5 space-y-5">
+          <div className="mx-auto max-w-3xl">
             <input
-              ref={identityInputRef}
-              type="file"
-              accept="image/*,.pdf"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void (async () => {
-                    await handleCreateProfile();
-                    await handleIdentityUpload(file);
-                  })();
-                }
-                event.currentTarget.value = "";
-              }}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={
+                locale === "vi"
+                  ? "Tìm theo tên hồ sơ, mô tả, MST, thông tin định danh..."
+                  : "Search by profile name, description, tax ID..."
+              }
+              className={inputClass}
             />
           </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => void handleCreateProfile()}
-              className="flex min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white p-5 transition hover:border-zinc-950 hover:bg-zinc-50/50"
-            >
-              <div className="flex size-9 items-center justify-center rounded-full bg-zinc-100">
-                <Plus className="size-4 text-zinc-800" />
+
+          {profiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center">
+              <div className="flex size-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
+                <Building2 className="size-5" />
               </div>
-              <span className="mt-2.5 text-xs font-semibold text-zinc-800">{t.createFirst}</span>
-            </button>
+              <h3 className="mt-3 text-sm font-bold text-zinc-950">{t.emptyLibrary}</h3>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500">
+                {t.emptyLibraryDesc}
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <Button type="button" size="sm" onClick={() => void handleCreateProfile()} className="bg-zinc-950 text-white hover:bg-zinc-800">
+                  <Plus className="size-4" />
+                  {t.createFirst}
+                </Button>
+                {onUploadIdentity && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => identityInputRef.current?.click()}
+                  >
+                    <Sparkles className="size-4 text-amber-600" />
+                    {t.aiScanFirst}
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={identityInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void (async () => {
+                      await handleCreateProfile();
+                      await handleIdentityUpload(file);
+                    })();
+                  }
+                  event.currentTarget.value = "";
+                }}
+              />
+            </div>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => void handleCreateProfile()}
+                className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-6 transition hover:border-zinc-950 hover:bg-zinc-100/60 group"
+              >
+                <div className="flex size-12 items-center justify-center rounded-full bg-white border border-zinc-200 shadow-2xs group-hover:scale-105 transition">
+                  <Plus className="size-6 text-zinc-950" />
+                </div>
+                <span className="mt-3 text-sm font-bold text-zinc-900">{t.createFirst}</span>
+                <p className="mt-1 text-xs text-zinc-500 text-center">
+                  Thêm cá nhân hoặc tổ chức mới vào cơ sở dữ liệu
+                </p>
+              </button>
 
-            {profiles.map((profile) => {
-              const filledCount = profile.fields.filter((f) => f.value.trim() !== "").length;
-              const isIndividual = profile.investorType === "individual";
-              const title = profile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile");
+              {sortedProfiles.map((profile) => {
+                const filledCount = profile.fields.filter((f) => f.value.trim() !== "").length;
+                const isIndividual = profile.investorType === "individual";
+                const title = profile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile");
+                const desc = profile.description || (locale === "vi" ? "Chưa có mô tả." : "No description.");
+                const dateFormatted = formatProfileDate(profile.createdAt);
 
-              return (
-                <div
-                  key={profile.id}
-                  className={cn(
-                    "flex flex-col justify-between rounded-lg border bg-white p-4 transition hover:shadow-xs",
-                    profile.id === currentProfile?.id ? "border-zinc-950 ring-1 ring-zinc-950/10" : "border-zinc-200",
-                  )}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <StatusBadge strong={isIndividual}>
-                        {isIndividual ? t.individual : t.organization}
-                      </StatusBadge>
-                      <span className="text-[11px] font-medium text-zinc-400">
-                        {filledCount} {locale === "vi" ? "trường" : "fields"}
-                      </span>
+                return (
+                  <div
+                    key={profile.id}
+                    className={cn(
+                      "flex flex-col justify-between rounded-xl border bg-white p-5 shadow-2xs hover:border-zinc-300 hover:shadow-xs transition",
+                      profile.id === currentProfile?.id ? "border-zinc-950 ring-1 ring-zinc-950/10" : "border-zinc-200",
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
+                        <div>
+                          <span className="text-[11px] font-medium text-zinc-400">
+                            {dateFormatted}
+                          </span>
+                          <h3 className="text-base font-bold text-zinc-950 mt-0.5 line-clamp-1">{title}</h3>
+                        </div>
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-zinc-950 px-2.5 py-0.5 text-xs font-semibold text-white">
+                          {filledCount} {locale === "vi" ? "trường" : "fields"}
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <span className={cn(
+                          "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                          isIndividual ? "bg-amber-50 text-amber-800 border border-amber-200/60" : "bg-blue-50 text-blue-800 border border-blue-200/60"
+                        )}>
+                          {isIndividual ? t.individual : t.organization}
+                        </span>
+                      </div>
+
+                      <p className="mt-2.5 text-xs leading-relaxed text-zinc-600 line-clamp-3">
+                        {desc}
+                      </p>
                     </div>
 
-                    <h3 className="mt-2.5 text-xs font-bold tracking-tight text-zinc-950 line-clamp-1">
-                      {title}
-                    </h3>
+                    <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => setPreviewModalProfile(profile)}
+                      >
+                        <Eye className="size-3.5" />
+                        {t.preview}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
+                        onClick={() => {
+                          onSelect(profile.id);
+                          onModeChange("editor");
+                        }}
+                      >
+                        <Pencil className="size-3.5" />
+                        {t.edit}
+                      </Button>
+                    </div>
                   </div>
-
-                  <div className="mt-5 flex gap-2 border-t border-zinc-100 pt-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => setPreviewModalProfile(profile)}
-                    >
-                      <Eye className="size-3.5" />
-                      {t.preview}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => {
-                        onSelect(profile.id);
-                        onModeChange("editor");
-                      }}
-                    >
-                      <Pencil className="size-3.5" />
-                      {t.edit}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* --- PREVIEW MODAL DIALOG --- */}
         <Dialog open={Boolean(previewModalProfile)} onOpenChange={(open) => !open && setPreviewModalProfile(null)}>
-          <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto border-zinc-200 bg-white p-6 shadow-lg">
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-zinc-200 bg-white p-6 shadow-lg">
             {previewModalProfile && (
               <>
                 <DialogHeader className="border-b border-zinc-200 pb-3">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge strong={previewModalProfile.investorType === "individual"}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn(
+                      "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                      previewModalProfile.investorType === "individual" ? "bg-amber-50 text-amber-800 border border-amber-200/60" : "bg-blue-50 text-blue-800 border border-blue-200/60"
+                    )}>
                       {previewModalProfile.investorType === "individual" ? t.individual : t.organization}
-                    </StatusBadge>
+                    </span>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Tạo ngày: {formatProfileDate(previewModalProfile.createdAt)}
+                    </span>
                   </div>
                   <DialogTitle className="mt-2 text-xl font-bold text-zinc-950">
                     {previewModalProfile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile")}
                   </DialogTitle>
                 </DialogHeader>
+
+                {previewModalProfile.description && (
+                  <div className="rounded-md border border-zinc-200 bg-zinc-50/80 p-3 text-xs text-zinc-700 leading-relaxed">
+                    <span className="font-semibold text-zinc-900">Mô tả: </span>
+                    {previewModalProfile.description}
+                  </div>
+                )}
 
                 <div className="space-y-4 py-3">
                   {visibleGroups(previewModalProfile.investorType).map((group) => {
@@ -575,14 +662,32 @@ export function ProfilePanel({
             }
           >
             <div className="border-b border-zinc-200 p-3">
-              <FieldLabel>{t.name}</FieldLabel>
-              <input
-                value={draftProfile.name}
-                onChange={(e) => patch({ name: e.target.value })}
-                onBlur={saveProfile}
-                placeholder={t.namePlaceholder}
-                className={inputClass}
-              />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <FieldLabel>{t.name}</FieldLabel>
+                  <input
+                    value={draftProfile.name}
+                    onChange={(e) => patch({ name: e.target.value })}
+                    onBlur={saveProfile}
+                    placeholder={t.namePlaceholder}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>{locale === "vi" ? "Mô tả hồ sơ khách hàng" : "Profile Description"}</FieldLabel>
+                  <input
+                    value={draftProfile.description ?? ""}
+                    onChange={(e) => patch({ description: e.target.value })}
+                    onBlur={saveProfile}
+                    placeholder={
+                      locale === "vi"
+                        ? "Ghi thông tin mô tả (ví dụ: MST, Người đại diện, ghi chú...)"
+                        : "Enter profile description..."
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="border-b border-zinc-200 p-3">

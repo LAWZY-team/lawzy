@@ -17,6 +17,8 @@ import type {
 export const mapProfileDto = (profile: LawfirmProfileDto): ClientProfile => ({
   id: profile.id,
   name: profile.name,
+  description: profile.description ?? "",
+  createdAt: profile.created_at,
   investorType: profile.investor_type as InvestorType,
   fields: profile.fields.map(
     (field): ProfileField => ({
@@ -32,6 +34,7 @@ export const mapProfileDto = (profile: LawfirmProfileDto): ClientProfile => ({
 export const mapProfileToUpdate = (profile: ClientProfile, revision: number) => ({
   revision,
   name: profile.name,
+  description: profile.description ?? "",
   investorType: profile.investorType,
   fields: profile.fields.map((field, index) => ({
     fieldKey: field.id,
@@ -68,6 +71,8 @@ export const mapTemplateDocumentDto = (doc: LawfirmTemplateDocumentDto): Templat
 export const mapTemplateSetDto = (template: LawfirmTemplateSetDto): TemplateSet => ({
   id: template.id,
   name: template.name,
+  description: template.description ?? "",
+  createdAt: template.created_at,
   status: template.status,
   documents: template.documents.map(mapTemplateDocumentDto),
 });
@@ -79,6 +84,7 @@ export const mapTemplateSetToUpdate = (
 ) => ({
   revision,
   name: template.name,
+  description: template.description ?? "",
   status: template.status,
   visibility: extra?.visibility,
 });

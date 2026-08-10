@@ -20,6 +20,7 @@ export interface LawfirmProfileDto {
   id: string;
   workspace_id: string;
   name: string;
+  description?: string | null;
   investor_type: LawfirmInvestorType;
   revision: number;
   status: string;
@@ -57,6 +58,7 @@ export interface LawfirmTemplateSetDto {
   id: string;
   workspace_id: string;
   name: string;
+  description?: string | null;
   status: LawfirmTemplateStatus;
   visibility: LawfirmVisibility;
   revision: number;
