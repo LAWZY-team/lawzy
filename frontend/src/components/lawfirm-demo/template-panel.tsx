@@ -5,14 +5,33 @@ import DOMPurify from "isomorphic-dompurify";
 import {
   Check,
   FileText,
+  GripVertical,
   Highlighter,
   PencilLine,
   HelpCircle,
+  Loader2,
   Plus,
   Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -305,6 +324,26 @@ export function TemplatePanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [previewModalTpl, setPreviewModalTpl] = useState<TemplateSet | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [backgroundScanningIds, setBackgroundScanningIds] = useState<Set<string>>(new Set());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      update((template) => {
+        const oldIndex = template.documents.findIndex((d) => d.id === active.id);
+        const newIndex = template.documents.findIndex((d) => d.id === over.id);
+        return {
+          ...template,
+          documents: arrayMove(template.documents, oldIndex, newIndex),
+        };
+      });
+    }
+  };
 
   const [activeDocumentId, setActiveDocumentId] = useState(
     activeTemplate.documents[0]?.id ?? "",
@@ -409,6 +448,51 @@ export function TemplatePanel({
       ),
     }));
   };
+
+  useEffect(() => {
+    if (!onScanDocument) return;
+
+    const unscanned = activeTemplate.documents.filter(
+      (doc) =>
+        (doc.fileType === "docx" || doc.fileType === "doc") &&
+        doc.fields.length === 0 &&
+        !backgroundScanningIds.has(doc.id),
+    );
+
+    if (unscanned.length === 0) return;
+
+    const targetDoc = unscanned[0];
+    setBackgroundScanningIds((prev) => new Set(prev).add(targetDoc.id));
+
+    void (async () => {
+      try {
+        const plainText = targetDoc.plainText || "";
+        const scanResult = await onScanDocument(targetDoc.id);
+
+        if (scanResult && scanResult.ai && scanResult.ai.length > 0) {
+          updateDocument(targetDoc.id, (docItem) => ({
+            ...docItem,
+            fields: scanResult.ai.map((item) => ({
+              id: `field-${crypto.randomUUID()}`,
+              label: item.label,
+              placeholder: item.placeholder,
+              mappedKey: item.mappedKey,
+              source: "ai" as const,
+              count: Math.max(1, countOccurrences(plainText, item.placeholder)),
+            })),
+          }));
+        }
+      } catch {
+        /* silent catch */
+      } finally {
+        setBackgroundScanningIds((prev) => {
+          const next = new Set(prev);
+          next.delete(targetDoc.id);
+          return next;
+        });
+      }
+    })();
+  }, [activeTemplate.documents, backgroundScanningIds, onScanDocument]);
 
   const addFiles = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((file) => /\.(docx|doc|pdf)$/i.test(file.name));
@@ -675,6 +759,90 @@ export function TemplatePanel({
     );
   }
 
+function SortableDocumentItem({
+  documentItem,
+  isActive,
+  isScanning,
+  onSelect,
+  onRemove,
+  t,
+}: {
+  documentItem: TemplateDocument;
+  isActive: boolean;
+  isScanning: boolean;
+  onSelect: () => void;
+  onRemove: () => void;
+  t: any;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: documentItem.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-1.5 rounded-md border p-2 bg-white transition-all",
+        isActive ? "border-zinc-950 bg-zinc-50 shadow-2xs" : "border-zinc-200 hover:border-zinc-300",
+        isDragging && "opacity-50 z-50 shadow-md",
+      )}
+    >
+      <button
+        type="button"
+        className="touch-none cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-600 p-0.5"
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder document"
+      >
+        <GripVertical className="size-3.5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+      >
+        <FileText className="size-4 shrink-0 text-zinc-500" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-semibold text-zinc-900">{documentItem.fileName}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] uppercase text-zinc-500">
+            {isScanning ? (
+              <span className="inline-flex items-center gap-1 text-amber-700 font-medium lowercase">
+                <Loader2 className="size-3 animate-spin text-amber-600" />
+                <span>đang quét AI...</span>
+              </span>
+            ) : (
+              <span>
+                {documentItem.fileType} · {documentItem.fields.length} {t.fields.toLowerCase()}
+              </span>
+            )}
+          </span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Delete document"
+        className="flex size-7 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 transition"
+      >
+        <Trash2 className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
       <header className="border-b border-zinc-200 pb-6">
@@ -775,39 +943,24 @@ export function TemplatePanel({
       <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         <SectionCard title={t.documents}>
           <div className="space-y-2 p-3">
-            {activeTemplate.documents.map((documentItem) => (
-              <div
-                key={documentItem.id}
-                className={cn(
-                  "flex items-center gap-2 rounded-md border p-2",
-                  documentItem.id === activeDocument?.id
-                    ? "border-zinc-950 bg-zinc-50"
-                    : "border-zinc-200",
-                )}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={activeTemplate.documents.map((d) => d.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <button
-                  type="button"
-                  onClick={() => setActiveDocumentId(documentItem.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  <FileText className="size-4 shrink-0 text-zinc-500" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{documentItem.fileName}</span>
-                    <span className="mt-0.5 block text-xs uppercase text-zinc-500">
-                      {documentItem.fileType} · {documentItem.fields.length} {t.fields.toLowerCase()}
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void removeDocument(documentItem)}
-                  aria-label="Delete document"
-                  className="flex size-8 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+                {activeTemplate.documents.map((documentItem) => (
+                  <SortableDocumentItem
+                    key={documentItem.id}
+                    documentItem={documentItem}
+                    isActive={documentItem.id === activeDocument?.id}
+                    isScanning={backgroundScanningIds.has(documentItem.id)}
+                    onSelect={() => setActiveDocumentId(documentItem.id)}
+                    onRemove={() => void removeDocument(documentItem)}
+                    t={t}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
           <button
             type="button"
@@ -1504,23 +1657,50 @@ function PreviewPane({
     return <div className="rounded-md border border-zinc-200 bg-zinc-50 p-12 text-center text-sm text-zinc-500">{noPreview}</div>;
   }
   return (
-    <div
-      className={cn(
-        "lawfirm-document-preview max-h-[580px] overflow-auto rounded-md border bg-white p-6 text-sm leading-7 text-zinc-800",
-        documentItem.previewMode === "edit" ? "border-zinc-950" : "border-zinc-200",
-      )}
-      contentEditable={documentItem.previewMode === "edit"}
-      suppressContentEditableWarning
-      onMouseUp={() => {
-        if (documentItem.previewMode === "edit") return;
-        const selected = window.getSelection()?.toString() ?? "";
-        if (selected.trim()) onSelectText(selected);
-      }}
-      onBlur={(event) => {
-        if (documentItem.previewMode === "edit") onEdit(event.currentTarget.innerHTML);
-      }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      <style>{`
+        .lawfirm-document-preview table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 1rem;
+          margin-bottom: 1rem;
+          font-size: 0.75rem;
+          border: 1px solid #e4e4e7;
+        }
+        .lawfirm-document-preview th,
+        .lawfirm-document-preview td {
+          border: 1px solid #d4d4d8;
+          padding: 0.5rem 0.625rem;
+          text-align: left;
+          vertical-align: top;
+        }
+        .lawfirm-document-preview th {
+          background-color: #f4f4f5;
+          font-weight: 600;
+          color: #18181b;
+        }
+        .lawfirm-document-preview tr:nth-child(even) td {
+          background-color: #fafafa;
+        }
+      `}</style>
+      <div
+        className={cn(
+          "lawfirm-document-preview max-h-[580px] overflow-auto rounded-md border bg-white p-6 text-sm leading-7 text-zinc-800",
+          documentItem.previewMode === "edit" ? "border-zinc-950" : "border-zinc-200",
+        )}
+        contentEditable={documentItem.previewMode === "edit"}
+        suppressContentEditableWarning
+        onMouseUp={() => {
+          if (documentItem.previewMode === "edit") return;
+          const selected = window.getSelection()?.toString() ?? "";
+          if (selected.trim()) onSelectText(selected);
+        }}
+        onBlur={(event) => {
+          if (documentItem.previewMode === "edit") onEdit(event.currentTarget.innerHTML);
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </>
   );
 }
 

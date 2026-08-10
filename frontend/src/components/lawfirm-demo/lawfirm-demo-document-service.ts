@@ -114,6 +114,58 @@ async function extractDocxText(bytes: ArrayBuffer): Promise<string> {
   }
 }
 
+export function formatDocTextToHtml(text: string): string {
+  if (!text) return "";
+  const lines = text.split("\n\n").map((l) => l.trim()).filter(Boolean);
+
+  let html = "";
+  let inTable = false;
+  let tableRows: string[][] = [];
+
+  const renderCurrentTable = () => {
+    if (!tableRows.length) return "";
+    let tHtml = `<div class="my-4 overflow-x-auto"><table class="w-full border-collapse border border-zinc-300 text-xs"><thead><tr class="bg-zinc-100">`;
+    const headerRow = tableRows[0];
+    headerRow.forEach((cell) => {
+      tHtml += `<th class="border border-zinc-300 p-2 text-left font-semibold text-zinc-900">${encodeXml(cell)}</th>`;
+    });
+    tHtml += `</tr></thead><tbody>`;
+    for (let i = 1; i < tableRows.length; i++) {
+      const row = tableRows[i];
+      tHtml += `<tr class="${i % 2 === 0 ? "bg-zinc-50/50" : "bg-white"}">`;
+      headerRow.forEach((_, colIdx) => {
+        const cellVal = row[colIdx] ?? "";
+        tHtml += `<td class="border border-zinc-300 p-2 text-zinc-800">${encodeXml(cellVal)}</td>`;
+      });
+      tHtml += `</tr>`;
+    }
+    tHtml += `</tbody></table></div>`;
+    tableRows = [];
+    return tHtml;
+  };
+
+  for (const line of lines) {
+    if (line.includes("\t") || line.includes("   ")) {
+      const cells = line.split(/\t+|\s{3,}/).map((c) => c.trim()).filter(Boolean);
+      if (cells.length > 1) {
+        inTable = true;
+        tableRows.push(cells);
+        continue;
+      }
+    }
+    if (inTable) {
+      html += renderCurrentTable();
+      inTable = false;
+    }
+    html += `<p class="mb-2 leading-relaxed">${encodeXml(line)}</p>`;
+  }
+  if (inTable) {
+    html += renderCurrentTable();
+  }
+
+  return `<div class="p-4 space-y-2 font-sans text-xs text-zinc-900 bg-white border border-zinc-200 rounded-md shadow-2xs">${html}</div>`;
+}
+
 export async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | undefined> {
   try {
     const mammoth = await import("mammoth");
@@ -122,10 +174,7 @@ export async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | und
   } catch {
     const text = extractDocBinaryText(bytes);
     if (!text) return undefined;
-    return `<div class="p-4 space-y-3 font-sans text-xs leading-relaxed text-zinc-900 bg-white border border-zinc-200 rounded-md shadow-2xs">${text
-      .split("\n\n")
-      .map((p) => `<p>${encodeXml(p)}</p>`)
-      .join("")}</div>`;
+    return formatDocTextToHtml(text);
   }
 }
 
@@ -171,10 +220,7 @@ export async function buildDocumentPreviewFromBytes(
   } else if (fileType === "doc") {
     plainText = extractDocBinaryText(bytes.slice(0));
     if (plainText) {
-      previewHtml = `<div class="p-4 space-y-3 font-sans text-xs leading-relaxed text-zinc-900 bg-white border border-zinc-200 rounded-md shadow-2xs">${plainText
-        .split("\n\n")
-        .map((p) => `<p>${encodeXml(p)}</p>`)
-        .join("")}</div>`;
+      previewHtml = formatDocTextToHtml(plainText);
     }
   } else {
     plainText = await extractDocxText(bytes.slice(0));
