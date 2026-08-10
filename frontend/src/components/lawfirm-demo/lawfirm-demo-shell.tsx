@@ -184,6 +184,7 @@ export function LawfirmDemoShell() {
               onSelectTemplate={workspace.setActiveTemplateId}
               onRunServerFill={workspace.runFill}
               getDownloadUrl={lawfirmFillRunsApi.downloadUrl}
+              onUpdateProfile={workspace.updateProfile}
             />
           )}
         </section>

@@ -1,22 +1,30 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Archive,
   ArrowLeft,
   ArrowRight,
-  Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
+  Eye,
   FileCheck2,
-  FileText,
-  Sparkles,
-  Trash2,
-  UploadCloud,
+  Loader2,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
+  buildDocxPreview,
   createResultsZip,
   downloadBlob,
   fillDocx,
@@ -25,13 +33,10 @@ import { getDocumentBytes } from "./lawfirm-demo-storage";
 import type {
   ClientProfile,
   FillResult,
-  FillSourceFile,
   Locale,
   TemplateSet,
 } from "./lawfirm-demo-types";
 import {
-  EmptyState,
-  FieldLabel,
   inputClass,
   SectionCard,
   StatusBadge,
@@ -98,6 +103,7 @@ export function FillPanel({
   onSelectTemplate,
   onRunServerFill,
   getDownloadUrl,
+  onUpdateProfile,
 }: {
   locale: Locale;
   profiles: ClientProfile[];
@@ -108,12 +114,27 @@ export function FillPanel({
   onSelectTemplate: (id: string) => void;
   onRunServerFill?: (profileId: string, templateSetId: string) => Promise<{ id: string }>;
   getDownloadUrl?: (runId: string) => string;
+  onUpdateProfile?: (
+    id: string,
+    updater: (profile: ClientProfile) => ClientProfile,
+  ) => void;
 }) {
   const t = copy[locale];
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [results, setResults] = useState<FillResult[]>([]);
   const [isFilling, setIsFilling] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [, setErrorMsg] = useState("");
+
+  // Expandable state for filled details chip list on step 3 items
+  const [expandedDetailsMap, setExpandedDetailsMap] = useState<Record<string, boolean>>({});
+
+  const [previewItem, setPreviewItem] = useState<{
+    name: string;
+    html?: string;
+    loading?: boolean;
+    blob?: Blob;
+    filledDetails?: Array<{ placeholder: string; label: string; value: string }>;
+  } | null>(null);
 
   const selectedProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
   const selectedTemplate = templates.find((t) => t.id === activeTemplateId) ?? templates[0];
@@ -148,6 +169,23 @@ export function FillPanel({
     setEditedFields((prev) => ({ ...prev, [fieldId]: value }));
   };
 
+  const getFilledDetailsForDoc = (docName: string) => {
+    const matchingDoc = selectedTemplate?.documents.find(
+      (d) => d.fileName === docName || docName.includes(d.fileName.replace(/\.docx$/i, "")),
+    );
+    const fieldsToUse = matchingDoc?.fields || mappedFields;
+    return fieldsToUse.map((field) => {
+      const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+      const fieldKey = profileField?.id || field.mappedKey || field.id;
+      const val = editedFields[fieldKey] !== undefined ? editedFields[fieldKey] : (profileField?.value ?? "");
+      return {
+        placeholder: field.placeholder,
+        label: field.label,
+        value: val.trim() !== "" ? val : "(Chưa điền)",
+      };
+    });
+  };
+
   const executeFill = async () => {
     if (!selectedProfile || !selectedTemplate) return;
     setIsFilling(true);
@@ -156,9 +194,6 @@ export function FillPanel({
     try {
       if (onRunServerFill) {
         const run = await onRunServerFill(selectedProfile.id, selectedTemplate.id);
-        if (getDownloadUrl) {
-          window.open(getDownloadUrl(run.id), "_blank");
-        }
         setResults([
           {
             id: run.id,
@@ -174,7 +209,6 @@ export function FillPanel({
 
       // Client-side DOCX filling
       const nextResults: FillResult[] = [];
-      const valuesMap = Object.fromEntries(populatedFields.map((f) => [f.id, f.value]));
 
       for (const doc of selectedTemplate.documents) {
         const bytes = await getDocumentBytes(doc.id);
@@ -192,13 +226,18 @@ export function FillPanel({
         try {
           const replacements = doc.fields.map((field) => {
             const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+            const fieldKey = profileField?.id || field.mappedKey || field.id;
+            const customVal = editedFields[fieldKey] !== undefined
+              ? editedFields[fieldKey]
+              : (profileField?.value ?? "");
+
             const aliases = field.placeholder ? [field.placeholder] : [];
             if (profileField?.aliases) {
               aliases.push(...profileField.aliases.split(",").map((s) => s.trim()));
             }
             return {
               aliases,
-              value: profileField?.value ?? "",
+              value: customVal,
             };
           });
 
@@ -234,6 +273,66 @@ export function FillPanel({
     if (validResults.length > 0) {
       const zipBlob = await createResultsZip(validResults);
       downloadBlob(zipBlob, "ho_so_phap_ly_lawzy.zip");
+    } else if (getDownloadUrl && results[0]?.id) {
+      window.open(getDownloadUrl(results[0].id), "_blank");
+    }
+  };
+
+  const handlePreviewResult = async (res: FillResult) => {
+    const filledDetails = getFilledDetailsForDoc(res.name);
+    setPreviewItem({ name: res.name, loading: true, blob: res.blob, filledDetails });
+
+    try {
+      if (res.blob) {
+        const html = await buildDocxPreview(await res.blob.arrayBuffer());
+        setPreviewItem({
+          name: res.name,
+          html: html || (locale === "vi" ? "<p class='p-4 text-center text-zinc-500'>Không thể tạo bản xem trước HTML cho file này.</p>" : "<p class='p-4 text-center text-zinc-500'>Cannot render preview HTML.</p>"),
+          loading: false,
+          blob: res.blob,
+          filledDetails,
+        });
+        return;
+      }
+
+      const matchingDoc = selectedTemplate?.documents.find(
+        (d) => d.fileName === res.name || res.name.includes(d.fileName.replace(/\.docx$/i, "")),
+      );
+
+      let rawHtml = matchingDoc?.previewHtml || matchingDoc?.plainText || "";
+      if (rawHtml) {
+        const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        for (const field of matchingDoc?.fields || mappedFields) {
+          const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+          const fieldKey = profileField?.id || field.mappedKey || field.id;
+          const val = editedFields[fieldKey] !== undefined ? editedFields[fieldKey] : (profileField?.value ?? "");
+          if (field.placeholder) {
+            const pattern = new RegExp(escapeRegExp(field.placeholder), "g");
+            rawHtml = rawHtml.replace(
+              pattern,
+              `<mark style="background-color: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-weight: 600; border: 1px dashed #ca8a04;">${val || field.placeholder}</mark>`,
+            );
+          }
+        }
+      }
+
+      setPreviewItem({
+        name: res.name,
+        html: rawHtml
+          ? `<div class="prose max-w-none text-xs leading-relaxed font-sans">${rawHtml}</div>`
+          : (locale === "vi"
+              ? "<p class='p-4 text-center text-zinc-500'>Chưa có dữ liệu xem trước chi tiết cho file này. Vui lòng bấm Tải file để xem trực tiếp trên Word.</p>"
+              : "<p class='p-4 text-center text-zinc-500'>No detailed preview content available.</p>"),
+        loading: false,
+        filledDetails,
+      });
+    } catch (err) {
+      setPreviewItem({
+        name: res.name,
+        html: `<p class="p-4 text-red-500 text-xs">${err instanceof Error ? err.message : "Lỗi hiển thị bản xem trước"}</p>`,
+        loading: false,
+        filledDetails,
+      });
     }
   };
 
@@ -410,7 +509,10 @@ export function FillPanel({
                   <tbody className="divide-y divide-zinc-100 bg-white">
                     {mappedFields.map((field) => {
                       const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
-                      const val = profileField?.value ?? "";
+                      const fieldKey = profileField?.id || field.mappedKey || field.id;
+                      const val = editedFields[fieldKey] !== undefined
+                        ? editedFields[fieldKey]
+                        : (profileField?.value ?? "");
 
                       return (
                         <tr key={field.id} className="hover:bg-zinc-50/50">
@@ -420,7 +522,16 @@ export function FillPanel({
                             <input
                               type="text"
                               value={val}
-                              onChange={(e) => profileField && handleFieldChange(profileField.id, e.target.value)}
+                              onChange={(e) => {
+                                const nextVal = e.target.value;
+                                handleFieldChange(fieldKey, nextVal);
+                                if (profileField && onUpdateProfile) {
+                                  onUpdateProfile(selectedProfile.id, (p) => ({
+                                    ...p,
+                                    fields: p.fields.map((f) => (f.id === profileField.id ? { ...f, value: nextVal } : f)),
+                                  }));
+                                }
+                              }}
                               placeholder={locale === "vi" ? "Nhập giá trị điền..." : "Enter value..."}
                               className={cn(inputClass, "h-8 text-xs")}
                             />
@@ -457,41 +568,114 @@ export function FillPanel({
                   {locale === "vi" ? `Đã hoàn tất điền ${results.length} tài liệu thành công.` : `Successfully filled ${results.length} documents.`}
                 </p>
 
-                <Button type="button" onClick={handleDownloadZip} className="gap-2">
+                <Button type="button" onClick={handleDownloadZip} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
                   <Archive className="size-4" />
                   <span>{t.downloadZip}</span>
                 </Button>
               </div>
 
-              <div className="space-y-3">
-                {results.map((res) => (
-                  <div key={res.id} className="flex items-center justify-between rounded-md border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-                        <FileCheck2 className="size-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-zinc-950">{res.name}</p>
-                        <p className="text-[11px] text-zinc-500">
-                          {res.count} {locale === "vi" ? "vị trí đã điền" : "positions filled"}
-                        </p>
-                      </div>
-                    </div>
+              <div className="space-y-4">
+                {results.map((res) => {
+                  const filledDetails = getFilledDetailsForDoc(res.name);
+                  const isExpanded = expandedDetailsMap[res.id] ?? false;
 
-                    {res.blob && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadBlob(res.blob!, res.name)}
-                        className="gap-2 text-xs"
-                      >
-                        <Download className="size-3.5" />
-                        <span>{t.downloadSingle}</span>
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  return (
+                    <div key={res.id} className="rounded-md border border-zinc-200 bg-white p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+                            <FileCheck2 className="size-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-zinc-950">{res.name}</p>
+                            <p className="text-[11px] text-zinc-500">
+                              {res.count} {locale === "vi" ? "vị trí đã điền" : "positions filled"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePreviewResult(res)}
+                            className="gap-1.5 text-xs"
+                          >
+                            <Eye className="size-3.5" />
+                            <span>{locale === "vi" ? "Xem trước" : "Preview"}</span>
+                          </Button>
+
+                          {res.blob ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadBlob(res.blob!, res.name)}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Download className="size-3.5" />
+                              <span>{t.downloadSingle}</span>
+                            </Button>
+                          ) : getDownloadUrl && res.id ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(getDownloadUrl(res.id), "_blank")}
+                              className="gap-1.5 text-xs"
+                            >
+                              <Download className="size-3.5" />
+                              <span>{t.downloadSingle}</span>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Filled Values Summary Badge Chips */}
+                      {filledDetails.length > 0 && (
+                        <div className="rounded-md border border-zinc-100 bg-zinc-50/70 p-2.5 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-zinc-700 flex items-center gap-1.5">
+                              <Tag className="size-3 text-zinc-500" />
+                              <span>Nội dung các vị trí đã điền ({filledDetails.length}):</span>
+                            </span>
+
+                            {filledDetails.length > 3 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedDetailsMap((prev) => ({
+                                    ...prev,
+                                    [res.id]: !prev[res.id],
+                                  }))
+                                }
+                                className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 hover:text-zinc-950 transition"
+                              >
+                                <span>{isExpanded ? "Thu gọn" : `Xem tất cả (${filledDetails.length})`}</span>
+                                {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {(isExpanded ? filledDetails : filledDetails.slice(0, 3)).map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="inline-flex items-center gap-1.5 rounded border border-zinc-200 bg-white px-2 py-1 text-[11px]"
+                              >
+                                <span className="font-mono font-semibold text-zinc-900">{item.placeholder}:</span>
+                                <span className="font-medium text-emerald-700 max-w-[200px] truncate">
+                                  {item.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </SectionCard>
@@ -504,6 +688,71 @@ export function FillPanel({
           </div>
         </div>
       )}
+
+      {/* PREVIEW MODAL */}
+      <Dialog open={!!previewItem} onOpenChange={(open) => !open && setPreviewItem(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-zinc-950 flex items-center justify-between">
+              <span>{locale === "vi" ? `Xem trước tài liệu: ${previewItem?.name || ""}` : `Preview document: ${previewItem?.name || ""}`}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-500">
+              {locale === "vi"
+                ? "Kiểm tra chi tiết các vị trí đã được điền tự động trước khi tải file."
+                : "Review filled details inside document before downloading."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Structured Filled Details Summary in Preview Modal */}
+          {previewItem?.filledDetails && previewItem.filledDetails.length > 0 && (
+            <div className="rounded-md border border-amber-200/80 bg-amber-50/60 p-3 mt-1">
+              <p className="text-xs font-bold text-amber-950 mb-2 flex items-center gap-1.5">
+                <CheckCircle2 className="size-4 text-amber-600" />
+                <span>Nội dung chi tiết đã được điền vào các vị trí ({previewItem.filledDetails.length}):</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                {previewItem.filledDetails.map((detail, idx) => (
+                  <div key={idx} className="flex items-center justify-between rounded border border-amber-200/70 bg-white px-2.5 py-1 text-[11px]">
+                    <span className="font-mono font-semibold text-zinc-800">{detail.placeholder}</span>
+                    <span className="font-medium text-emerald-700 max-w-[220px] truncate ml-2">{detail.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto border border-zinc-200 rounded-md p-6 bg-white min-h-[300px] mt-2">
+            {previewItem?.loading ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-2 text-zinc-500">
+                <Loader2 className="size-6 animate-spin text-zinc-700" />
+                <p className="text-xs">{locale === "vi" ? "Đang nạp bản xem trước..." : "Loading preview..."}</p>
+              </div>
+            ) : (
+              <div
+                className="prose max-w-none text-xs leading-relaxed text-zinc-800"
+                dangerouslySetInnerHTML={{ __html: previewItem?.html || "" }}
+              />
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 mt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setPreviewItem(null)}>
+              {locale === "vi" ? "Đóng" : "Close"}
+            </Button>
+            {previewItem?.blob && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => downloadBlob(previewItem.blob!, previewItem.name)}
+                className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800"
+              >
+                <Download className="size-3.5" />
+                <span>{t.downloadSingle}</span>
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

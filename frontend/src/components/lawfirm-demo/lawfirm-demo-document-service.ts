@@ -61,7 +61,7 @@ async function extractDocxText(bytes: ArrayBuffer): Promise<string> {
   return text;
 }
 
-async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | undefined> {
+export async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | undefined> {
   const mammoth = await import("mammoth");
   const result = await mammoth.convertToHtml({ arrayBuffer: bytes.slice(0) });
   return result.value || undefined;
