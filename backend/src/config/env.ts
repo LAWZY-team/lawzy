@@ -121,7 +121,7 @@ export function getLlmConfig(): LlmConfig {
     project: process.env.GCP_PROJECT_ID || 'gen-lang-client-0520939714',
     location: process.env.GCP_LOCATION || 'us-central1',
     credentials,
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
   };
 }
 

@@ -42,7 +42,7 @@ export class GeminiClient {
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey)
-    const modelId = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+    const modelId = process.env.GEMINI_MODEL || 'gemini-2.5-pro'
     this.model = this.genAI.getGenerativeModel({
       model: modelId,
       systemInstruction: LAWZY_SYSTEM_PROMPT,

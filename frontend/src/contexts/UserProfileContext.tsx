@@ -49,7 +49,7 @@ const mockProfile: UserProfile = {
     creditsRemaining: 999999,
     tier: "Enterprise",
     titleModel: "gemini-2.5-flash",
-    tabularModel: "gemini-2.5-flash",
+    tabularModel: "gemini-2.5-pro",
     mfaOnLogin: false,
     legalResearchUs: false,
     apiKeys: emptyApiKeys,

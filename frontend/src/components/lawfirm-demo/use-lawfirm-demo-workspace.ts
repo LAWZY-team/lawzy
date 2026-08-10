@@ -148,6 +148,90 @@ export function useLawfirmDemoWorkspace() {
     });
   };
 
+  const uploadIdentity = async (profileId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/ai/scan-identity", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error || "Lỗi quét ảnh giấy tờ bằng AI");
+    }
+
+    return {
+      id: `extraction-${crypto.randomUUID()}`,
+      investorType: data.investorType || "individual",
+      suggestions: (data.suggestions || []).map((s: { fieldKey: string; label: string; value: string; group?: string }) => ({
+        fieldKey: s.fieldKey,
+        label: s.label,
+        value: s.value,
+        group: s.group || (s.fieldKey.startsWith("f_to_") ? "organization" : s.fieldKey.startsWith("f_dd_") ? "representative" : "individual"),
+      })),
+    };
+  };
+
+  const approveExtraction = async (
+    _extractionId: string,
+    approvedFields: Array<{ fieldKey: string; label: string; value: string; group?: string; aliases?: string }>,
+  ) => {
+    if (!activeProfileId) return;
+
+    setProfiles((current) =>
+      current.map((profile) => {
+        if (profile.id !== activeProfileId) return profile;
+
+        const updatedFields = [...profile.fields];
+        let hasOrganizationField = false;
+        let hasIndividualField = false;
+
+        for (const approved of approvedFields) {
+          if (approved.fieldKey.startsWith("f_to_") || approved.fieldKey.startsWith("f_dd_")) {
+            hasOrganizationField = true;
+          }
+          if (approved.fieldKey.startsWith("f_cn_")) {
+            hasIndividualField = true;
+          }
+
+          const existingIndex = updatedFields.findIndex(
+            (f) => f.id === approved.fieldKey,
+          );
+
+          if (existingIndex >= 0) {
+            updatedFields[existingIndex] = {
+              ...updatedFields[existingIndex],
+              value: approved.value,
+            };
+          } else {
+            updatedFields.push({
+              id: approved.fieldKey,
+              group: (approved.group as any) || (approved.fieldKey.startsWith("f_to_") ? "organization" : approved.fieldKey.startsWith("f_dd_") ? "representative" : "individual"),
+              label: approved.label,
+              value: approved.value,
+              aliases: approved.aliases || "",
+            });
+          }
+        }
+
+        let nextInvestorType = profile.investorType;
+        if (hasOrganizationField && !hasIndividualField) {
+          nextInvestorType = "organization";
+        } else if (hasIndividualField && !hasOrganizationField) {
+          nextInvestorType = "individual";
+        }
+
+        return {
+          ...profile,
+          investorType: nextInvestorType,
+          fields: updatedFields,
+        };
+      }),
+    );
+  };
+
   const reset = () => {
     const profile = seedProfile();
     const template = createTemplateSet();
@@ -176,6 +260,8 @@ export function useLawfirmDemoWorkspace() {
     deleteProfile,
     addTemplate,
     deleteTemplate,
+    uploadIdentity,
+    approveExtraction,
     reset,
   };
 }
