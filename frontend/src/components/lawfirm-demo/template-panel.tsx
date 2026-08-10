@@ -304,6 +304,7 @@ export function TemplatePanel({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [previewModalTpl, setPreviewModalTpl] = useState<TemplateSet | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   const [activeDocumentId, setActiveDocumentId] = useState(
     activeTemplate.documents[0]?.id ?? "",
@@ -465,15 +466,9 @@ export function TemplatePanel({
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
         <header className="border-b border-zinc-200 pb-6">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
-              {locale === "vi" ? "THƯ VIỆN MẪU HỒ SƠ" : "TEMPLATE SET LIBRARY"}
-            </h1>
-            <Button type="button" onClick={() => void handleCreateTemplate()} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
-              <Plus className="size-4" />
-              {t.new}
-            </Button>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
+            {locale === "vi" ? "THƯ VIỆN MẪU HỒ SƠ" : "TEMPLATE SET LIBRARY"}
+          </h1>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
             {locale === "vi"
               ? 'Duyệt các bộ hồ sơ mẫu đã chuẩn bị sẵn. Bấm "Xem trước" để xem nội dung bên trong và hướng dẫn sử dụng trước khi dùng để điền hồ sơ.'
@@ -541,44 +536,70 @@ export function TemplatePanel({
                     </p>
                   </div>
 
-                  <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => {
-                        onSelectTemplate(tpl.id);
-                        setPreviewModalTpl(tpl);
-                      }}
-                    >
-                      {locale === "vi" ? "Xem trước" : "Preview"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
-                      onClick={() => {
-                        onSelectTemplate(tpl.id);
-                        onModeChange("editor");
-                      }}
-                    >
-                      {locale === "vi" ? "Chỉnh sửa" : "Edit"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => {
-                        if (window.confirm(locale === "vi" ? `Xóa bộ hồ sơ "${title}"?` : `Delete template set "${title}"?`)) {
-                          onDeleteTemplate(tpl.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
+                  {deletingTemplateId === tpl.id ? (
+                    <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-red-200 bg-red-50/80 p-2.5 rounded-lg animate-in fade-in duration-150">
+                      <span className="text-xs font-semibold text-red-700">
+                        {locale === "vi" ? "Xác nhận xóa bộ mẫu này?" : "Delete this template set?"}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-zinc-600 hover:text-zinc-950"
+                          onClick={() => setDeletingTemplateId(null)}
+                        >
+                          {locale === "vi" ? "Hủy" : "Cancel"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-3 text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-2xs"
+                          onClick={() => {
+                            setDeletingTemplateId(null);
+                            onDeleteTemplate(tpl.id);
+                          }}
+                        >
+                          {locale === "vi" ? "Xóa ngay" : "Delete"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => {
+                          onSelectTemplate(tpl.id);
+                          setPreviewModalTpl(tpl);
+                        }}
+                      >
+                        {locale === "vi" ? "Xem trước" : "Preview"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
+                        onClick={() => {
+                          onSelectTemplate(tpl.id);
+                          onModeChange("editor");
+                        }}
+                      >
+                        {locale === "vi" ? "Chỉnh sửa" : "Edit"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-zinc-200"
+                        onClick={() => setDeletingTemplateId(tpl.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}

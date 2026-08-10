@@ -217,14 +217,14 @@ export function ProfilePanel({
     updateDraft((profile) => ({
       ...profile,
       fields: [field, ...profile.fields],
-    }), true);
-  };
-
   const handleDelete = () => {
     if (!currentProfile) return;
-    if (!window.confirm(t.confirm)) return;
     onDelete(currentProfile.id);
+    onModeChange("library");
   };
+
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [deletingProfileId, setDeletingProfileId] = React.useState<string | null>(null);
 
   const handleIdentityUpload = async (file: File) => {
     if (!onUploadIdentity) return;
@@ -297,15 +297,9 @@ export function ProfilePanel({
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8 overflow-x-hidden">
         <header className="border-b border-zinc-200 pb-6">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
-              {t.libraryTitle}
-            </h1>
-            <Button type="button" onClick={() => void handleCreateProfile()} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
-              <Plus className="size-4" />
-              {t.createFirst}
-            </Button>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
+            {t.libraryTitle}
+          </h1>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-500">
             {t.libraryDesc}
           </p>
@@ -427,30 +421,69 @@ export function ProfilePanel({
                       </p>
                     </div>
 
-                    <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => setPreviewModalProfile(profile)}
-                      >
-                        <Eye className="size-3.5" />
-                        {t.preview}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
-                        onClick={() => {
-                          onSelect(profile.id);
-                          onModeChange("editor");
-                        }}
-                      >
-                        <Pencil className="size-3.5" />
-                        {t.edit}
-                      </Button>
-                    </div>
+                    {deletingProfileId === profile.id ? (
+                      <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-red-200 bg-red-50/80 p-2.5 rounded-lg animate-in fade-in duration-150">
+                        <span className="text-xs font-semibold text-red-700">
+                          {locale === "vi" ? "Xác nhận xóa hồ sơ này?" : "Delete this profile?"}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-zinc-600 hover:text-zinc-950"
+                            onClick={() => setDeletingProfileId(null)}
+                          >
+                            {locale === "vi" ? "Hủy" : "Cancel"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 px-3 text-xs font-semibold bg-red-600 text-white hover:bg-red-700 shadow-2xs"
+                            onClick={() => {
+                              setDeletingProfileId(null);
+                              onDelete(profile.id);
+                            }}
+                          >
+                            {locale === "vi" ? "Xóa ngay" : "Delete"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-5 flex items-center gap-2 pt-3 border-t border-zinc-100">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => setPreviewModalProfile(profile)}
+                        >
+                          <Eye className="size-3.5" />
+                          {t.preview}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="flex-1 text-xs font-semibold bg-zinc-950 text-white hover:bg-zinc-800"
+                          onClick={() => {
+                            onSelect(profile.id);
+                            onModeChange("editor");
+                          }}
+                        >
+                          <Pencil className="size-3.5" />
+                          {t.edit}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-zinc-200"
+                          onClick={() => setDeletingProfileId(profile.id)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
