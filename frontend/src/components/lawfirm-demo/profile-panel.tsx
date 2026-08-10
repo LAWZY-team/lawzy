@@ -217,6 +217,9 @@ export function ProfilePanel({
     updateDraft((profile) => ({
       ...profile,
       fields: [field, ...profile.fields],
+    }), true);
+  };
+
   const handleDelete = () => {
     if (!currentProfile) return;
     onDelete(currentProfile.id);
@@ -255,8 +258,6 @@ export function ProfilePanel({
     await onAdd();
     onModeChange("editor");
   };
-
-  const [searchQuery, setSearchQuery] = React.useState("");
 
   const sortedProfiles = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();

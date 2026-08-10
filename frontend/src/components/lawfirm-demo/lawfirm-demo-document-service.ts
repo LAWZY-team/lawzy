@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { guessMapping } from "./lawfirm-demo-taxonomy";
-import type { TemplateDocument, TemplateField } from "./lawfirm-demo-types";
+import type { DocumentKind, TemplateDocument, TemplateField } from "./lawfirm-demo-types";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const WORD_XML = /^word\/(document|header[0-9]*|footer[0-9]*|footnotes|endnotes)\.xml$/;
