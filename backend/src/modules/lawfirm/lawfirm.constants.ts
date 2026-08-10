@@ -12,4 +12,10 @@ export const LAWFIRM_IDENTITY_MIMES = [
   'image/webp',
 ] as const;
 
-export const LAWFIRM_TEMPLATE_MIMES = [LAWFIRM_DOCX_MIME, LAWFIRM_PDF_MIME] as const;
+export const LAWFIRM_DOC_MIME = 'application/msword';
+
+export const LAWFIRM_TEMPLATE_MIMES = [
+  LAWFIRM_DOCX_MIME,
+  LAWFIRM_DOC_MIME,
+  LAWFIRM_PDF_MIME,
+] as const;

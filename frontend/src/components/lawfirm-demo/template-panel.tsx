@@ -335,7 +335,7 @@ export function TemplatePanel({
   };
 
   const addFiles = async (fileList: FileList | File[]) => {
-    const files = Array.from(fileList).filter((file) => /\.(docx|pdf)$/i.test(file.name));
+    const files = Array.from(fileList).filter((file) => /\.(docx|doc|pdf)$/i.test(file.name));
     setError("");
     for (const file of files) {
       setProcessing(file.name);

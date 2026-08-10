@@ -100,7 +100,7 @@ export function AutofillTemplatesTab({ onNavigateTab }: AutofillTemplatesTabProp
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!currentBundle || !e.target.files?.length) return
     setIsUploading(true)
-    const files = Array.from(e.target.files).filter((f) => /\.(docx|pdf)$/i.test(f.name))
+    const files = Array.from(e.target.files).filter((f) => /\.(docx|doc|pdf)$/i.test(f.name))
 
     for (const file of files) {
       try {

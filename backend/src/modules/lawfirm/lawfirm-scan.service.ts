@@ -18,9 +18,11 @@ import {
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
 import {
   LAWFIRM_DOCX_MIME,
+  LAWFIRM_DOC_MIME,
   LAWFIRM_IDENTITY_MIMES,
   LAWFIRM_MAX_UPLOAD_BYTES,
   LAWFIRM_PDF_MIME,
+  LAWFIRM_TEMPLATE_MIMES,
 } from './lawfirm.constants';
 
 export interface TemplateScanSuggestion {
@@ -340,11 +342,14 @@ ${textToAnalyze}`;
       count: number;
     }>;
   }> {
-    this.validateMimeAndSize(params.mimeType, params.buffer.length, [
-      LAWFIRM_DOCX_MIME,
-      LAWFIRM_PDF_MIME,
-    ]);
-    if (params.mimeType === LAWFIRM_DOCX_MIME || params.fileName.toLowerCase().endsWith('.docx')) {
+    this.validateMimeAndSize(params.mimeType, params.buffer.length, LAWFIRM_TEMPLATE_MIMES);
+    const lowerName = params.fileName.toLowerCase();
+    if (
+      params.mimeType === LAWFIRM_DOCX_MIME ||
+      params.mimeType === LAWFIRM_DOC_MIME ||
+      lowerName.endsWith('.docx') ||
+      lowerName.endsWith('.doc')
+    ) {
       const plainText = await extractDocxPlainText(params.buffer);
       const fields = await analyzeDocxPlaceholders(params.buffer);
       return { fileType: 'docx', plainText, fields };
