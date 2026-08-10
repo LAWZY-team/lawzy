@@ -3,9 +3,14 @@
 import { useMemo, useRef, useState } from "react";
 import {
   Archive,
+  ArrowLeft,
+  ArrowRight,
   Check,
+  CheckCircle2,
   Download,
+  FileCheck2,
   FileText,
+  Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -34,78 +39,52 @@ import {
 
 const copy = {
   vi: {
-    eyebrow: "Điền nhiều tài liệu trong một lần",
-    title: "Điền hồ sơ",
-    description: "Chọn bộ tài liệu và hồ sơ khách hàng, kiểm tra mức độ khớp rồi tạo toàn bộ file DOCX.",
-    summaryTemplate: "Bộ hồ sơ mẫu",
-    summaryProfile: "Hồ sơ khách hàng",
-    noTemplate: "Chưa chọn bộ hồ sơ",
-    noProfile: "Chưa chọn hồ sơ",
-    documents: "tài liệu",
-    completed: "đã hoàn tất",
-    valuedFields: "trường có dữ liệu",
-    source: "Chọn nguồn từ thư viện",
-    sourceDescription: "Chỉ các bộ hồ sơ đã hoàn tất mới xuất hiện trong danh sách.",
-    select: "Chọn",
-    libraryEmpty: "Chưa có bộ hồ sơ trong thư viện. Hoàn tất một bộ ở màn hình Bộ hồ sơ mẫu trước.",
-    matching: "Đối chiếu trường thông tin",
-    matchSummary: "trường đã có dữ liệu trên tổng số trường được ánh xạ",
-    noMappedFields: "Bộ hồ sơ này chưa có trường được ánh xạ với hồ sơ khách hàng.",
-    uploadTitle: "Tải file khác",
-    uploadDescription: "Tùy chọn. File tải tại đây không cần nằm trong thư viện.",
-    upload: "Kéo thả DOCX vào đây hoặc bấm để chọn",
-    uploadHint: "Có thể chọn nhiều file. Mỗi file sẽ dùng danh sách placeholder của hồ sơ hiện tại.",
-    clear: "Xóa danh sách",
-    fill: "Điền tự động vào tất cả",
-    processing: "Đang xử lý",
-    needData: "Cần ít nhất một trường có dữ liệu và một nguồn DOCX để bắt đầu.",
-    results: "Kết quả",
-    downloadAll: "Tải tất cả ZIP",
-    download: "Tải file",
-    success: "Đã điền",
-    noMatch: "Không khớp",
-    unsupported: "PDF chỉ xem",
-    error: "Lỗi xử lý",
-    positions: "vị trí đã điền",
-    noResults: "Chưa có kết quả",
-    noResultsDescription: "Kết quả sẽ xuất hiện sau khi bạn chạy chức năng điền tự động.",
+    title: "TIẾN TRÌNH ĐIỀN HỒ SƠ TỰ ĐỘNG",
+    description: "Điền dữ liệu từ hồ sơ khách hàng vào bộ tài liệu mẫu DOCX và xuất file kết quả hàng loạt.",
+    step1: "1. Chọn Nguồn dữ liệu",
+    step2: "2. Đối chiếu & Hiệu chỉnh",
+    step3: "3. Thực thi & Tải về",
+    selectProfile: "Chọn Hồ sơ khách hàng",
+    selectTemplate: "Chọn Bộ hồ sơ mẫu (DOCX)",
+    noProfileSelected: "Chưa chọn hồ sơ",
+    noTemplateSelected: "Chưa chọn bộ hồ sơ mẫu",
+    matchingRate: "Tỷ lệ khớp trường dữ liệu",
+    nextToReview: "Tiếp tục: Kiểm tra đối chiếu",
+    backToStep1: "Quay lại chọn nguồn",
+    runFill: "Bắt đầu Điền hồ sơ tự động",
+    processing: "Đang xử lý bóc tách & điền file DOCX...",
+    step3Title: "Kết quả Điền Hồ sơ Hàng loạt",
+    downloadZip: "Tải toàn bộ file kết quả (ZIP)",
+    downloadSingle: "Tải file DOCX",
+    backToStep2: "Điền lại / Chỉnh sửa thêm",
+    emptyProfiles: "Chưa có Hồ sơ khách hàng nào trong thư viện.",
+    emptyTemplates: "Chưa có Bộ hồ sơ mẫu nào được tải lên.",
+    createProfileFirst: "Tạo hồ sơ khách hàng ở tab 'Hồ sơ khách hàng' trước.",
+    createTemplateFirst: "Tải bộ mẫu DOCX ở tab 'Bộ hồ sơ mẫu' trước.",
   },
   en: {
-    eyebrow: "Fill multiple documents at once",
-    title: "Fill documents",
-    description: "Choose a template set and client profile, review field matching, then generate every DOCX file.",
-    summaryTemplate: "Template set",
-    summaryProfile: "Client profile",
-    noTemplate: "No template set selected",
-    noProfile: "No profile selected",
-    documents: "documents",
-    completed: "complete",
-    valuedFields: "fields with values",
-    source: "Choose from the library",
-    sourceDescription: "Only completed template sets are available here.",
-    select: "Select",
-    libraryEmpty: "No template sets are in the library. Complete one in the Template sets screen first.",
-    matching: "Field matching",
-    matchSummary: "fields have values out of all mapped fields",
-    noMappedFields: "This template set has no fields mapped to the client profile.",
-    uploadTitle: "Upload other files",
-    uploadDescription: "Optional. Files uploaded here do not need to be in the library.",
-    upload: "Drop DOCX files here or click to browse",
-    uploadHint: "Multiple files are supported. Each file uses the active profile's placeholder list.",
-    clear: "Clear list",
-    fill: "Auto-fill all",
-    processing: "Processing",
-    needData: "At least one populated field and one DOCX source are required.",
-    results: "Results",
-    downloadAll: "Download all as ZIP",
-    download: "Download",
-    success: "Filled",
-    noMatch: "No match",
-    unsupported: "PDF preview only",
-    error: "Processing error",
-    positions: "positions filled",
-    noResults: "No results yet",
-    noResultsDescription: "Results appear after you run auto-fill.",
+    title: "AUTOMATED DOCUMENT FILLING WIZARD",
+    description: "Merge client profile data into DOCX template sets and export batch files.",
+    step1: "1. Select Sources",
+    step2: "2. Mapping Review",
+    step3: "3. Execute & Export",
+    selectProfile: "Select Client Profile",
+    selectTemplate: "Select Template Set (DOCX)",
+    noProfileSelected: "No profile selected",
+    noTemplateSelected: "No template set selected",
+    matchingRate: "Field Matching Rate",
+    nextToReview: "Continue: Review Mapping",
+    backToStep1: "Back to selection",
+    runFill: "Start Auto-Filling Documents",
+    processing: "Merging data into DOCX files...",
+    step3Title: "Generated Document Batch",
+    downloadZip: "Download All as ZIP Archive",
+    downloadSingle: "Download DOCX",
+    backToStep2: "Re-fill / Edit Mapping",
+    emptyProfiles: "No Client Profiles found in library.",
+    emptyTemplates: "No Template Sets found in library.",
+    createProfileFirst: "Create a profile in 'Client profiles' tab first.",
+    createTemplateFirst: "Upload DOCX templates in 'Template sets' tab first.",
   },
 } as const;
 
@@ -131,400 +110,400 @@ export function FillPanel({
   getDownloadUrl?: (runId: string) => string;
 }) {
   const t = copy[locale];
-  const readyTemplates = templates.filter((template) => template.status === "ready");
-  const profile = profiles.find((item) => item.id === activeProfileId);
-  const selectedTemplate = readyTemplates.find((item) => item.id === activeTemplateId);
-  const [files, setFiles] = useState<FillSourceFile[]>([]);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [results, setResults] = useState<FillResult[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState("");
-  const [error, setError] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
+  const [isFilling, setIsFilling] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const populatedFields = profile?.fields.filter((field) => field.value.trim()) ?? [];
-  const mappedFields = useMemo(
-    () => selectedTemplate?.documents.flatMap((documentItem) => documentItem.fields).filter((field) => field.mappedKey) ?? [],
-    [selectedTemplate],
-  );
-  const matchedFields = mappedFields.filter((field) =>
-    populatedFields.some((profileField) => profileField.id === field.mappedKey),
-  );
-  const hasSource = Boolean(selectedTemplate?.documents.length || files.length);
-  const canFill = Boolean(populatedFields.length && hasSource && !progress);
+  const selectedProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
+  const selectedTemplate = templates.find((t) => t.id === activeTemplateId) ?? templates[0];
 
-  const addFiles = (fileList: FileList | File[]) => {
-    const next = Array.from(fileList)
-      .filter((file) => /\.docx$/i.test(file.name))
-      .map((file) => ({
-        id: `source-${crypto.randomUUID()}`,
-        name: file.name,
-        file,
-      }));
-    setFiles((current) => [...current, ...next]);
-    setResults([]);
+  // Editable fields copy for Step 2
+  const [editedFields, setEditedFields] = useState<Record<string, string>>({});
+
+  const populatedFields = useMemo(() => {
+    if (!selectedProfile) return [];
+    return selectedProfile.fields.map((f) => ({
+      ...f,
+      value: editedFields[f.id] !== undefined ? editedFields[f.id] : f.value,
+    }));
+  }, [selectedProfile, editedFields]);
+
+  const mappedFields = useMemo(() => {
+    if (!selectedTemplate) return [];
+    return selectedTemplate.documents.flatMap((doc) => doc.fields).filter((f) => f.mappedKey);
+  }, [selectedTemplate]);
+
+  const matchedFields = useMemo(() => {
+    return mappedFields.filter((field) =>
+      populatedFields.some((pf) => pf.id === field.mappedKey && pf.value.trim() !== ""),
+    );
+  }, [mappedFields, populatedFields]);
+
+  const matchPercent = mappedFields.length > 0
+    ? Math.round((matchedFields.length / mappedFields.length) * 100)
+    : 0;
+
+  const handleFieldChange = (fieldId: string, value: string) => {
+    setEditedFields((prev) => ({ ...prev, [fieldId]: value }));
   };
 
-  const fillAll = async () => {
-    if (!profile || !canFill) {
-      setError(t.needData);
-      return;
-    }
-    setError("");
-    setResults([]);
+  const executeFill = async () => {
+    if (!selectedProfile || !selectedTemplate) return;
+    setIsFilling(true);
+    setErrorMsg("");
 
-    if (onRunServerFill && selectedTemplate) {
-      try {
-        setProgress(t.processing);
-        const run = await onRunServerFill(profile.id, selectedTemplate.id);
-        setProgress("");
+    try {
+      if (onRunServerFill) {
+        const run = await onRunServerFill(selectedProfile.id, selectedTemplate.id);
         if (getDownloadUrl) {
           window.open(getDownloadUrl(run.id), "_blank");
         }
         setResults([
           {
             id: run.id,
-            name: "ho_so_da_dien.zip",
+            name: `${selectedTemplate.name || "bo_ho_so"}.zip`,
             count: selectedTemplate.documents.length,
             state: "success",
           },
         ]);
-        return;
-      } catch {
-        setProgress("");
-        setError(t.error);
+        setStep(3);
+        setIsFilling(false);
         return;
       }
-    }
 
-    const nextResults: FillResult[] = [];
+      // Client-side DOCX filling
+      const nextResults: FillResult[] = [];
+      const valuesMap = Object.fromEntries(populatedFields.map((f) => [f.id, f.value]));
 
-    if (selectedTemplate) {
-      for (let index = 0; index < selectedTemplate.documents.length; index += 1) {
-        const documentItem = selectedTemplate.documents[index];
-        setProgress(`${t.processing} (${index + 1}/${selectedTemplate.documents.length}): ${documentItem.fileName}`);
-        if (documentItem.fileType === "pdf") {
+      for (const doc of selectedTemplate.documents) {
+        const bytes = await getDocumentBytes(doc.id);
+        if (!bytes) {
           nextResults.push({
-            id: `result-${crypto.randomUUID()}`,
-            name: documentItem.fileName,
+            id: doc.id,
+            name: doc.fileName,
             count: 0,
-            state: "unsupported",
+            state: "error",
+            error: locale === "vi" ? "Không tìm thấy dữ liệu file" : "File bytes not found",
           });
           continue;
         }
+
         try {
-          const bytes = documentItem.storageKey
-            ? await getDocumentBytes(documentItem.storageKey)
-            : null;
-          if (!bytes) throw new Error("missing bytes");
-          const replacements = documentItem.fields
-            .map((field) => {
-              const profileField = profile.fields.find((item) => item.id === field.mappedKey);
-              return {
-                aliases: [field.placeholder],
-                value: profileField?.value.trim() ?? "",
-              };
-            })
-            .filter((item) => item.value);
-          const output = await fillDocx(bytes, replacements);
+          const replacements = doc.fields.map((field) => {
+            const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+            const aliases = field.placeholder ? [field.placeholder] : [];
+            if (profileField?.aliases) {
+              aliases.push(...profileField.aliases.split(",").map((s) => s.trim()));
+            }
+            return {
+              aliases,
+              value: profileField?.value ?? "",
+            };
+          });
+
+          const filled = await fillDocx(bytes, replacements);
           nextResults.push({
-            id: `result-${crypto.randomUUID()}`,
-            name: documentItem.fileName,
-            blob: output.blob,
-            count: output.count,
-            state: output.count > 0 ? "success" : "no_match",
+            id: doc.id,
+            name: doc.fileName.replace(/\.docx$/i, "") + "_filled.docx",
+            count: filled.count,
+            blob: filled.blob,
+            state: "success",
           });
         } catch {
           nextResults.push({
-            id: `result-${crypto.randomUUID()}`,
-            name: documentItem.fileName,
+            id: doc.id,
+            name: doc.fileName,
             count: 0,
             state: "error",
           });
         }
       }
-    }
 
-    for (let index = 0; index < files.length; index += 1) {
-      const source = files[index];
-      setProgress(`${t.processing} (${index + 1}/${files.length}): ${source.name}`);
-      try {
-        const replacements = populatedFields
-          .map((field) => ({
-            value: field.value.trim(),
-            aliases: field.aliases.split(",").map((item) => item.trim()).filter(Boolean),
-          }))
-          .filter((item) => item.aliases.length);
-        const output = await fillDocx(await source.file.arrayBuffer(), replacements);
-        nextResults.push({
-          id: `result-${crypto.randomUUID()}`,
-          name: source.name,
-          blob: output.blob,
-          count: output.count,
-          state: output.count > 0 ? "success" : "no_match",
-        });
-      } catch {
-        nextResults.push({
-          id: `result-${crypto.randomUUID()}`,
-          name: source.name,
-          count: 0,
-          state: "error",
-        });
-      }
+      setResults(nextResults);
+      setStep(3);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Lỗi thực thi điền hồ sơ");
+    } finally {
+      setIsFilling(false);
     }
-    setResults(nextResults);
-    setProgress("");
   };
 
-  const downloadAll = async () => {
-    const blob = await createResultsZip(results);
-    downloadBlob(blob, "ho_so_da_dien.zip");
+  const handleDownloadZip = async () => {
+    const validResults = results.filter((r) => r.blob).map((r) => ({ name: r.name, blob: r.blob }));
+    if (validResults.length > 0) {
+      const zipBlob = await createResultsZip(validResults);
+      downloadBlob(zipBlob, "ho_so_phap_ly_lawzy.zip");
+    }
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-5 py-6 lg:px-8">
-      <header className="border-b border-zinc-200 pb-6">
-        <p className="text-sm font-medium text-zinc-500">{t.eyebrow}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-zinc-950">{t.title}</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">{t.description}</p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-6 lg:px-8">
+      {/* Notion Style Header */}
+      <header className="border-b border-zinc-200 pb-5">
+        <h1 className="text-xl font-bold tracking-tight text-zinc-950">{t.title}</h1>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">{t.description}</p>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <SummaryBlock
-          label={t.summaryTemplate}
-          name={selectedTemplate?.name || t.noTemplate}
-          detail={
-            selectedTemplate
-              ? `${selectedTemplate.documents.length} ${t.documents}, ${selectedTemplate.documents.filter((item) => item.status === "done").length} ${t.completed}`
-              : ""
-          }
-        />
-        <SummaryBlock
-          label={t.summaryProfile}
-          name={profile?.name || t.noProfile}
-          detail={profile ? `${populatedFields.length} / ${profile.fields.length} ${t.valuedFields}` : ""}
-        />
-      </div>
-
-      <SectionCard title={t.source} description={t.sourceDescription}>
-        <div className="grid gap-4 p-4 md:grid-cols-2">
-          <div>
-            <FieldLabel>{t.summaryTemplate}</FieldLabel>
-            <select
-              value={selectedTemplate?.id ?? ""}
-              onChange={(event) => onSelectTemplate(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">{t.select}</option>
-              {readyTemplates.map((template) => (
-                <option key={template.id} value={template.id}>{template.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <FieldLabel>{t.summaryProfile}</FieldLabel>
-            <select
-              value={profile?.id ?? ""}
-              onChange={(event) => onSelectProfile(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">{t.select}</option>
-              {profiles.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        {!readyTemplates.length && (
-          <p className="mx-4 mb-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-3 text-sm leading-6 text-zinc-600">
-            {t.libraryEmpty}
-          </p>
-        )}
-      </SectionCard>
-
-      {selectedTemplate && profile && (
-        <SectionCard title={t.matching}>
-          <div className="p-4">
-            {mappedFields.length ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-3xl font-semibold tabular-nums">
-                  {matchedFields.length}/{mappedFields.length}
-                </span>
-                <p className="text-sm text-zinc-600">{t.matchSummary}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-600">{t.noMappedFields}</p>
-            )}
-          </div>
-        </SectionCard>
-      )}
-
-      <SectionCard
-        title={t.uploadTitle}
-        description={t.uploadDescription}
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setFiles([]);
-              setResults([]);
-            }}
-            disabled={!files.length}
-          >
-            <Trash2 className="size-4" />
-            {t.clear}
-          </Button>
-        }
-      >
+      {/* Step Indicator */}
+      <div className="grid grid-cols-3 gap-2 rounded-lg border border-zinc-200 bg-zinc-100/70 p-1.5">
         <button
           type="button"
-          onClick={() => fileInput.current?.click()}
-          onDragEnter={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragOver={(event) => event.preventDefault()}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setDragging(false);
-            addFiles(event.dataTransfer.files);
-          }}
+          onClick={() => setStep(1)}
           className={cn(
-            "m-4 flex w-[calc(100%-2rem)] flex-col items-center rounded-md border border-dashed px-5 py-8 text-center transition",
-            dragging
-              ? "border-zinc-950 bg-zinc-100"
-              : "border-zinc-300 bg-zinc-50 hover:border-zinc-950",
+            "flex items-center justify-center gap-2 rounded-md py-2.5 text-xs font-bold transition",
+            step === 1
+              ? "bg-zinc-950 text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-950",
           )}
         >
-          <UploadCloud className="size-6 text-zinc-600" />
-          <span className="mt-2 text-sm font-medium text-zinc-900">{t.upload}</span>
-          <span className="mt-1 text-xs leading-5 text-zinc-500">{t.uploadHint}</span>
+          <span>{t.step1}</span>
         </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept=".docx"
-          multiple
-          hidden
-          onChange={(event) => {
-            if (event.target.files) addFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        {files.length > 0 && (
-          <div className="divide-y divide-zinc-200 border-t border-zinc-200">
-            {files.map((file) => (
-              <div key={file.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <FileText className="size-4 shrink-0 text-zinc-500" />
-                  <span className="truncate text-sm font-medium">{file.name}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
-                  className="flex size-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"
-                  aria-label="Remove file"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
+        <button
           type="button"
-          onClick={() => void fillAll()}
-          disabled={!canFill}
-          className="bg-zinc-950 text-white hover:bg-zinc-800"
+          disabled={!selectedProfile || !selectedTemplate}
+          onClick={() => setStep(2)}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-md py-2.5 text-xs font-bold transition disabled:opacity-40",
+            step === 2
+              ? "bg-zinc-950 text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-950",
+          )}
         >
-          <Check className="size-4" />
-          {t.fill}
-        </Button>
-        {progress && <p className="text-sm text-zinc-600" role="status">{progress}</p>}
-        {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
-        {!canFill && !progress && !error && (
-          <p className="text-sm text-zinc-500">{t.needData}</p>
-        )}
+          <span>{t.step2}</span>
+        </button>
+        <button
+          type="button"
+          disabled={results.length === 0}
+          onClick={() => setStep(3)}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-md py-2.5 text-xs font-bold transition disabled:opacity-40",
+            step === 3
+              ? "bg-zinc-950 text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-950",
+          )}
+        >
+          <span>{t.step3}</span>
+        </button>
       </div>
 
-      <SectionCard
-        title={t.results}
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void downloadAll()}
-            disabled={!results.some((result) => result.blob)}
-          >
-            <Archive className="size-4" />
-            {t.downloadAll}
-          </Button>
-        }
-      >
-        {results.length ? (
-          <div className="divide-y divide-zinc-200">
-            {results.map((result) => (
-              <div key={result.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <FileText className="size-4 shrink-0 text-zinc-500" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{result.name}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{result.count} {t.positions}</p>
+      {/* STEP 1: SELECT SOURCES */}
+      {step === 1 && (
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Select Profile Card */}
+            <SectionCard title={t.selectProfile}>
+              <div className="p-4 space-y-3">
+                {profiles.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-zinc-500">
+                    <p>{t.emptyProfiles}</p>
+                    <p className="mt-1 text-zinc-400">{t.createProfileFirst}</p>
                   </div>
-                </div>
+                ) : (
+                  profiles.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => onSelectProfile(p.id)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md border p-3 text-left transition",
+                        p.id === selectedProfile?.id
+                          ? "border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950/10"
+                          : "border-zinc-200 bg-white hover:border-zinc-300",
+                      )}
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-zinc-950">
+                          {p.name || (locale === "vi" ? "Chưa đặt tên" : "Untitled")}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          {p.investorType === "individual" ? "Cá nhân" : "Tổ chức"} • {p.fields.filter((f) => f.value.trim() !== "").length} trường có dữ liệu
+                        </p>
+                      </div>
+                      {p.id === selectedProfile?.id && <CheckCircle2 className="size-4 text-emerald-600" />}
+                    </button>
+                  ))
+                )}
+              </div>
+            </SectionCard>
+
+            {/* Select Template Card */}
+            <SectionCard title={t.selectTemplate}>
+              <div className="p-4 space-y-3">
+                {templates.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-zinc-500">
+                    <p>{t.emptyTemplates}</p>
+                    <p className="mt-1 text-zinc-400">{t.createTemplateFirst}</p>
+                  </div>
+                ) : (
+                  templates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => onSelectTemplate(tpl.id)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md border p-3 text-left transition",
+                        tpl.id === selectedTemplate?.id
+                          ? "border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950/10"
+                          : "border-zinc-200 bg-white hover:border-zinc-300",
+                      )}
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-zinc-950">
+                          {tpl.name || (locale === "vi" ? "Bộ mẫu chưa đặt tên" : "Untitled template set")}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          {tpl.documents.length} tài liệu DOCX
+                        </p>
+                      </div>
+                      {tpl.id === selectedTemplate?.id && <CheckCircle2 className="size-4 text-emerald-600" />}
+                    </button>
+                  ))
+                )}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Matching Summary Footer */}
+          {selectedProfile && selectedTemplate && (
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-2xs">
+              <div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge strong={result.state === "success"}>
-                    {result.state === "success"
-                      ? t.success
-                      : result.state === "no_match"
-                        ? t.noMatch
-                        : result.state === "unsupported"
-                          ? t.unsupported
-                          : t.error}
+                  <span className="text-xs font-semibold text-zinc-900">{t.matchingRate}:</span>
+                  <StatusBadge strong={matchPercent > 50}>
+                    {matchPercent}% Khớp ({matchedFields.length}/{mappedFields.length} trường)
                   </StatusBadge>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!result.blob}
-                    onClick={() => {
-                      if (result.blob) downloadBlob(result.blob, `DA_DIEN_${result.name}`);
-                    }}
-                  >
-                    <Download className="size-4" />
-                    {t.download}
-                  </Button>
                 </div>
               </div>
-            ))}
+
+              <Button
+                type="button"
+                onClick={() => setStep(2)}
+                disabled={mappedFields.length === 0}
+                className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800"
+              >
+                <span>{t.nextToReview}</span>
+                <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STEP 2: REVIEW & EDIT MAPPING */}
+      {step === 2 && selectedProfile && selectedTemplate && (
+        <div className="space-y-6">
+          <SectionCard
+            title={locale === "vi" ? "Kiểm tra & Hiệu chỉnh dữ liệu đối chiếu" : "Field Mapping & Value Review"}
+            description={locale === "vi" ? "Bạn có thể chỉnh sửa trực tiếp các giá trị bên dưới trước khi tiến hành xuất file DOCX." : "Edit values directly before running automated batch generation."}
+          >
+            <div className="p-4 space-y-4">
+              <div className="overflow-x-auto rounded-md border border-zinc-200">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th className="p-3">Placeholder trong DOCX</th>
+                      <th className="p-3">Trường Hồ sơ tương ứng</th>
+                      <th className="p-3">Giá trị sẽ điền vào file</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 bg-white">
+                    {mappedFields.map((field) => {
+                      const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+                      const val = profileField?.value ?? "";
+
+                      return (
+                        <tr key={field.id} className="hover:bg-zinc-50/50">
+                          <td className="p-3 font-mono font-medium text-zinc-900">{field.placeholder}</td>
+                          <td className="p-3 text-zinc-600">{field.label}</td>
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              value={val}
+                              onChange={(e) => profileField && handleFieldChange(profileField.id, e.target.value)}
+                              placeholder={locale === "vi" ? "Nhập giá trị điền..." : "Enter value..."}
+                              className={cn(inputClass, "h-8 text-xs")}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </SectionCard>
+
+          <div className="flex items-center justify-between border-t border-zinc-200 pt-4">
+            <Button type="button" variant="outline" onClick={() => setStep(1)} className="gap-2">
+              <ArrowLeft className="size-4" />
+              <span>{t.backToStep1}</span>
+            </Button>
+
+            <Button type="button" onClick={executeFill} disabled={isFilling} className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800">
+              <span>{isFilling ? t.processing : t.runFill}</span>
+            </Button>
           </div>
-        ) : (
-          <EmptyState title={t.noResults} description={t.noResultsDescription} />
-        )}
-      </SectionCard>
+        </div>
+      )}
+
+      {/* STEP 3: RESULTS & DOWNLOAD */}
+      {step === 3 && (
+        <div className="space-y-6">
+          <SectionCard title={t.step3Title}>
+            <div className="p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 pb-4">
+                <p className="text-xs font-medium text-zinc-600">
+                  {locale === "vi" ? `Đã hoàn tất điền ${results.length} tài liệu thành công.` : `Successfully filled ${results.length} documents.`}
+                </p>
+
+                <Button type="button" onClick={handleDownloadZip} className="gap-2">
+                  <Archive className="size-4" />
+                  <span>{t.downloadZip}</span>
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {results.map((res) => (
+                  <div key={res.id} className="flex items-center justify-between rounded-md border border-zinc-200 bg-white p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+                        <FileCheck2 className="size-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-950">{res.name}</p>
+                        <p className="text-[11px] text-zinc-500">
+                          {res.count} {locale === "vi" ? "vị trí đã điền" : "positions filled"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {res.blob && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadBlob(res.blob!, res.name)}
+                        className="gap-2 text-xs"
+                      >
+                        <Download className="size-3.5" />
+                        <span>{t.downloadSingle}</span>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SectionCard>
+
+          <div className="flex justify-start border-t border-zinc-200 pt-4">
+            <Button type="button" variant="outline" onClick={() => setStep(2)} className="gap-2">
+              <ArrowLeft className="size-4" />
+              <span>{t.backToStep2}</span>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-function SummaryBlock({
-  label,
-  name,
-  detail,
-}: {
-  label: string;
-  name: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-md border border-zinc-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-2 truncate text-lg font-semibold text-zinc-950">{name}</p>
-      {detail && <p className="mt-1 text-sm text-zinc-500">{detail}</p>}
-    </div>
-  );
-}
-

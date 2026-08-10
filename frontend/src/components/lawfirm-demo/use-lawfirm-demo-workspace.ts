@@ -14,29 +14,8 @@ function uid(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function seedProfile(): ClientProfile {
-  const profile = createProfile("vi", "Hồ sơ khách hàng mẫu");
-  profile.investorType = "organization";
-  const values: Record<string, string> = {
-    f_to_ten: "",
-    f_to_loaihinh: "",
-    f_to_mst: "",
-    f_to_ngaycap: "",
-    f_to_noicap: "",
-    f_to_diachi: "",
-    f_to_dienthoai: "",
-    f_to_email: "",
-    f_to_website: "",
-    f_to_vondl: "",
-    f_dd_hoten: "",
-    f_dd_chucdanh: "",
-    f_dd_madinhdanh: "",
-  };
-  profile.fields = profile.fields.map((field) => ({
-    ...field,
-    value: values[field.id] ?? field.value,
-  }));
-  return profile;
+function createBlankProfile(locale: Locale): ClientProfile {
+  return createProfile(locale, "");
 }
 
 function createTemplateSet(): TemplateSet {
@@ -49,33 +28,59 @@ function createTemplateSet(): TemplateSet {
 }
 
 export function useLawfirmDemoWorkspace() {
-  const seededProfile = useMemo(() => seedProfile(), []);
-  const seededTemplate = useMemo(() => createTemplateSet(), []);
-  const [profiles, setProfiles] = useState<ClientProfile[]>([seededProfile]);
-  const [templates, setTemplates] = useState<TemplateSet[]>([seededTemplate]);
-  const [activeProfileId, setActiveProfileId] = useState(seededProfile.id);
-  const [activeTemplateId, setActiveTemplateId] = useState(seededTemplate.id);
+  const [profiles, setProfiles] = useState<ClientProfile[]>([]);
+  const [templates, setTemplates] = useState<TemplateSet[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string>("");
+  const [activeTemplateId, setActiveTemplateId] = useState<string>("");
   const [locale, setLocale] = useState<Locale>("vi");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       const saved = loadWorkspace();
-      if (saved?.profiles.length && saved.templates.length) {
-        setProfiles(saved.profiles);
-        setTemplates(saved.templates);
+      // Filter out any stale seed data containing "An Phú" or sample defaults
+      const cleanProfiles = (saved?.profiles ?? []).filter(
+        (p) => !p.name.includes("An Phú") && !p.name.includes("An Phu") && !p.name.includes("Hồ sơ khách hàng mẫu")
+      );
+      const cleanTemplates = (saved?.templates ?? []).filter(
+        (t) => !t.name.includes("An Phú") && !t.name.includes("An Phu")
+      );
+
+      setProfiles(cleanProfiles);
+      if (cleanProfiles.length > 0) {
         setActiveProfileId(
-          saved.profiles.some((item) => item.id === saved.activeProfileId)
-            ? saved.activeProfileId
-            : saved.profiles[0].id,
+          cleanProfiles.some((item) => item.id === saved?.activeProfileId)
+            ? saved!.activeProfileId
+            : cleanProfiles[0].id,
         );
-        setActiveTemplateId(
-          saved.templates.some((item) => item.id === saved.activeTemplateId)
-            ? saved.activeTemplateId
-            : saved.templates[0].id,
-        );
-        setLocale(saved.locale ?? "vi");
+      } else {
+        setActiveProfileId("");
       }
+
+      setTemplates(cleanTemplates);
+      if (cleanTemplates.length > 0) {
+        setActiveTemplateId(
+          cleanTemplates.some((item) => item.id === saved?.activeTemplateId)
+            ? saved!.activeTemplateId
+            : cleanTemplates[0].id,
+        );
+      } else {
+        setActiveTemplateId("");
+      }
+
+      if (saved?.locale) {
+        setLocale(saved.locale);
+      }
+
+      // Immediately save clean workspace back to localStorage
+      saveWorkspace({
+        profiles: cleanProfiles,
+        templates: cleanTemplates,
+        activeProfileId: cleanProfiles[0]?.id ?? "",
+        activeTemplateId: cleanTemplates[0]?.id ?? "",
+        locale: saved?.locale ?? "vi",
+      });
+
       setReady(true);
     }, 0);
     return () => window.clearTimeout(handle);
@@ -233,12 +238,10 @@ export function useLawfirmDemoWorkspace() {
   };
 
   const reset = () => {
-    const profile = seedProfile();
-    const template = createTemplateSet();
-    setProfiles([profile]);
-    setTemplates([template]);
-    setActiveProfileId(profile.id);
-    setActiveTemplateId(template.id);
+    setProfiles([]);
+    setTemplates([]);
+    setActiveProfileId("");
+    setActiveTemplateId("");
     setLocale("vi");
   };
 

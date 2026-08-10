@@ -60,8 +60,10 @@ export type FillResult = {
   id: string;
   name: string;
   blob?: Blob;
+  bytes?: ArrayBuffer;
   count: number;
   state: "success" | "no_match" | "unsupported" | "error";
+  error?: string;
 };
 
 export type PersistedWorkspace = {

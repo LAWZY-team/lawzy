@@ -18,6 +18,8 @@ import { UsageGuideDialog } from "./usage-guide-dialog";
 import { useLawfirmShellWorkspace } from "@/hooks/lawfirm/use-lawfirm-shell-workspace";
 import { lawfirmFillRunsApi } from "@/lib/api/lawfirm/lawfirm-api";
 
+import { useSessionKeepalive } from "@/hooks/use-session-keepalive";
+
 type View = "profiles" | "templates" | "fill";
 
 const nav = {
@@ -34,6 +36,7 @@ const nav = {
 };
 
 export function LawfirmDemoShell() {
+  useSessionKeepalive();
   const workspace = useLawfirmShellWorkspace();
   const locale = workspace.locale;
   const router = useRouter();
@@ -42,13 +45,13 @@ export function LawfirmDemoShell() {
   const viewParam = searchParams.get("view");
   const view: View =
     viewParam === "templates" || viewParam === "fill" ? viewParam : "profiles";
-  const mode = searchParams.get("mode") === "editor" ? "editor" : "library";
+  const mode = searchParams.get("mode") === "editor" ? "editor" : searchParams.get("mode") === "preview" ? "preview" : "library";
 
   const navigateToView = React.useCallback(
-    (nextView: View, nextMode: "library" | "editor" = "library") => {
+    (nextView: View, nextMode: "library" | "editor" | "preview" = "library") => {
       const params = new URLSearchParams({ view: nextView });
-      if (nextView !== "fill" && nextMode === "editor") {
-        params.set("mode", "editor");
+      if (nextView !== "fill" && nextMode !== "library") {
+        params.set("mode", nextMode);
       }
       router.push(`${pathname}?${params.toString()}`);
     },
@@ -58,7 +61,7 @@ export function LawfirmDemoShell() {
   if (!workspace.ready) {
     return (
       <main className="min-h-[100dvh] bg-white p-5">
-        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[248px_minmax(0,1fr)]">
+        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
           <div className="h-[calc(100dvh-2.5rem)] animate-pulse rounded-md bg-zinc-100" />
           <div className="space-y-4">
             <div className="h-28 animate-pulse rounded-md bg-zinc-100" />
@@ -87,17 +90,15 @@ export function LawfirmDemoShell() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-white text-zinc-950">
-      <div className="grid min-h-[100dvh] grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)]">
-        <aside className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-[100dvh] lg:border-b-0 lg:border-r">
+    <main className="h-screen w-screen max-w-full overflow-hidden bg-white text-zinc-950">
+      <div className="grid h-full grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] overflow-hidden">
+        <aside className="border-b border-zinc-200 bg-white lg:h-full lg:border-b-0 lg:border-r">
           <div className="flex h-full flex-col">
-            <div className="flex h-24 items-center justify-between border-b border-zinc-200 px-5 lg:px-8">
-              <div className="lg:hidden">
-                <LawfirmAccountBar locale={locale} />
-              </div>
+            <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4 font-semibold tracking-wide text-zinc-950">
+              <span className="text-sm font-bold tracking-tight">LAWZY LAWFIRM</span>
             </div>
 
-            <nav className="flex gap-1 overflow-x-auto px-3 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-4">
+            <nav className="flex gap-1 overflow-x-auto px-2 py-3 lg:block lg:space-y-1 lg:overflow-visible lg:py-3">
               {nav[locale].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -108,7 +109,7 @@ export function LawfirmDemoShell() {
                     className={cn(
                       "flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm font-medium transition active:scale-[0.98] lg:w-full",
                       view === item.id
-                        ? "bg-zinc-100 text-zinc-950"
+                        ? "bg-zinc-100 text-zinc-950 font-semibold"
                         : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
                     )}
                   >
@@ -119,45 +120,20 @@ export function LawfirmDemoShell() {
               })}
             </nav>
 
-            <div className="mt-auto hidden border-t border-zinc-200 p-3 lg:block">
-              <div className="mb-2">
-                <UsageGuideDialog locale={locale} />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="mb-2 w-full justify-start border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-50"
-                onClick={() => workspace.setLocale(locale === "vi" ? "en" : "vi")}
-              >
-                <Languages className="size-4" />
-                {locale === "vi" ? "English" : "Tiếng Việt"}
-              </Button>
+            <div className="mt-auto border-t border-zinc-200 p-2">
+              <LawfirmAccountBar
+                locale={locale}
+                onLocaleChange={(nextLocale) => workspace.setLocale(nextLocale)}
+              />
             </div>
           </div>
         </aside>
 
-        <section className="min-w-0">
-          <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-5 py-2">
-            <div className="hidden lg:block">
-              <LawfirmAccountBar locale={locale} />
-            </div>
-            <div className="flex items-center gap-2 lg:hidden">
-              <UsageGuideDialog locale={locale} compact />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => workspace.setLocale(locale === "vi" ? "en" : "vi")}
-              >
-                <Languages className="size-4" />
-                {locale === "vi" ? "EN" : "VI"}
-              </Button>
-            </div>
-          </div>
-          {view === "profiles" && workspace.activeProfile && (
+        <section className="h-full min-w-0 max-w-full overflow-y-auto">
+          {view === "profiles" && (
             <ProfilePanel
               locale={locale}
-              mode={mode}
+              mode={mode === "preview" ? "library" : mode}
               profiles={workspace.profiles}
               activeProfile={workspace.activeProfile}
               onSelect={workspace.setActiveProfileId}
@@ -172,7 +148,7 @@ export function LawfirmDemoShell() {
           {view === "templates" && workspace.activeTemplate && (
             <TemplatePanel
               locale={locale}
-              mode={mode}
+              mode={mode === "preview" ? "editor" : mode}
               profiles={workspace.profiles}
               templates={workspace.templates}
               activeTemplate={workspace.activeTemplate}

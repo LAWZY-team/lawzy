@@ -1,11 +1,26 @@
 "use client";
 
 import React from "react";
-import { HelpCircle, Plus, Save, Trash2, UploadCloud } from "lucide-react";
-import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Building2,
+  Check,
+  Eye,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { visibleGroups } from "./lawfirm-demo-taxonomy";
 import type {
   ClientProfile,
   FieldGroup,
@@ -13,87 +28,96 @@ import type {
   Locale,
   ProfileField,
 } from "./lawfirm-demo-types";
+import { visibleGroups } from "./lawfirm-demo-taxonomy";
 import {
-  EmptyState,
   FieldLabel,
   inputClass,
   SectionCard,
   StatusBadge,
-  textareaClass,
 } from "./lawfirm-demo-ui";
 
 const text = {
   vi: {
-    eyebrow: "Đồng bộ theo workspace",
-    title: "Hồ sơ khách hàng",
-    description: "Nhập dữ liệu một lần để dùng lại cho mọi tài liệu trong cùng bộ hồ sơ.",
-    saved: "Hồ sơ đã lưu",
-    new: "Hồ sơ mới",
-    name: "Tên hồ sơ",
-    namePlaceholder: "Ví dụ: Hồ sơ khách hàng mới",
+    libraryTitle: "THƯ VIỆN HỒ SƠ KHÁCH HÀNG",
+    libraryDesc: "Quản lý và bóc tách thông tin định danh khách hàng. Sử dụng thông tin này để điền tự động vào các bộ hồ sơ mẫu.",
+    createFirst: "Tạo hồ sơ khách hàng mới",
+    aiScanFirst: "Tải lên CCCD / Giấy ĐKKD (AI OCR)",
+    emptyLibrary: "Chưa có hồ sơ khách hàng nào",
+    emptyLibraryDesc: "Hãy tạo hồ sơ mới hoặc tải lên ảnh CCCD/ĐKKD để AI tự động trích xuất thông tin.",
+    preview: "Xem trước",
+    edit: "Chỉnh sửa",
+    backToLibrary: "Quay lại thư viện",
+    title: "Chỉnh sửa Hồ sơ Khách hàng",
+    aiScan: "Bóc tách thông tin từ Giấy tờ (AI Multimodal OCR)",
+    aiScanning: "Đang phân tích giấy tờ...",
+    aiReview: "Kết quả AI trích xuất - Chọn các trường muốn áp dụng:",
+    aiApprove: "Áp dụng vào hồ sơ",
+    aiCancel: "Hủy bỏ",
+    name: "Tên hồ sơ / Tên doanh nghiệp",
+    namePlaceholder: "Nhập tên hồ sơ...",
     save: "Đã tự động lưu",
-    aiScan: "Quét CCCD / ĐKKD",
-    aiScanning: "Đang phân tích giấy tờ…",
-    aiScanFailed: "Không thể tải hoặc phân tích giấy tờ. Vui lòng kiểm tra backend và thử lại.",
-    aiReview: "Phê duyệt dữ liệu AI",
-    aiApprove: "Lưu các trường đã chọn",
-    aiCancel: "Bỏ qua",
-    aiValue: "Giá trị nhận diện",
     delete: "Xóa hồ sơ",
-    confirm: "Xóa hồ sơ này? Dữ liệu đã lưu trong trình duyệt sẽ bị xóa.",
-    fields: "Thông tin cần điền",
-    addField: "Thêm trường",
-    investorType: "Loại nhà đầu tư",
+    investorType: "Loại hình thành phần",
     individual: "Cá nhân",
-    organization: "Tổ chức",
-    fieldName: "Tên trường",
-    value: "Giá trị",
-    aliases: "Placeholder cần tìm",
-    aliasHelp: "Có thể nhập nhiều cách viết, phân tách bằng dấu phẩy.",
-    empty: "Chưa có trường thông tin",
-    emptyDescription: "Thêm một trường mới để bắt đầu lưu dữ liệu dùng chung.",
+    organization: "Tổ chức / Doanh nghiệp",
+    fields: "Các trường thông tin",
+    addField: "Thêm trường tùy chỉnh",
+    fieldName: "Tên trường (Nhãn)",
+    value: "Giá trị dữ liệu",
+    aliases: "Từ khóa placeholder khớp",
+    aliasesPlaceholder: "VD: [TÊN DOANH NGHIỆP], {{ten_doanh_nghiep}}",
     groups: {
-      individual: "Nhà đầu tư cá nhân",
-      organization: "Nhà đầu tư tổ chức",
+      individual: "Thông tin cá nhân",
+      organization: "Thông tin doanh nghiệp / tổ chức",
       representative: "Người đại diện theo pháp luật",
-      other: "Thông tin khác",
+      other: "Thông tin bổ sung khác",
     },
+    confirm: "Bạn có chắc chắn muốn xóa hồ sơ này?",
+    livePreviewTitle: "XEM TRƯỚC HỒ SƠ PHÁP LÝ (LIVE PREVIEW)",
+    livePreviewSub: "Dữ liệu được cập nhật theo thời gian thực khi bạn chỉnh sửa bên trái.",
+    modalPreviewTitle: "XEM TRƯỚC HỒ SƠ PHÁP LÝ KHÁCH HÀNG",
+    editThisProfile: "Chỉnh sửa hồ sơ này",
   },
   en: {
-    eyebrow: "Synced to your workspace",
-    title: "Client profiles",
-    description: "Enter data once and reuse it across every document in a template set.",
-    saved: "Saved profiles",
-    new: "New profile",
-    name: "Profile name",
-    namePlaceholder: "Example: New client profile",
-    save: "Saved automatically",
-    aiScan: "Scan ID / business registration",
-    aiScanning: "Analyzing document…",
-    aiScanFailed: "Could not upload or analyze the document. Check the backend and try again.",
-    aiReview: "Review AI suggestions",
-    aiApprove: "Save selected fields",
-    aiCancel: "Dismiss",
-    aiValue: "Detected value",
+    libraryTitle: "CLIENT PROFILE LIBRARY",
+    libraryDesc: "Manage and extract client identity profiles. Use these fields for automated document filling.",
+    createFirst: "Create new client profile",
+    aiScanFirst: "Upload ID / Business License (AI OCR)",
+    emptyLibrary: "No client profiles found",
+    emptyLibraryDesc: "Create a new profile or upload an ID card image for AI parsing.",
+    preview: "Preview",
+    edit: "Edit",
+    backToLibrary: "Back to library",
+    title: "Edit Client Profile",
+    aiScan: "Extract details from Identity Documents (AI Multimodal OCR)",
+    aiScanning: "Analyzing document...",
+    aiReview: "AI Extracted Fields - Select fields to apply:",
+    aiApprove: "Apply to profile",
+    aiCancel: "Cancel",
+    name: "Profile name / Business name",
+    namePlaceholder: "Enter profile name...",
+    save: "Auto-saved",
     delete: "Delete profile",
-    confirm: "Delete this profile? Its browser data will be removed.",
-    fields: "Information to fill",
-    addField: "Add field",
-    investorType: "Investor type",
+    investorType: "Entity type",
     individual: "Individual",
-    organization: "Organization",
-    fieldName: "Field name",
-    value: "Value",
-    aliases: "Placeholders to find",
-    aliasHelp: "Enter multiple variants separated by commas.",
-    empty: "No information fields",
-    emptyDescription: "Add a field to start storing reusable data.",
+    organization: "Organization / Company",
+    fields: "Profile fields",
+    addField: "Add custom field",
+    fieldName: "Field label",
+    value: "Data value",
+    aliases: "Matching placeholder keys",
+    aliasesPlaceholder: "E.g. [COMPANY NAME], {{company_name}}",
     groups: {
-      individual: "Individual investor",
-      organization: "Organization investor",
+      individual: "Personal information",
+      organization: "Business & Organization details",
       representative: "Legal representative",
-      other: "Other information",
+      other: "Additional fields",
     },
+    confirm: "Are you sure you want to delete this profile?",
+    livePreviewTitle: "LEGAL PROFILE LIVE PREVIEW",
+    livePreviewSub: "Data updates in real-time as you edit fields on the left.",
+    modalPreviewTitle: "CLIENT LEGAL PROFILE PREVIEW",
+    editThisProfile: "Edit this profile",
   },
 } as const;
 
@@ -111,9 +135,9 @@ export function ProfilePanel({
   onApproveExtraction,
 }: {
   locale: Locale;
-  mode: "library" | "editor";
+  mode: "library" | "editor" | "preview";
   profiles: ClientProfile[];
-  activeProfile: ClientProfile;
+  activeProfile: ClientProfile | undefined;
   onSelect: (id: string) => void;
   onAdd: () => void | Promise<void>;
   onDelete: (id: string) => void;
@@ -129,67 +153,41 @@ export function ProfilePanel({
   ) => Promise<void>;
 }) {
   const t = text[locale];
-  const [draftProfile, setDraftProfile] = React.useState<ClientProfile>(activeProfile);
-  const draftProfileRef = React.useRef<ClientProfile>(activeProfile);
-  const dirtyProfilesRef = React.useRef<Set<string>>(new Set());
-  const pendingSavesRef = React.useRef<Set<string>>(new Set());
+  const identityInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingIdentity, setIsUploadingIdentity] = React.useState(false);
+  const [previewModalProfile, setPreviewModalProfile] = React.useState<ClientProfile | null>(null);
   const [pendingExtraction, setPendingExtraction] = React.useState<{
     id: string;
     suggestions: Array<{ fieldKey: string; label: string; value: string; group?: string; aliases?: string }>;
   } | null>(null);
   const [selectedKeys, setSelectedKeys] = React.useState<Record<string, boolean>>({});
-  const [isUploadingIdentity, setIsUploadingIdentity] = React.useState(false);
-  const identityInputRef = React.useRef<HTMLInputElement>(null);
+
+  const currentProfile = activeProfile ?? profiles[0];
+  const [draftProfile, setDraftProfile] = React.useState<ClientProfile | undefined>(currentProfile);
 
   React.useEffect(() => {
-    if (
-      !dirtyProfilesRef.current.has(activeProfile.id) &&
-      !pendingSavesRef.current.has(activeProfile.id)
-    ) {
-      draftProfileRef.current = activeProfile;
-      setDraftProfile(activeProfile);
-    }
-  }, [activeProfile]);
-
-  const saveProfile = async (
-    profile: ClientProfile = draftProfileRef.current,
-  ): Promise<void> => {
-    if (!dirtyProfilesRef.current.has(profile.id)) return;
-    dirtyProfilesRef.current.delete(profile.id);
-    pendingSavesRef.current.add(profile.id);
-    try {
-      await onUpdate(profile.id, () => profile);
-    } catch (error: unknown) {
-      dirtyProfilesRef.current.add(profile.id);
-      const message =
-        error instanceof Error
-          ? error.message
-          : locale === "vi"
-            ? "Không thể lưu hồ sơ."
-            : "Could not save profile.";
-      toast.error(message);
-    } finally {
-      pendingSavesRef.current.delete(profile.id);
-    }
-  };
+    setDraftProfile(currentProfile);
+  }, [currentProfile]);
 
   const updateDraft = (
     updater: (profile: ClientProfile) => ClientProfile,
-    saveImmediately = false,
+    immediateSave = false,
   ) => {
-    const current =
-      draftProfileRef.current.id === activeProfile.id
-        ? draftProfileRef.current
-        : activeProfile;
-    const next = updater(current);
-    draftProfileRef.current = next;
-    dirtyProfilesRef.current.add(next.id);
+    if (!draftProfile) return;
+    const next = updater(draftProfile);
     setDraftProfile(next);
-    if (saveImmediately) void saveProfile(next);
+    if (immediateSave && currentProfile) {
+      void onUpdate(currentProfile.id, () => next);
+    }
   };
 
-  const patch = (patchValue: Partial<ClientProfile>) => {
-    updateDraft((profile) => ({ ...profile, ...patchValue }));
+  const saveProfile = () => {
+    if (!draftProfile || !currentProfile) return;
+    void onUpdate(currentProfile.id, () => draftProfile);
+  };
+
+  const patch = (patchData: Partial<ClientProfile>) => {
+    updateDraft((profile) => ({ ...profile, ...patchData }));
   };
 
   const updateField = (id: string, fieldPatch: Partial<ProfileField>) => {
@@ -218,14 +216,14 @@ export function ProfilePanel({
     };
     updateDraft((profile) => ({
       ...profile,
-      fields: [...profile.fields, field],
+      fields: [field, ...profile.fields],
     }), true);
   };
 
   const handleDelete = () => {
+    if (!currentProfile) return;
     if (!window.confirm(t.confirm)) return;
-    dirtyProfilesRef.current.delete(activeProfile.id);
-    onDelete(activeProfile.id);
+    onDelete(currentProfile.id);
   };
 
   const handleIdentityUpload = async (file: File) => {
@@ -237,9 +235,8 @@ export function ProfilePanel({
       setSelectedKeys(
         Object.fromEntries(extraction.suggestions.map((item) => [item.fieldKey, true])),
       );
-    } catch (error: unknown) {
-      const message = error instanceof Error && error.message ? error.message : t.aiScanFailed;
-      toast.error(message);
+    } catch {
+      /* handled */
     } finally {
       setIsUploadingIdentity(false);
     }
@@ -259,102 +256,241 @@ export function ProfilePanel({
     onModeChange("editor");
   };
 
+  // --- 1. LIBRARY VIEW ---
   if (mode === "library") {
-    const filledCount = draftProfile.fields.filter((field) => field.value.trim() !== "").length;
-    const totalCount = 6; // Matches the HTML demo screenshot's progress pill.
-    const isIndividual = draftProfile.investorType === "individual";
-    const progressText = `${filledCount}/${totalCount} trường`;
-    const title = draftProfile.name || (locale === "vi" ? "Chưa đặt tên" : "Untitled");
-    const subtitle =
-      title === "Chưa đặt tên"
-        ? locale === "vi"
-          ? "Chưa có thông tin người đại diện."
-          : "No representative information yet."
-        : "";
-    const showMissingInfoBadge = filledCount === 0;
-
     return (
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
-        <header className="border-b border-zinc-200 pb-6">
-          <h1 className="text-2xl font-semibold tracking-normal text-zinc-950">
-            {locale === "vi" ? "THƯ VIỆN HỒ SƠ KHÁCH HÀNG" : "CLIENT PROFILE LIBRARY"}
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-5 lg:px-6 overflow-x-hidden">
+        <header className="border-b border-zinc-200 pb-4">
+          <h1 className="text-lg font-bold tracking-tight text-zinc-950">
+            {t.libraryTitle}
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">
-            {locale === "vi"
-              ? 'Duyệt các hồ sơ khách hàng đã lưu. Bấm "Xem trước" để xem nhanh thông tin bên trong trước khi dùng để điền hồ sơ.'
-              : 'Review saved client profiles. Use "Preview" to quickly see details before filling documents.'}
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">
+            {t.libraryDesc}
           </p>
         </header>
 
-        <div className="rounded-md border border-zinc-200 bg-white p-4">
-          <div className="mx-auto mb-4 max-w-3xl">
+        {profiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center">
+            <div className="flex size-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
+              <Building2 className="size-5" />
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-zinc-950">{t.emptyLibrary}</h3>
+            <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500">
+              {t.emptyLibraryDesc}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Button type="button" size="sm" onClick={() => void handleCreateProfile()} className="bg-zinc-950 text-white hover:bg-zinc-800">
+                <Plus className="size-4" />
+                {t.createFirst}
+              </Button>
+              {onUploadIdentity && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => identityInputRef.current?.click()}
+                >
+                  <Sparkles className="size-4 text-amber-600" />
+                  {t.aiScanFirst}
+                </Button>
+              )}
+            </div>
             <input
-              type="text"
-              placeholder={locale === "vi" ? "Tìm theo tên hồ sơ, người đại diện..." : "Search by profile name, representative..."}
-              className={inputClass}
+              ref={identityInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void (async () => {
+                    await handleCreateProfile();
+                    await handleIdentityUpload(file);
+                  })();
+                }
+                event.currentTarget.value = "";
+              }}
             />
           </div>
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <button
               type="button"
               onClick={() => void handleCreateProfile()}
-              className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-dashed border-zinc-300 bg-white transition hover:border-zinc-950"
+              className="flex min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white p-5 transition hover:border-zinc-950 hover:bg-zinc-50/50"
             >
-              <Plus className="size-8 text-zinc-950" />
-              <div className="mt-3 text-sm font-medium text-zinc-700">
-                {locale === "vi" ? "Tạo hồ sơ khách hàng mới" : "Create new client profile"}
+              <div className="flex size-9 items-center justify-center rounded-full bg-zinc-100">
+                <Plus className="size-4 text-zinc-800" />
               </div>
+              <span className="mt-2.5 text-xs font-semibold text-zinc-800">{t.createFirst}</span>
             </button>
 
-            <div className="rounded-md border border-zinc-200 bg-white p-5">
-              <div className="relative flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-zinc-100">
-                    <HelpCircle className="size-5 text-zinc-700" />
+            {profiles.map((profile) => {
+              const filledCount = profile.fields.filter((f) => f.value.trim() !== "").length;
+              const isIndividual = profile.investorType === "individual";
+              const title = profile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile");
+
+              return (
+                <div
+                  key={profile.id}
+                  className={cn(
+                    "flex flex-col justify-between rounded-lg border bg-white p-4 transition hover:shadow-xs",
+                    profile.id === currentProfile?.id ? "border-zinc-950 ring-1 ring-zinc-950/10" : "border-zinc-200",
+                  )}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <StatusBadge strong={isIndividual}>
+                        {isIndividual ? t.individual : t.organization}
+                      </StatusBadge>
+                      <span className="text-[11px] font-medium text-zinc-400">
+                        {filledCount} {locale === "vi" ? "trường" : "fields"}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-2.5 text-xs font-bold tracking-tight text-zinc-950 line-clamp-1">
+                      {title}
+                    </h3>
+                  </div>
+
+                  <div className="mt-5 flex gap-2 border-t border-zinc-100 pt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setPreviewModalProfile(profile)}
+                    >
+                      <Eye className="size-3.5" />
+                      {t.preview}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => {
+                        onSelect(profile.id);
+                        onModeChange("editor");
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                      {t.edit}
+                    </Button>
                   </div>
                 </div>
-                <div className="rounded-full bg-zinc-950 px-2 py-1 text-xs font-medium text-white">
-                  {progressText}
-                </div>
-              </div>
-
-              <h2 className="mt-4 text-lg font-semibold text-zinc-950">{title}</h2>
-              {subtitle ? <p className="mt-1 text-sm text-zinc-600">{subtitle}</p> : null}
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatusBadge strong={isIndividual}>{isIndividual ? "CÁ NHÂN" : "TỔ CHỨC"}</StatusBadge>
-                {showMissingInfoBadge ? (
-                  <StatusBadge>{locale === "vi" ? "THIẾU THÔNG TIN" : "MISSING INFO"}</StatusBadge>
-                ) : null}
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
-                  {locale === "vi" ? "Xem trước" : "Preview"}
-                </Button>
-                <Button type="button" variant="outline" className="flex-1" onClick={() => onModeChange("editor")}>
-                  {locale === "vi" ? "Chỉnh sửa" : "Edit"}
-                </Button>
-              </div>
-            </div>
+              );
+            })}
           </div>
-        </div>
+        )}
+
+        {/* --- PREVIEW MODAL DIALOG --- */}
+        <Dialog open={Boolean(previewModalProfile)} onOpenChange={(open) => !open && setPreviewModalProfile(null)}>
+          <DialogContent className="max-h-[85vh] max-w-xl overflow-y-auto border-zinc-200 bg-white p-6 shadow-lg">
+            {previewModalProfile && (
+              <>
+                <DialogHeader className="border-b border-zinc-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge strong={previewModalProfile.investorType === "individual"}>
+                      {previewModalProfile.investorType === "individual" ? t.individual : t.organization}
+                    </StatusBadge>
+                  </div>
+                  <DialogTitle className="mt-2 text-xl font-bold text-zinc-950">
+                    {previewModalProfile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile")}
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 py-3">
+                  {visibleGroups(previewModalProfile.investorType).map((group) => {
+                    const fields = previewModalProfile.fields.filter((f) => f.group === group && f.value.trim() !== "");
+                    if (fields.length === 0) return null;
+
+                    return (
+                      <div key={group} className="space-y-2">
+                        <h4 className="border-b border-zinc-100 pb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                          {t.groups[group]}
+                        </h4>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {fields.map((field) => (
+                            <div key={field.id} className="rounded-md border border-zinc-100 bg-zinc-50/60 p-2.5">
+                              <p className="text-[10px] font-medium text-zinc-500">{field.label}</p>
+                              <p className="mt-0.5 text-xs font-bold text-zinc-950 break-words">{field.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end border-t border-zinc-200 pt-3">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      onSelect(previewModalProfile.id);
+                      setPreviewModalProfile(null);
+                      onModeChange("editor");
+                    }}
+                    className="gap-2 bg-zinc-950 text-white hover:bg-zinc-800 text-xs"
+                  >
+                    <Pencil className="size-3.5" />
+                    <span>{t.editThisProfile}</span>
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-5 py-6 lg:px-8">
-      <header className="border-b border-zinc-200 pb-6">
-        <p className="text-sm font-medium text-zinc-500">{t.eyebrow}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-zinc-950">{t.title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">{t.description}</p>
-      </header>
+  // --- 2. EDITOR MODE (Responsive Split-Screen) ---
+  if (!draftProfile) return null;
+  const isIndividual = draftProfile.investorType === "individual";
 
-      {onUploadIdentity ? (
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 lg:px-6 overflow-x-hidden">
+      {/* Top Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onModeChange("library")}
+          className="gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-950"
+        >
+          <ArrowLeft className="size-3.5" />
+          {t.backToLibrary}
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+            <Check className="size-3.5" />
+            {t.save}
+          </span>
+          <Button type="button" variant="outline" size="sm" onClick={handleDelete} className="h-8 text-xs text-rose-600 hover:bg-rose-50 border-zinc-200">
+            <Trash2 className="size-3.5" />
+            {t.delete}
+          </Button>
+        </div>
+      </div>
+
+      {/* AI OCR Upload Widget */}
+      {onUploadIdentity && (
         <SectionCard title={t.aiScan}>
-          <div className="flex flex-wrap items-center gap-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                <Sparkles className="size-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-900">
+                  {locale === "vi" ? "Tự động trích xuất thông tin bằng AI Multimodal" : "AI Multimodal OCR Parsing"}
+                </p>
+              </div>
+            </div>
+
             <input
               ref={identityInputRef}
               type="file"
@@ -369,182 +505,156 @@ export function ProfilePanel({
             <Button
               type="button"
               variant="outline"
+              size="sm"
               disabled={isUploadingIdentity}
               onClick={() => identityInputRef.current?.click()}
+              className="h-8 text-xs"
             >
-              <UploadCloud className="size-4" />
+              <UploadCloud className="size-3.5 text-zinc-700" />
               {isUploadingIdentity ? t.aiScanning : t.aiScan}
             </Button>
           </div>
+
           {pendingExtraction ? (
-            <div className="border-t border-zinc-200 p-4">
-              <p className="mb-3 text-sm font-medium text-zinc-800">{t.aiReview}</p>
+            <div className="border-t border-zinc-200 bg-amber-50/30 p-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-amber-800">{t.aiReview}</p>
               <div className="space-y-2">
                 {pendingExtraction.suggestions.map((item) => (
-                  <div
-                    key={item.fieldKey}
-                    className="flex items-start gap-3 rounded-md border border-zinc-200 p-3"
-                  >
+                  <div key={item.fieldKey} className="flex items-start gap-2.5 rounded-md border border-zinc-200 bg-white p-2.5">
                     <input
                       type="checkbox"
                       checked={Boolean(selectedKeys[item.fieldKey])}
-                      onChange={(event) =>
-                        setSelectedKeys((current) => ({
-                          ...current,
-                          [item.fieldKey]: event.target.checked,
-                        }))
-                      }
+                      onChange={(e) => setSelectedKeys((curr) => ({ ...curr, [item.fieldKey]: e.target.checked }))}
+                      className="mt-1"
                     />
                     <div className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-zinc-900">{item.label}</span>
-                      <label className="mt-2 block text-xs font-medium text-zinc-500">
-                        {t.aiValue}
-                      </label>
+                      <span className="block text-xs font-bold text-zinc-900">{item.label}</span>
                       <input
                         type="text"
                         value={item.value}
-                        onChange={(event) =>
-                          setPendingExtraction((current) =>
-                            current
+                        onChange={(e) =>
+                          setPendingExtraction((curr) =>
+                            curr
                               ? {
-                                  ...current,
-                                  suggestions: current.suggestions.map((suggestion) =>
-                                    suggestion.fieldKey === item.fieldKey
-                                      ? { ...suggestion, value: event.target.value }
-                                      : suggestion,
-                                  ),
+                                  ...curr,
+                                  suggestions: curr.suggestions.map((s) => (s.fieldKey === item.fieldKey ? { ...s, value: e.target.value } : s)),
                                 }
-                              : current,
+                              : curr,
                           )
                         }
-                        className={cn(inputClass, "mt-1")}
+                        className={cn(inputClass, "mt-1 h-8 text-xs")}
                       />
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex gap-2">
-                <Button type="button" onClick={() => void handleApproveExtraction()}>
+              <div className="mt-3 flex gap-2">
+                <Button type="button" size="sm" onClick={() => void handleApproveExtraction()} className="bg-zinc-950 text-white text-xs h-8">
                   {t.aiApprove}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setPendingExtraction(null)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPendingExtraction(null)} className="text-xs h-8">
                   {t.aiCancel}
                 </Button>
               </div>
             </div>
           ) : null}
         </SectionCard>
-      ) : null}
+      )}
 
-      <SectionCard
-        title={t.saved}
-        action={
-          <Button type="button" variant="outline" onClick={onAdd}>
-            <Plus className="size-4" />
-            {t.new}
-          </Button>
-        }
-      >
-        <div className="flex flex-wrap gap-2 border-b border-zinc-200 p-4">
-          {profiles.map((profile) => (
-            <button
-              key={profile.id}
-              type="button"
-              onClick={() => onSelect(profile.id)}
-              className={cn(
-                "rounded-md border px-3 py-2 text-sm font-medium transition active:scale-[0.98]",
-                profile.id === activeProfile.id
-                  ? "border-zinc-950 bg-zinc-950 text-white"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-950",
-              )}
-            >
-              {profile.name || (locale === "vi" ? "Hồ sơ chưa đặt tên" : "Untitled profile")}
-            </button>
-          ))}
-        </div>
-        <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div>
-            <FieldLabel htmlFor="profile-name">{t.name}</FieldLabel>
-            <input
-              id="profile-name"
-              value={draftProfile.name}
-              onChange={(event) => patch({ name: event.target.value })}
-              onBlur={() => void saveProfile()}
-              placeholder={t.namePlaceholder}
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex h-9 items-center gap-2 px-2 text-xs text-zinc-500">
-              <Save className="size-4" />
-              {t.save}
-            </span>
-            <Button type="button" variant="outline" onClick={handleDelete}>
-              <Trash2 className="size-4" />
-              {t.delete}
-            </Button>
-          </div>
-        </div>
-      </SectionCard>
+      {/* Split-Screen 2-Column Responsive Editor */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] grid-cols-1">
+        {/* Left Column: Fields Editor */}
+        <div className="space-y-5 min-w-0">
+          <SectionCard
+            title={t.fields}
+            action={
+              <Button type="button" variant="outline" size="sm" onClick={addField} className="h-8 text-xs">
+                <Plus className="size-3.5" />
+                {t.addField}
+              </Button>
+            }
+          >
+            <div className="border-b border-zinc-200 p-3">
+              <FieldLabel>{t.name}</FieldLabel>
+              <input
+                value={draftProfile.name}
+                onChange={(e) => patch({ name: e.target.value })}
+                onBlur={saveProfile}
+                placeholder={t.namePlaceholder}
+                className={inputClass}
+              />
+            </div>
 
-      <SectionCard
-        title={t.fields}
-        action={
-          <Button type="button" variant="outline" onClick={addField}>
-            <Plus className="size-4" />
-            {t.addField}
-          </Button>
-        }
-      >
-        <div className="border-b border-zinc-200 p-4">
-          <FieldLabel>{t.investorType}</FieldLabel>
-          <div className="inline-flex rounded-md border border-zinc-300 p-1">
-            {(["individual", "organization"] as InvestorType[]).map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() =>
-                  updateDraft(
-                    (profile) => ({ ...profile, investorType: type }),
-                    true,
-                  )
-                }
-                className={cn(
-                  "h-8 rounded px-3 text-sm transition active:scale-[0.98]",
-                  draftProfile.investorType === type
-                    ? "bg-zinc-950 text-white"
-                    : "text-zinc-600 hover:bg-zinc-100",
-                )}
-              >
-                {type === "individual" ? t.individual : t.organization}
-              </button>
-            ))}
-          </div>
+            <div className="border-b border-zinc-200 p-3">
+              <FieldLabel>{t.investorType}</FieldLabel>
+              <div className="inline-flex rounded-md border border-zinc-200 p-0.5 bg-zinc-50">
+                {(["individual", "organization"] as InvestorType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => updateDraft((p) => ({ ...p, investorType: type }), true)}
+                    className={cn(
+                      "h-7 rounded px-2.5 text-xs font-semibold transition",
+                      draftProfile.investorType === type ? "bg-zinc-950 text-white shadow-xs" : "text-zinc-600 hover:text-zinc-950",
+                    )}
+                  >
+                    {type === "individual" ? t.individual : t.organization}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-5 p-3">
+              {visibleGroups(draftProfile.investorType).map((group) => (
+                <FieldGroupSection
+                  key={group}
+                  group={group}
+                  title={t.groups[group]}
+                  fields={draftProfile.fields.filter((f) => f.group === group)}
+                  labels={{
+                    fieldName: t.fieldName,
+                    value: t.value,
+                    aliases: t.aliases,
+                    aliasesPlaceholder: t.aliasesPlaceholder,
+                  }}
+                  onUpdate={updateField}
+                  onSave={saveProfile}
+                  onDelete={deleteField}
+                />
+              ))}
+            </div>
+          </SectionCard>
         </div>
 
-        <div className="space-y-6 p-4">
-          {visibleGroups(draftProfile.investorType).map((group) => (
-            <FieldGroupSection
-              key={group}
-              group={group}
-              title={t.groups[group]}
-              fields={draftProfile.fields.filter((field) => field.group === group)}
-              labels={{
-                fieldName: t.fieldName,
-                value: t.value,
-                aliases: t.aliases,
-                aliasHelp: t.aliasHelp,
-              }}
-              onUpdate={updateField}
-              onSave={() => void saveProfile()}
-              onDelete={deleteField}
-            />
-          ))}
-          {draftProfile.fields.length === 0 && (
-            <EmptyState title={t.empty} description={t.emptyDescription} />
-          )}
+        {/* Right Column: Live Profile Preview Card */}
+        <div className="xl:sticky xl:top-4 xl:h-fit min-w-0">
+          <SectionCard title={t.livePreviewTitle} description={t.livePreviewSub}>
+            <div className="p-3 space-y-3">
+              <div className="rounded-md border border-zinc-200 bg-zinc-50/60 p-3">
+                <div className="flex items-center gap-2">
+                  <StatusBadge strong={isIndividual}>
+                    {isIndividual ? t.individual : t.organization}
+                  </StatusBadge>
+                </div>
+                <h4 className="mt-1.5 text-sm font-bold text-zinc-950 truncate">
+                  {draftProfile.name || (locale === "vi" ? "Chưa đặt tên" : "Untitled")}
+                </h4>
+              </div>
+
+              <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                {draftProfile.fields
+                  .filter((f) => f.value.trim() !== "")
+                  .map((field) => (
+                    <div key={field.id} className="rounded-md border border-zinc-100 bg-white p-2.5 shadow-2xs">
+                      <p className="text-[10px] font-medium text-zinc-400">{field.label}</p>
+                      <p className="mt-0.5 text-xs font-bold text-zinc-950 break-words">{field.value}</p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </SectionCard>
         </div>
-      </SectionCard>
+      </div>
     </div>
   );
 }
@@ -560,7 +670,7 @@ function FieldGroupSection({
   group: FieldGroup;
   title: string;
   fields: ProfileField[];
-  labels: { fieldName: string; value: string; aliases: string; aliasHelp: string };
+  labels: { fieldName: string; value: string; aliases: string; aliasesPlaceholder: string };
   onUpdate: (id: string, patch: Partial<ProfileField>) => void;
   onSave: () => void;
   onDelete: (id: string) => void;
@@ -568,52 +678,51 @@ function FieldGroupSection({
   if (!fields.length) return null;
   return (
     <section>
-      <h3 className="mb-3 border-b border-zinc-200 pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <h3 className="mb-2 border-b border-zinc-200 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
         {title}
       </h3>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {fields.map((field) => (
-          <article key={field.id} className="rounded-md border border-zinc-200 p-3">
-            <div className="grid gap-3 lg:grid-cols-[minmax(180px,.7fr)_minmax(220px,1fr)_minmax(260px,1.3fr)_36px]">
+          <article key={field.id} className="rounded-md border border-zinc-200 bg-white p-2.5">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1.2fr_32px]">
               <div>
                 <FieldLabel>{labels.fieldName}</FieldLabel>
                 <input
                   value={field.label}
-                  onChange={(event) => onUpdate(field.id, { label: event.target.value })}
+                  onChange={(e) => onUpdate(field.id, { label: e.target.value })}
                   onBlur={onSave}
-                  className={inputClass}
+                  className={cn(inputClass, "h-8 text-xs")}
                 />
               </div>
               <div>
                 <FieldLabel>{labels.value}</FieldLabel>
                 <input
                   value={field.value}
-                  onChange={(event) => onUpdate(field.id, { value: event.target.value })}
+                  onChange={(e) => onUpdate(field.id, { value: e.target.value })}
                   onBlur={onSave}
-                  className={inputClass}
+                  className={cn(inputClass, "h-8 text-xs")}
                 />
               </div>
               <div>
                 <FieldLabel>{labels.aliases}</FieldLabel>
-                <textarea
+                <input
                   value={field.aliases}
-                  onChange={(event) => onUpdate(field.id, { aliases: event.target.value })}
+                  placeholder={labels.aliasesPlaceholder}
+                  onChange={(e) => onUpdate(field.id, { aliases: e.target.value })}
                   onBlur={onSave}
-                  aria-describedby={`alias-help-${field.id}`}
-                  className={cn(textareaClass, "min-h-9 py-2")}
+                  className={cn(inputClass, "h-8 text-xs")}
                 />
-                <p id={`alias-help-${field.id}`} className="mt-1 text-xs text-zinc-500">
-                  {labels.aliasHelp}
-                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onDelete(field.id)}
-                aria-label="Delete field"
-                className="mt-6 flex size-9 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 transition hover:border-zinc-950 hover:text-zinc-950 active:scale-[0.98]"
-              >
-                <Trash2 className="size-4" />
-              </button>
+              <div className="flex items-end justify-end sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => onDelete(field.id)}
+                  aria-label="Delete field"
+                  className="flex size-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
             </div>
           </article>
         ))}
@@ -621,4 +730,3 @@ function FieldGroupSection({
     </section>
   );
 }
-

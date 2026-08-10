@@ -9,6 +9,7 @@ import {
   PencilLine,
   HelpCircle,
   Plus,
+  Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -707,13 +708,11 @@ function DocumentEditor({
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
 
   useEffect(() => {
-    if (!isDirtyRef.current && !isSavingRef.current) {
-      draftDocumentRef.current = documentItem;
-      setDraftDocument(documentItem);
-    }
-  }, [documentItem]);
-
-  useEffect(() => {
+    isDirtyRef.current = false;
+    isSavingRef.current = false;
+    isRestoringPreviewRef.current = false;
+    draftDocumentRef.current = documentItem;
+    setDraftDocument(documentItem);
     setAiStatus("idle");
     setAiSuggestions([]);
   }, [documentItem.id]);
@@ -817,21 +816,40 @@ function DocumentEditor({
     applyDraft(
       (documentValue) => ({
         ...documentValue,
-        fields: [...documentValue.fields, field],
+        fields: [field, ...documentValue.fields],
       }),
       true,
     );
   };
 
   const runAiScan = async (): Promise<void> => {
-    if (!onScanDocument) return;
+    if (!draftDocumentRef.current.plainText || draftDocumentRef.current.plainText.trim().length === 0) {
+      toast.warning(locale === "vi" ? "Tài liệu chưa có nội dung chữ để AI phân tích." : "No document text available for AI analysis.");
+      setAiStatus("idle");
+      return;
+    }
     setAiStatus("scanning");
     try {
-      const result = await onScanDocument();
+      let resultAi: Array<{ placeholder: string; mappedKey: string; label: string }> = [];
+      if (onScanDocument) {
+        const res = await onScanDocument();
+        resultAi = res.ai;
+      } else {
+        const res = await fetch("/api/ai/scan-template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: draftDocumentRef.current.plainText }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          resultAi = data.ai || [];
+        }
+      }
+
       const existing = new Set(
         draftDocumentRef.current.fields.map((field) => field.placeholder.trim()),
       );
-      const suggestions = result.ai
+      const suggestions = resultAi
         .filter((item) => item.placeholder.trim() && !existing.has(item.placeholder.trim()))
         .map(
           (item): AiSuggestion => ({
@@ -844,6 +862,9 @@ function DocumentEditor({
         );
       setAiSuggestions(suggestions);
       setAiStatus("done");
+      if (suggestions.length === 0) {
+        toast.info(locale === "vi" ? "AI đã quét xong, không phát hiện thêm trường mới nào." : "AI scan complete, no new fields detected.");
+      }
     } catch {
       setAiStatus("error");
       setAiSuggestions([]);
@@ -863,7 +884,6 @@ function DocumentEditor({
       (documentValue) => ({
         ...documentValue,
         fields: [
-          ...documentValue.fields,
           ...selected.map((item) => ({
             id: `field-${crypto.randomUUID()}`,
             label: item.label,
@@ -962,10 +982,23 @@ function DocumentEditor({
                 {draftDocument.fields.length} {t.occurrences}
               </p>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => addField()}>
-              <Plus className="size-4" />
-              {t.addField}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={aiStatus === "scanning"}
+                onClick={() => void runAiScan()}
+                className="border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-50 text-xs font-medium"
+              >
+                <span>{aiStatus === "scanning" ? (locale === "vi" ? "Đang quét AI..." : "Scanning AI...") : (locale === "vi" ? "Quét AI" : "AI Scan")}</span>
+              </Button>
+
+              <Button type="button" variant="outline" size="sm" onClick={() => addField()}>
+                <Plus className="size-4" />
+                {t.addField}
+              </Button>
+            </div>
           </div>
           <div className="max-h-[580px] space-y-3 overflow-y-auto pr-1">
             {aiStatus === "scanning" ? (

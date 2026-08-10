@@ -8,7 +8,26 @@ export function loadWorkspace(): PersistedWorkspace | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(WORKSPACE_KEY);
-    return raw ? (JSON.parse(raw) as PersistedWorkspace) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedWorkspace;
+    if (parsed && Array.isArray(parsed.profiles)) {
+      const cleanProfiles = parsed.profiles.filter(
+        (p) => !p.name.includes("An Phú") && !p.name.includes("An Phu") && !p.name.includes("Hồ sơ khách hàng mẫu")
+      );
+      const cleanTemplates = (parsed.templates ?? []).filter(
+        (t) => !t.name.includes("An Phú") && !t.name.includes("An Phu")
+      );
+      const sanitized: PersistedWorkspace = {
+        ...parsed,
+        profiles: cleanProfiles,
+        templates: cleanTemplates,
+        activeProfileId: cleanProfiles.some((p) => p.id === parsed.activeProfileId) ? parsed.activeProfileId : (cleanProfiles[0]?.id ?? ""),
+        activeTemplateId: cleanTemplates.some((t) => t.id === parsed.activeTemplateId) ? parsed.activeTemplateId : (cleanTemplates[0]?.id ?? ""),
+      };
+      window.localStorage.setItem(WORKSPACE_KEY, JSON.stringify(sanitized));
+      return sanitized;
+    }
+    return parsed;
   } catch {
     return null;
   }

@@ -23,10 +23,10 @@ import {
 } from './login-product';
 
 const SALT_ROUNDS = 12;
-const ACCESS_TOKEN_EXPIRES = '15m';
+const ACCESS_TOKEN_EXPIRES = '24h';
 const REFRESH_TOKEN_EXPIRES = '7d';
 const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000;
+const ACCESS_TOKEN_MAX_AGE = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
