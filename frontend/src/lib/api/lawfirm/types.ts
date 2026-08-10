@@ -2,7 +2,7 @@ export type LawfirmInvestorType = 'individual' | 'organization';
 export type LawfirmFieldGroup = 'individual' | 'organization' | 'representative' | 'other';
 export type LawfirmTemplateStatus = 'draft' | 'ready';
 export type LawfirmDocumentStatus = 'draft' | 'done';
-export type LawfirmDocumentKind = 'docx' | 'pdf';
+export type LawfirmDocumentKind = 'docx' | 'doc' | 'pdf';
 export type LawfirmVisibility = 'private' | 'public';
 export type LawfirmExtractionStatus = 'pending' | 'approved' | 'rejected' | 'failed';
 

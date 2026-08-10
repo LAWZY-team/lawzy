@@ -40,23 +40,19 @@ export async function extractDocxPlainText(buffer: ArrayBuffer): Promise<string>
  */
 export function extractPlaceholders(text: string): string[] {
   if (!text) return []
-  const matches: string[] = []
-
-  // Match square brackets: e.g., [TÊN DOANH NGHIỆP], [MÃ SỐ THUẾ]
-  const bracketMatches = text.match(/\[[^\]]{2,80}\]/g)
-  if (bracketMatches) matches.push(...bracketMatches)
-
-  // Match double curly braces: e.g., {{ten_doanh_nghiep}}, {{mst}}
-  const curlyMatches = text.match(/\{\{[^}]{2,80}\}\}/g)
-  if (curlyMatches) matches.push(...curlyMatches)
-
-  // Match double angle brackets: e.g., <<Tên công ty>>
-  const angleMatches = text.match(/<<[^>]{2,80}>>/g)
-  if (angleMatches) matches.push(...angleMatches)
-
-  // Clean, trim and unique
-  const unique = Array.from(new Set(matches.map((m) => m.trim()).filter((m) => m.length > 2)))
-  return unique.sort()
+  const patterns = [
+    /\[[^[\]\r\n]{1,80}\]/g,
+    /\{\{[^{}\r\n]{1,80}\}\}/g,
+    /<<[^<>\r\n]{1,80}>>/g,
+    /\$\{[^{}\r\n]{1,80}\}/g,
+    /\$\([^()\r\n]{1,80}\)/g,
+    /\{[^{}\r\n]{2,80}\}/g,
+    /<(?!\/?(p|div|span|h[1-6]|b|i|u|strong|table|tr|td|th|br|w:|xml|html|body|head|style|script)\b)[^<>\r\n]{2,80}>/gi,
+  ]
+  const matches = patterns.flatMap((pattern) => text.match(pattern) ?? [])
+  return Array.from(
+    new Set(matches.map((m) => m.trim()).filter((m) => m.length >= 3))
+  ).sort()
 }
 
 /** Known common alias mappings to canonical keys */

@@ -939,7 +939,8 @@ function DocumentEditor({
 
   useEffect(() => {
     const currentDocument = draftDocumentRef.current;
-    const needsDocxPreview = currentDocument.fileType === "docx" && !currentDocument.previewHtml;
+    const isWord = currentDocument.fileType === "docx" || currentDocument.fileType === "doc";
+    const needsDocxPreview = isWord && !currentDocument.previewHtml;
     const needsPdfPreview = currentDocument.fileType === "pdf" && !currentDocument.previewImage;
     if ((!needsDocxPreview && !needsPdfPreview) || !currentDocument.fileId || isRestoringPreviewRef.current) {
       return;
@@ -1092,7 +1093,7 @@ function DocumentEditor({
   };
 
   useEffect(() => {
-    if (!onScanDocument || draftDocument.fileType !== "docx") return;
+    if (!onScanDocument || (draftDocument.fileType !== "docx" && draftDocument.fileType !== "doc")) return;
     if (draftDocument.fields.length > 0 || aiStatus !== "idle") return;
     void runAiScan();
   }, [draftDocument.fileType, draftDocument.fields.length, aiStatus, onScanDocument]);
@@ -1148,7 +1149,7 @@ function DocumentEditor({
                 {documentItem.fileType === "pdf" ? t.pdfHint : t.selectionHint}
               </p>
             </div>
-            {documentItem.fileType === "docx" && documentItem.previewHtml && (
+            {(documentItem.fileType === "docx" || documentItem.fileType === "doc") && documentItem.previewHtml && (
               <div className="inline-flex rounded-md border border-zinc-300 p-1">
                 <button
                   type="button"

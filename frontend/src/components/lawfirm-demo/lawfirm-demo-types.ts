@@ -3,7 +3,7 @@ export type InvestorType = "individual" | "organization";
 export type FieldGroup = "individual" | "organization" | "representative" | "other";
 export type TemplateStatus = "draft" | "ready";
 export type DocumentStatus = "draft" | "done";
-export type DocumentKind = "docx" | "pdf";
+export type DocumentKind = "docx" | "doc" | "pdf";
 
 export type ProfileField = {
   id: string;

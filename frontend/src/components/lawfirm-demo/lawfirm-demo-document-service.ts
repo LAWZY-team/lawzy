@@ -32,20 +32,69 @@ function escapeRegExp(value: string): string {
 }
 
 export function extractPlaceholders(text: string): string[] {
-  const patterns = [/\[[^[\]\r\n]{1,80}\]/g, /\{\{[^{}\r\n]{1,80}\}\}/g, /<<[^<>\r\n]{1,80}>>/g];
-  return [...new Set(patterns.flatMap((pattern) => text.match(pattern) ?? []))];
+  if (!text) return [];
+  const patterns = [
+    /\[[^[\]\r\n]{1,80}\]/g,
+    /\{\{[^{}\r\n]{1,80}\}\}/g,
+    /<<[^<>\r\n]{1,80}>>/g,
+    /\$\{[^{}\r\n]{1,80}\}/g,
+    /\$\([^()\r\n]{1,80}\)/g,
+    /\{[^{}\r\n]{2,80}\}/g,
+    /<(?!\/?(p|div|span|h[1-6]|b|i|u|strong|table|tr|td|th|br|w:|xml|html|body|head|style|script)\b)[^<>\r\n]{2,80}>/gi,
+  ];
+  const matches = patterns.flatMap((pattern) => text.match(pattern) ?? []);
+  return [...new Set(matches.map((m) => m.trim()).filter((m) => m.length >= 3))].sort();
 }
 
 export function cleanPlaceholderLabel(value: string): string {
   return value
-    .replace(/^\[|\]$/g, "")
-    .replace(/^\{\{|\}\}$/g, "")
-    .replace(/^<<|>>$/g, "")
+    .replace(/^(\$\{|\$\(|\{\{|<<|\[|\{|\<)/, "")
+    .replace(/(\}\}|\}\)|\}\||>>|\]|\}|\>)$/, "")
     .trim();
 }
 
 export function countOccurrences(text: string, value: string): number {
   return text.match(new RegExp(escapeRegExp(value), "g"))?.length ?? 0;
+}
+
+export function extractDocBinaryText(bytes: ArrayBuffer): string {
+  const uint8 = new Uint8Array(bytes);
+  const textPieces: string[] = [];
+
+  // 1. Scan UTF-16LE character sequences (Word 97-2003 OLE2 binary format)
+  let utf16Str = "";
+  for (let i = 0; i < uint8.length - 1; i += 2) {
+    const charCode = uint8[i] | (uint8[i + 1] << 8);
+    if (
+      (charCode >= 0x0020 && charCode <= 0x1ef9 && charCode !== 0xfeff && charCode !== 0xffff) ||
+      charCode === 10 ||
+      charCode === 13 ||
+      charCode === 9
+    ) {
+      utf16Str += String.fromCharCode(charCode);
+    } else {
+      if (utf16Str.trim().length >= 3) {
+        textPieces.push(utf16Str);
+      }
+      utf16Str = "";
+    }
+  }
+  if (utf16Str.trim().length >= 3) {
+    textPieces.push(utf16Str);
+  }
+
+  // 2. Scan UTF-8 / ASCII / Windows-1258 text sequences
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  const rawUtf8 = decoder.decode(bytes);
+  const utf8Matches = rawUtf8.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
+
+  const combined = [...textPieces, ...utf8Matches].join("\n");
+  const cleanLines = combined
+    .split(/[\r\n]+/)
+    .map((line) => line.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").trim())
+    .filter((line) => line.length > 2 && /[\w\u00C0-\u1EF9\[\]\{\}<>]/.test(line));
+
+  return [...new Set(cleanLines)].join("\n\n");
 }
 
 async function extractDocxText(bytes: ArrayBuffer): Promise<string> {
@@ -61,11 +110,7 @@ async function extractDocxText(bytes: ArrayBuffer): Promise<string> {
     }
     return text;
   } catch {
-    // Fallback for legacy .doc binary file text extraction
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    const raw = decoder.decode(bytes);
-    const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
-    return matches.join(" ");
+    return extractDocBinaryText(bytes);
   }
 }
 
@@ -75,8 +120,12 @@ export async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | und
     const result = await mammoth.convertToHtml({ arrayBuffer: bytes.slice(0) });
     return result.value || undefined;
   } catch {
-    const text = await extractDocxText(bytes);
-    return text ? `<div class="whitespace-pre-wrap font-sans text-xs leading-relaxed">${encodeXml(text)}</div>` : undefined;
+    const text = extractDocBinaryText(bytes);
+    if (!text) return undefined;
+    return `<div class="p-4 space-y-3 font-sans text-xs leading-relaxed text-zinc-900 bg-white border border-zinc-200 rounded-md shadow-2xs">${text
+      .split("\n\n")
+      .map((p) => `<p>${encodeXml(p)}</p>`)
+      .join("")}</div>`;
   }
 }
 
@@ -109,7 +158,8 @@ export async function buildDocumentPreviewFromBytes(
   fileName: string,
   bytes: ArrayBuffer,
 ): Promise<Pick<TemplateDocument, "fileType" | "previewHtml" | "previewImage" | "plainText" | "fields">> {
-  const fileType = fileName.toLowerCase().endsWith(".pdf") ? "pdf" : "docx";
+  const ext = fileName.toLowerCase();
+  const fileType: DocumentKind = ext.endsWith(".pdf") ? "pdf" : ext.endsWith(".doc") ? "doc" : "docx";
   let plainText = "";
   let previewHtml: string | undefined;
   let previewImage: string | undefined;
@@ -118,6 +168,14 @@ export async function buildDocumentPreviewFromBytes(
     const result = await extractPdf(bytes);
     plainText = result.text;
     previewImage = result.image;
+  } else if (fileType === "doc") {
+    plainText = extractDocBinaryText(bytes.slice(0));
+    if (plainText) {
+      previewHtml = `<div class="p-4 space-y-3 font-sans text-xs leading-relaxed text-zinc-900 bg-white border border-zinc-200 rounded-md shadow-2xs">${plainText
+        .split("\n\n")
+        .map((p) => `<p>${encodeXml(p)}</p>`)
+        .join("")}</div>`;
+    }
   } else {
     plainText = await extractDocxText(bytes.slice(0));
     previewHtml = await buildDocxPreview(bytes.slice(0));

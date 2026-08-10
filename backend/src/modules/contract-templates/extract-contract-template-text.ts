@@ -103,12 +103,49 @@ export const extractContractTemplateText = async (params: {
 
   let text = '';
   try {
-    const mammothResult = await mammoth.extractRawText({ buffer: params.buffer });
-    text = mammothResult.value;
+    const WordExtractor = require('word-extractor');
+    const extractor = new WordExtractor();
+    const extracted = await extractor.extract(params.buffer);
+    text = extracted.getBody();
   } catch {
-    const raw = params.buffer.toString('utf-8');
-    const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
-    text = matches.join(' ');
+    // Fall back to mammoth or binary regex extraction
+  }
+
+  if (!text || text.trim().length === 0) {
+    try {
+      const mammothResult = await mammoth.extractRawText({ buffer: params.buffer });
+      text = mammothResult.value;
+    } catch {
+      const uint8 = new Uint8Array(
+        params.buffer.buffer.slice(params.buffer.byteOffset, params.buffer.byteOffset + params.buffer.byteLength),
+      );
+      const textPieces: string[] = [];
+      let utf16Str = '';
+      for (let i = 0; i < uint8.length - 1; i += 2) {
+        const charCode = uint8[i] | (uint8[i + 1] << 8);
+        if (
+          (charCode >= 0x0020 && charCode <= 0x1ef9 && charCode !== 0xfeff && charCode !== 0xffff) ||
+          charCode === 10 ||
+          charCode === 13 ||
+          charCode === 9
+        ) {
+          utf16Str += String.fromCharCode(charCode);
+        } else {
+          if (utf16Str.trim().length >= 3) textPieces.push(utf16Str);
+          utf16Str = '';
+        }
+      }
+      if (utf16Str.trim().length >= 3) textPieces.push(utf16Str);
+
+      const raw = params.buffer.toString('utf-8');
+      const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
+      const combined = [...textPieces, ...matches].join('\n');
+      const cleanLines = combined
+        .split(/[\r\n]+/)
+        .map((line) => line.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ').trim())
+        .filter((line) => line.length > 2 && /[\w\u00C0-\u1EF9\[\]\{\}<>]/.test(line));
+      text = [...new Set(cleanLines)].join('\n\n');
+    }
   }
 
   return {
