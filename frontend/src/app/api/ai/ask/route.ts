@@ -225,39 +225,84 @@ function tryParseContractResponse(text: string): unknown {
   const trimmed = text.trim()
   const fencedBlocks = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((m) => m[1].trim())
   const chunks = [...fencedBlocks, trimmed]
+
   const normalizeLikelyJson = (raw: string): string => {
-    // Common LLM defects:
-    // - stray backslash before newline inside JSON strings
-    // - trailing commas before } or ]
-    // - BOM / CRLF noise
-    return raw
+    let s = raw
       .replace(/^\uFEFF/, '')
       .replace(/\r/g, '')
       .replace(/\\\n/g, '\\n')
       .replace(/,\s*([}\]])/g, '$1')
       .trim()
+
+    // Fix single-quoted key names and specific type values often emitted by reasoning models
+    s = s.replace(/'(type|message|content|markdown|mergeFields|sections|title|intake_questionnaire|contract_generation|contract_review|questionnaire|error)'\s*:/g, '"$1":')
+    s = s.replace(/:\s*'(contract_generation|intake_questionnaire|contract_review|error)'/g, ': "$1"')
+    s = s.replace(/:\s*True\b/g, ': true')
+    s = s.replace(/:\s*False\b/g, ': false')
+    s = s.replace(/:\s*None\b/g, ': null')
+
+    return s
   }
+
   const tryParseJsonSlice = (raw: string): unknown | null => {
     const slice = normalizeLikelyJson(raw)
     if (!slice.startsWith('{')) return null
+
     try {
       const parsed = JSON.parse(slice) as unknown
       if (isContractResponseShape(parsed)) return parsed
     } catch {
       //
     }
-    const balanced = sliceFirstBalancedJsonObject(slice, 0)
-    if (!balanced || balanced === slice) return null
+
+    // Try converting general single quotes in JSON keys/strings if direct parse fails
     try {
-      const parsed = JSON.parse(normalizeLikelyJson(balanced)) as unknown
+      const singleQuoteFixed = slice
+        .replace(/'([^'\\]*(\\.[^'\\]*)*)'\s*:/g, '"$1":')
+        .replace(/:\s*'([^'\\]*(\\.[^'\\]*)*)'/g, ': "$1"')
+      const parsed = JSON.parse(singleQuoteFixed) as unknown
       if (isContractResponseShape(parsed)) return parsed
     } catch {
       //
     }
+
+    const balanced = sliceFirstBalancedJsonObject(slice, 0)
+    if (balanced) {
+      try {
+        const parsed = JSON.parse(normalizeLikelyJson(balanced)) as unknown
+        if (isContractResponseShape(parsed)) return parsed
+      } catch {
+        //
+      }
+
+      try {
+        const singleQuoteFixed = normalizeLikelyJson(balanced)
+          .replace(/'([^'\\]*(\\.[^'\\]*)*)'\s*:/g, '"$1":')
+          .replace(/:\s*'([^'\\]*(\\.[^'\\]*)*)'/g, ': "$1"')
+        const parsed = JSON.parse(singleQuoteFixed) as unknown
+        if (isContractResponseShape(parsed)) return parsed
+      } catch {
+        //
+      }
+    }
     return null
   }
+
   for (const chunk of chunks) {
     if (!chunk) continue
+
+    // 1) First check if there is an explicit type key in the chunk
+    const typeIndex = chunk.search(/["']type["']\s*:/)
+    if (typeIndex !== -1) {
+      const braceBeforeType = chunk.lastIndexOf('{', typeIndex)
+      if (braceBeforeType !== -1) {
+        const fromBrace = chunk.slice(braceBeforeType)
+        const parsed = tryParseJsonSlice(fromBrace)
+        if (parsed) return parsed
+      }
+    }
+
+    // 2) Fallback to standard brace scanning
     const braceIdx = chunk.indexOf('{')
     if (braceIdx === -1) continue
     const fromBrace = chunk.slice(braceIdx)
