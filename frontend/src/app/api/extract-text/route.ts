@@ -64,18 +64,10 @@ export async function POST(req: NextRequest) {
         const mammoth = await import('mammoth')
         const result = await mammoth.extractRawText({ buffer })
         text = result.value
-      } catch (wordError) {
-        const isLegacyDoc = lower.endsWith('.doc') && !lower.endsWith('.docx')
-        if (isLegacyDoc) {
-          return NextResponse.json(
-            {
-              error:
-                'File Word 97-2003 (.doc) không đọc được. Vui lòng mở file trong Word và "Lưu dưới dạng" định dạng .docx rồi thử lại.',
-            },
-            { status: 400 }
-          )
-        }
-        throw wordError
+      } catch {
+        const raw = buffer.toString('utf-8')
+        const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? []
+        text = matches.join(' ')
       }
     } else if (isTxt) {
       text = buffer.toString('utf-8')

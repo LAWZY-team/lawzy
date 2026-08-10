@@ -47,7 +47,7 @@ import {
 const copy = {
   vi: {
     title: "Bộ hồ sơ mẫu",
-    description: "Tải DOCX hoặc PDF, kiểm tra placeholder và ánh xạ từng trường với hồ sơ khách hàng.",
+    description: "Tải DOCX, DOC hoặc PDF, kiểm tra placeholder và ánh xạ từng trường với hồ sơ khách hàng.",
     saved: "Bộ hồ sơ đã lưu",
     new: "Bộ mới",
     name: "Tên bộ hồ sơ",
@@ -60,7 +60,7 @@ const copy = {
     deleteConfirm: "Xóa bộ hồ sơ và toàn bộ file đã lưu trong trình duyệt?",
     documents: "Tài liệu trong bộ",
     upload: "Kéo thả file vào đây hoặc bấm để chọn",
-    uploadHint: "Hỗ trợ DOCX và PDF. Hệ thống tự quét placeholder trong tối đa 20 trang PDF.",
+    uploadHint: "Hỗ trợ DOCX, DOC và PDF. Hệ thống tự quét placeholder trong tối đa 20 trang.",
     analyzing: "Đang phân tích",
     uploadError: "Không thể đọc file. Vui lòng kiểm tra định dạng rồi thử lại.",
     noDocuments: "Chưa có tài liệu",
@@ -617,7 +617,7 @@ export function TemplatePanel({
           <input
             ref={fileInput}
             type="file"
-            accept=".docx,.pdf"
+            accept=".docx,.doc,.pdf"
             multiple
             hidden
             onChange={(event) => {

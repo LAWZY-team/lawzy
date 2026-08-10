@@ -252,8 +252,8 @@ export function AutofillTemplatesTab({ onNavigateTab }: AutofillTemplatesTabProp
             <div>
               <label className="cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-xs font-medium bg-foreground text-background hover:bg-foreground/90 h-8 px-3.5 shadow-2xs">
                 <Upload className="h-3.5 w-3.5" />
-                {isUploading ? "Đang quét..." : "Tải lên biểu mẫu (.docx)"}
-                <input type="file" multiple accept=".docx,.pdf" onChange={handleFileUpload} className="hidden" />
+                {isUploading ? "Đang quét..." : "Tải lên biểu mẫu (.docx, .doc)"}
+                <input type="file" multiple accept=".docx,.doc,.pdf" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
           </div>
@@ -264,11 +264,11 @@ export function AutofillTemplatesTab({ onNavigateTab }: AutofillTemplatesTabProp
               <FileText className="h-10 w-10 text-muted-foreground/40 mb-3" />
               <h4 className="text-sm font-semibold text-foreground">Chưa có biểu mẫu nào trong bộ này</h4>
               <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
-                Tải lên các file Word (<code className="font-mono bg-muted/40 px-1 py-0.5 rounded border border-border/40">.docx</code>) chứa placeholder để hệ thống quét.
+                Tải lên các file Word (<code className="font-mono bg-muted/40 px-1 py-0.5 rounded border border-border/40">.docx, .doc</code>) chứa placeholder để hệ thống quét.
               </p>
               <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-foreground text-background text-xs font-medium shadow-2xs hover:bg-foreground/90">
-                <Upload className="h-3.5 w-3.5" /> Chọn file .docx từ máy tính
-                <input type="file" multiple accept=".docx,.pdf" onChange={handleFileUpload} className="hidden" />
+                <Upload className="h-3.5 w-3.5" /> Chọn file Word từ máy tính
+                <input type="file" multiple accept=".docx,.doc,.pdf" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
           ) : (

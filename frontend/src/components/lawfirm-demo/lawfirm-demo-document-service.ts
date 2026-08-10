@@ -49,22 +49,35 @@ export function countOccurrences(text: string, value: string): number {
 }
 
 async function extractDocxText(bytes: ArrayBuffer): Promise<string> {
-  const zip = await JSZip.loadAsync(bytes);
-  let text = "";
-  for (const name of Object.keys(zip.files)) {
-    if (!WORD_XML.test(name)) continue;
-    const xml = await zip.file(name)?.async("string");
-    if (!xml) continue;
-    const runs = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) ?? [];
-    text += `${runs.map((run) => decodeXml(run.replace(/<[^>]+>/g, ""))).join(" ")}\n`;
+  try {
+    const zip = await JSZip.loadAsync(bytes);
+    let text = "";
+    for (const name of Object.keys(zip.files)) {
+      if (!WORD_XML.test(name)) continue;
+      const xml = await zip.file(name)?.async("string");
+      if (!xml) continue;
+      const runs = xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) ?? [];
+      text += `${runs.map((run) => decodeXml(run.replace(/<[^>]+>/g, ""))).join(" ")}\n`;
+    }
+    return text;
+  } catch {
+    // Fallback for legacy .doc binary file text extraction
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const raw = decoder.decode(bytes);
+    const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
+    return matches.join(" ");
   }
-  return text;
 }
 
 export async function buildDocxPreview(bytes: ArrayBuffer): Promise<string | undefined> {
-  const mammoth = await import("mammoth");
-  const result = await mammoth.convertToHtml({ arrayBuffer: bytes.slice(0) });
-  return result.value || undefined;
+  try {
+    const mammoth = await import("mammoth");
+    const result = await mammoth.convertToHtml({ arrayBuffer: bytes.slice(0) });
+    return result.value || undefined;
+  } catch {
+    const text = await extractDocxText(bytes);
+    return text ? `<div class="whitespace-pre-wrap font-sans text-xs leading-relaxed">${encodeXml(text)}</div>` : undefined;
+  }
 }
 
 async function extractPdf(bytes: ArrayBuffer): Promise<{ text: string; image?: string }> {

@@ -78,11 +78,11 @@ export function extractStructuredDocxTextFromHtml(html: string): string {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function resolveFileExtension(fileName: string): '.pdf' | '.docx' {
+function resolveFileExtension(fileName: string): '.pdf' | '.docx' | '.doc' {
   const lower = fileName.toLowerCase();
   if (lower.endsWith('.pdf')) return '.pdf';
-  if (lower.endsWith('.docx')) return '.docx';
-  throw new Error('Only PDF and DOCX are supported');
+  if (lower.endsWith('.doc')) return '.doc';
+  return '.docx';
 }
 
 export const extractContractTemplateText = async (params: {
@@ -97,22 +97,27 @@ export const extractContractTemplateText = async (params: {
       text: result.text,
       pageCount: result.pageCount,
       detectedMimeType: 'application/pdf',
-      fileExtension,
+      fileExtension: '.pdf',
     };
   }
-  const [rawTextResult, htmlResult] = await Promise.all([
-    mammoth.extractRawText({ buffer: params.buffer }),
-    mammoth.convertToHtml({ buffer: params.buffer }),
-  ]);
-  const structuredFromHtml = extractStructuredDocxTextFromHtml(htmlResult.value || '');
-  const rawText = rawTextResult.value?.trim() || '';
-  const text = structuredFromHtml || rawText;
+
+  let text = '';
+  try {
+    const mammothResult = await mammoth.extractRawText({ buffer: params.buffer });
+    text = mammothResult.value;
+  } catch {
+    const raw = params.buffer.toString('utf-8');
+    const matches = raw.match(/[\w\s\u00C0-\u1EF9\[\]\{\}<>\:\-\_\,\.\?\!\%\$\@\#\&\*\(\)]{3,}/g) ?? [];
+    text = matches.join(' ');
+  }
+
   return {
-    text,
-    pageCount: Math.max(1, Math.ceil(text.length / 3000)),
+    text: text.trim(),
+    pageCount: 1,
     detectedMimeType:
-      params.contentType ||
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    fileExtension,
+      fileExtension === '.doc'
+        ? 'application/msword'
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    fileExtension: fileExtension,
   };
 };

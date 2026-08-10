@@ -37,7 +37,7 @@ function parseScope(scope: string): TemplateScope {
   );
 }
 
-const ALLOWED_EXT = new Set(['.pdf', '.docx']);
+const ALLOWED_EXT = new Set(['.pdf', '.docx', '.doc']);
 function sanitizeFilenameForHeader(input: string): string {
   if (!input) return 'download';
   // Loại bỏ ký tự xuống dòng và ký tự ngoài ASCII cơ bản

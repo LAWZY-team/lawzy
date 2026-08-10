@@ -292,8 +292,8 @@ export function AutofillBatchFillTab({ onNavigateTab }: AutofillBatchFillTabProp
             </p>
           </div>
           <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-md bg-background hover:bg-muted text-foreground text-xs font-medium transition-all border border-border/80 shadow-2xs shrink-0">
-            <Upload className="h-3.5 w-3.5" /> Thêm file lẻ (.docx)
-            <input type="file" multiple accept=".docx" onChange={handleAdhocUpload} className="hidden" />
+            <Upload className="h-3.5 w-3.5" /> Thêm file lẻ (.docx, .doc)
+            <input type="file" multiple accept=".docx,.doc" onChange={handleAdhocUpload} className="hidden" />
           </label>
         </div>
 
