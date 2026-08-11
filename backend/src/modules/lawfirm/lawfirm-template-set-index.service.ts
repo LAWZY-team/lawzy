@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { buildTemplateSetIndex } from './utils/lawfirm-template-set-index';
 
@@ -24,6 +25,7 @@ export class LawfirmTemplateSetIndexService {
                 source: true,
                 count: true,
                 sortOrder: true,
+                discovery: true,
               },
               orderBy: { sortOrder: 'asc' },
             },
@@ -71,8 +73,21 @@ export class LawfirmTemplateSetIndexService {
         await tx.lawfirmDocumentSlot.upsert({
           where: { occurrenceKey: slot.occurrenceKey },
           create: {
-            ...slot,
+            documentId: slot.documentId,
             templateSetFieldId,
+            legacyTemplateFieldId: slot.legacyTemplateFieldId,
+            occurrenceKey: slot.occurrenceKey,
+            sourceKind: slot.sourceKind,
+            rawText: slot.rawText,
+            labelText: slot.labelText,
+            currentValue: slot.currentValue,
+            leftContext: slot.leftContext,
+            rightContext: slot.rightContext,
+            anchor: slot.anchor
+              ? (slot.anchor as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+            occurrenceCount: slot.occurrenceCount,
+            sortOrder: slot.sortOrder,
           },
           update: {
             documentId: slot.documentId,
@@ -81,6 +96,12 @@ export class LawfirmTemplateSetIndexService {
             sourceKind: slot.sourceKind,
             rawText: slot.rawText,
             labelText: slot.labelText,
+            currentValue: slot.currentValue,
+            leftContext: slot.leftContext,
+            rightContext: slot.rightContext,
+            anchor: slot.anchor
+              ? (slot.anchor as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
             occurrenceCount: slot.occurrenceCount,
             sortOrder: slot.sortOrder,
           },

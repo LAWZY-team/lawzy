@@ -70,6 +70,18 @@ import {
   StatusBadge,
 } from "./lawfirm-demo-ui";
 
+const discoverySourceLabels: Record<string, string> = {
+  explicit_placeholder: "Placeholder",
+  content_control: "Content control",
+  bookmark: "Bookmark",
+  merge_field: "Merge field",
+  dotted_blank: "Dòng chấm",
+  blank_line: "Dòng trống",
+  empty_table_cell: "Ô bảng trống",
+  literal_value: "Nhãn + giá trị",
+  ocr_region: "OCR",
+};
+
 const copy = {
   vi: {
     title: "Bộ hồ sơ mẫu",
@@ -1698,15 +1710,24 @@ function DocumentEditor({
                   </select>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
-                  <span>
-                    {field.source === "auto"
-                      ? t.auto
-                      : field.source === "highlight"
-                        ? t.highlighted
-                        : field.source === "ai"
-                          ? "AI"
-                          : t.manual}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span>
+                      {field.source === "auto"
+                        ? t.auto
+                        : field.source === "highlight"
+                          ? t.highlighted
+                          : field.source === "ai"
+                            ? "AI"
+                            : t.manual}
+                    </span>
+                    {field.discovery?.occurrences[0] && (
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600">
+                        {discoverySourceLabels[field.discovery.occurrences[0].sourceKind] ??
+                          field.discovery.occurrences[0].sourceKind}
+                        {` ${Math.round(field.discovery.occurrences[0].confidence * 100)}%`}
+                      </span>
+                    )}
+                  </div>
                   <span>{field.count} {t.occurrences}</span>
                 </div>
               </article>

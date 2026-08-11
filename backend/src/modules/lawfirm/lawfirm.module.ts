@@ -22,6 +22,7 @@ import { LawfirmTemplateSetIndexService } from './lawfirm-template-set-index.ser
 import { LawfirmTemplateUploadSessionsController } from './lawfirm-template-upload-sessions.controller';
 import { LawfirmTemplateUploadSessionsService } from './lawfirm-template-upload-sessions.service';
 import { LawfirmTemplateScanWorkerService } from './lawfirm-template-scan-worker.service';
+import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { LawfirmTemplateScanWorkerService } from './lawfirm-template-scan-worker
     LawfirmTemplateSetIndexService,
     LawfirmTemplateUploadSessionsService,
     LawfirmTemplateScanWorkerService,
+    LawfirmDocxOcrService,
     LawfirmR2Helper,
     OcrExtractor,
   ],

@@ -23,6 +23,7 @@ describe('LawfirmTemplateScanWorkerService', () => {
             id: 'session-1',
             status: 'queued',
             templateSetId: 'set-1',
+            templateSet: { workspaceId: 'workspace-1' },
           },
           document: {
             id: 'document-1',

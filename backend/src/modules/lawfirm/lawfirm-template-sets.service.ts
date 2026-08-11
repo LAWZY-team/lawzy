@@ -44,7 +44,10 @@ export class LawfirmTemplateSetsService {
       this.prisma.lawfirmTemplateSet.findMany({
         where: { workspaceId },
         include: {
-          documents: { include: { fields: true }, orderBy: { sortOrder: 'asc' } },
+          documents: {
+            include: { fields: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -54,7 +57,10 @@ export class LawfirmTemplateSetsService {
           workspaceId: { not: workspaceId },
         },
         include: {
-          documents: { include: { fields: true }, orderBy: { sortOrder: 'asc' } },
+          documents: {
+            include: { fields: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -77,7 +83,10 @@ export class LawfirmTemplateSetsService {
       },
     });
     if (!set) throw new NotFoundException('Template set not found');
-    const isOwner = await this.workspaceAccess.hasMembership(set.workspaceId, userId);
+    const isOwner = await this.workspaceAccess.hasMembership(
+      set.workspaceId,
+      userId,
+    );
     if (!isOwner && set.visibility !== 'public') {
       throw new NotFoundException('Template set not found');
     }
@@ -116,14 +125,19 @@ export class LawfirmTemplateSetsService {
     });
     if (!existing) throw new NotFoundException('Template set not found');
     await this.assertOwner(userId, existing.workspaceId);
-    if (dto.visibility !== undefined && dto.visibility !== existing.visibility) {
+    if (
+      dto.visibility !== undefined &&
+      dto.visibility !== existing.visibility
+    ) {
       await this.assertOwner(userId, existing.workspaceId);
     }
     const result = await this.prisma.lawfirmTemplateSet.updateMany({
       where: { id, revision: dto.revision },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.description !== undefined && { description: dto.description.trim() }),
+        ...(dto.description !== undefined && {
+          description: dto.description.trim(),
+        }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.visibility !== undefined && { visibility: dto.visibility }),
         revision: { increment: 1 },
@@ -192,6 +206,7 @@ export class LawfirmTemplateSetsService {
       buffer: file.buffer,
       mimeType: file.mimetype,
       fileName,
+      workspaceId: set.workspaceId,
     });
     const document = await this.prisma.lawfirmTemplateDocument.create({
       data: {
@@ -210,6 +225,9 @@ export class LawfirmTemplateSetsService {
             source: 'auto',
             count: field.count,
             sortOrder: index,
+            ...(field.discovery !== undefined && {
+              discovery: field.discovery as Prisma.InputJsonValue,
+            }),
           })),
         },
       },
@@ -245,7 +263,9 @@ export class LawfirmTemplateSetsService {
             fileName: fixUploadFilename(dto.fileName),
           }),
           ...(dto.status !== undefined && { status: dto.status }),
-          ...(dto.previewMode !== undefined && { previewMode: dto.previewMode }),
+          ...(dto.previewMode !== undefined && {
+            previewMode: dto.previewMode,
+          }),
           ...(dto.previewHtml !== undefined && {
             previewHtml: sanitizeHtmlSafe(dto.previewHtml),
           }),
@@ -272,9 +292,7 @@ export class LawfirmTemplateSetsService {
         await tx.lawfirmTemplateField.deleteMany({
           where: {
             documentId: docId,
-            ...(incomingIds.length
-              ? { id: { notIn: incomingIds } }
-              : {}),
+            ...(incomingIds.length ? { id: { notIn: incomingIds } } : {}),
           },
         });
         for (const [index, field] of normalizedFields.entries()) {
@@ -355,18 +373,16 @@ export class LawfirmTemplateSetsService {
     const cached = await this.prisma.lawfirmAiExtraction.findUnique({
       where: { idempotencyKey },
     });
-    const cachedProvenance = cached?.provenance as
-      | {
-          contentHash?: string;
-          deterministic?: Array<{
-            placeholder: string;
-            mappedKey: string;
-            label: string;
-            confidence: number;
-            source: 'deterministic' | 'ai';
-          }>;
-        }
-      | null;
+    const cachedProvenance = cached?.provenance as {
+      contentHash?: string;
+      deterministic?: Array<{
+        placeholder: string;
+        mappedKey: string;
+        label: string;
+        confidence: number;
+        source: 'deterministic' | 'ai';
+      }>;
+    } | null;
     if (
       cached?.status === 'pending' &&
       cachedProvenance?.contentHash === contentHash &&
@@ -452,7 +468,9 @@ export class LawfirmTemplateSetsService {
         data: { revision: { increment: 1 } },
       });
       if (revisionUpdate.count === 0) {
-        throw new ConflictException('Template set was modified by another user');
+        throw new ConflictException(
+          'Template set was modified by another user',
+        );
       }
       await Promise.all(
         dto.documentIds.map((documentId, sortOrder) =>
@@ -484,7 +502,10 @@ export class LawfirmTemplateSetsService {
     return serializeTemplateSet(updated!, { isOwner: true, readOnly: false });
   }
 
-  private async assertOwner(userId: string, workspaceId: string): Promise<void> {
+  private async assertOwner(
+    userId: string,
+    workspaceId: string,
+  ): Promise<void> {
     await this.workspaceAccess.requireMembership(workspaceId, userId);
   }
 }

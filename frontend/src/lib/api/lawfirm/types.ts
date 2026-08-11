@@ -38,6 +38,19 @@ export interface LawfirmTemplateFieldDto {
   source: 'auto' | 'highlight' | 'manual' | 'ai';
   count: number;
   sort_order?: number;
+  discovery?: {
+    normalizedSlot: string;
+    occurrences: Array<{
+      sourceKind: string;
+      rawText: string;
+      labelText: string;
+      currentValue: string | null;
+      confidence: number;
+      leftContext: string;
+      rightContext: string;
+      anchor: Record<string, string | number>;
+    }>;
+  } | null;
 }
 
 export interface LawfirmTemplateDocumentDto {

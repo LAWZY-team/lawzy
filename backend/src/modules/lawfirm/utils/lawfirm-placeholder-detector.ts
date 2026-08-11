@@ -1,5 +1,9 @@
 import JSZip from 'jszip';
 import { resolveCurrentProfileFieldKey } from '../lawfirm-field-taxonomy';
+import {
+  discoverDocxSlots,
+  type DiscoveredDocxSlot,
+} from './lawfirm-docx-slot-discovery';
 
 export function extractDocBinaryText(buffer: Buffer | ArrayBuffer): string {
   const uint8 =
@@ -137,21 +141,57 @@ export const guessCanonicalMapping = (placeholder: string): string => {
   return resolveCurrentProfileFieldKey(placeholder);
 };
 
+export interface AnalyzedTemplateField {
+  label: string;
+  placeholder: string;
+  mappedKey: string;
+  count: number;
+  discovery?: {
+    normalizedSlot: string;
+    occurrences: DiscoveredDocxSlot[];
+  };
+}
+
+export const groupDiscoveredDocxSlots = (
+  slots: DiscoveredDocxSlot[],
+): AnalyzedTemplateField[] => {
+  const groups = new Map<string, DiscoveredDocxSlot[]>();
+  for (const slot of slots) {
+    const occurrences = groups.get(slot.normalizedSlot) ?? [];
+    occurrences.push(slot);
+    groups.set(slot.normalizedSlot, occurrences);
+  }
+  return [...groups.entries()].map(([normalizedSlot, occurrences]) => {
+    const first = occurrences[0];
+    return {
+      label: first.labelText || 'Trường thông tin',
+      placeholder: first.rawText || first.labelText,
+      mappedKey:
+        occurrences.find((occurrence) => occurrence.mappedKey)?.mappedKey ?? '',
+      count: occurrences.length,
+      discovery: { normalizedSlot, occurrences },
+    };
+  });
+};
+
 export const analyzeDocxPlaceholders = async (
   buffer: Buffer,
-): Promise<
-  Array<{
-    label: string;
-    placeholder: string;
-    mappedKey: string;
-    count: number;
-  }>
-> => {
+): Promise<AnalyzedTemplateField[]> => {
   const plainText = await extractDocxPlainText(buffer);
-  return extractPlaceholders(plainText).map((placeholder) => ({
-    label: cleanPlaceholderLabel(placeholder) || 'Trường thông tin',
-    placeholder,
-    mappedKey: guessCanonicalMapping(placeholder),
-    count: countOccurrences(plainText, placeholder),
-  }));
+  let slots: DiscoveredDocxSlot[] = [];
+  try {
+    slots = await discoverDocxSlots(buffer);
+  } catch {
+    // Legacy .doc binaries are not OOXML zip files; keep explicit fallback.
+  }
+  if (!slots.length) {
+    return extractPlaceholders(plainText).map((placeholder) => ({
+      label: cleanPlaceholderLabel(placeholder) || 'Trường thông tin',
+      placeholder,
+      mappedKey: guessCanonicalMapping(placeholder),
+      count: countOccurrences(plainText, placeholder),
+    }));
+  }
+
+  return groupDiscoveredDocxSlots(slots);
 };

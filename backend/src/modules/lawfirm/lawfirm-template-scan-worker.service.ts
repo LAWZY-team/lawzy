@@ -87,7 +87,12 @@ export class LawfirmTemplateScanWorkerService {
       if (claimed.count !== 1) continue;
       return this.prisma.lawfirmTemplateScanJob.findUnique({
         where: { id: candidate.id },
-        include: { uploadSession: true, document: true },
+        include: {
+          uploadSession: {
+            include: { templateSet: { select: { workspaceId: true } } },
+          },
+          document: true,
+        },
       });
     }
     return null;
@@ -105,6 +110,7 @@ export class LawfirmTemplateScanWorkerService {
           ? 'application/pdf'
           : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       fileName: job.document.fileName,
+      workspaceId: job.uploadSession.templateSet.workspaceId,
     });
 
     await this.prisma.$transaction(async (tx) => {
@@ -125,6 +131,9 @@ export class LawfirmTemplateScanWorkerService {
               source: 'auto',
               count: field.count,
               sortOrder: index,
+              ...(field.discovery !== undefined && {
+                discovery: field.discovery as Prisma.InputJsonValue,
+              }),
             })),
           },
         },

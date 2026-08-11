@@ -14,8 +14,10 @@ import {
   cleanPlaceholderLabel,
   extractDocxPlainText,
   extractPlaceholders,
+  groupDiscoveredDocxSlots,
   guessCanonicalMapping,
 } from './utils/lawfirm-placeholder-detector';
+import { discoverDocxSlots } from './utils/lawfirm-docx-slot-discovery';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
 import {
   LAWFIRM_DOCX_MIME,
@@ -26,6 +28,7 @@ import {
   LAWFIRM_TEMPLATE_MIMES,
 } from './lawfirm.constants';
 import { toCurrentLawfirmProfileFieldKey } from './lawfirm-field-taxonomy';
+import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
 
 export interface TemplateScanSuggestion {
   placeholder: string;
@@ -58,6 +61,7 @@ export class LawfirmScanService {
     private readonly aiProvider: AiProviderService,
     private readonly sourceProcessing: SourceProcessingService,
     private readonly r2Helper: LawfirmR2Helper,
+    private readonly docxOcr: LawfirmDocxOcrService,
   ) {}
 
   validateMimeAndSize(
@@ -371,6 +375,7 @@ ${textToAnalyze}`;
     buffer: Buffer;
     mimeType: string;
     fileName: string;
+    workspaceId?: string;
   }): Promise<{
     fileType: 'docx' | 'pdf';
     plainText: string;
@@ -379,6 +384,7 @@ ${textToAnalyze}`;
       placeholder: string;
       mappedKey: string;
       count: number;
+      discovery?: unknown;
     }>;
   }> {
     this.validateMimeAndSize(
@@ -394,7 +400,25 @@ ${textToAnalyze}`;
       lowerName.endsWith('.doc')
     ) {
       const plainText = await extractDocxPlainText(params.buffer);
-      const fields = await analyzeDocxPlaceholders(params.buffer);
+      let structuredSlots: Awaited<ReturnType<typeof discoverDocxSlots>> = [];
+      try {
+        structuredSlots = await discoverDocxSlots(params.buffer);
+      } catch {
+        const fields = await analyzeDocxPlaceholders(params.buffer);
+        return { fileType: 'docx', plainText, fields };
+      }
+      const ocrSlots = params.workspaceId
+        ? await this.docxOcr.discover({
+            workspaceId: params.workspaceId,
+            buffer: params.buffer,
+            extractedText: plainText,
+            structuredSlotCount: structuredSlots.length,
+          })
+        : [];
+      const fields = groupDiscoveredDocxSlots([
+        ...structuredSlots,
+        ...ocrSlots,
+      ]);
       return { fileType: 'docx', plainText, fields };
     }
     const pdfResult = await extractTextFromPdfBuffer(params.buffer);

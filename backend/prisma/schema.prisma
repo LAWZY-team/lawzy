@@ -118,6 +118,7 @@ model Workspace {
   lawfirmFillRuns         LawfirmFillRun[]
   lawfirmAuditEvents      LawfirmAuditEvent[]
   lawfirmFieldDefinitions LawfirmFieldDefinition[]
+  lawfirmOcrCache         LawfirmOcrCache[]
 
   @@map("workspaces")
 }
@@ -947,9 +948,10 @@ model LawfirmTemplateField {
   source      String @default("auto")
   count       Int    @default(1)
   sortOrder   Int    @default(0) @map("sort_order")
+  discovery   Json?
 
-  document     LawfirmTemplateDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  documentSlot LawfirmDocumentSlot?
+  document      LawfirmTemplateDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentSlots LawfirmDocumentSlot[]
 
   @@index([documentId])
   @@map("lawfirm_template_fields")
@@ -959,7 +961,7 @@ model LawfirmDocumentSlot {
   id                    String   @id @default(uuid())
   documentId            String   @map("document_id")
   templateSetFieldId    String   @map("template_set_field_id")
-  legacyTemplateFieldId String?  @unique @map("legacy_template_field_id")
+  legacyTemplateFieldId String?  @map("legacy_template_field_id")
   occurrenceKey         String   @unique @map("occurrence_key") @db.VarChar(191)
   sourceKind            String   @map("source_kind") @db.VarChar(40)
   rawText               String   @map("raw_text") @db.Text
@@ -981,6 +983,7 @@ model LawfirmDocumentSlot {
 
   @@index([documentId])
   @@index([templateSetFieldId])
+  @@index([legacyTemplateFieldId])
   @@index([documentId, sortOrder])
   @@map("lawfirm_document_slots")
 }
@@ -1036,6 +1039,23 @@ model LawfirmTemplateScanJob {
   @@index([uploadSessionId, kind, status])
   @@index([documentId])
   @@map("lawfirm_template_scan_jobs")
+}
+
+model LawfirmOcrCache {
+  id            String   @id @default(uuid())
+  workspaceId   String   @map("workspace_id")
+  imageHash     String   @map("image_hash") @db.VarChar(64)
+  text          String   @db.LongText
+  confidence    Float
+  engineVersion String   @map("engine_version") @db.VarChar(40)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, imageHash])
+  @@index([workspaceId])
+  @@map("lawfirm_ocr_cache")
 }
 
 model LawfirmAiExtraction {

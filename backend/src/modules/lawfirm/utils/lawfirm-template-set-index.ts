@@ -18,6 +18,7 @@ export interface TemplateIndexDocument {
     source: string;
     count: number;
     sortOrder: number;
+    discovery?: unknown;
   }>;
 }
 
@@ -36,9 +37,23 @@ export interface IndexedDocumentSlot {
   legacyTemplateFieldId: string;
   normalizedSlot: string;
   occurrenceKey: string;
-  sourceKind: 'explicit_placeholder' | 'ai_detected_span';
+  sourceKind:
+    | 'explicit_placeholder'
+    | 'content_control'
+    | 'bookmark'
+    | 'merge_field'
+    | 'blank_line'
+    | 'dotted_blank'
+    | 'empty_table_cell'
+    | 'literal_value'
+    | 'ocr_region'
+    | 'ai_detected_span';
   rawText: string;
   labelText: string;
+  currentValue: string | null;
+  leftContext: string | null;
+  rightContext: string | null;
+  anchor: Record<string, unknown> | null;
   occurrenceCount: number;
   sortOrder: number;
 }
@@ -53,6 +68,76 @@ const fingerprint = (value: string) =>
 
 const isExplicitPlaceholder = (value: string) =>
   /\[[^\]]+\]|\{\{[^}]+\}\}/u.test(value);
+
+const STRUCTURED_SOURCE_KINDS = new Set<IndexedDocumentSlot['sourceKind']>([
+  'explicit_placeholder',
+  'content_control',
+  'bookmark',
+  'merge_field',
+  'blank_line',
+  'dotted_blank',
+  'empty_table_cell',
+  'literal_value',
+  'ocr_region',
+]);
+
+interface PersistedOccurrence {
+  normalizedSlot: string;
+  sourceKind: IndexedDocumentSlot['sourceKind'];
+  rawText: string;
+  labelText: string;
+  currentValue: string | null;
+  confidence: number;
+  leftContext: string;
+  rightContext: string;
+  anchor: Record<string, unknown>;
+}
+
+const readDiscoveryOccurrences = (value: unknown): PersistedOccurrence[] => {
+  if (!value || typeof value !== 'object') return [];
+  const occurrences = (value as { occurrences?: unknown }).occurrences;
+  if (!Array.isArray(occurrences)) return [];
+  return occurrences.flatMap((occurrence): PersistedOccurrence[] => {
+    if (!occurrence || typeof occurrence !== 'object') return [];
+    const candidate = occurrence as Record<string, unknown>;
+    if (
+      typeof candidate.normalizedSlot !== 'string' ||
+      typeof candidate.sourceKind !== 'string' ||
+      !STRUCTURED_SOURCE_KINDS.has(
+        candidate.sourceKind as IndexedDocumentSlot['sourceKind'],
+      ) ||
+      typeof candidate.rawText !== 'string' ||
+      typeof candidate.labelText !== 'string' ||
+      !candidate.anchor ||
+      typeof candidate.anchor !== 'object'
+    ) {
+      return [];
+    }
+    return [
+      {
+        normalizedSlot: candidate.normalizedSlot,
+        sourceKind: candidate.sourceKind as IndexedDocumentSlot['sourceKind'],
+        rawText: candidate.rawText,
+        labelText: candidate.labelText,
+        currentValue:
+          typeof candidate.currentValue === 'string'
+            ? candidate.currentValue
+            : null,
+        confidence:
+          typeof candidate.confidence === 'number' ? candidate.confidence : 0.5,
+        leftContext:
+          typeof candidate.leftContext === 'string'
+            ? candidate.leftContext
+            : '',
+        rightContext:
+          typeof candidate.rightContext === 'string'
+            ? candidate.rightContext
+            : '',
+        anchor: candidate.anchor as Record<string, unknown>,
+      },
+    ];
+  });
+};
 
 export function buildTemplateSetIndex(
   documents: TemplateIndexDocument[],
@@ -81,6 +166,8 @@ export function buildTemplateSetIndex(
       displaySlot: string;
       definitionIds: Set<string>;
       hasUnresolvedMapping: boolean;
+      requiresReview: boolean;
+      confidence: number;
     }
   >();
   const slots: IndexedDocumentSlot[] = [];
@@ -88,13 +175,18 @@ export function buildTemplateSetIndex(
   for (const document of documents) {
     for (const field of document.fields) {
       const rawText = field.placeholder.trim() || field.label.trim();
-      const normalizedSlot = normalizeLawfirmFieldAlias(rawText);
+      const discoveredOccurrences = readDiscoveryOccurrences(field.discovery);
+      const normalizedSlot =
+        discoveredOccurrences[0]?.normalizedSlot ||
+        normalizeLawfirmFieldAlias(rawText);
       if (!normalizedSlot) continue;
 
       const aggregate = aggregates.get(normalizedSlot) ?? {
         displaySlot: field.label.trim() || rawText,
         definitionIds: new Set<string>(),
         hasUnresolvedMapping: false,
+        requiresReview: false,
+        confidence: 1,
       };
       const normalizedMappedKey = normalizeLawfirmFieldAlias(field.mappedKey);
       if (normalizedMappedKey) {
@@ -105,23 +197,64 @@ export function buildTemplateSetIndex(
           aggregate.hasUnresolvedMapping = true;
         }
       }
+      for (const occurrence of discoveredOccurrences) {
+        aggregate.confidence = Math.min(
+          aggregate.confidence,
+          occurrence.confidence,
+        );
+        if (
+          occurrence.sourceKind === 'literal_value' ||
+          occurrence.confidence < 0.8
+        ) {
+          aggregate.requiresReview = true;
+        }
+      }
       aggregates.set(normalizedSlot, aggregate);
 
-      slots.push({
-        documentId: document.id,
-        legacyTemplateFieldId: field.id,
-        normalizedSlot,
-        occurrenceKey: fingerprint(
-          `${document.id}:${field.id}:${normalizedSlot}`,
-        ),
-        sourceKind: isExplicitPlaceholder(rawText)
-          ? 'explicit_placeholder'
-          : 'ai_detected_span',
-        rawText,
-        labelText: field.label,
-        occurrenceCount: Math.max(1, field.count),
-        sortOrder: field.sortOrder,
-      });
+      if (discoveredOccurrences.length) {
+        for (const [
+          occurrenceIndex,
+          occurrence,
+        ] of discoveredOccurrences.entries()) {
+          slots.push({
+            documentId: document.id,
+            legacyTemplateFieldId: field.id,
+            normalizedSlot,
+            occurrenceKey: fingerprint(
+              `${document.id}:${field.id}:${occurrence.sourceKind}:${JSON.stringify(occurrence.anchor)}:${normalizedSlot}`,
+            ),
+            sourceKind: occurrence.sourceKind,
+            rawText: occurrence.rawText,
+            labelText: occurrence.labelText,
+            currentValue: occurrence.currentValue,
+            leftContext: occurrence.leftContext || null,
+            rightContext: occurrence.rightContext || null,
+            anchor: occurrence.anchor,
+            occurrenceCount: 1,
+            sortOrder: field.sortOrder * 1000 + occurrenceIndex,
+          });
+        }
+      } else {
+        slots.push({
+          documentId: document.id,
+          legacyTemplateFieldId: field.id,
+          normalizedSlot,
+          occurrenceKey: fingerprint(
+            `${document.id}:${field.id}:${normalizedSlot}`,
+          ),
+          sourceKind: isExplicitPlaceholder(rawText)
+            ? 'explicit_placeholder'
+            : 'ai_detected_span',
+          rawText,
+          labelText: field.label,
+          currentValue: null,
+          leftContext: null,
+          rightContext: null,
+          anchor: null,
+          occurrenceCount: Math.max(1, field.count),
+          sortOrder: field.sortOrder,
+        });
+      }
     }
   }
 
@@ -134,9 +267,11 @@ export function buildTemplateSetIndex(
         ? 'conflict'
         : aggregate.hasUnresolvedMapping
           ? 'needs_review'
-          : hasSingleMapping
-            ? 'mapped'
-            : 'unmapped';
+          : aggregate.requiresReview
+            ? 'needs_review'
+            : hasSingleMapping
+              ? 'mapped'
+              : 'unmapped';
       return {
         normalizedSlot,
         displaySlot: aggregate.displaySlot,
@@ -144,7 +279,10 @@ export function buildTemplateSetIndex(
           mappingStatus === 'mapped' ? definitionIds[0] : null,
         mappingStatus,
         mappingSource: 'deterministic',
-        confidence: mappingStatus === 'mapped' ? 1 : null,
+        confidence:
+          mappingStatus === 'mapped' || mappingStatus === 'needs_review'
+            ? aggregate.confidence
+            : null,
         contextFingerprint: fingerprint(normalizedSlot),
       };
     },

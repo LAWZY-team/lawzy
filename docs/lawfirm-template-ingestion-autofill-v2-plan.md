@@ -502,14 +502,14 @@ Không dùng template field label để giả làm target profile field label.
 
 ### Phase 2 — Slot Discovery không phụ thuộc placeholder
 
-- [ ] OOXML text reconstruction xuyên Word runs.
-- [ ] Explicit placeholder detector.
-- [ ] Content Control/Bookmark/Merge Field detector.
-- [ ] Dotted/underscore blank detector.
-- [ ] Empty table cell + label detector.
-- [ ] Literal sample candidate detector.
-- [ ] Selective OCR adapter và image hash cache.
-- [ ] Lưu anchor/context/source kind/provenance.
+- [x] OOXML text reconstruction xuyên Word runs.
+- [x] Explicit placeholder detector.
+- [x] Content Control/Bookmark/Merge Field detector.
+- [x] Dotted/underscore blank detector.
+- [x] Empty table cell + label detector.
+- [x] Literal sample candidate detector.
+- [x] Selective OCR adapter và image hash cache.
+- [x] Lưu anchor/context/source kind/provenance.
 
 **Exit criteria:** Acceptance tests B01–B09 đạt trên fixture DOCX thực tế.
 
@@ -708,13 +708,19 @@ Mục tiêu pilot ban đầu:
 
 **Lý do:** Restart/multi-instance không làm mất job hoặc chạy trùng logical work; số Gemini call không phụ thuộc số document và set-level index chỉ rebuild một lần khi session finalize.
 
+### D-010 — Structured discovery trước AI
+
+**Quyết định:** Reconstruct text trực tiếp từ OOXML parts và chạy detector độc lập cho placeholder, Content Control, Bookmark, Merge Field, blank, table cell và literal sample; OCR chỉ chạy chọn lọc khi text/structured slots chưa đủ và cache theo workspace + image hash.
+
+**Lý do:** Không phụ thuộc ngoặc vuông, giữ được anchor/provenance để highlight/fill về sau và không tiêu tốn Gemini quota cho cấu trúc Word có thể xác định bằng code.
+
 ## 19. Current execution status
 
 | Phase | Status | Ghi chú |
 |---|---|---|
 | Phase 0 | In progress | Checklist containment hoàn tất; còn acceptance A01–A08 |
 | Phase 1 | Ready for acceptance | Phase 1.1–1.3 đã migrate/seed local; chờ manual acceptance với 10 DOCX |
-| Phase 2 | Not started | Có thể chuẩn bị fixtures độc lập |
+| Phase 2 | Ready for acceptance | Detector/schema/cache đã migrate local; chờ B01–B09 trên bộ DOCX thực tế |
 | Phase 3 | Not started | Chờ canonical registry contract |
 | Phase 4 | Not started | Chờ schema/migration design review |
 | Phase 5 | Not started | Chờ slot anchor contract |
@@ -722,11 +728,11 @@ Mục tiêu pilot ban đầu:
 
 ### Next executable task
 
-Phase 2.1 sau khi Phase 1 qua manual acceptance:
+Phase 2 acceptance, sau đó Phase 3.1:
 
-1. Tạo fixture DOCX không dùng ngoặc vuông và reconstruction xuyên Word runs.
-2. Implement Content Control/Bookmark/Merge Field detector.
-3. Implement dotted blank/empty table cell detector với anchor/context provenance.
+1. Chạy B01–B09 với DOCX thực tế có Content Control, table blank, literal sample và ảnh.
+2. Sửa detector false-positive/anchor nếu fixture thực tế phát hiện khác biệt.
+3. Bắt đầu `GeminiMappingGateway` set-level cho unique unresolved slots.
 
 ### Legacy audit baseline — 2026-08-11
 
@@ -742,7 +748,16 @@ Read-only command: `npm run lawfirm:audit-fields`.
 
 ### Phase 1 local database verification — 2026-08-11
 
-- 28/28 migrations đã apply; schema up to date.
+- 30/30 migrations đã apply; schema up to date.
 - Taxonomy v1 seed idempotent: 29 definitions, 122 aliases.
 - Upload session/scan job tables hoạt động và đang rỗng trước manual test.
 - Audit sau seed: 0 unknown key, 0 profile value conflict; 6 legacy template mapping conflicts vẫn giữ để review, không auto-merge sai.
+
+### Phase 2 implementation verification — 2026-08-11
+
+- Structured OOXML discovery đã nối xuyên suốt parser, scan worker, persistence, set index và UI provenance.
+- 13 lawfirm test suites / 37 tests pass; backend và frontend type-check pass.
+- Backend Nest build và frontend Next production build pass.
+- Prisma Client generate thành công; 30/30 migrations đã apply và schema up to date.
+- Targeted lint không có error; các warning còn lại là technical debt có sẵn trong `template-panel.tsx`.
+- B01–B09 với bộ DOCX thực tế vẫn là acceptance gate, chưa được đánh dấu đạt chỉ bằng synthetic fixtures.

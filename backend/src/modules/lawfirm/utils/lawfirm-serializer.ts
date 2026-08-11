@@ -49,6 +49,7 @@ export const serializeTemplateField = (field: LawfirmTemplateField) => ({
   source: field.source,
   count: field.count,
   sort_order: field.sortOrder,
+  discovery: field.discovery ?? null,
 });
 
 export const serializeTemplateDocument = (
@@ -74,7 +75,9 @@ export const serializeTemplateDocument = (
 
 export const serializeTemplateSet = (
   set: LawfirmTemplateSet & {
-    documents?: (LawfirmTemplateDocument & { fields?: LawfirmTemplateField[] })[];
+    documents?: (LawfirmTemplateDocument & {
+      fields?: LawfirmTemplateField[];
+    })[];
   },
   options?: { isOwner?: boolean; readOnly?: boolean },
 ) => ({
