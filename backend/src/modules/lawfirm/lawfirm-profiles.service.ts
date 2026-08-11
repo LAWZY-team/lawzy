@@ -19,6 +19,7 @@ import {
 } from './dto/profile.dto';
 import { CreateExtractionDto } from './dto/extraction.dto';
 import { LAWFIRM_IDENTITY_MIMES } from './lawfirm.constants';
+import { normalizeTemplateMappedKey } from './lawfirm-field-taxonomy';
 
 @Injectable()
 export class LawfirmProfilesService {
@@ -280,6 +281,18 @@ export class LawfirmProfilesService {
           },
         });
         for (const [docIndex, document] of templateSet.documents.entries()) {
+          const normalizedFields = document.fields.map((field) => {
+            const mappedKey = normalizeTemplateMappedKey(field.mappedKey);
+            if (mappedKey === undefined) {
+              throw new BadRequestException({
+                code: 'INVALID_TEMPLATE_FIELD_MAPPING',
+                message: `Unsupported mappedKey: ${field.mappedKey}`,
+                fieldId: field.id,
+                placeholder: field.placeholder,
+              });
+            }
+            return { ...field, mappedKey };
+          });
           const storageKey = await this.r2Helper.uploadBuffer({
             workspaceId: dto.workspaceId,
             userId,
@@ -302,7 +315,7 @@ export class LawfirmProfilesService {
               previewHtml: document.previewHtml ?? null,
               sortOrder: docIndex,
               fields: {
-                create: document.fields.map((field, fieldIndex) => ({
+                create: normalizedFields.map((field, fieldIndex) => ({
                   label: field.label,
                   placeholder: field.placeholder,
                   mappedKey: field.mappedKey,

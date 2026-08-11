@@ -10,6 +10,7 @@ import type {
   LawfirmProfileDto,
   LawfirmTemplateScanResultDto,
   LawfirmTemplateSetDto,
+  ReorderLawfirmTemplateDocumentsInput,
   UpdateLawfirmTemplateDocumentInput,
   UpdateLawfirmProfileInput,
   UpdateLawfirmTemplateSetInput,
@@ -73,6 +74,14 @@ export const lawfirmTemplateSetsApi = {
     docId: string,
     body: UpdateLawfirmTemplateDocumentInput,
   ) => api.patch<LawfirmTemplateSetDto['documents'][number]>(`/lawfirm/template-sets/documents/${docId}`, body),
+  reorderDocuments: (
+    templateSetId: string,
+    body: ReorderLawfirmTemplateDocumentsInput,
+  ) =>
+    api.patch<LawfirmTemplateSetDto>(
+      `/lawfirm/template-sets/${templateSetId}/document-order`,
+      body,
+    ),
   removeDocument: (docId: string) =>
     api.delete(`/lawfirm/template-sets/documents/${docId}`),
   scanDocument: (docId: string) =>

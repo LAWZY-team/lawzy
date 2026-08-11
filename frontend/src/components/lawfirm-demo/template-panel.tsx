@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Check,
@@ -214,6 +214,11 @@ type AiSuggestion = {
   checked: boolean;
 };
 
+type AiReviewState = {
+  status: "idle" | "scanning" | "error" | "done";
+  suggestions: AiSuggestion[];
+};
+
 function aggregateFields(template: TemplateSet): AggregatedField[] {
   const entries = new Map<string, AggregatedField>();
   template.documents.forEach((documentItem) => {
@@ -245,6 +250,7 @@ export function TemplatePanel({
   onAddTemplate,
   onDeleteTemplate,
   onUpdateTemplate,
+  onReorderDocuments,
   onModeChange,
   onAddProfile,
   onUpdateProfile,
@@ -271,6 +277,7 @@ export function TemplatePanel({
     id: string,
     updater: (template: TemplateSet) => TemplateSet,
   ) => void | Promise<void>;
+  onReorderDocuments?: (documentIds: string[]) => Promise<void>;
   onModeChange: (next: "library" | "editor") => void;
   onAddProfile: (name?: string) => ClientProfile | Promise<ClientProfile>;
   onUpdateProfile: (id: string, updater: (profile: ClientProfile) => ClientProfile) => void;
@@ -324,24 +331,79 @@ export function TemplatePanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [previewModalTpl, setPreviewModalTpl] = useState<TemplateSet | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
-  const [backgroundScanningIds, setBackgroundScanningIds] = useState<Set<string>>(new Set());
+  const [aiReviewByDocumentId, setAiReviewByDocumentId] = useState<
+    Record<string, AiReviewState>
+  >({});
+  const aiScanPromiseByDocumentId = useRef(new Map<string, Promise<void>>());
+  const serverDocumentOrderKey = activeTemplate.documents
+    .map((documentItem) => documentItem.id)
+    .join("|");
+  const [documentOrderIds, setDocumentOrderIds] = useState<string[]>(() =>
+    activeTemplate.documents.map((documentItem) => documentItem.id),
+  );
+
+  useEffect(() => {
+    setDocumentOrderIds(
+      serverDocumentOrderKey ? serverDocumentOrderKey.split("|") : [],
+    );
+  }, [activeTemplate.id, serverDocumentOrderKey]);
+
+  const orderedDocuments = useMemo(() => {
+    const byId = new Map(
+      activeTemplate.documents.map((documentItem) => [
+        documentItem.id,
+        documentItem,
+      ]),
+    );
+    return [
+      ...documentOrderIds
+        .map((documentId) => byId.get(documentId))
+        .filter((documentItem): documentItem is TemplateDocument =>
+          Boolean(documentItem),
+        ),
+      ...activeTemplate.documents.filter(
+        (documentItem) => !documentOrderIds.includes(documentItem.id),
+      ),
+    ];
+  }, [activeTemplate.documents, documentOrderIds]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent): Promise<void> => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      update((template) => {
-        const oldIndex = template.documents.findIndex((d) => d.id === active.id);
-        const newIndex = template.documents.findIndex((d) => d.id === over.id);
-        return {
-          ...template,
-          documents: arrayMove(template.documents, oldIndex, newIndex),
-        };
-      });
+      const oldIndex = documentOrderIds.indexOf(String(active.id));
+      const newIndex = documentOrderIds.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      const previousOrder = documentOrderIds;
+      const nextOrder = arrayMove(documentOrderIds, oldIndex, newIndex);
+      setDocumentOrderIds(nextOrder);
+      try {
+        if (onReorderDocuments) {
+          await onReorderDocuments(nextOrder);
+        } else {
+          update((template) => ({
+            ...template,
+            documents: nextOrder
+              .map((documentId) =>
+                template.documents.find((item) => item.id === documentId),
+              )
+              .filter((item): item is TemplateDocument => Boolean(item)),
+          }));
+        }
+      } catch (error: unknown) {
+        setDocumentOrderIds(previousOrder);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : locale === "vi"
+              ? "Không thể lưu thứ tự tài liệu."
+              : "Could not save document order.",
+        );
+      }
     }
   };
 
@@ -365,6 +427,112 @@ export function TemplatePanel({
   const activeDocument =
     activeTemplate.documents.find((item) => item.id === activeDocumentId) ??
     activeTemplate.documents[0];
+
+  const updateAiReview = useCallback(
+    (
+      documentId: string,
+      updater: (current: AiReviewState) => AiReviewState,
+    ): void => {
+      setAiReviewByDocumentId((current) => ({
+        ...current,
+        [documentId]: updater(
+          current[documentId] ?? { status: "idle", suggestions: [] },
+        ),
+      }));
+    },
+    [],
+  );
+
+  const requestAiScan = useCallback(
+    async (documentId: string): Promise<void> => {
+      const running = aiScanPromiseByDocumentId.current.get(documentId);
+      if (running) return running;
+
+      const documentItem = activeTemplate.documents.find(
+        (item) => item.id === documentId,
+      );
+      if (!documentItem?.plainText.trim()) {
+        toast.warning(
+          locale === "vi"
+            ? "Tài liệu chưa có nội dung chữ để AI phân tích."
+            : "No document text available for AI analysis.",
+        );
+        return;
+      }
+
+      updateAiReview(documentId, (current) => ({
+        ...current,
+        status: "scanning",
+      }));
+      const promise = (async () => {
+        try {
+          let resultAi: Array<{
+            placeholder: string;
+            mappedKey: string;
+            label: string;
+          }> = [];
+          if (onScanDocument) {
+            const result = await onScanDocument(documentId);
+            resultAi = result.ai;
+          } else {
+            const response = await fetch("/api/ai/scan-template", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: documentItem.plainText }),
+            });
+            if (response.ok) {
+              const data = (await response.json()) as {
+                ai?: typeof resultAi;
+              };
+              resultAi = data.ai ?? [];
+            }
+          }
+
+          const existing = new Set(
+            documentItem.fields.map((field) => field.placeholder.trim()),
+          );
+          const suggestions = resultAi
+            .filter(
+              (item) =>
+                item.placeholder.trim() &&
+                !existing.has(item.placeholder.trim()),
+            )
+            .map(
+              (item, index): AiSuggestion => ({
+                id: `ai-${documentId}-${index}`,
+                label:
+                  item.label.trim() || cleanPlaceholderLabel(item.placeholder),
+                placeholder: item.placeholder.trim(),
+                mappedKey: item.mappedKey,
+                checked: true,
+              }),
+            );
+          updateAiReview(documentId, () => ({
+            status: "done",
+            suggestions,
+          }));
+          if (suggestions.length === 0) {
+            toast.info(
+              locale === "vi"
+                ? "AI đã quét xong, không phát hiện thêm trường mới nào."
+                : "AI scan complete, no new fields detected.",
+            );
+          }
+        } catch {
+          updateAiReview(documentId, (current) => ({
+            ...current,
+            status: "error",
+            suggestions: [],
+          }));
+        } finally {
+          aiScanPromiseByDocumentId.current.delete(documentId);
+        }
+      })();
+      aiScanPromiseByDocumentId.current.set(documentId, promise);
+      return promise;
+    },
+    [activeTemplate.documents, locale, onScanDocument, updateAiReview],
+  );
 
   const update = (updater: (template: TemplateSet) => TemplateSet): void => {
     onUpdateTemplate(activeTemplate.id, updater);
@@ -448,51 +616,6 @@ export function TemplatePanel({
       ),
     }));
   };
-
-  useEffect(() => {
-    if (!onScanDocument) return;
-
-    const unscanned = activeTemplate.documents.filter(
-      (doc) =>
-        (doc.fileType === "docx" || doc.fileType === "doc") &&
-        doc.fields.length === 0 &&
-        !backgroundScanningIds.has(doc.id),
-    );
-
-    if (unscanned.length === 0) return;
-
-    const targetDoc = unscanned[0];
-    setBackgroundScanningIds((prev) => new Set(prev).add(targetDoc.id));
-
-    void (async () => {
-      try {
-        const plainText = targetDoc.plainText || "";
-        const scanResult = await onScanDocument(targetDoc.id);
-
-        if (scanResult && scanResult.ai && scanResult.ai.length > 0) {
-          updateDocument(targetDoc.id, (docItem) => ({
-            ...docItem,
-            fields: scanResult.ai.map((item) => ({
-              id: `field-${crypto.randomUUID()}`,
-              label: item.label,
-              placeholder: item.placeholder,
-              mappedKey: item.mappedKey,
-              source: "ai" as const,
-              count: Math.max(1, countOccurrences(plainText, item.placeholder)),
-            })),
-          }));
-        }
-      } catch {
-        /* silent catch */
-      } finally {
-        setBackgroundScanningIds((prev) => {
-          const next = new Set(prev);
-          next.delete(targetDoc.id);
-          return next;
-        });
-      }
-    })();
-  }, [activeTemplate.documents, backgroundScanningIds, onScanDocument]);
 
   const addFiles = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((file) => /\.(docx|doc|pdf)$/i.test(file.name));
@@ -772,7 +895,7 @@ function SortableDocumentItem({
   isScanning: boolean;
   onSelect: () => void;
   onRemove: () => void;
-  t: any;
+  t: (typeof copy)[Locale];
 }) {
   const {
     attributes,
@@ -945,15 +1068,18 @@ function SortableDocumentItem({
           <div className="space-y-2 p-3">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext
-                items={activeTemplate.documents.map((d) => d.id)}
+                items={orderedDocuments.map((d) => d.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {activeTemplate.documents.map((documentItem) => (
+                {orderedDocuments.map((documentItem) => (
                   <SortableDocumentItem
                     key={documentItem.id}
                     documentItem={documentItem}
                     isActive={documentItem.id === activeDocument?.id}
-                    isScanning={backgroundScanningIds.has(documentItem.id)}
+                    isScanning={
+                      aiReviewByDocumentId[documentItem.id]?.status ===
+                      "scanning"
+                    }
                     onSelect={() => setActiveDocumentId(documentItem.id)}
                     onRemove={() => void removeDocument(documentItem)}
                     t={t}
@@ -1016,15 +1142,25 @@ function SortableDocumentItem({
             profileFields={
               profiles.find((profile) => profile.id === activeProfileId)?.fields ?? []
             }
+            aiReview={
+              aiReviewByDocumentId[activeDocument.id] ?? {
+                status: "idle",
+                suggestions: [],
+              }
+            }
+            onAiSuggestionsChange={(updater) =>
+              updateAiReview(activeDocument.id, (current) => ({
+                ...current,
+                suggestions: updater(current.suggestions),
+              }))
+            }
+            onRequestAiScan={() => requestAiScan(activeDocument.id)}
             onPersist={(updater) =>
               Promise.resolve(
                 onUpdateDocument
                   ? onUpdateDocument(activeDocument.id, updater)
                   : updateDocument(activeDocument.id, updater),
               )
-            }
-            onScanDocument={
-              onScanDocument ? () => onScanDocument(activeDocument.id) : undefined
             }
           />
         ) : (
@@ -1054,22 +1190,20 @@ function DocumentEditor({
   locale,
   documentItem,
   profileFields,
+  aiReview,
+  onAiSuggestionsChange,
+  onRequestAiScan,
   onPersist,
-  onScanDocument,
 }: {
   locale: Locale;
   documentItem: TemplateDocument;
   profileFields: ProfileField[];
+  aiReview: AiReviewState;
+  onAiSuggestionsChange: (
+    updater: (current: AiSuggestion[]) => AiSuggestion[],
+  ) => void;
+  onRequestAiScan: () => Promise<void>;
   onPersist: (updater: (documentItem: TemplateDocument) => TemplateDocument) => Promise<void>;
-  onScanDocument?: () => Promise<{
-    ai: Array<{
-      placeholder: string;
-      mappedKey: string;
-      label: string;
-      confidence: number;
-      source: "deterministic" | "ai";
-    }>;
-  }>;
 }) {
   const t = copy[locale];
   const [draftDocument, setDraftDocument] = useState(documentItem);
@@ -1077,8 +1211,17 @@ function DocumentEditor({
   const isDirtyRef = useRef(false);
   const isSavingRef = useRef(false);
   const isRestoringPreviewRef = useRef(false);
-  const [aiStatus, setAiStatus] = useState<"idle" | "scanning" | "error" | "done">("idle");
-  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const aiStatus = aiReview.status;
+  const aiSuggestions = aiReview.suggestions;
+  const setAiSuggestions = (
+    next:
+      | AiSuggestion[]
+      | ((current: AiSuggestion[]) => AiSuggestion[]),
+  ): void => {
+    onAiSuggestionsChange((current) =>
+      typeof next === "function" ? next(current) : next,
+    );
+  };
 
   useEffect(() => {
     isDirtyRef.current = false;
@@ -1086,8 +1229,6 @@ function DocumentEditor({
     isRestoringPreviewRef.current = false;
     draftDocumentRef.current = documentItem;
     setDraftDocument(documentItem);
-    setAiStatus("idle");
-    setAiSuggestions([]);
   }, [documentItem.id]);
 
   useEffect(() => {
@@ -1197,59 +1338,14 @@ function DocumentEditor({
   };
 
   const runAiScan = async (): Promise<void> => {
-    if (!draftDocumentRef.current.plainText || draftDocumentRef.current.plainText.trim().length === 0) {
-      toast.warning(locale === "vi" ? "Tài liệu chưa có nội dung chữ để AI phân tích." : "No document text available for AI analysis.");
-      setAiStatus("idle");
-      return;
-    }
-    setAiStatus("scanning");
-    try {
-      let resultAi: Array<{ placeholder: string; mappedKey: string; label: string }> = [];
-      if (onScanDocument) {
-        const res = await onScanDocument();
-        resultAi = res.ai;
-      } else {
-        const res = await fetch("/api/ai/scan-template", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: draftDocumentRef.current.plainText }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          resultAi = data.ai || [];
-        }
-      }
-
-      const existing = new Set(
-        draftDocumentRef.current.fields.map((field) => field.placeholder.trim()),
-      );
-      const suggestions = resultAi
-        .filter((item) => item.placeholder.trim() && !existing.has(item.placeholder.trim()))
-        .map(
-          (item): AiSuggestion => ({
-            id: `ai-${crypto.randomUUID()}`,
-            label: item.label.trim() || cleanPlaceholderLabel(item.placeholder),
-            placeholder: item.placeholder.trim(),
-            mappedKey: item.mappedKey,
-            checked: true,
-          }),
-        );
-      setAiSuggestions(suggestions);
-      setAiStatus("done");
-      if (suggestions.length === 0) {
-        toast.info(locale === "vi" ? "AI đã quét xong, không phát hiện thêm trường mới nào." : "AI scan complete, no new fields detected.");
-      }
-    } catch {
-      setAiStatus("error");
-      setAiSuggestions([]);
-    }
+    await onRequestAiScan();
   };
 
   useEffect(() => {
-    if (!onScanDocument || (draftDocument.fileType !== "docx" && draftDocument.fileType !== "doc")) return;
+    if (draftDocument.fileType !== "docx" && draftDocument.fileType !== "doc") return;
     if (draftDocument.fields.length > 0 || aiStatus !== "idle") return;
     void runAiScan();
-  }, [draftDocument.fileType, draftDocument.fields.length, aiStatus, onScanDocument]);
+  }, [draftDocument.fileType, draftDocument.fields.length, aiStatus, onRequestAiScan]);
 
   const approveAiSuggestions = (): void => {
     const selected = aiSuggestions.filter((item) => item.checked);
@@ -1258,6 +1354,7 @@ function DocumentEditor({
       (documentValue) => ({
         ...documentValue,
         fields: [
+          ...documentValue.fields,
           ...selected.map((item) => ({
             id: `field-${crypto.randomUUID()}`,
             label: item.label,

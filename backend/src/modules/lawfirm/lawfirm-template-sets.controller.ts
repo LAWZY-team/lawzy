@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LawfirmTemplateSetsService } from './lawfirm-template-sets.service';
 import {
   CreateTemplateSetDto,
+  ReorderTemplateDocumentsDto,
   ScanTemplateDocumentDto,
   UpdateTemplateDocumentDto,
   UpdateTemplateSetDto,
@@ -28,7 +29,9 @@ import { LAWFIRM_MAX_UPLOAD_BYTES } from './lawfirm.constants';
 @UseGuards(JwtAuthGuard)
 @Controller('lawfirm/template-sets')
 export class LawfirmTemplateSetsController {
-  constructor(private readonly templateSetsService: LawfirmTemplateSetsService) {}
+  constructor(
+    private readonly templateSetsService: LawfirmTemplateSetsService,
+  ) {}
 
   @Get()
   async list(
@@ -64,6 +67,15 @@ export class LawfirmTemplateSetsController {
     return this.templateSetsService.update(req.user.userId, id, body);
   }
 
+  @Patch(':id/document-order')
+  async reorderDocuments(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() body: ReorderTemplateDocumentsDto,
+  ) {
+    return this.templateSetsService.reorderDocuments(req.user.userId, id, body);
+  }
+
   @Delete(':id')
   async delete(
     @Request() req: { user: { userId: string } },
@@ -97,7 +109,11 @@ export class LawfirmTemplateSetsController {
     @Param('docId') docId: string,
     @Body() body: UpdateTemplateDocumentDto,
   ) {
-    return this.templateSetsService.updateDocument(req.user.userId, docId, body);
+    return this.templateSetsService.updateDocument(
+      req.user.userId,
+      docId,
+      body,
+    );
   }
 
   @Delete('documents/:docId')

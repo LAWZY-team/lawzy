@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { WorkspaceAccessService } from '../../common/workspace-access.service';
 import { sanitizeHtmlSafe } from '../../common/sanitize-html';
@@ -17,10 +19,12 @@ import {
 } from './utils/lawfirm-serializer';
 import {
   CreateTemplateSetDto,
+  ReorderTemplateDocumentsDto,
   UpdateTemplateDocumentDto,
   UpdateTemplateSetDto,
 } from './dto/template-set.dto';
 import { LAWFIRM_MAX_UPLOAD_BYTES, LAWFIRM_TEMPLATE_MIMES } from './lawfirm.constants';
+import { normalizeTemplateMappedKey } from './lawfirm-field-taxonomy';
 
 @Injectable()
 export class LawfirmTemplateSetsService {
@@ -247,6 +251,18 @@ export class LawfirmTemplateSetsService {
         },
       });
       if (dto.fields) {
+        const normalizedFields = dto.fields.map((field) => {
+          const mappedKey = normalizeTemplateMappedKey(field.mappedKey);
+          if (mappedKey === undefined) {
+            throw new BadRequestException({
+              code: 'INVALID_TEMPLATE_FIELD_MAPPING',
+              message: `Unsupported mappedKey: ${field.mappedKey}`,
+              fieldId: field.id,
+              placeholder: field.placeholder,
+            });
+          }
+          return { ...field, mappedKey };
+        });
         const incomingIds = dto.fields
           .map((field) => field.id?.trim())
           .filter((fieldId): fieldId is string => Boolean(fieldId));
@@ -258,7 +274,7 @@ export class LawfirmTemplateSetsService {
               : {}),
           },
         });
-        for (const [index, field] of dto.fields.entries()) {
+        for (const [index, field] of normalizedFields.entries()) {
           const data = {
             documentId: docId,
             label: field.label,
@@ -297,7 +313,12 @@ export class LawfirmTemplateSetsService {
     });
     if (!document) throw new NotFoundException('Template document not found');
     await this.assertOwner(userId, document.templateSet.workspaceId);
-    await this.prisma.lawfirmTemplateDocument.delete({ where: { id: docId } });
+    await this.prisma.$transaction([
+      this.prisma.lawfirmAiExtraction.deleteMany({
+        where: { documentId: docId, kind: 'template_scan' },
+      }),
+      this.prisma.lawfirmTemplateDocument.delete({ where: { id: docId } }),
+    ]);
     await this.auditService.logAudit({
       workspaceId: document.templateSet.workspaceId,
       actorId: userId,
@@ -313,17 +334,147 @@ export class LawfirmTemplateSetsService {
     documentId: string,
     options?: { useAi?: boolean },
   ) {
+    const document = await this.prisma.lawfirmTemplateDocument.findUnique({
+      where: { id: documentId },
+      include: { templateSet: true },
+    });
+    if (!document) throw new NotFoundException('Template document not found');
+    await this.assertOwner(userId, document.templateSet.workspaceId);
+
+    const contentHash = createHash('sha256')
+      .update(document.plainText || document.storageKey)
+      .digest('hex');
+    const idempotencyKey = `template-scan:${documentId}`;
+    const cached = await this.prisma.lawfirmAiExtraction.findUnique({
+      where: { idempotencyKey },
+    });
+    const cachedProvenance = cached?.provenance as
+      | {
+          contentHash?: string;
+          deterministic?: Array<{
+            placeholder: string;
+            mappedKey: string;
+            label: string;
+            confidence: number;
+            source: 'deterministic' | 'ai';
+          }>;
+        }
+      | null;
+    if (
+      cached?.status === 'pending' &&
+      cachedProvenance?.contentHash === contentHash &&
+      Array.isArray(cached.suggestions)
+    ) {
+      return {
+        document_id: documentId,
+        deterministic: cachedProvenance.deterministic ?? [],
+        ai: cached.suggestions,
+        state: 'ready_for_review',
+        cached: true,
+        note: 'Persisted suggestions restored. Review before applying.',
+      };
+    }
+
     const result = await this.scanService.scanTemplateDocument(
       userId,
       documentId,
       options,
     );
+    await this.prisma.lawfirmAiExtraction.upsert({
+      where: { idempotencyKey },
+      update: {
+        status: 'pending',
+        suggestions: result.ai as unknown as Prisma.InputJsonValue,
+        provenance: {
+          contentHash,
+          deterministic: result.deterministic,
+        } as unknown as Prisma.InputJsonValue,
+        errorMessage: null,
+        expiresAt: null,
+      },
+      create: {
+        workspaceId: document.templateSet.workspaceId,
+        documentId,
+        createdBy: userId,
+        kind: 'template_scan',
+        status: 'pending',
+        suggestions: result.ai as unknown as Prisma.InputJsonValue,
+        provenance: {
+          contentHash,
+          deterministic: result.deterministic,
+        } as unknown as Prisma.InputJsonValue,
+        modelName: options?.useAi === false ? null : 'gemini',
+        idempotencyKey,
+      },
+    });
     return {
       document_id: documentId,
       deterministic: result.deterministic,
       ai: result.ai,
+      state: 'ready_for_review',
+      cached: false,
       note: 'Suggestions are not auto-applied. Review and update fields manually.',
     };
+  }
+
+  async reorderDocuments(
+    userId: string,
+    id: string,
+    dto: ReorderTemplateDocumentsDto,
+  ) {
+    const existing = await this.prisma.lawfirmTemplateSet.findUnique({
+      where: { id },
+      include: { documents: { select: { id: true } } },
+    });
+    if (!existing) throw new NotFoundException('Template set not found');
+    await this.assertOwner(userId, existing.workspaceId);
+
+    const persistedIds = new Set(existing.documents.map((item) => item.id));
+    const hasExactDocumentSet =
+      persistedIds.size === dto.documentIds.length &&
+      dto.documentIds.every((documentId) => persistedIds.has(documentId));
+    if (!hasExactDocumentSet) {
+      throw new BadRequestException(
+        'documentIds must contain every template document exactly once',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const revisionUpdate = await tx.lawfirmTemplateSet.updateMany({
+        where: { id, revision: dto.revision },
+        data: { revision: { increment: 1 } },
+      });
+      if (revisionUpdate.count === 0) {
+        throw new ConflictException('Template set was modified by another user');
+      }
+      await Promise.all(
+        dto.documentIds.map((documentId, sortOrder) =>
+          tx.lawfirmTemplateDocument.update({
+            where: { id: documentId },
+            data: { sortOrder },
+          }),
+        ),
+      );
+    });
+
+    const updated = await this.prisma.lawfirmTemplateSet.findUnique({
+      where: { id },
+      include: {
+        documents: {
+          include: { fields: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+    await this.auditService.logAudit({
+      workspaceId: existing.workspaceId,
+      actorId: userId,
+      action: 'template_document.reorder',
+      entityType: 'lawfirm_template_set',
+      entityId: id,
+      metadata: { documentIds: dto.documentIds },
+    });
+    return serializeTemplateSet(updated!, { isOwner: true, readOnly: false });
   }
 
   private async assertOwner(userId: string, workspaceId: string): Promise<void> {

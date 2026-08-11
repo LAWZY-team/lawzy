@@ -12,6 +12,7 @@ import type {
   CreateLawfirmProfileInput,
   CreateLawfirmTemplateSetInput,
   ImportLocalWorkspaceInput,
+  ReorderLawfirmTemplateDocumentsInput,
   UpdateLawfirmTemplateDocumentInput,
   UpdateLawfirmProfileInput,
   UpdateLawfirmTemplateSetInput,
@@ -106,6 +107,14 @@ export const useLawfirmTemplateMutations = () => {
     updateTemplateSet: useMutation({
       mutationFn: ({ id, ...input }: UpdateLawfirmTemplateSetInput & { id: string }) =>
         lawfirmTemplateSetsApi.update(id, input),
+      onSuccess: invalidate,
+    }),
+    reorderDocuments: useMutation({
+      mutationFn: ({
+        id,
+        ...input
+      }: ReorderLawfirmTemplateDocumentsInput & { id: string }) =>
+        lawfirmTemplateSetsApi.reorderDocuments(id, input),
       onSuccess: invalidate,
     }),
     deleteTemplateSet: useMutation({

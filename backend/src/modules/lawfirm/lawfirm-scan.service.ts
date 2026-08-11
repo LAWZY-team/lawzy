@@ -11,6 +11,7 @@ import { SourceProcessingService } from '../source-processing/source-processing.
 import { extractTextFromPdfBuffer } from '../source-processing/extractors/parse-pdf-buffer';
 import {
   analyzeDocxPlaceholders,
+  cleanPlaceholderLabel,
   extractDocxPlainText,
   extractPlaceholders,
   guessCanonicalMapping,
@@ -24,6 +25,7 @@ import {
   LAWFIRM_PDF_MIME,
   LAWFIRM_TEMPLATE_MIMES,
 } from './lawfirm.constants';
+import { toCurrentLawfirmProfileFieldKey } from './lawfirm-field-taxonomy';
 
 export interface TemplateScanSuggestion {
   placeholder: string;
@@ -58,7 +60,11 @@ export class LawfirmScanService {
     private readonly r2Helper: LawfirmR2Helper,
   ) {}
 
-  validateMimeAndSize(mimeType: string, size: number, allowed: readonly string[]): void {
+  validateMimeAndSize(
+    mimeType: string,
+    size: number,
+    allowed: readonly string[],
+  ): void {
     if (size > LAWFIRM_MAX_UPLOAD_BYTES) {
       throw new BadRequestException(
         `File exceeds maximum size of ${LAWFIRM_MAX_UPLOAD_BYTES} bytes`,
@@ -73,7 +79,10 @@ export class LawfirmScanService {
     userId: string,
     documentId: string,
     options?: { useAi?: boolean },
-  ): Promise<{ deterministic: TemplateScanSuggestion[]; ai: TemplateScanSuggestion[] }> {
+  ): Promise<{
+    deterministic: TemplateScanSuggestion[];
+    ai: TemplateScanSuggestion[];
+  }> {
     const document = await this.prisma.lawfirmTemplateDocument.findUnique({
       where: { id: documentId },
       include: { templateSet: true },
@@ -90,16 +99,20 @@ export class LawfirmScanService {
     const plainText =
       document.plainText ||
       (document.fileType === 'docx'
-        ? (await analyzeDocxPlaceholders(buffer)).map((field) => field.placeholder).join(' ')
+        ? (await analyzeDocxPlaceholders(buffer))
+            .map((field) => field.placeholder)
+            .join(' ')
         : '');
     const placeholders = extractPlaceholders(plainText);
-    const deterministic: TemplateScanSuggestion[] = placeholders.map((placeholder) => ({
-      placeholder,
-      mappedKey: guessCanonicalMapping(placeholder),
-      label: placeholder.replace(/^[\[\{\<]+|[\]\}\>]+$/g, '').trim(),
-      confidence: 1,
-      source: 'deterministic',
-    }));
+    const deterministic: TemplateScanSuggestion[] = placeholders.map(
+      (placeholder) => ({
+        placeholder,
+        mappedKey: guessCanonicalMapping(placeholder),
+        label: cleanPlaceholderLabel(placeholder),
+        confidence: 1,
+        source: 'deterministic',
+      }),
+    );
     let ai: TemplateScanSuggestion[] = [];
     if (options?.useAi && plainText.trim().length > 0) {
       ai = await this.suggestTemplateMappings(plainText);
@@ -134,8 +147,13 @@ ${textToAnalyze}`;
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) return [];
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: Array<{
@@ -149,9 +167,12 @@ ${textToAnalyze}`;
         .filter((field) => Boolean(field.placeholder))
         .map((field) => ({
           placeholder: String(field.placeholder),
-          mappedKey: String(field.mappedKey ?? guessCanonicalMapping(String(field.placeholder))),
+          mappedKey:
+            toCurrentLawfirmProfileFieldKey(String(field.mappedKey ?? '')) ??
+            guessCanonicalMapping(String(field.placeholder)),
           label: String(field.label ?? field.placeholder),
-          confidence: typeof field.confidence === 'number' ? field.confidence : 0.7,
+          confidence:
+            typeof field.confidence === 'number' ? field.confidence : 0.7,
           source: 'ai' as const,
         }));
     } catch (err: unknown) {
@@ -167,7 +188,11 @@ ${textToAnalyze}`;
     fileName: string;
     storageKey: string;
   }): Promise<IdentityExtractionResult> {
-    this.validateMimeAndSize(params.mimeType, params.buffer.length, LAWFIRM_IDENTITY_MIMES);
+    this.validateMimeAndSize(
+      params.mimeType,
+      params.buffer.length,
+      LAWFIRM_IDENTITY_MIMES,
+    );
     let extractedText = '';
     if (params.mimeType === LAWFIRM_PDF_MIME) {
       const result = await this.sourceProcessing.extractText({
@@ -248,8 +273,13 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
         return { suggestions: [], provenance: provenanceBase };
       }
@@ -258,7 +288,9 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
         provenance?: Record<string, unknown>;
       };
       return {
-        suggestions: (parsed.fields ?? []).filter((field) => Boolean(field.fieldKey && field.value)),
+        suggestions: (parsed.fields ?? []).filter((field) =>
+          Boolean(field.fieldKey && field.value),
+        ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
     } catch (err: unknown) {
@@ -305,8 +337,13 @@ ${textToAnalyze}`;
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
         return { suggestions: [], provenance: provenanceBase };
       }
@@ -315,7 +352,9 @@ ${textToAnalyze}`;
         provenance?: Record<string, unknown>;
       };
       return {
-        suggestions: (parsed.fields ?? []).filter((field) => Boolean(field.fieldKey && field.value)),
+        suggestions: (parsed.fields ?? []).filter((field) =>
+          Boolean(field.fieldKey && field.value),
+        ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
     } catch (err: unknown) {
@@ -342,7 +381,11 @@ ${textToAnalyze}`;
       count: number;
     }>;
   }> {
-    this.validateMimeAndSize(params.mimeType, params.buffer.length, LAWFIRM_TEMPLATE_MIMES);
+    this.validateMimeAndSize(
+      params.mimeType,
+      params.buffer.length,
+      LAWFIRM_TEMPLATE_MIMES,
+    );
     const lowerName = params.fileName.toLowerCase();
     if (
       params.mimeType === LAWFIRM_DOCX_MIME ||
@@ -358,7 +401,7 @@ ${textToAnalyze}`;
     const plainText = pdfResult.text;
     const placeholders = extractPlaceholders(plainText);
     const fields = placeholders.map((placeholder) => ({
-      label: placeholder.replace(/^[\[\{\<]+|[\]\}\>]+$/g, '').trim() || 'Trường thông tin',
+      label: cleanPlaceholderLabel(placeholder) || 'Trường thông tin',
       placeholder,
       mappedKey: guessCanonicalMapping(placeholder),
       count: 1,
@@ -371,7 +414,10 @@ ${textToAnalyze}`;
     workspaceId: string,
     visibility: string,
   ): Promise<void> {
-    const isOwnerMember = await this.workspaceAccess.hasMembership(workspaceId, userId);
+    const isOwnerMember = await this.workspaceAccess.hasMembership(
+      workspaceId,
+      userId,
+    );
     if (isOwnerMember) {
       await this.workspaceAccess.requireMembership(workspaceId, userId);
       return;

@@ -158,6 +158,12 @@ export function LawfirmDemoShell() {
               onAddTemplate={workspace.addTemplate}
               onDeleteTemplate={workspace.deleteTemplate}
               onUpdateTemplate={workspace.updateTemplate}
+              onReorderDocuments={(documentIds) =>
+                workspace.reorderDocuments(
+                  workspace.activeTemplate!.id,
+                  documentIds,
+                )
+              }
               onModeChange={(next) => navigateToView("templates", next)}
               onAddProfile={(name) =>
                 name ? workspace.addProfileWithName(name) : workspace.addProfile().then(() => workspace.activeProfile!)

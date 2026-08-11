@@ -91,6 +91,8 @@ export interface LawfirmTemplateScanResultDto {
   document_id: string;
   deterministic: LawfirmTemplateScanSuggestion[];
   ai: LawfirmTemplateScanSuggestion[];
+  state: 'ready_for_review' | 'processing' | 'failed';
+  cached: boolean;
   note: string;
 }
 
@@ -169,6 +171,11 @@ export interface UpdateLawfirmTemplateSetInput {
   status?: LawfirmTemplateStatus;
   visibility?: LawfirmVisibility;
   revision: number;
+}
+
+export interface ReorderLawfirmTemplateDocumentsInput {
+  revision: number;
+  documentIds: string[];
 }
 
 export interface UpdateLawfirmTemplateDocumentInput {

@@ -12,6 +12,7 @@ import {
   ApproveExtractionDto,
   RejectExtractionDto,
 } from './dto/extraction.dto';
+import { toCurrentLawfirmProfileFieldKey } from './lawfirm-field-taxonomy';
 
 @Injectable()
 export class LawfirmExtractionsService {
@@ -21,11 +22,7 @@ export class LawfirmExtractionsService {
     private readonly auditService: LawfirmAuditService,
   ) {}
 
-  async list(
-    userId: string,
-    workspaceId: string,
-    profileId?: string,
-  ) {
+  async list(userId: string, workspaceId: string, profileId?: string) {
     if (!workspaceId) throw new BadRequestException('workspaceId is required');
     await this.workspaceAccess.requireMembership(workspaceId, userId);
     const extractions = await this.prisma.lawfirmAiExtraction.findMany({
@@ -47,14 +44,29 @@ export class LawfirmExtractionsService {
     if (!extraction.profileId || !extraction.profile) {
       throw new BadRequestException('Extraction is not linked to a profile');
     }
-    await this.workspaceAccess.requireMembership(extraction.workspaceId, userId);
+    await this.workspaceAccess.requireMembership(
+      extraction.workspaceId,
+      userId,
+    );
     if (extraction.status !== 'pending') {
-      throw new BadRequestException(`Extraction is already ${extraction.status}`);
+      throw new BadRequestException(
+        `Extraction is already ${extraction.status}`,
+      );
     }
     await this.prisma.$transaction(async (tx) => {
       for (const approved of dto.approvedFields) {
+        const approvedFieldKey = toCurrentLawfirmProfileFieldKey(
+          approved.fieldKey,
+        );
+        if (!approvedFieldKey) {
+          throw new BadRequestException(
+            `Unsupported extracted field key: ${approved.fieldKey}`,
+          );
+        }
         const existingField = extraction.profile!.fields.find(
-          (field) => field.fieldKey === approved.fieldKey,
+          (field) =>
+            toCurrentLawfirmProfileFieldKey(field.fieldKey) ===
+            approvedFieldKey,
         );
         if (existingField) {
           await tx.lawfirmProfileField.update({
@@ -62,14 +74,16 @@ export class LawfirmExtractionsService {
             data: {
               value: approved.value,
               ...(approved.label !== undefined && { label: approved.label }),
-              ...(approved.aliases !== undefined && { aliases: approved.aliases }),
+              ...(approved.aliases !== undefined && {
+                aliases: approved.aliases,
+              }),
             },
           });
         } else {
           await tx.lawfirmProfileField.create({
             data: {
               profileId: extraction.profileId!,
-              fieldKey: approved.fieldKey,
+              fieldKey: approvedFieldKey,
               group: approved.group ?? 'other',
               label: approved.label ?? approved.fieldKey,
               value: approved.value,
@@ -113,9 +127,14 @@ export class LawfirmExtractionsService {
       where: { id },
     });
     if (!extraction) throw new NotFoundException('Extraction not found');
-    await this.workspaceAccess.requireMembership(extraction.workspaceId, userId);
+    await this.workspaceAccess.requireMembership(
+      extraction.workspaceId,
+      userId,
+    );
     if (extraction.status !== 'pending') {
-      throw new BadRequestException(`Extraction is already ${extraction.status}`);
+      throw new BadRequestException(
+        `Extraction is already ${extraction.status}`,
+      );
     }
     const updated = await this.prisma.lawfirmAiExtraction.update({
       where: { id },

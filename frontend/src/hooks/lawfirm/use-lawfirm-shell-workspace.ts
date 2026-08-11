@@ -405,6 +405,44 @@ export function useLawfirmShellWorkspace() {
     [templateMutations.deleteTemplateSet],
   );
 
+  const reorderDocuments = useCallback(
+    async (templateId: string, documentIds: string[]) => {
+      if (!workspaceId) return;
+      const previousUpdate =
+        templateUpdateQueueRef.current.get(templateId) ?? Promise.resolve();
+      const nextUpdate = previousUpdate
+        .catch(() => undefined)
+        .then(async () => {
+          const revision =
+            templateRevisionRef.current.get(templateId) ??
+            templateRevisions.get(templateId) ??
+            1;
+          const updated =
+            await templateMutations.reorderDocuments.mutateAsync({
+              id: templateId,
+              revision,
+              documentIds,
+            });
+          const mapped = mapTemplateSetDto(updated);
+          templateRevisionRef.current.set(templateId, updated.revision);
+          templateSnapshotRef.current.set(templateId, mapped);
+        });
+      templateUpdateQueueRef.current.set(templateId, nextUpdate);
+      try {
+        await nextUpdate;
+      } finally {
+        if (templateUpdateQueueRef.current.get(templateId) === nextUpdate) {
+          templateUpdateQueueRef.current.delete(templateId);
+        }
+      }
+    },
+    [
+      templateMutations.reorderDocuments,
+      templateRevisions,
+      workspaceId,
+    ],
+  );
+
   const deleteDocument = useCallback(
     async (docId: string) => {
       await templateMutations.deleteDocument.mutateAsync(docId);
@@ -474,11 +512,11 @@ export function useLawfirmShellWorkspace() {
         previewMode: "highlight",
         previewHtml: preview.previewHtml,
         previewImage: preview.previewImage,
-        plainText: preview.plainText,
-        fields: preview.fields.map((field, index) => ({
-          ...field,
-          id: uploaded.fields[index]?.id ?? field.id,
-        })),
+        plainText: uploadedDocument.plainText || preview.plainText,
+        // The backend is the authoritative scanner. The browser builds only
+        // presentation data and must not replace persisted field identities or
+        // mappings with a second, independently ordered scan result.
+        fields: uploadedDocument.fields,
         fileId: uploaded.file_id ?? undefined,
         storageKey: uploaded.file_id ?? uploaded.id,
       }), uploadedDocument);
@@ -568,6 +606,7 @@ export function useLawfirmShellWorkspace() {
     updateTemplate,
     updateDocument,
     deleteTemplate,
+    reorderDocuments,
     uploadTemplateDocument,
     deleteDocument,
     scanTemplateDocument,
