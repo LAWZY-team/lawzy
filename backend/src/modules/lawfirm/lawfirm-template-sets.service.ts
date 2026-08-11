@@ -23,8 +23,9 @@ import {
   UpdateTemplateDocumentDto,
   UpdateTemplateSetDto,
 } from './dto/template-set.dto';
-import { LAWFIRM_MAX_UPLOAD_BYTES, LAWFIRM_TEMPLATE_MIMES } from './lawfirm.constants';
+import { LAWFIRM_TEMPLATE_MIMES } from './lawfirm.constants';
 import { normalizeTemplateMappedKey } from './lawfirm-field-taxonomy';
+import { LawfirmTemplateSetIndexService } from './lawfirm-template-set-index.service';
 
 @Injectable()
 export class LawfirmTemplateSetsService {
@@ -34,6 +35,7 @@ export class LawfirmTemplateSetsService {
     private readonly filesService: FilesService,
     private readonly auditService: LawfirmAuditService,
     private readonly scanService: LawfirmScanService,
+    private readonly templateSetIndex: LawfirmTemplateSetIndexService,
   ) {}
 
   async list(userId: string, workspaceId: string) {
@@ -213,6 +215,7 @@ export class LawfirmTemplateSetsService {
       },
       include: { fields: { orderBy: { sortOrder: 'asc' } } },
     });
+    await this.templateSetIndex.rebuild(templateSetId);
     await this.auditService.logAudit({
       workspaceId: set.workspaceId,
       actorId: userId,
@@ -299,6 +302,9 @@ export class LawfirmTemplateSetsService {
         }
       }
     });
+    if (dto.fields) {
+      await this.templateSetIndex.rebuild(document.templateSetId);
+    }
     const updated = await this.prisma.lawfirmTemplateDocument.findUnique({
       where: { id: docId },
       include: { fields: { orderBy: { sortOrder: 'asc' } } },
@@ -319,6 +325,7 @@ export class LawfirmTemplateSetsService {
       }),
       this.prisma.lawfirmTemplateDocument.delete({ where: { id: docId } }),
     ]);
+    await this.templateSetIndex.rebuild(document.templateSetId);
     await this.auditService.logAudit({
       workspaceId: document.templateSet.workspaceId,
       actorId: userId,

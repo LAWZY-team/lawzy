@@ -63,6 +63,26 @@ export const LAWFIRM_FIELD_DEFINITIONS: readonly LawfirmFieldDefinition[] = [
     aliases: ['[SỐ CCCD]', '[SỐ HỘ CHIẾU]', '{{cccd}}'],
   },
   {
+    canonicalKey: 'person.id_expiry_date',
+    currentProfileKey: 'f_cn_ngayhethan',
+    group: 'individual',
+    labelVi: 'Ngày hết hạn giấy tờ',
+    labelEn: 'ID expiry date',
+    aliases: [
+      '[NGÀY HẾT HẠN]',
+      '[NGÀY HẾT HẠN GIẤY TỜ]',
+      '{{ngay_het_han}}',
+    ],
+  },
+  {
+    canonicalKey: 'person.place_of_origin',
+    currentProfileKey: 'f_cn_quequan',
+    group: 'individual',
+    labelVi: 'Quê quán',
+    labelEn: 'Place of origin',
+    aliases: ['[QUÊ QUÁN]', '[NƠI SINH]', '{{que_quan}}'],
+  },
+  {
     canonicalKey: 'person.contact_address',
     currentProfileKey: 'f_cn_diachi',
     group: 'individual',

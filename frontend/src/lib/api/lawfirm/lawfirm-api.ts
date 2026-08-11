@@ -10,6 +10,8 @@ import type {
   LawfirmProfileDto,
   LawfirmTemplateScanResultDto,
   LawfirmTemplateSetDto,
+  LawfirmTemplateUploadBatchDto,
+  LawfirmTemplateUploadSessionDto,
   ReorderLawfirmTemplateDocumentsInput,
   UpdateLawfirmTemplateDocumentInput,
   UpdateLawfirmProfileInput,
@@ -86,6 +88,31 @@ export const lawfirmTemplateSetsApi = {
     api.delete(`/lawfirm/template-sets/documents/${docId}`),
   scanDocument: (docId: string) =>
     api.post<LawfirmTemplateScanResultDto>(`/lawfirm/template-sets/template-documents/${docId}/scan`, {}),
+};
+
+export const lawfirmTemplateUploadSessionsApi = {
+  create: (templateSetId: string, idempotencyKey: string) =>
+    api.post<LawfirmTemplateUploadSessionDto>(
+      '/lawfirm/template-upload-sessions',
+      { templateSetId, idempotencyKey },
+    ),
+  addDocuments: (sessionId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    return api.upload<LawfirmTemplateUploadBatchDto>(
+      `/lawfirm/template-upload-sessions/${sessionId}/documents`,
+      formData,
+    );
+  },
+  finalize: (sessionId: string) =>
+    api.post<LawfirmTemplateUploadSessionDto>(
+      `/lawfirm/template-upload-sessions/${sessionId}/finalize`,
+      {},
+    ),
+  getStatus: (sessionId: string) =>
+    api.get<LawfirmTemplateUploadSessionDto>(
+      `/lawfirm/template-upload-sessions/${sessionId}`,
+    ),
 };
 
 export const lawfirmExtractionsApi = {

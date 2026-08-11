@@ -176,6 +176,14 @@ export function LawfirmDemoShell() {
               onUploadDocument={(file) =>
                 workspace.uploadTemplateDocument(workspace.activeTemplate!.id, file)
               }
+              onUploadDocuments={(files, onProgress) =>
+                workspace.uploadTemplateDocuments(
+                  workspace.activeTemplate!.id,
+                  files,
+                  onProgress,
+                )
+              }
+              uploadProgress={workspace.templateUploadProgress}
               onRemoveDocument={(docId) => workspace.deleteDocument(docId)}
             />
           )}

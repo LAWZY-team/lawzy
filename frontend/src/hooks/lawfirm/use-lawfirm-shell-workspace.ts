@@ -8,6 +8,7 @@ import {
 import { createProfile } from "@/components/lawfirm-demo/lawfirm-demo-taxonomy";
 import { loadWorkspace } from "@/components/lawfirm-demo/lawfirm-demo-storage";
 import type { ClientProfile, Locale, TemplateSet } from "@/components/lawfirm-demo/lawfirm-demo-types";
+import { lawfirmTemplateUploadSessionsApi } from "@/lib/api/lawfirm/lawfirm-api";
 import {
   mapDocumentToUpdate,
   mapExtractionSuggestions,
@@ -28,11 +29,16 @@ import {
 } from "@/hooks/lawfirm/use-lawfirm-workspace";
 
 const LOCALE_KEY = "lawfirm.demo.locale";
+const UPLOAD_SESSION_POLL_MS = 750;
+const UPLOAD_SESSION_MAX_POLLS = 240;
+const uploadSessionStorageKey = (templateSetId: string) =>
+  `lawfirm.template-upload-session.${templateSetId}`;
 
 export function useLawfirmShellWorkspace() {
   const workspaceId = useLawfirmWorkspaceId();
   const profilesQuery = useLawfirmProfiles();
   const templatesQuery = useLawfirmTemplateSets();
+  const refetchTemplates = templatesQuery.refetch;
   const profileMutations = useLawfirmProfileMutations();
   const templateMutations = useLawfirmTemplateMutations();
   const extractionMutations = useLawfirmExtractionMutations();
@@ -44,6 +50,13 @@ export function useLawfirmShellWorkspace() {
   const [importAttempted, setImportAttempted] = useState(false);
   const [autoSeedDone, setAutoSeedDone] = useState(false);
   const [dedupeDone, setDedupeDone] = useState(false);
+  const [resumedUploadProgress, setResumedUploadProgress] = useState<{
+    status: string;
+    total: number;
+    processed: number;
+    failed: number;
+    pending: number;
+  } | null>(null);
   const profileRevisionRef = useRef<Map<string, number>>(new Map());
   const profileSnapshotRef = useRef<Map<string, ClientProfile>>(new Map());
   const profileUpdateQueueRef = useRef<Map<string, Promise<void>>>(new Map());
@@ -76,6 +89,49 @@ export function useLawfirmShellWorkspace() {
       setActiveProfileId(profiles[0].id);
     }
   }, [profiles, activeProfileId]);
+
+  useEffect(() => {
+    if (!activeTemplateId) return;
+    const storageKey = uploadSessionStorageKey(activeTemplateId);
+    const sessionId = localStorage.getItem(storageKey);
+    if (!sessionId) {
+      setResumedUploadProgress(null);
+      return;
+    }
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    const poll = async () => {
+      try {
+        const session =
+          await lawfirmTemplateUploadSessionsApi.getStatus(sessionId);
+        if (cancelled) return;
+        if (session.progress) {
+          setResumedUploadProgress({
+            status: session.status,
+            ...session.progress,
+          });
+        }
+        if (
+          session.status === "review_ready" ||
+          session.status === "partial_failed" ||
+          session.status === "failed"
+        ) {
+          localStorage.removeItem(storageKey);
+          setResumedUploadProgress(null);
+          await refetchTemplates();
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+      }
+      timeoutId = window.setTimeout(poll, UPLOAD_SESSION_POLL_MS);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [activeTemplateId, refetchTemplates]);
 
   useEffect(() => {
     if (!templates.length) return;
@@ -524,6 +580,97 @@ export function useLawfirmShellWorkspace() {
     [templateMutations.uploadDocument, updateDocument],
   );
 
+  const uploadTemplateDocuments = useCallback(
+    async (
+      templateSetId: string,
+      files: File[],
+      onProgress?: (progress: {
+        total: number;
+        processed: number;
+        failed: number;
+        pending: number;
+      }) => void,
+    ) => {
+      if (!files.length) return;
+      const idempotencyKey =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${files.length}`;
+      const session = await templateMutations.createUploadSession.mutateAsync({
+        templateSetId,
+        idempotencyKey,
+      });
+      localStorage.setItem(
+        uploadSessionStorageKey(templateSetId),
+        session.session_id,
+      );
+      let batch: Awaited<
+        ReturnType<typeof templateMutations.uploadSessionDocuments.mutateAsync>
+      >;
+      try {
+        batch = await templateMutations.uploadSessionDocuments.mutateAsync({
+          sessionId: session.session_id,
+          files,
+        });
+        await templateMutations.finalizeUploadSession.mutateAsync(
+          session.session_id,
+        );
+      } catch (error: unknown) {
+        localStorage.removeItem(uploadSessionStorageKey(templateSetId));
+        throw error;
+      }
+
+      let finalStatus: "review_ready" | "partial_failed" | "failed" | null =
+        null;
+      for (let attempt = 0; attempt < UPLOAD_SESSION_MAX_POLLS; attempt += 1) {
+        const status =
+          await templateMutations.getUploadSessionStatus.mutateAsync(
+            session.session_id,
+          );
+        if (status.progress) onProgress?.(status.progress);
+        if (
+          status.status === "review_ready" ||
+          status.status === "partial_failed" ||
+          status.status === "failed"
+        ) {
+          finalStatus = status.status;
+          break;
+        }
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, UPLOAD_SESSION_POLL_MS),
+        );
+      }
+      if (!finalStatus) throw new Error("Template upload session timed out");
+      if (finalStatus === "failed") {
+        localStorage.removeItem(uploadSessionStorageKey(templateSetId));
+        throw new Error("Template upload session failed");
+      }
+
+      for (const [index, uploaded] of batch.documents.entries()) {
+        if (!uploaded.document_id || !files[index]) continue;
+        const preview = await buildDocumentPreviewFromBytes(
+          files[index].name,
+          await files[index].arrayBuffer(),
+        );
+        await templateMutations.updateDocument.mutateAsync({
+          docId: uploaded.document_id,
+          previewMode: "highlight",
+          previewHtml: preview.previewHtml,
+        });
+      }
+      await refetchTemplates();
+      localStorage.removeItem(uploadSessionStorageKey(templateSetId));
+      if (finalStatus === "partial_failed") {
+        toast.warning(
+          locale === "vi"
+            ? "Một số tài liệu không quét được; các tài liệu còn lại đã sẵn sàng."
+            : "Some documents failed to scan; the remaining documents are ready.",
+        );
+      }
+    },
+    [locale, refetchTemplates, templateMutations],
+  );
+
   const runFill = useCallback(
     async (profileId: string, templateSetId: string) => {
       return fillRunMutations.createFillRun.mutateAsync({ profileId, templateSetId });
@@ -608,6 +755,8 @@ export function useLawfirmShellWorkspace() {
     deleteTemplate,
     reorderDocuments,
     uploadTemplateDocument,
+    uploadTemplateDocuments,
+    templateUploadProgress: resumedUploadProgress,
     deleteDocument,
     scanTemplateDocument,
     uploadIdentity,

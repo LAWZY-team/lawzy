@@ -96,6 +96,53 @@ export interface LawfirmTemplateScanResultDto {
   note: string;
 }
 
+export type LawfirmTemplateUploadSessionStatus =
+  | 'receiving'
+  | 'queued'
+  | 'processing'
+  | 'review_ready'
+  | 'partial_failed'
+  | 'failed';
+
+export interface LawfirmTemplateUploadSessionDto {
+  session_id: string;
+  template_set_id: string;
+  status: LawfirmTemplateUploadSessionStatus;
+  total_documents: number;
+  processed_documents: number;
+  failed_documents: number;
+  finalized_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  progress?: {
+    total: number;
+    processed: number;
+    failed: number;
+    pending: number;
+  };
+  documents?: Array<{
+    id: string;
+    file_name: string;
+    file_type: LawfirmDocumentKind;
+    status: LawfirmDocumentStatus | 'queued' | 'failed';
+    sort_order: number;
+    updated_at: string;
+  }>;
+  jobs?: Array<{ kind: string; status: string; count: number }>;
+}
+
+export interface LawfirmTemplateUploadBatchDto {
+  session_id: string;
+  concurrency: number;
+  documents: Array<{
+    document_id: string | null;
+    job_id: string;
+    status: string;
+    reused: boolean;
+  }>;
+}
+
 export interface LawfirmExtractionDto {
   id: string;
   workspace_id: string;

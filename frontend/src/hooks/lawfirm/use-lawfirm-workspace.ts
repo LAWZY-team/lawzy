@@ -5,6 +5,7 @@ import {
   lawfirmFillRunsApi,
   lawfirmProfilesApi,
   lawfirmTemplateSetsApi,
+  lawfirmTemplateUploadSessionsApi,
 } from '@/lib/api/lawfirm/lawfirm-api';
 import type {
   ApproveExtractionInput,
@@ -125,6 +126,32 @@ export const useLawfirmTemplateMutations = () => {
       mutationFn: ({ templateSetId, file }: { templateSetId: string; file: File }) =>
         lawfirmTemplateSetsApi.uploadDocument(templateSetId, file),
       onSuccess: invalidate,
+    }),
+    createUploadSession: useMutation({
+      mutationFn: ({
+        templateSetId,
+        idempotencyKey,
+      }: {
+        templateSetId: string;
+        idempotencyKey: string;
+      }) =>
+        lawfirmTemplateUploadSessionsApi.create(
+          templateSetId,
+          idempotencyKey,
+        ),
+    }),
+    uploadSessionDocuments: useMutation({
+      mutationFn: ({ sessionId, files }: { sessionId: string; files: File[] }) =>
+        lawfirmTemplateUploadSessionsApi.addDocuments(sessionId, files),
+    }),
+    finalizeUploadSession: useMutation({
+      mutationFn: (sessionId: string) =>
+        lawfirmTemplateUploadSessionsApi.finalize(sessionId),
+      onSuccess: invalidate,
+    }),
+    getUploadSessionStatus: useMutation({
+      mutationFn: (sessionId: string) =>
+        lawfirmTemplateUploadSessionsApi.getStatus(sessionId),
     }),
     updateDocument: useMutation({
       mutationFn: ({

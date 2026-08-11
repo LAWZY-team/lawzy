@@ -482,19 +482,21 @@ Không dùng template field label để giả làm target profile field label.
 - [x] Reset/scoped edited state theo profile + template.
 - [x] Thêm preflight conflict validator tối thiểu.
 - [x] Thêm test tái hiện ba lỗi trong ảnh.
+- [x] Thêm service-level tests cho preflight response và AI approval validation.
 
 **Exit criteria:** Acceptance tests A01–A08 đạt.
 
 ### Phase 1 — Set-level registry, upload session và durable queue
 
-- [ ] Thêm schema `FieldDefinition` và `FieldAlias`.
-- [ ] Seed canonical taxonomy version 1.
-- [ ] Thêm `TemplateSetField` và `DocumentSlot/Occurrence`.
-- [ ] Thêm upload session API.
-- [ ] Thêm durable scan job và idempotency.
-- [ ] Parse documents bằng bounded worker concurrency.
-- [ ] Dedup fields ở cấp template set.
-- [ ] Thêm scan-status API và progress UI.
+- [x] Thêm schema `FieldDefinition` và `FieldAlias`.
+- [x] Seed canonical taxonomy version 1.
+- [x] Thêm contract/API cho workspace custom-field registry.
+- [x] Thêm `TemplateSetField` và `DocumentSlot/Occurrence`.
+- [x] Thêm upload session API.
+- [x] Thêm durable scan job và idempotency.
+- [x] Parse documents bằng bounded worker concurrency.
+- [x] Dedup fields ở cấp template set.
+- [x] Thêm scan-status API và progress UI.
 
 **Exit criteria:** 10 DOCX trong một session parse/index đúng; không tạo Gemini call theo số document.
 
@@ -549,7 +551,7 @@ Không dùng template field label để giả làm target profile field label.
 
 ### Phase 6 — Migration, rollout và cleanup
 
-- [ ] Audit legacy profiles/template mappings.
+- [x] Audit legacy profiles/template mappings bằng read-only dry-run tool.
 - [ ] Auto-merge legacy keys chỉ khi values không conflict.
 - [ ] Tạo review queue cho conflicting legacy values.
 - [ ] Backfill normalized signatures và template-set fields.
@@ -700,12 +702,18 @@ Mục tiêu pilot ban đầu:
 
 **Lý do:** Tránh reorder chỉ mang tính trình diễn, tránh N request cho N tài liệu và không để backend lưu thứ tự dở dang.
 
+### D-009 — Durable jobs dùng database lease
+
+**Quyết định:** Upload nhiều file tạo `parse_document` jobs idempotent theo content fingerprint; worker claim tối đa ba jobs bằng lease có thời hạn và chỉ tạo một `index_template_set` job cho mỗi session.
+
+**Lý do:** Restart/multi-instance không làm mất job hoặc chạy trùng logical work; số Gemini call không phụ thuộc số document và set-level index chỉ rebuild một lần khi session finalize.
+
 ## 19. Current execution status
 
 | Phase | Status | Ghi chú |
 |---|---|---|
-| Phase 0 | In progress | Bước triển khai kế tiếp |
-| Phase 1 | Not started | Chờ Phase 0 exit criteria |
+| Phase 0 | In progress | Checklist containment hoàn tất; còn acceptance A01–A08 |
+| Phase 1 | Ready for acceptance | Phase 1.1–1.3 đã migrate/seed local; chờ manual acceptance với 10 DOCX |
 | Phase 2 | Not started | Có thể chuẩn bị fixtures độc lập |
 | Phase 3 | Not started | Chờ canonical registry contract |
 | Phase 4 | Not started | Chờ schema/migration design review |
@@ -714,7 +722,27 @@ Mục tiêu pilot ban đầu:
 
 ### Next executable task
 
-Phase 0.2:
+Phase 2.1 sau khi Phase 1 qua manual acceptance:
 
-1. Thêm service/API-level tests cho preflight response và AI approval validation.
-2. Thiết kế dry-run audit cho legacy profile/template keys trước khi migration dữ liệu.
+1. Tạo fixture DOCX không dùng ngoặc vuông và reconstruction xuyên Word runs.
+2. Implement Content Control/Bookmark/Merge Field detector.
+3. Implement dotted blank/empty table cell detector với anchor/context provenance.
+
+### Legacy audit baseline — 2026-08-11
+
+Read-only command: `npm run lawfirm:audit-fields`.
+
+- Profile fields: 166.
+- Template fields: 359.
+- Legacy keys có thể normalize tự động: 21.
+- Unknown keys sau khi bổ sung taxonomy: 0.
+- Profile semantic-value conflicts: 0.
+- Template mapping conflicts cần review/remediation: 6.
+- Không có database write trong lần audit này.
+
+### Phase 1 local database verification — 2026-08-11
+
+- 28/28 migrations đã apply; schema up to date.
+- Taxonomy v1 seed idempotent: 29 definitions, 122 aliases.
+- Upload session/scan job tables hoạt động và đang rỗng trước manual test.
+- Audit sau seed: 0 unknown key, 0 profile value conflict; 6 legacy template mapping conflicts vẫn giữ để review, không auto-merge sai.

@@ -16,6 +16,12 @@ import { LawfirmExtractionsController } from './lawfirm-extractions.controller';
 import { LawfirmFillRunsService } from './lawfirm-fill-runs.service';
 import { LawfirmFillRunsController } from './lawfirm-fill-runs.controller';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
+import { LawfirmFieldRegistryController } from './lawfirm-field-registry.controller';
+import { LawfirmFieldRegistryService } from './lawfirm-field-registry.service';
+import { LawfirmTemplateSetIndexService } from './lawfirm-template-set-index.service';
+import { LawfirmTemplateUploadSessionsController } from './lawfirm-template-upload-sessions.controller';
+import { LawfirmTemplateUploadSessionsService } from './lawfirm-template-upload-sessions.service';
+import { LawfirmTemplateScanWorkerService } from './lawfirm-template-scan-worker.service';
 
 @Module({
   imports: [
@@ -30,6 +36,8 @@ import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
     LawfirmTemplateSetsController,
     LawfirmExtractionsController,
     LawfirmFillRunsController,
+    LawfirmFieldRegistryController,
+    LawfirmTemplateUploadSessionsController,
   ],
   providers: [
     LawfirmAuditService,
@@ -38,6 +46,10 @@ import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
     LawfirmTemplateSetsService,
     LawfirmExtractionsService,
     LawfirmFillRunsService,
+    LawfirmFieldRegistryService,
+    LawfirmTemplateSetIndexService,
+    LawfirmTemplateUploadSessionsService,
+    LawfirmTemplateScanWorkerService,
     LawfirmR2Helper,
     OcrExtractor,
   ],
@@ -48,6 +60,9 @@ import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
     LawfirmTemplateSetsService,
     LawfirmExtractionsService,
     LawfirmFillRunsService,
+    LawfirmFieldRegistryService,
+    LawfirmTemplateSetIndexService,
+    LawfirmTemplateUploadSessionsService,
   ],
 })
 export class LawfirmModule {}

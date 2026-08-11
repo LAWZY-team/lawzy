@@ -261,6 +261,8 @@ export function TemplatePanel({
   onDismissSuggestion,
   onDismissAllSuggestions,
   onUploadDocument,
+  onUploadDocuments,
+  uploadProgress,
   onRemoveDocument,
 }: {
   locale: Locale;
@@ -312,6 +314,22 @@ export function TemplatePanel({
   onDismissSuggestion?: (docId: string, placeholder: string) => void;
   onDismissAllSuggestions?: (docId: string) => void;
   onUploadDocument?: (file: File) => Promise<void>;
+  onUploadDocuments?: (
+    files: File[],
+    onProgress: (progress: {
+      total: number;
+      processed: number;
+      failed: number;
+      pending: number;
+    }) => void,
+  ) => Promise<void>;
+  uploadProgress?: {
+    status: string;
+    total: number;
+    processed: number;
+    failed: number;
+    pending: number;
+  } | null;
   onRemoveDocument?: (docId: string) => Promise<void>;
 }) {
   const t = copy[locale];
@@ -412,6 +430,12 @@ export function TemplatePanel({
   );
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState("");
+  const [processingProgress, setProcessingProgress] = useState<{
+    total: number;
+    processed: number;
+    failed: number;
+    pending: number;
+  } | null>(null);
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -620,6 +644,23 @@ export function TemplatePanel({
   const addFiles = async (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((file) => /\.(docx|doc|pdf)$/i.test(file.name));
     setError("");
+    setProcessingProgress(null);
+    if (onUploadDocuments && files.length > 0) {
+      setProcessing(
+        locale === "vi"
+          ? `${files.length} tài liệu`
+          : `${files.length} documents`,
+      );
+      try {
+        await onUploadDocuments(files, setProcessingProgress);
+      } catch {
+        setError(t.uploadError);
+      } finally {
+        setProcessing("");
+        setProcessingProgress(null);
+      }
+      return;
+    }
     for (const file of files) {
       setProcessing(file.name);
       try {
@@ -1124,12 +1165,23 @@ function SortableDocumentItem({
               event.target.value = "";
             }}
           />
-          {processing && (
+          {(processing || uploadProgress) && (
             <div className="mx-3 mb-3 rounded-md border border-zinc-200 bg-zinc-50 p-3" role="status">
               <div className="h-2 animate-pulse rounded bg-zinc-200" />
               <p className="mt-2 truncate text-xs text-zinc-600">
-                {t.analyzing}: {processing}
+                {t.analyzing}: {processing || (locale === "vi" ? "đang khôi phục phiên quét" : "resuming scan session")}
               </p>
+              {(processingProgress || uploadProgress) && (
+                <p className="mt-1 text-xs text-zinc-500">
+                  {(processingProgress ?? uploadProgress)!.processed}/
+                  {(processingProgress ?? uploadProgress)!.total}
+                  {(processingProgress ?? uploadProgress)!.failed > 0
+                    ? ` · ${(processingProgress ?? uploadProgress)!.failed} ${
+                        locale === "vi" ? "lỗi" : "failed"
+                      }`
+                    : ""}
+                </p>
+              )}
             </div>
           )}
           {error && <p className="mx-3 mb-3 text-sm text-red-700" role="alert">{error}</p>}

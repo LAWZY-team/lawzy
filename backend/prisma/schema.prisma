@@ -25,32 +25,34 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  refreshTokens         RefreshToken[]
-  workspaceMemberships  WorkspaceMember[]
-  createdDocuments      Document[]       @relation("DocumentCreator")
-  createdTemplates      Template[]       @relation("TemplateCreator")
-  files                 File[]
-  sources               Source[]
-  chatMessages          ChatMessage[]
-  customFields          UserCustomField[]
-  articles              Article[]
-  payments              Payment[]
-  userCredit            UserCredit?
-  documentVersions      DocumentVersion[]
-  tabularReviews        TabularReview[]
-  lpmsChats             LpmsChat[]
-  lawfirmProfiles       LawfirmClientProfile[]
-  lawfirmTemplateSets   LawfirmTemplateSet[]
-  lawfirmExtractions    LawfirmAiExtraction[]
-  lawfirmFillRuns       LawfirmFillRun[]
-  lawfirmAuditEvents    LawfirmAuditEvent[]
+  refreshTokens           RefreshToken[]
+  workspaceMemberships    WorkspaceMember[]
+  createdDocuments        Document[]                     @relation("DocumentCreator")
+  createdTemplates        Template[]                     @relation("TemplateCreator")
+  files                   File[]
+  sources                 Source[]
+  chatMessages            ChatMessage[]
+  customFields            UserCustomField[]
+  articles                Article[]
+  payments                Payment[]
+  userCredit              UserCredit?
+  documentVersions        DocumentVersion[]
+  tabularReviews          TabularReview[]
+  lpmsChats               LpmsChat[]
+  lawfirmProfiles         LawfirmClientProfile[]
+  lawfirmTemplateSets     LawfirmTemplateSet[]
+  lawfirmExtractions      LawfirmAiExtraction[]
+  lawfirmFillRuns         LawfirmFillRun[]
+  lawfirmAuditEvents      LawfirmAuditEvent[]
+  lawfirmFieldDefinitions LawfirmFieldDefinition[]       @relation("LawfirmFieldDefinitionCreator")
+  lawfirmUploadSessions   LawfirmTemplateUploadSession[]
 
   @@map("users")
 }
 
 model Article {
   id          String    @id @default(uuid())
-  type        String    // 'news' | 'policy' | 'document' | 'announcement'
+  type        String // 'news' | 'policy' | 'document' | 'announcement'
   title       String
   slug        String    @unique
   excerpt     String?   @db.Text
@@ -99,22 +101,23 @@ model Workspace {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  members        WorkspaceMember[]
-  documents      Document[]
-  files          File[]
-  sources        Source[]
-  payments       Payment[]
-  customFields   WorkspaceCustomField[]
-  templates      Template[]
-  projects       Project[]
-  obligations    Obligation[]
-  tabularReviews TabularReview[]
-  lpmsChats      LpmsChat[]
-  lawfirmProfiles LawfirmClientProfile[]
-  lawfirmTemplateSets LawfirmTemplateSet[]
-  lawfirmExtractions LawfirmAiExtraction[]
-  lawfirmFillRuns LawfirmFillRun[]
-  lawfirmAuditEvents LawfirmAuditEvent[]
+  members                 WorkspaceMember[]
+  documents               Document[]
+  files                   File[]
+  sources                 Source[]
+  payments                Payment[]
+  customFields            WorkspaceCustomField[]
+  templates               Template[]
+  projects                Project[]
+  obligations             Obligation[]
+  tabularReviews          TabularReview[]
+  lpmsChats               LpmsChat[]
+  lawfirmProfiles         LawfirmClientProfile[]
+  lawfirmTemplateSets     LawfirmTemplateSet[]
+  lawfirmExtractions      LawfirmAiExtraction[]
+  lawfirmFillRuns         LawfirmFillRun[]
+  lawfirmAuditEvents      LawfirmAuditEvent[]
+  lawfirmFieldDefinitions LawfirmFieldDefinition[]
 
   @@map("workspaces")
 }
@@ -124,7 +127,7 @@ model WorkspaceCustomField {
   workspaceId  String   @map("workspace_id")
   key          String   @db.VarChar(80)
   label        String
-  defaultValue String?  @db.Text @map("default_value")
+  defaultValue String?  @map("default_value") @db.Text
   isHidden     Boolean  @default(false) @map("is_hidden")
   sortOrder    Int      @default(0) @map("sort_order")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -143,7 +146,7 @@ model MembershipPlan {
   name          String
   nameEn        String?  @map("name_en")
   description   String?  @db.Text
-  descriptionEn String?  @db.Text @map("description_en")
+  descriptionEn String?  @map("description_en") @db.Text
   price         Int      @default(0)
   billingCycle  String   @default("monthly") @map("billing_cycle")
   sortOrder     Int      @default(0) @map("sort_order")
@@ -154,7 +157,7 @@ model MembershipPlan {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  payments   Payment[]
+  payments Payment[]
 
   @@map("membership_plans")
 }
@@ -162,22 +165,22 @@ model MembershipPlan {
 model Payment {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
-  workspaceId String   @map("workspace_id")
-  planId      String   @map("plan_id")
+  workspaceId String    @map("workspace_id")
+  planId      String    @map("plan_id")
   amount      Int
-  currency    String   @default("VND")
-  orderCode   String?  @unique @map("order_code")
-  checkoutUrl String?  @db.Text @map("checkout_url")
-  provider    String   @default("payos")
-  status      String   @default("pending")
+  currency    String    @default("VND")
+  orderCode   String?   @unique @map("order_code")
+  checkoutUrl String?   @map("checkout_url") @db.Text
+  provider    String    @default("payos")
+  status      String    @default("pending")
   paidAt      DateTime? @map("paid_at")
   metadata    Json?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  plan      MembershipPlan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      MembershipPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([workspaceId])
@@ -202,45 +205,45 @@ model WorkspaceMember {
 }
 
 model Document {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   title            String
-  type             String   @default("contract")
-  status           String   @default("draft")
-  visibility       String   @default("workspace") @db.VarChar(20) // 'private' | 'workspace'
-  contentJSON      Json?    @map("content_json")
+  type             String    @default("contract")
+  status           String    @default("draft")
+  visibility       String    @default("workspace") @db.VarChar(20) // 'private' | 'workspace'
+  contentJSON      Json?     @map("content_json")
   metadata         Json?
-  mergeFieldValues Json?    @map("merge_field_values")
-  templateId       String?  @map("template_id")
-  workspaceId      String   @map("workspace_id")
-  createdBy        String   @map("created_by")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  mergeFieldValues Json?     @map("merge_field_values")
+  templateId       String?   @map("template_id")
+  workspaceId      String    @map("workspace_id")
+  createdBy        String    @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator      User             @relation("DocumentCreator", fields: [createdBy], references: [id])
-  template     Template?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator      User              @relation("DocumentCreator", fields: [createdBy], references: [id])
+  template     Template?         @relation(fields: [templateId], references: [id], onDelete: SetNull)
   versions     DocumentVersion[]
   chatMessages ChatMessage[]
   files        File[]
 
   // F7: Project and Hierarchy relations
-  projectId        String?          @map("project_id")
-  parentId         String?          @map("parent_id")
-  folderId         String?          @map("folder_id")
-  
-  project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  parent           Document?        @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children         Document[]       @relation("DocumentHierarchy")
-  folder           ProjectFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  
-  incomingLinks    DocumentLink[]   @relation("TargetDocument")
-  outgoingLinks    DocumentLink[]   @relation("SourceDocument")
-  clauseMappings   ClauseMapping[]  @relation("SourceClauseDoc")
-  targetMappings   ClauseMapping[]  @relation("TargetClauseDoc")
-  mismatchAlerts   MismatchAlert[]
-  obligations      Obligation[]
-  tabularCells     TabularCell[]
+  projectId String? @map("project_id")
+  parentId  String? @map("parent_id")
+  folderId  String? @map("folder_id")
+
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parent   Document?      @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Document[]     @relation("DocumentHierarchy")
+  folder   ProjectFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  incomingLinks  DocumentLink[]  @relation("TargetDocument")
+  outgoingLinks  DocumentLink[]  @relation("SourceDocument")
+  clauseMappings ClauseMapping[] @relation("SourceClauseDoc")
+  targetMappings ClauseMapping[] @relation("TargetClauseDoc")
+  mismatchAlerts MismatchAlert[]
+  obligations    Obligation[]
+  tabularCells   TabularCell[]
 
   @@index([workspaceId])
   @@index([createdBy])
@@ -253,14 +256,14 @@ model Document {
 }
 
 model DocumentVersion {
-  id          String   @id @default(uuid())
-  documentId  String   @map("document_id")
-  contentJSON Json?    @map("content_json")
-  mergeFieldValues Json? @map("merge_field_values")
-  chatCursorAt DateTime? @map("chat_cursor_at")
-  label       String?
-  createdBy   String   @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id               String    @id @default(uuid())
+  documentId       String    @map("document_id")
+  contentJSON      Json?     @map("content_json")
+  mergeFieldValues Json?     @map("merge_field_values")
+  chatCursorAt     DateTime? @map("chat_cursor_at")
+  label            String?
+  createdBy        String    @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   creator  User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
@@ -305,20 +308,20 @@ enum FileCategory {
 }
 
 model File {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   name        String
   size        Int
-  mimeType    String   @map("mime_type")
-  s3Key       String   @db.Text @map("s3_key")
+  mimeType    String       @map("mime_type")
+  s3Key       String       @map("s3_key") @db.Text
   category    FileCategory @default(input_upload)
-  documentId  String?  @map("document_id")
-  userId      String   @map("user_id")
-  workspaceId String   @map("workspace_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  documentId  String?      @map("document_id")
+  userId      String       @map("user_id")
+  workspaceId String       @map("workspace_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
 
-  document  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document                 Document?                 @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lawfirmTemplateDocuments LawfirmTemplateDocument[]
 
   @@index([category])
@@ -334,21 +337,21 @@ model Source {
   type            String   @default("pdf")
   status          String   @default("pending")
   scope           String   @default("workspace") // 'workspace' | 'system' | 'premium'
-  s3Key           String?  @db.Text @map("s3_key")
-  sourceUrl       String?  @db.Text @map("source_url")
+  s3Key           String?  @map("s3_key") @db.Text
+  sourceUrl       String?  @map("source_url") @db.Text
   size            Int      @default(0)
   content         String?  @db.LongText
   pageCount       Int?     @map("page_count")
   chunkCount      Int?     @map("chunk_count")
-  processingError String?  @db.Text @map("processing_error")
+  processingError String?  @map("processing_error") @db.Text
   tags            Json?
   workspaceId     String?  @map("workspace_id")
   userId          String   @map("user_id")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks    SourceChunk[]
 
   @@index([workspaceId])
@@ -369,8 +372,8 @@ model SourceChunk {
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  source   Source       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  parent   SourceChunk? @relation("ChunkHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  source   Source        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  parent   SourceChunk?  @relation("ChunkHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children SourceChunk[] @relation("ChunkHierarchy")
 
   @@index([sourceId])
@@ -397,15 +400,15 @@ model ChatMessage {
 
 model ContactSubmission {
   id          String   @id @default(uuid())
-  type        String   // 'sales_inquiry' | 'feedback' | 'bug_report' | 'support_request'
+  type        String // 'sales_inquiry' | 'feedback' | 'bug_report' | 'support_request'
   name        String
   email       String
   phone       String?
   company     String?
-  title       String?  // for help types
+  title       String? // for help types
   description String   @db.Text
   status      String   @default("pending") // 'pending' | 'processed' | 'archived'
-  attachments Json?    // [{ filename, s3Key }]
+  attachments Json? // [{ filename, s3Key }]
   userId      String?  @map("user_id") // null for public contact form
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -421,7 +424,7 @@ model UserCustomField {
   userId       String   @map("user_id")
   key          String   @db.VarChar(80)
   label        String
-  defaultValue String?  @db.Text @map("default_value")
+  defaultValue String?  @map("default_value") @db.Text
   isHidden     Boolean  @default(false) @map("is_hidden")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -434,15 +437,15 @@ model UserCustomField {
 }
 
 model UserCredit {
-  id                  String   @id @default(uuid())
-  userId              String   @unique @map("user_id")
-  aiCreditsUsed       Int      @default(0) @map("ai_credits_used")
-  aiCreditsLimit      Int      @default(100) @map("ai_credits_limit")
-  renewalStartedAt   DateTime @map("renewal_started_at")
-  aiCreditsUsedToday  Int      @default(0) @map("ai_credits_used_today")
-  aiCreditsUsedDate   DateTime? @map("ai_credits_used_date")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                 String    @id @default(uuid())
+  userId             String    @unique @map("user_id")
+  aiCreditsUsed      Int       @default(0) @map("ai_credits_used")
+  aiCreditsLimit     Int       @default(100) @map("ai_credits_limit")
+  renewalStartedAt   DateTime  @map("renewal_started_at")
+  aiCreditsUsedToday Int       @default(0) @map("ai_credits_used_today")
+  aiCreditsUsedDate  DateTime? @map("ai_credits_used_date")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -455,8 +458,8 @@ model EmailTemplate {
   name        String   @db.VarChar(200)
   description String?  @db.Text
   subject     String   @db.VarChar(300)
-  bodyHtml    String   @db.LongText @map("body_html")
-  variables   Json?    // ["toName", "workspaceName", ...] - danh sách biến có thể dùng {{var}}
+  bodyHtml    String   @map("body_html") @db.LongText
+  variables   Json? // ["toName", "workspaceName", ...] - danh sách biến có thể dùng {{var}}
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -486,14 +489,14 @@ model PublicShare {
 }
 
 model PublicShareOtp {
-  id          String    @id @default(uuid())
-  shareId     String    @map("share_id")
-  email       String
-  otpHash     String    @map("otp_hash") @db.VarChar(200)
-  expiresAt   DateTime  @map("expires_at")
-  consumedAt  DateTime? @map("consumed_at")
-  attemptCount Int      @default(0) @map("attempt_count")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  shareId      String    @map("share_id")
+  email        String
+  otpHash      String    @map("otp_hash") @db.VarChar(200)
+  expiresAt    DateTime  @map("expires_at")
+  consumedAt   DateTime? @map("consumed_at")
+  attemptCount Int       @default(0) @map("attempt_count")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   share PublicShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
@@ -502,12 +505,12 @@ model PublicShareOtp {
 }
 
 model PublicShareSession {
-  id               String    @id @default(uuid())
-  shareId          String    @map("share_id")
+  id               String   @id @default(uuid())
+  shareId          String   @map("share_id")
   email            String
-  sessionTokenHash String    @map("session_token_hash") @db.VarChar(200)
-  expiresAt        DateTime  @map("expires_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  sessionTokenHash String   @map("session_token_hash") @db.VarChar(200)
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   share PublicShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
@@ -516,24 +519,24 @@ model PublicShareSession {
 }
 
 model TabularReview {
-  id            String    @id @default(uuid())
-  projectId     String?   @map("project_id")
-  userId        String    @map("user_id")
-  workspaceId   String    @map("workspace_id")
+  id            String   @id @default(uuid())
+  projectId     String?  @map("project_id")
+  userId        String   @map("user_id")
+  workspaceId   String   @map("workspace_id")
   title         String?
-  columnsConfig Json?     @map("columns_config")
-  documentIds   Json?     @map("document_ids")
-  workflowId    String?   @map("workflow_id")
+  columnsConfig Json?    @map("columns_config")
+  documentIds   Json?    @map("document_ids")
+  workflowId    String?  @map("workflow_id")
   practice      String?
-  sharedWith    Json?     @map("shared_with")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  sharedWith    Json?    @map("shared_with")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  cells         TabularCell[]
-  chats         TabularReviewChat[]
+  project   Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cells     TabularCell[]
+  chats     TabularReviewChat[]
 
   @@map("tabular_reviews")
 }
@@ -548,8 +551,8 @@ model TabularCell {
   status      String   @default("pending")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  review      TabularReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  document    Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  review   TabularReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  document Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@map("tabular_cells")
 }
@@ -562,8 +565,8 @@ model TabularReviewChat {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  review    TabularReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  messages  TabularReviewChatMessage[]
+  review   TabularReview              @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  messages TabularReviewChatMessage[]
 
   @@map("tabular_review_chats")
 }
@@ -576,7 +579,7 @@ model TabularReviewChatMessage {
   annotations Json?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  chat        TabularReviewChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat TabularReviewChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@map("tabular_review_chat_messages")
 }
@@ -586,7 +589,7 @@ model LpmsWorkflow {
   userId        String?  @map("user_id")
   title         String
   type          String
-  promptMd      String?  @db.Text @map("prompt_md")
+  promptMd      String?  @map("prompt_md") @db.Text
   columnsConfig Json?    @map("columns_config")
   practice      String?
   isSystem      Boolean  @default(false) @map("is_system")
@@ -616,17 +619,17 @@ model LpmsHiddenWorkflow {
 }
 
 model Project {
-  id           String      @id @default(uuid())
-  workspaceId  String      @map("workspace_id")
-  createdBy    String?     @map("created_by")
-  name         String
-  code         String      @map("code")
-  description  String?     @db.Text
-  sharedWith   Json?       @map("shared_with")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  createdBy   String?  @map("created_by")
+  name        String
+  code        String   @map("code")
+  description String?  @db.Text
+  sharedWith  Json?    @map("shared_with")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   documents      Document[]
   tabularReviews TabularReview[]
   lpmsChats      LpmsChat[]
@@ -645,9 +648,9 @@ model ProjectFolder {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent   ProjectFolder? @relation("ProjectFolderTree", fields: [parentFolderId], references: [id], onDelete: SetNull)
-  children ProjectFolder[] @relation("ProjectFolderTree")
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent    ProjectFolder?  @relation("ProjectFolderTree", fields: [parentFolderId], references: [id], onDelete: SetNull)
+  children  ProjectFolder[] @relation("ProjectFolderTree")
   documents Document[]
 
   @@map("project_folders")
@@ -662,10 +665,10 @@ model LpmsChat {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    LpmsChatMessage[]
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  LpmsChatMessage[]
 
   @@map("lpms_chats")
 }
@@ -678,7 +681,7 @@ model LpmsChatMessage {
   annotations Json?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  chat        LpmsChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat LpmsChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@map("lpms_chat_messages")
 }
@@ -687,13 +690,13 @@ model DocumentLink {
   id               String   @id @default(uuid())
   sourceDocumentId String   @map("source_document_id")
   targetDocumentId String   @map("target_document_id")
-  linkType         String   // 'dependency' | 'data_inheritance' | 'reference'
+  linkType         String // 'dependency' | 'data_inheritance' | 'reference'
   description      String?  @db.Text
   status           String   @default("active") // 'active' | 'broken' | 'out_of_sync'
   createdAt        DateTime @default(now()) @map("created_at")
 
-  sourceDocument   Document @relation("SourceDocument", fields: [sourceDocumentId], references: [id], onDelete: Cascade)
-  targetDocument   Document @relation("TargetDocument", fields: [targetDocumentId], references: [id], onDelete: Cascade)
+  sourceDocument Document @relation("SourceDocument", fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  targetDocument Document @relation("TargetDocument", fields: [targetDocumentId], references: [id], onDelete: Cascade)
 
   @@unique([sourceDocumentId, targetDocumentId, linkType])
   @@map("document_links")
@@ -707,13 +710,13 @@ model ClauseMapping {
   targetClauseId  String    @map("target_clause_id")
   sourceClauseKey String    @map("source_clause_key")
   targetClauseKey String    @map("target_clause_key")
-  mappingType     String    // 'supersedes' | 'modifies' | 'extends'
+  mappingType     String // 'supersedes' | 'modifies' | 'extends'
   status          String    @default("active")
   effectiveDate   DateTime? @map("effective_date")
   createdAt       DateTime  @default(now()) @map("created_at")
 
-  sourceDoc       Document  @relation("SourceClauseDoc", fields: [sourceDocId], references: [id], onDelete: Cascade)
-  targetDoc       Document  @relation("TargetClauseDoc", fields: [targetDocId], references: [id], onDelete: Cascade)
+  sourceDoc Document @relation("SourceClauseDoc", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  targetDoc Document @relation("TargetClauseDoc", fields: [targetDocId], references: [id], onDelete: Cascade)
 
   @@index([sourceDocId])
   @@index([targetDocId])
@@ -724,47 +727,47 @@ model MismatchAlert {
   id            String   @id @default(uuid())
   documentId    String   @map("document_id")
   fieldKey      String   @map("field_key")
-  sourceValue   String   @db.Text @map("source_value")
-  mismatchValue String   @db.Text @map("mismatch_value")
+  sourceValue   String   @map("source_value") @db.Text
+  mismatchValue String   @map("mismatch_value") @db.Text
   severity      String   @default("medium")
   description   String   @db.Text
   status        String   @default("unresolved")
   createdAt     DateTime @default(now()) @map("created_at")
 
-  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@map("mismatch_alerts")
 }
 
 model Obligation {
-  id                String    @id @default(uuid())
-  documentId        String    @map("document_id")
-  workspaceId       String    @map("workspace_id")
-  picId             String?   @map("pic_id")
-  title             String    @db.VarChar(255)
-  description       String?   @db.Text
-  status            String    @default("pending") // 'pending' | 'in_progress' | 'completed' | 'overdue' | 'escalated'
-  dueDate           DateTime  @map("due_date")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  documentId  String   @map("document_id")
+  workspaceId String   @map("workspace_id")
+  picId       String?  @map("pic_id")
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  status      String   @default("pending") // 'pending' | 'in_progress' | 'completed' | 'overdue' | 'escalated'
+  dueDate     DateTime @map("due_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Nhóm thuộc tính tài chính
-  amount            Decimal?  @db.Decimal(15, 2)
-  percentage        Float?
-  triggerCondition  String?   @db.Text @map("trigger_condition")
+  amount           Decimal? @db.Decimal(15, 2)
+  percentage       Float?
+  triggerCondition String?  @map("trigger_condition") @db.Text
 
   // Nhóm thuộc tính phi tài chính
-  obligationType    String?   @map("obligation_type") // 'warranty' | 'inspection' | 'delivery' | 'other'
-  effectivePeriod   String?   @db.VarChar(255) @map("effective_period")
-  responsibleVendor String?   @db.VarChar(255) @map("responsible_vendor")
+  obligationType    String? @map("obligation_type") // 'warranty' | 'inspection' | 'delivery' | 'other'
+  effectivePeriod   String? @map("effective_period") @db.VarChar(255)
+  responsibleVendor String? @map("responsible_vendor") @db.VarChar(255)
 
   // Trạng thái nhắc nhở / lưu vết để không spam email
-  notifiedStages    Json      @default("[]") @map("notified_stages") // e.g. ["30_days", "15_days", "7_days", "due_date", "overdue"]
+  notifiedStages Json @default("[]") @map("notified_stages") // e.g. ["30_days", "15_days", "7_days", "due_date", "overdue"]
 
   // Quan hệ liên kết
-  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document  Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@index([workspaceId])
@@ -802,7 +805,7 @@ model LawfirmProfileField {
   group     String @db.VarChar(40)
   label     String
   value     String @db.Text
-  aliases   String @db.Text @default("")
+  aliases   String @default("") @db.Text
   sortOrder Int    @default(0) @map("sort_order")
 
   profile LawfirmClientProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -810,6 +813,77 @@ model LawfirmProfileField {
   @@unique([profileId, fieldKey])
   @@index([profileId])
   @@map("lawfirm_profile_fields")
+}
+
+model LawfirmFieldDefinition {
+  id                String   @id @default(uuid())
+  registryKey       String   @unique @map("registry_key") @db.VarChar(191)
+  workspaceId       String?  @map("workspace_id")
+  canonicalKey      String   @map("canonical_key") @db.VarChar(120)
+  currentProfileKey String?  @map("current_profile_key") @db.VarChar(80)
+  group             String   @db.VarChar(40)
+  dataType          String   @default("string") @map("data_type") @db.VarChar(40)
+  labelVi           String   @map("label_vi")
+  labelEn           String   @map("label_en")
+  scope             String   @default("system") @db.VarChar(20)
+  taxonomyVersion   Int      @default(1) @map("taxonomy_version")
+  status            String   @default("active") @db.VarChar(20)
+  createdBy         String?  @map("created_by")
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  workspace         Workspace?                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator           User?                     @relation("LawfirmFieldDefinitionCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  aliases           LawfirmFieldAlias[]
+  templateSetFields LawfirmTemplateSetField[]
+
+  @@unique([workspaceId, canonicalKey])
+  @@index([workspaceId])
+  @@index([canonicalKey])
+  @@index([scope, status])
+  @@map("lawfirm_field_definitions")
+}
+
+model LawfirmFieldAlias {
+  id                String   @id @default(uuid())
+  fieldDefinitionId String   @map("field_definition_id")
+  alias             String
+  normalizedAlias   String   @map("normalized_alias") @db.VarChar(191)
+  locale            String?  @db.VarChar(10)
+  source            String   @default("seed") @db.VarChar(20)
+  priority          Int      @default(0)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  fieldDefinition LawfirmFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldDefinitionId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@map("lawfirm_field_aliases")
+}
+
+model LawfirmTemplateSetField {
+  id                       String   @id @default(uuid())
+  templateSetId            String   @map("template_set_id")
+  normalizedSlot           String   @map("normalized_slot") @db.VarChar(191)
+  displaySlot              String   @map("display_slot")
+  defaultFieldDefinitionId String?  @map("default_field_definition_id")
+  defaultEntitySelector    String?  @map("default_entity_selector") @db.VarChar(120)
+  mappingStatus            String   @default("unmapped") @map("mapping_status") @db.VarChar(20)
+  mappingSource            String   @default("deterministic") @map("mapping_source") @db.VarChar(20)
+  confidence               Float?
+  contextFingerprint       String?  @map("context_fingerprint") @db.VarChar(64)
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  templateSet            LawfirmTemplateSet      @relation(fields: [templateSetId], references: [id], onDelete: Cascade)
+  defaultFieldDefinition LawfirmFieldDefinition? @relation(fields: [defaultFieldDefinitionId], references: [id], onDelete: SetNull)
+  documentSlots          LawfirmDocumentSlot[]
+
+  @@unique([templateSetId, normalizedSlot])
+  @@index([defaultFieldDefinitionId])
+  @@index([templateSetId, mappingStatus])
+  @@map("lawfirm_template_set_fields")
 }
 
 model LawfirmTemplateSet {
@@ -824,10 +898,12 @@ model LawfirmTemplateSet {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator   User                      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  documents LawfirmTemplateDocument[]
-  fillRuns  LawfirmFillRun[]
+  workspace      Workspace                      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator        User                           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  documents      LawfirmTemplateDocument[]
+  setFields      LawfirmTemplateSetField[]
+  uploadSessions LawfirmTemplateUploadSession[]
+  fillRuns       LawfirmFillRun[]
 
   @@index([workspaceId])
   @@index([visibility])
@@ -841,19 +917,24 @@ model LawfirmTemplateDocument {
   fileType      String   @map("file_type")
   status        String   @default("draft")
   storageKey    String   @map("storage_key") @db.VarChar(191)
-  plainText     String?  @db.LongText @map("plain_text")
+  plainText     String?  @map("plain_text") @db.LongText
   previewMode   String   @default("highlight") @map("preview_mode")
-  previewHtml   String?  @db.LongText @map("preview_html")
+  previewHtml   String?  @map("preview_html") @db.LongText
   fileId        String?  @map("file_id")
   sortOrder     Int      @default(0) @map("sort_order")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  templateSet LawfirmTemplateSet    @relation(fields: [templateSetId], references: [id], onDelete: Cascade)
-  file        File?                 @relation(fields: [fileId], references: [id], onDelete: SetNull)
-  fields      LawfirmTemplateField[]
+  templateSet     LawfirmTemplateSet            @relation(fields: [templateSetId], references: [id], onDelete: Cascade)
+  file            File?                         @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  fields          LawfirmTemplateField[]
+  slots           LawfirmDocumentSlot[]
+  uploadSession   LawfirmTemplateUploadSession? @relation(fields: [uploadSessionId], references: [id], onDelete: SetNull)
+  uploadSessionId String?                       @map("upload_session_id")
+  scanJobs        LawfirmTemplateScanJob[]
 
   @@index([templateSetId])
+  @@index([uploadSessionId])
   @@map("lawfirm_template_documents")
 }
 
@@ -867,10 +948,94 @@ model LawfirmTemplateField {
   count       Int    @default(1)
   sortOrder   Int    @default(0) @map("sort_order")
 
-  document LawfirmTemplateDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document     LawfirmTemplateDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentSlot LawfirmDocumentSlot?
 
   @@index([documentId])
   @@map("lawfirm_template_fields")
+}
+
+model LawfirmDocumentSlot {
+  id                    String   @id @default(uuid())
+  documentId            String   @map("document_id")
+  templateSetFieldId    String   @map("template_set_field_id")
+  legacyTemplateFieldId String?  @unique @map("legacy_template_field_id")
+  occurrenceKey         String   @unique @map("occurrence_key") @db.VarChar(191)
+  sourceKind            String   @map("source_kind") @db.VarChar(40)
+  rawText               String   @map("raw_text") @db.Text
+  labelText             String?  @map("label_text") @db.Text
+  currentValue          String?  @map("current_value") @db.Text
+  leftContext           String?  @map("left_context") @db.Text
+  rightContext          String?  @map("right_context") @db.Text
+  anchor                Json?
+  occurrenceCount       Int      @default(1) @map("occurrence_count")
+  bindingId             String?  @unique @map("binding_id") @db.VarChar(191)
+  bindingOverride       Json?    @map("binding_override")
+  sortOrder             Int      @default(0) @map("sort_order")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  document            LawfirmTemplateDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  templateSetField    LawfirmTemplateSetField @relation(fields: [templateSetFieldId], references: [id], onDelete: Cascade)
+  legacyTemplateField LawfirmTemplateField?   @relation(fields: [legacyTemplateFieldId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([templateSetFieldId])
+  @@index([documentId, sortOrder])
+  @@map("lawfirm_document_slots")
+}
+
+model LawfirmTemplateUploadSession {
+  id                 String    @id @default(uuid())
+  templateSetId      String    @map("template_set_id")
+  createdBy          String    @map("created_by")
+  idempotencyKey     String    @unique @map("idempotency_key") @db.VarChar(191)
+  status             String    @default("receiving") @db.VarChar(24)
+  totalDocuments     Int       @default(0) @map("total_documents")
+  processedDocuments Int       @default(0) @map("processed_documents")
+  failedDocuments    Int       @default(0) @map("failed_documents")
+  finalizedAt        DateTime? @map("finalized_at")
+  completedAt        DateTime? @map("completed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  templateSet LawfirmTemplateSet        @relation(fields: [templateSetId], references: [id], onDelete: Cascade)
+  creator     User                      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  documents   LawfirmTemplateDocument[]
+  jobs        LawfirmTemplateScanJob[]
+
+  @@index([templateSetId, status])
+  @@index([createdBy])
+  @@map("lawfirm_template_upload_sessions")
+}
+
+model LawfirmTemplateScanJob {
+  id                 String    @id @default(uuid())
+  uploadSessionId    String    @map("upload_session_id")
+  documentId         String?   @map("document_id")
+  kind               String    @db.VarChar(32)
+  status             String    @default("queued") @db.VarChar(20)
+  idempotencyKey     String    @unique @map("idempotency_key") @db.VarChar(191)
+  contentFingerprint String?   @map("content_fingerprint") @db.VarChar(64)
+  attempts           Int       @default(0)
+  maxAttempts        Int       @default(3) @map("max_attempts")
+  availableAt        DateTime  @default(now()) @map("available_at")
+  leaseOwner         String?   @map("lease_owner") @db.VarChar(120)
+  leaseExpiresAt     DateTime? @map("lease_expires_at")
+  result             Json?
+  errorMessage       String?   @map("error_message") @db.Text
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  uploadSession LawfirmTemplateUploadSession @relation(fields: [uploadSessionId], references: [id], onDelete: Cascade)
+  document      LawfirmTemplateDocument?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@index([uploadSessionId, kind, status])
+  @@index([documentId])
+  @@map("lawfirm_template_scan_jobs")
 }
 
 model LawfirmAiExtraction {
@@ -886,7 +1051,7 @@ model LawfirmAiExtraction {
   storageKey     String?   @map("storage_key") @db.VarChar(191)
   modelName      String?   @map("model_name")
   idempotencyKey String?   @unique @map("idempotency_key") @db.VarChar(120)
-  errorMessage   String?   @db.Text @map("error_message")
+  errorMessage   String?   @map("error_message") @db.Text
   expiresAt      DateTime? @map("expires_at")
   approvedAt     DateTime? @map("approved_at")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -911,7 +1076,7 @@ model LawfirmFillRun {
   status        String   @default("processing")
   matchSummary  Json?    @map("match_summary")
   zipStorageKey String?  @map("zip_storage_key") @db.VarChar(191)
-  errorMessage  String?  @db.Text @map("error_message")
+  errorMessage  String?  @map("error_message") @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -959,4 +1124,3 @@ model LawfirmAuditEvent {
   @@index([entityType, entityId])
   @@map("lawfirm_audit_events")
 }
-
