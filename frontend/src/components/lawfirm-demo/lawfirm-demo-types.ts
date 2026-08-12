@@ -29,6 +29,19 @@ export type TemplateField = {
   mappedKey: string;
   source: "auto" | "highlight" | "manual" | "ai";
   count: number;
+  discovery?: {
+    normalizedSlot: string;
+    occurrences: Array<{
+      sourceKind: string;
+      rawText: string;
+      labelText: string;
+      currentValue: string | null;
+      confidence: number;
+      leftContext: string;
+      rightContext: string;
+      anchor: Record<string, string | number>;
+    }>;
+  };
 };
 
 export type TemplateDocument = {
@@ -77,4 +90,3 @@ export type PersistedWorkspace = {
   activeTemplateId: string;
   locale: Locale;
 };
-

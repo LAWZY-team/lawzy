@@ -19,16 +19,21 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LawfirmTemplateSetsService } from './lawfirm-template-sets.service';
 import {
   CreateTemplateSetDto,
+  ReorderTemplateDocumentsDto,
   ScanTemplateDocumentDto,
   UpdateTemplateDocumentDto,
   UpdateTemplateSetDto,
 } from './dto/template-set.dto';
 import { LAWFIRM_MAX_UPLOAD_BYTES } from './lawfirm.constants';
+import { LawfirmMappingService } from './lawfirm-mapping.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('lawfirm/template-sets')
 export class LawfirmTemplateSetsController {
-  constructor(private readonly templateSetsService: LawfirmTemplateSetsService) {}
+  constructor(
+    private readonly templateSetsService: LawfirmTemplateSetsService,
+    private readonly mappingService: LawfirmMappingService,
+  ) {}
 
   @Get()
   async list(
@@ -64,6 +69,15 @@ export class LawfirmTemplateSetsController {
     return this.templateSetsService.update(req.user.userId, id, body);
   }
 
+  @Patch(':id/document-order')
+  async reorderDocuments(
+    @Request() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() body: ReorderTemplateDocumentsDto,
+  ) {
+    return this.templateSetsService.reorderDocuments(req.user.userId, id, body);
+  }
+
   @Delete(':id')
   async delete(
     @Request() req: { user: { userId: string } },
@@ -97,7 +111,22 @@ export class LawfirmTemplateSetsController {
     @Param('docId') docId: string,
     @Body() body: UpdateTemplateDocumentDto,
   ) {
-    return this.templateSetsService.updateDocument(req.user.userId, docId, body);
+    return this.templateSetsService.updateDocument(
+      req.user.userId,
+      docId,
+      body,
+    );
+  }
+
+  @Get('documents/:docId/navigation')
+  getDocumentNavigation(
+    @Request() req: { user: { userId: string } },
+    @Param('docId') docId: string,
+  ) {
+    return this.templateSetsService.getDocumentNavigation(
+      req.user.userId,
+      docId,
+    );
   }
 
   @Delete('documents/:docId')
@@ -114,8 +143,45 @@ export class LawfirmTemplateSetsController {
     @Param('id') documentId: string,
     @Body() body: ScanTemplateDocumentDto,
   ) {
-    return this.templateSetsService.scanDocument(req.user.userId, documentId, {
-      useAi: body.useAi ?? true,
-    });
+    if (body.useAi === false) {
+      return this.templateSetsService.scanDocument(
+        req.user.userId,
+        documentId,
+        {
+          useAi: false,
+        },
+      );
+    }
+    return this.mappingService.resolveDocument(req.user.userId, documentId);
+  }
+
+  @Post(':id/resolve-mappings')
+  resolveMappings(
+    @Request() req: { user: { userId: string } },
+    @Param('id') templateSetId: string,
+  ) {
+    return this.mappingService.resolveTemplateSet(
+      req.user.userId,
+      templateSetId,
+    );
+  }
+
+  @Get(':id/mapping-summary')
+  getMappingSummary(
+    @Request() req: { user: { userId: string } },
+    @Param('id') templateSetId: string,
+  ) {
+    return this.mappingService.getTemplateSetSummary(
+      req.user.userId,
+      templateSetId,
+    );
+  }
+
+  @Get('mapping-jobs/:jobId')
+  getMappingJob(
+    @Request() req: { user: { userId: string } },
+    @Param('jobId') jobId: string,
+  ) {
+    return this.mappingService.getJob(req.user.userId, jobId);
   }
 }

@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  ArrayNotEmpty,
+  ArrayUnique,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -55,6 +57,18 @@ export class UpdateTemplateSetDto {
   @IsOptional()
   @IsIn(['private', 'public'])
   visibility?: string;
+}
+
+export class ReorderTemplateDocumentsDto {
+  @IsInt()
+  @Min(1)
+  revision!: number;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsString({ each: true })
+  documentIds!: string[];
 }
 
 export class UpdateTemplateDocumentDto {

@@ -11,7 +11,10 @@ import { FilesService } from '../files/files.service';
 import { LawfirmAuditService } from './lawfirm-audit.service';
 import { LawfirmScanService } from './lawfirm-scan.service';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
-import { serializeExtraction, serializeProfile } from './utils/lawfirm-serializer';
+import {
+  serializeExtraction,
+  serializeProfile,
+} from './utils/lawfirm-serializer';
 import {
   CreateProfileDto,
   ImportLocalDto,
@@ -19,6 +22,7 @@ import {
 } from './dto/profile.dto';
 import { CreateExtractionDto } from './dto/extraction.dto';
 import { LAWFIRM_IDENTITY_MIMES } from './lawfirm.constants';
+import { normalizeTemplateMappedKey } from './lawfirm-field-taxonomy';
 
 @Injectable()
 export class LawfirmProfilesService {
@@ -98,8 +102,12 @@ export class LawfirmProfilesService {
         where: { id, revision: dto.revision },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.description !== undefined && { description: dto.description.trim() }),
-          ...(dto.investorType !== undefined && { investorType: dto.investorType }),
+          ...(dto.description !== undefined && {
+            description: dto.description.trim(),
+          }),
+          ...(dto.investorType !== undefined && {
+            investorType: dto.investorType,
+          }),
           ...(dto.status !== undefined && { status: dto.status }),
           revision: { increment: 1 },
         },
@@ -190,6 +198,9 @@ export class LawfirmProfilesService {
       mimeType: file.mimetype,
       fileName: file.originalname,
       storageKey,
+      workspaceId: profile.workspaceId,
+      actorId: userId,
+      operationKey: `identity:${profile.id}:${dto.idempotencyKey ?? uploaded.id}`,
     });
     const extraction = await this.prisma.lawfirmAiExtraction.create({
       data: {
@@ -198,8 +209,10 @@ export class LawfirmProfilesService {
         createdBy: userId,
         kind: 'identity_document',
         status: 'pending',
-        suggestions: extractionResult.suggestions as unknown as Prisma.InputJsonValue,
-        provenance: extractionResult.provenance as unknown as Prisma.InputJsonValue,
+        suggestions:
+          extractionResult.suggestions as unknown as Prisma.InputJsonValue,
+        provenance:
+          extractionResult.provenance as unknown as Prisma.InputJsonValue,
         storageKey,
         modelName: 'gemini',
         idempotencyKey: dto.idempotencyKey ?? null,
@@ -239,7 +252,10 @@ export class LawfirmProfilesService {
       const templateSets = await this.prisma.lawfirmTemplateSet.findMany({
         where: { workspaceId: dto.workspaceId },
         include: {
-          documents: { include: { fields: true }, orderBy: { sortOrder: 'asc' } },
+          documents: {
+            include: { fields: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
       });
       return {
@@ -280,6 +296,18 @@ export class LawfirmProfilesService {
           },
         });
         for (const [docIndex, document] of templateSet.documents.entries()) {
+          const normalizedFields = document.fields.map((field) => {
+            const mappedKey = normalizeTemplateMappedKey(field.mappedKey);
+            if (mappedKey === undefined) {
+              throw new BadRequestException({
+                code: 'INVALID_TEMPLATE_FIELD_MAPPING',
+                message: `Unsupported mappedKey: ${field.mappedKey}`,
+                fieldId: field.id,
+                placeholder: field.placeholder,
+              });
+            }
+            return { ...field, mappedKey };
+          });
           const storageKey = await this.r2Helper.uploadBuffer({
             workspaceId: dto.workspaceId,
             userId,
@@ -302,7 +330,7 @@ export class LawfirmProfilesService {
               previewHtml: document.previewHtml ?? null,
               sortOrder: docIndex,
               fields: {
-                create: document.fields.map((field, fieldIndex) => ({
+                create: normalizedFields.map((field, fieldIndex) => ({
                   label: field.label,
                   placeholder: field.placeholder,
                   mappedKey: field.mappedKey,

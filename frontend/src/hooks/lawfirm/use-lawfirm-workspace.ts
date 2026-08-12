@@ -5,6 +5,8 @@ import {
   lawfirmFillRunsApi,
   lawfirmProfilesApi,
   lawfirmTemplateSetsApi,
+  lawfirmTemplateUploadSessionsApi,
+  lawfirmAiUsageApi,
 } from '@/lib/api/lawfirm/lawfirm-api';
 import type {
   ApproveExtractionInput,
@@ -12,6 +14,7 @@ import type {
   CreateLawfirmProfileInput,
   CreateLawfirmTemplateSetInput,
   ImportLocalWorkspaceInput,
+  ReorderLawfirmTemplateDocumentsInput,
   UpdateLawfirmTemplateDocumentInput,
   UpdateLawfirmProfileInput,
   UpdateLawfirmTemplateSetInput,
@@ -26,9 +29,11 @@ const extractionKey = (workspaceId?: string | null, profileId?: string) => [
   profileId,
 ];
 const fillRunKey = (workspaceId?: string | null) => ['lawfirm', 'fill-runs', workspaceId];
+const aiUsageKey = (workspaceId?: string | null) => ['lawfirm', 'ai-usage', workspaceId];
+const mappingSummaryKey = (templateSetId?: string | null) => ['lawfirm', 'mapping-summary', templateSetId];
+const documentNavigationKey = (documentId?: string | null) => ['lawfirm', 'document-navigation', documentId];
 
-export const useLawfirmWorkspaceId = () =>
-  useWorkspaceStore((state) => state.currentWorkspace?.id ?? null);
+export const useLawfirmWorkspaceId = () => useWorkspaceStore((state) => state.currentWorkspace?.id ?? null);
 
 export const useLawfirmProfiles = () => {
   const workspaceId = useLawfirmWorkspaceId();
@@ -42,13 +47,16 @@ export const useLawfirmProfiles = () => {
 export const useLawfirmProfileMutations = () => {
   const workspaceId = useLawfirmWorkspaceId();
   const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: profileKey(workspaceId) });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: profileKey(workspaceId) });
 
   return {
     createProfile: useMutation({
       mutationFn: (input: Omit<CreateLawfirmProfileInput, 'workspaceId'>) =>
-        lawfirmProfilesApi.create({ ...input, workspaceId: workspaceId!, fields: input.fields ?? [] }),
+        lawfirmProfilesApi.create({
+          ...input,
+          workspaceId: workspaceId!,
+          fields: input.fields ?? [],
+        }),
       onSuccess: invalidate,
     }),
     updateProfile: useMutation({
@@ -61,22 +69,18 @@ export const useLawfirmProfileMutations = () => {
       onSuccess: invalidate,
     }),
     uploadIdentity: useMutation({
-      mutationFn: ({
-        profileId,
-        file,
-        idempotencyKey,
-      }: {
-        profileId: string;
-        file: File;
-        idempotencyKey?: string;
-      }) => lawfirmProfilesApi.uploadIdentity(profileId, file, idempotencyKey),
+      mutationFn: ({ profileId, file, idempotencyKey }: { profileId: string; file: File; idempotencyKey?: string }) =>
+        lawfirmProfilesApi.uploadIdentity(profileId, file, idempotencyKey),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: aiUsageKey(workspaceId) }),
     }),
     importLocal: useMutation({
       mutationFn: (input: Omit<ImportLocalWorkspaceInput, 'workspaceId'>) =>
         lawfirmProfilesApi.importLocal({ ...input, workspaceId: workspaceId! }),
       onSuccess: async () => {
         await invalidate();
-        await queryClient.invalidateQueries({ queryKey: templateKey(workspaceId) });
+        await queryClient.invalidateQueries({
+          queryKey: templateKey(workspaceId),
+        });
       },
     }),
   };
@@ -91,11 +95,30 @@ export const useLawfirmTemplateSets = () => {
   });
 };
 
+export const useLawfirmMappingSummary = (templateSetId?: string | null) =>
+  useQuery({
+    queryKey: mappingSummaryKey(templateSetId),
+    queryFn: () => lawfirmTemplateSetsApi.getMappingSummary(templateSetId!),
+    enabled: Boolean(templateSetId),
+    refetchInterval: (query) =>
+      query.state.data?.latest_job?.status === 'processing' ? 1_000 : false,
+  });
+
+export const useLawfirmDocumentNavigation = (documentId?: string | null) =>
+  useQuery({
+    queryKey: documentNavigationKey(documentId),
+    queryFn: () => lawfirmTemplateSetsApi.getDocumentNavigation(documentId!),
+    enabled: Boolean(documentId),
+  });
+
 export const useLawfirmTemplateMutations = () => {
   const workspaceId = useLawfirmWorkspaceId();
   const queryClient = useQueryClient();
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: templateKey(workspaceId) });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: templateKey(workspaceId) });
+    void queryClient.invalidateQueries({ queryKey: ['lawfirm', 'mapping-summary'] });
+    void queryClient.invalidateQueries({ queryKey: ['lawfirm', 'document-navigation'] });
+  };
 
   return {
     createTemplateSet: useMutation({
@@ -108,6 +131,11 @@ export const useLawfirmTemplateMutations = () => {
         lawfirmTemplateSetsApi.update(id, input),
       onSuccess: invalidate,
     }),
+    reorderDocuments: useMutation({
+      mutationFn: ({ id, ...input }: ReorderLawfirmTemplateDocumentsInput & { id: string }) =>
+        lawfirmTemplateSetsApi.reorderDocuments(id, input),
+      onSuccess: invalidate,
+    }),
     deleteTemplateSet: useMutation({
       mutationFn: (id: string) => lawfirmTemplateSetsApi.remove(id),
       onSuccess: invalidate,
@@ -116,6 +144,21 @@ export const useLawfirmTemplateMutations = () => {
       mutationFn: ({ templateSetId, file }: { templateSetId: string; file: File }) =>
         lawfirmTemplateSetsApi.uploadDocument(templateSetId, file),
       onSuccess: invalidate,
+    }),
+    createUploadSession: useMutation({
+      mutationFn: ({ templateSetId, idempotencyKey }: { templateSetId: string; idempotencyKey: string }) =>
+        lawfirmTemplateUploadSessionsApi.create(templateSetId, idempotencyKey),
+    }),
+    uploadSessionDocuments: useMutation({
+      mutationFn: ({ sessionId, files }: { sessionId: string; files: File[] }) =>
+        lawfirmTemplateUploadSessionsApi.addDocuments(sessionId, files),
+    }),
+    finalizeUploadSession: useMutation({
+      mutationFn: (sessionId: string) => lawfirmTemplateUploadSessionsApi.finalize(sessionId),
+      onSuccess: invalidate,
+    }),
+    getUploadSessionStatus: useMutation({
+      mutationFn: (sessionId: string) => lawfirmTemplateUploadSessionsApi.getStatus(sessionId),
     }),
     updateDocument: useMutation({
       mutationFn: ({
@@ -132,8 +175,32 @@ export const useLawfirmTemplateMutations = () => {
     }),
     scanDocument: useMutation({
       mutationFn: (docId: string) => lawfirmTemplateSetsApi.scanDocument(docId),
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: templateKey(workspaceId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: aiUsageKey(workspaceId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['lawfirm', 'mapping-summary'],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['lawfirm', 'document-navigation'],
+        });
+      },
     }),
   };
+};
+
+export const useLawfirmAiUsage = () => {
+  const workspaceId = useLawfirmWorkspaceId();
+  return useQuery({
+    queryKey: aiUsageKey(workspaceId),
+    queryFn: () => lawfirmAiUsageApi.report(workspaceId!, 30),
+    enabled: Boolean(workspaceId),
+    refetchInterval: 30_000,
+  });
 };
 
 export const useLawfirmExtractions = (profileId?: string) => {
@@ -182,8 +249,7 @@ export const useLawfirmFillRunMutations = () => {
     createFillRun: useMutation({
       mutationFn: (input: Omit<CreateFillRunInput, 'workspaceId'>) =>
         lawfirmFillRunsApi.create({ ...input, workspaceId: workspaceId! }),
-      onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: fillRunKey(workspaceId) }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: fillRunKey(workspaceId) }),
     }),
   };
 };

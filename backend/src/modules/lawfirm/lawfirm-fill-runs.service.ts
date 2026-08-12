@@ -11,8 +11,10 @@ import { fixUploadFilename } from '../../common/fix-upload-filename';
 import { LawfirmAuditService } from './lawfirm-audit.service';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
 import { batchFillAndZip, DOCX_MIME } from './utils/lawfirm-docx-filler';
+import { validateLawfirmFillPreflight } from './utils/lawfirm-fill-preflight';
 import { serializeFillRun } from './utils/lawfirm-serializer';
 import { CreateFillRunDto } from './dto/fill-run.dto';
+import { normalizePersistedLawfirmFieldKey } from './lawfirm-field-taxonomy';
 
 @Injectable()
 export class LawfirmFillRunsService {
@@ -70,14 +72,30 @@ export class LawfirmFillRunsService {
     ) {
       throw new NotFoundException('Template set not found');
     }
+    const preflightIssues = validateLawfirmFillPreflight({
+      profileFields: profile.fields,
+      documents: templateSet.documents,
+    });
+    if (preflightIssues.length > 0) {
+      throw new BadRequestException({
+        message:
+          'Template/profile mapping conflicts must be resolved before fill',
+        issues: preflightIssues,
+      });
+    }
     const docxDocuments = templateSet.documents.filter(
       (doc) => doc.fileType === 'docx',
     );
     if (docxDocuments.length === 0) {
-      throw new BadRequestException('Template set has no DOCX documents to fill');
+      throw new BadRequestException(
+        'Template set has no DOCX documents to fill',
+      );
     }
     const profileFieldMap = new Map(
-      profile.fields.map((field) => [field.fieldKey, field] as const),
+      profile.fields.map(
+        (field) =>
+          [normalizePersistedLawfirmFieldKey(field.fieldKey), field] as const,
+      ),
     );
     const fillRun = await this.prisma.lawfirmFillRun.create({
       data: {
@@ -99,7 +117,9 @@ export class LawfirmFillRunsService {
         const replacements = document.fields
           .map((field) => {
             const profileField = field.mappedKey
-              ? profileFieldMap.get(field.mappedKey)
+              ? profileFieldMap.get(
+                  normalizePersistedLawfirmFieldKey(field.mappedKey),
+                )
               : undefined;
             if (!profileField || profileField.value.trim().length === 0) {
               return null;

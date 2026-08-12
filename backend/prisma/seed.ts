@@ -7,6 +7,7 @@ import {
   PRIVACY_CONTENT_EN,
 } from './policy-content';
 import { DEFAULT_EMAIL_TEMPLATES } from './email-templates-seed';
+import { seedLawfirmFieldTaxonomy } from './lawfirm-field-taxonomy-seed';
 
 const prisma = new PrismaClient();
 
@@ -246,6 +247,9 @@ const DEFAULT_PLANS = [
 ];
 
 async function main() {
+  await seedLawfirmFieldTaxonomy(prisma);
+  console.log('Lawfirm field taxonomy v1 seeded');
+
   // Email templates – luôn chạy, tạo nếu chưa có (upsert, không ghi đè)
   for (const t of DEFAULT_EMAIL_TEMPLATES) {
     await prisma.emailTemplate.upsert({

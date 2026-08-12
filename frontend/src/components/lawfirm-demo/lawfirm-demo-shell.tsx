@@ -2,12 +2,7 @@
 
 import React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  FileCheck2,
-  Files,
-  Languages,
-  Users,
-} from "lucide-react";
+import { FileCheck2, Files, Languages, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FillPanel } from "./fill-panel";
@@ -17,6 +12,7 @@ import { TemplatePanel } from "./template-panel";
 import { UsageGuideDialog } from "./usage-guide-dialog";
 import { useLawfirmShellWorkspace } from "@/hooks/lawfirm/use-lawfirm-shell-workspace";
 import { lawfirmFillRunsApi } from "@/lib/api/lawfirm/lawfirm-api";
+import { LawfirmAiUsageFooter } from "./lawfirm-ai-usage-footer";
 
 import { useSessionKeepalive } from "@/hooks/use-session-keepalive";
 
@@ -43,9 +39,9 @@ export function LawfirmDemoShell() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view");
-  const view: View =
-    viewParam === "templates" || viewParam === "fill" ? viewParam : "profiles";
-  const mode = searchParams.get("mode") === "editor" ? "editor" : searchParams.get("mode") === "preview" ? "preview" : "library";
+  const view: View = viewParam === "templates" || viewParam === "fill" ? viewParam : "profiles";
+  const mode =
+    searchParams.get("mode") === "editor" ? "editor" : searchParams.get("mode") === "preview" ? "preview" : "library";
 
   const navigateToView = React.useCallback(
     (nextView: View, nextMode: "library" | "editor" | "preview" = "library") => {
@@ -121,10 +117,7 @@ export function LawfirmDemoShell() {
             </nav>
 
             <div className="mt-auto border-t border-zinc-200 p-2">
-              <LawfirmAccountBar
-                locale={locale}
-                onLocaleChange={(nextLocale) => workspace.setLocale(nextLocale)}
-              />
+              <LawfirmAccountBar locale={locale} onLocaleChange={(nextLocale) => workspace.setLocale(nextLocale)} />
             </div>
           </div>
         </aside>
@@ -158,6 +151,9 @@ export function LawfirmDemoShell() {
               onAddTemplate={workspace.addTemplate}
               onDeleteTemplate={workspace.deleteTemplate}
               onUpdateTemplate={workspace.updateTemplate}
+              onReorderDocuments={(documentIds) =>
+                workspace.reorderDocuments(workspace.activeTemplate!.id, documentIds)
+              }
               onModeChange={(next) => navigateToView("templates", next)}
               onAddProfile={(name) =>
                 name ? workspace.addProfileWithName(name) : workspace.addProfile().then(() => workspace.activeProfile!)
@@ -167,9 +163,13 @@ export function LawfirmDemoShell() {
                 workspace.updateDocument(workspace.activeTemplate!.id, docId, updater)
               }
               onScanDocument={workspace.scanTemplateDocument}
-              onUploadDocument={(file) =>
-                workspace.uploadTemplateDocument(workspace.activeTemplate!.id, file)
+              onUploadDocument={(file) => workspace.uploadTemplateDocument(workspace.activeTemplate!.id, file)}
+              onUploadDocuments={(files, onProgress) =>
+                workspace.uploadTemplateDocuments(workspace.activeTemplate!.id, files, onProgress)
               }
+              uploadProgress={workspace.templateUploadProgress}
+              mappingSummary={workspace.mappingSummary}
+              mappingSummaryLoading={workspace.mappingSummaryLoading}
               onRemoveDocument={(docId) => workspace.deleteDocument(docId)}
             />
           )}
@@ -187,6 +187,7 @@ export function LawfirmDemoShell() {
               onUpdateProfile={workspace.updateProfile}
             />
           )}
+          <LawfirmAiUsageFooter locale={locale} />
         </section>
       </div>
     </main>

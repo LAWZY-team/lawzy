@@ -11,10 +11,13 @@ import { SourceProcessingService } from '../source-processing/source-processing.
 import { extractTextFromPdfBuffer } from '../source-processing/extractors/parse-pdf-buffer';
 import {
   analyzeDocxPlaceholders,
+  cleanPlaceholderLabel,
   extractDocxPlainText,
   extractPlaceholders,
+  groupDiscoveredDocxSlots,
   guessCanonicalMapping,
 } from './utils/lawfirm-placeholder-detector';
+import { discoverDocxSlots } from './utils/lawfirm-docx-slot-discovery';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
 import {
   LAWFIRM_DOCX_MIME,
@@ -24,6 +27,9 @@ import {
   LAWFIRM_PDF_MIME,
   LAWFIRM_TEMPLATE_MIMES,
 } from './lawfirm.constants';
+import { toCurrentLawfirmProfileFieldKey } from './lawfirm-field-taxonomy';
+import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
+import { LawfirmAiUsageService } from './lawfirm-ai-usage.service';
 
 export interface TemplateScanSuggestion {
   placeholder: string;
@@ -56,9 +62,15 @@ export class LawfirmScanService {
     private readonly aiProvider: AiProviderService,
     private readonly sourceProcessing: SourceProcessingService,
     private readonly r2Helper: LawfirmR2Helper,
+    private readonly docxOcr: LawfirmDocxOcrService,
+    private readonly aiUsage: LawfirmAiUsageService,
   ) {}
 
-  validateMimeAndSize(mimeType: string, size: number, allowed: readonly string[]): void {
+  validateMimeAndSize(
+    mimeType: string,
+    size: number,
+    allowed: readonly string[],
+  ): void {
     if (size > LAWFIRM_MAX_UPLOAD_BYTES) {
       throw new BadRequestException(
         `File exceeds maximum size of ${LAWFIRM_MAX_UPLOAD_BYTES} bytes`,
@@ -73,7 +85,10 @@ export class LawfirmScanService {
     userId: string,
     documentId: string,
     options?: { useAi?: boolean },
-  ): Promise<{ deterministic: TemplateScanSuggestion[]; ai: TemplateScanSuggestion[] }> {
+  ): Promise<{
+    deterministic: TemplateScanSuggestion[];
+    ai: TemplateScanSuggestion[];
+  }> {
     const document = await this.prisma.lawfirmTemplateDocument.findUnique({
       where: { id: documentId },
       include: { templateSet: true },
@@ -90,16 +105,20 @@ export class LawfirmScanService {
     const plainText =
       document.plainText ||
       (document.fileType === 'docx'
-        ? (await analyzeDocxPlaceholders(buffer)).map((field) => field.placeholder).join(' ')
+        ? (await analyzeDocxPlaceholders(buffer))
+            .map((field) => field.placeholder)
+            .join(' ')
         : '');
     const placeholders = extractPlaceholders(plainText);
-    const deterministic: TemplateScanSuggestion[] = placeholders.map((placeholder) => ({
-      placeholder,
-      mappedKey: guessCanonicalMapping(placeholder),
-      label: placeholder.replace(/^[\[\{\<]+|[\]\}\>]+$/g, '').trim(),
-      confidence: 1,
-      source: 'deterministic',
-    }));
+    const deterministic: TemplateScanSuggestion[] = placeholders.map(
+      (placeholder) => ({
+        placeholder,
+        mappedKey: guessCanonicalMapping(placeholder),
+        label: cleanPlaceholderLabel(placeholder),
+        confidence: 1,
+        source: 'deterministic',
+      }),
+    );
     let ai: TemplateScanSuggestion[] = [];
     if (options?.useAi && plainText.trim().length > 0) {
       ai = await this.suggestTemplateMappings(plainText);
@@ -134,8 +153,13 @@ ${textToAnalyze}`;
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) return [];
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: Array<{
@@ -149,9 +173,12 @@ ${textToAnalyze}`;
         .filter((field) => Boolean(field.placeholder))
         .map((field) => ({
           placeholder: String(field.placeholder),
-          mappedKey: String(field.mappedKey ?? guessCanonicalMapping(String(field.placeholder))),
+          mappedKey:
+            toCurrentLawfirmProfileFieldKey(String(field.mappedKey ?? '')) ??
+            guessCanonicalMapping(String(field.placeholder)),
           label: String(field.label ?? field.placeholder),
-          confidence: typeof field.confidence === 'number' ? field.confidence : 0.7,
+          confidence:
+            typeof field.confidence === 'number' ? field.confidence : 0.7,
           source: 'ai' as const,
         }));
     } catch (err: unknown) {
@@ -166,8 +193,15 @@ ${textToAnalyze}`;
     mimeType: string;
     fileName: string;
     storageKey: string;
+    workspaceId: string;
+    actorId: string;
+    operationKey: string;
   }): Promise<IdentityExtractionResult> {
-    this.validateMimeAndSize(params.mimeType, params.buffer.length, LAWFIRM_IDENTITY_MIMES);
+    this.validateMimeAndSize(
+      params.mimeType,
+      params.buffer.length,
+      LAWFIRM_IDENTITY_MIMES,
+    );
     let extractedText = '';
     if (params.mimeType === LAWFIRM_PDF_MIME) {
       const result = await this.sourceProcessing.extractText({
@@ -194,6 +228,9 @@ ${textToAnalyze}`;
       fileName: params.fileName,
       mimeType: params.mimeType,
       storageKey: params.storageKey,
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      operationKey: params.operationKey,
     });
   }
 
@@ -202,6 +239,9 @@ ${textToAnalyze}`;
     mimeType: string;
     fileName: string;
     storageKey: string;
+    workspaceId: string;
+    actorId: string;
+    operationKey: string;
   }): Promise<IdentityExtractionResult> {
     const provenanceBase = {
       fileName: params.fileName,
@@ -228,6 +268,8 @@ Trả về JSON theo schema:
 }
 fieldKey gợi ý: f_cn_hoten, f_cn_cccd, f_cn_ngaysinh, f_cn_quoctich, f_cn_diachi, f_to_ten, f_to_mst, f_to_diachi, f_dd_hoten, f_dd_chucdanh.
 Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ trả về JSON hợp lệ. KHÔNG tự động áp dụng — chỉ đề xuất.`;
+    const startedAt = Date.now();
+    let apiAttempts = 0;
     try {
       const response = await this.aiProvider.generateContentWithRetry({
         contents: [
@@ -245,24 +287,50 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
           },
         ],
         config: { responseMimeType: 'application/json' },
+        onAttempt: (event) => {
+          if (event.outcome === 'started') apiAttempts = event.attempt;
+        },
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
+        await this.recordIdentityUsage(
+          params,
+          response,
+          apiAttempts,
+          startedAt,
+          0,
+        );
         return { suggestions: [], provenance: provenanceBase };
       }
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: IdentityFieldSuggestion[];
         provenance?: Record<string, unknown>;
       };
-      return {
-        suggestions: (parsed.fields ?? []).filter((field) => Boolean(field.fieldKey && field.value)),
+      const result = {
+        suggestions: (parsed.fields ?? []).filter((field) =>
+          Boolean(field.fieldKey && field.value),
+        ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
+      await this.recordIdentityUsage(
+        params,
+        response,
+        apiAttempts,
+        startedAt,
+        result.suggestions.length,
+      );
+      return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      await this.recordIdentityFailure(params, apiAttempts, startedAt, message);
       this.logger.warn(`AI identity image extraction failed: ${message}`);
       return {
         suggestions: [],
@@ -273,7 +341,11 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
 
   async extractIdentityFromText(
     text: string,
-    provenanceBase: Record<string, unknown>,
+    provenanceBase: Record<string, unknown> & {
+      workspaceId?: string;
+      actorId?: string;
+      operationKey?: string;
+    },
   ): Promise<IdentityExtractionResult> {
     const textToAnalyze = text.substring(0, 12000);
     const prompt = `Bạn là trợ lý pháp lý AI. Trích xuất thông tin định danh từ giấy tờ (CCCD, hộ chiếu, ĐKKD, MST).
@@ -298,28 +370,91 @@ Chỉ trả về JSON hợp lệ. KHÔNG tự động áp dụng — chỉ đề
 
 Nội dung OCR/text:
 ${textToAnalyze}`;
+    const startedAt = Date.now();
+    let apiAttempts = 0;
     try {
       const response = await this.aiProvider.generateContentWithRetry({
         contents: prompt,
         config: { responseMimeType: 'application/json' },
+        onAttempt: (event) => {
+          if (event.outcome === 'started') apiAttempts = event.attempt;
+        },
       });
       const jsonText =
         response.text ||
-        (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-          .candidates?.[0]?.content?.parts?.[0]?.text;
+        (
+          response as {
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
+          }
+        ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
+        if (
+          provenanceBase.workspaceId &&
+          provenanceBase.actorId &&
+          provenanceBase.operationKey
+        ) {
+          await this.recordIdentityUsage(
+            {
+              workspaceId: provenanceBase.workspaceId,
+              actorId: provenanceBase.actorId,
+              operationKey: provenanceBase.operationKey,
+            },
+            response,
+            apiAttempts,
+            startedAt,
+            0,
+          );
+        }
         return { suggestions: [], provenance: provenanceBase };
       }
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: IdentityFieldSuggestion[];
         provenance?: Record<string, unknown>;
       };
-      return {
-        suggestions: (parsed.fields ?? []).filter((field) => Boolean(field.fieldKey && field.value)),
+      const result = {
+        suggestions: (parsed.fields ?? []).filter((field) =>
+          Boolean(field.fieldKey && field.value),
+        ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
+      if (
+        provenanceBase.workspaceId &&
+        provenanceBase.actorId &&
+        provenanceBase.operationKey
+      ) {
+        await this.recordIdentityUsage(
+          {
+            workspaceId: provenanceBase.workspaceId,
+            actorId: provenanceBase.actorId,
+            operationKey: provenanceBase.operationKey,
+          },
+          response,
+          apiAttempts,
+          startedAt,
+          result.suggestions.length,
+        );
+      }
+      return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      if (
+        provenanceBase.workspaceId &&
+        provenanceBase.actorId &&
+        provenanceBase.operationKey
+      ) {
+        await this.recordIdentityFailure(
+          {
+            workspaceId: provenanceBase.workspaceId,
+            actorId: provenanceBase.actorId,
+            operationKey: provenanceBase.operationKey,
+          },
+          apiAttempts,
+          startedAt,
+          message,
+        );
+      }
       this.logger.warn(`AI identity extraction failed: ${message}`);
       return {
         suggestions: [],
@@ -328,10 +463,64 @@ ${textToAnalyze}`;
     }
   }
 
+  private async recordIdentityUsage(
+    params: { workspaceId: string; actorId: string; operationKey: string },
+    response: Awaited<
+      ReturnType<AiProviderService['generateContentWithRetry']>
+    >,
+    apiAttempts: number,
+    startedAt: number,
+    resultItems: number,
+  ): Promise<void> {
+    const usage = response.usageMetadata;
+    await this.aiUsage.record({
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      taskType: 'identity_extraction',
+      taskLabel: 'Quét hồ sơ khách hàng',
+      operationKey: params.operationKey,
+      modelName: this.aiProvider.getModelName(),
+      status: 'completed',
+      promptTokens: usage?.promptTokenCount,
+      outputTokens: usage?.candidatesTokenCount,
+      cachedTokens: usage?.cachedContentTokenCount,
+      thinkingTokens: usage?.thoughtsTokenCount,
+      toolTokens: usage?.toolUsePromptTokenCount,
+      totalTokens: usage?.totalTokenCount,
+      retryCount: Math.max(0, apiAttempts - 1),
+      latencyMs: Date.now() - startedAt,
+      inputItems: 1,
+      resultItems,
+    });
+  }
+
+  private async recordIdentityFailure(
+    params: { workspaceId: string; actorId: string; operationKey: string },
+    apiAttempts: number,
+    startedAt: number,
+    message: string,
+  ): Promise<void> {
+    await this.aiUsage.record({
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      taskType: 'identity_extraction',
+      taskLabel: 'Quét hồ sơ khách hàng',
+      operationKey: params.operationKey,
+      modelName: this.aiProvider.getModelName(),
+      status: 'failed',
+      retryCount: Math.max(0, apiAttempts - 1),
+      latencyMs: Date.now() - startedAt,
+      inputItems: 1,
+      errorCode: 'IDENTITY_EXTRACTION_FAILED',
+      metadata: { error: message.slice(0, 500) },
+    });
+  }
+
   async analyzeUploadedTemplateFile(params: {
     buffer: Buffer;
     mimeType: string;
     fileName: string;
+    workspaceId?: string;
   }): Promise<{
     fileType: 'docx' | 'pdf';
     plainText: string;
@@ -340,9 +529,14 @@ ${textToAnalyze}`;
       placeholder: string;
       mappedKey: string;
       count: number;
+      discovery?: unknown;
     }>;
   }> {
-    this.validateMimeAndSize(params.mimeType, params.buffer.length, LAWFIRM_TEMPLATE_MIMES);
+    this.validateMimeAndSize(
+      params.mimeType,
+      params.buffer.length,
+      LAWFIRM_TEMPLATE_MIMES,
+    );
     const lowerName = params.fileName.toLowerCase();
     if (
       params.mimeType === LAWFIRM_DOCX_MIME ||
@@ -351,14 +545,32 @@ ${textToAnalyze}`;
       lowerName.endsWith('.doc')
     ) {
       const plainText = await extractDocxPlainText(params.buffer);
-      const fields = await analyzeDocxPlaceholders(params.buffer);
+      let structuredSlots: Awaited<ReturnType<typeof discoverDocxSlots>> = [];
+      try {
+        structuredSlots = await discoverDocxSlots(params.buffer);
+      } catch {
+        const fields = await analyzeDocxPlaceholders(params.buffer);
+        return { fileType: 'docx', plainText, fields };
+      }
+      const ocrSlots = params.workspaceId
+        ? await this.docxOcr.discover({
+            workspaceId: params.workspaceId,
+            buffer: params.buffer,
+            extractedText: plainText,
+            structuredSlotCount: structuredSlots.length,
+          })
+        : [];
+      const fields = groupDiscoveredDocxSlots([
+        ...structuredSlots,
+        ...ocrSlots,
+      ]);
       return { fileType: 'docx', plainText, fields };
     }
     const pdfResult = await extractTextFromPdfBuffer(params.buffer);
     const plainText = pdfResult.text;
     const placeholders = extractPlaceholders(plainText);
     const fields = placeholders.map((placeholder) => ({
-      label: placeholder.replace(/^[\[\{\<]+|[\]\}\>]+$/g, '').trim() || 'Trường thông tin',
+      label: cleanPlaceholderLabel(placeholder) || 'Trường thông tin',
       placeholder,
       mappedKey: guessCanonicalMapping(placeholder),
       count: 1,
@@ -371,7 +583,10 @@ ${textToAnalyze}`;
     workspaceId: string,
     visibility: string,
   ): Promise<void> {
-    const isOwnerMember = await this.workspaceAccess.hasMembership(workspaceId, userId);
+    const isOwnerMember = await this.workspaceAccess.hasMembership(
+      workspaceId,
+      userId,
+    );
     if (isOwnerMember) {
       await this.workspaceAccess.requireMembership(workspaceId, userId);
       return;

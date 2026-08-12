@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
   ArrowLeft,
@@ -141,6 +141,10 @@ export function FillPanel({
 
   // Editable fields copy for Step 2
   const [editedFields, setEditedFields] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setEditedFields({});
+  }, [selectedProfile?.id, selectedTemplate?.id]);
 
   const populatedFields = useMemo(() => {
     if (!selectedProfile) return [];
@@ -517,7 +521,7 @@ export function FillPanel({
                       return (
                         <tr key={field.id} className="hover:bg-zinc-50/50">
                           <td className="p-3 font-mono font-medium text-zinc-900">{field.placeholder}</td>
-                          <td className="p-3 text-zinc-600">{field.label}</td>
+                          <td className="p-3 text-zinc-600">{profileField?.label ?? field.label}</td>
                           <td className="p-3">
                             <input
                               type="text"

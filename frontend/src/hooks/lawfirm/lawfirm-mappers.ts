@@ -59,6 +59,7 @@ export const mapTemplateDocumentDto = (doc: LawfirmTemplateDocumentDto): Templat
       mappedKey: field.mapped_key,
       source: field.source,
       count: field.count,
+      discovery: field.discovery ?? undefined,
     }),
   ),
   previewMode: doc.preview_mode,
