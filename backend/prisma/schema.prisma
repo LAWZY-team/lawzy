@@ -46,6 +46,8 @@ model User {
   lawfirmAuditEvents      LawfirmAuditEvent[]
   lawfirmFieldDefinitions LawfirmFieldDefinition[]       @relation("LawfirmFieldDefinitionCreator")
   lawfirmUploadSessions   LawfirmTemplateUploadSession[]
+  lawfirmMappingJobs      LawfirmMappingJob[]
+  lawfirmAiUsageEvents    LawfirmAiUsageEvent[]
 
   @@map("users")
 }
@@ -119,6 +121,9 @@ model Workspace {
   lawfirmAuditEvents      LawfirmAuditEvent[]
   lawfirmFieldDefinitions LawfirmFieldDefinition[]
   lawfirmOcrCache         LawfirmOcrCache[]
+  lawfirmMappingCache     LawfirmMappingCache[]
+  lawfirmMappingJobs      LawfirmMappingJob[]
+  lawfirmAiUsageEvents    LawfirmAiUsageEvent[]
 
   @@map("workspaces")
 }
@@ -838,6 +843,7 @@ model LawfirmFieldDefinition {
   creator           User?                     @relation("LawfirmFieldDefinitionCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   aliases           LawfirmFieldAlias[]
   templateSetFields LawfirmTemplateSetField[]
+  mappingCache      LawfirmMappingCache[]
 
   @@unique([workspaceId, canonicalKey])
   @@index([workspaceId])
@@ -874,6 +880,7 @@ model LawfirmTemplateSetField {
   mappingSource            String   @default("deterministic") @map("mapping_source") @db.VarChar(20)
   confidence               Float?
   contextFingerprint       String?  @map("context_fingerprint") @db.VarChar(64)
+  sortOrder                Int      @default(0) @map("sort_order")
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 
@@ -884,6 +891,7 @@ model LawfirmTemplateSetField {
   @@unique([templateSetId, normalizedSlot])
   @@index([defaultFieldDefinitionId])
   @@index([templateSetId, mappingStatus])
+  @@index([templateSetId, sortOrder])
   @@map("lawfirm_template_set_fields")
 }
 
@@ -905,6 +913,8 @@ model LawfirmTemplateSet {
   setFields      LawfirmTemplateSetField[]
   uploadSessions LawfirmTemplateUploadSession[]
   fillRuns       LawfirmFillRun[]
+  mappingJobs    LawfirmMappingJob[]
+  aiUsageEvents  LawfirmAiUsageEvent[]
 
   @@index([workspaceId])
   @@index([visibility])
@@ -1056,6 +1066,95 @@ model LawfirmOcrCache {
   @@unique([workspaceId, imageHash])
   @@index([workspaceId])
   @@map("lawfirm_ocr_cache")
+}
+
+model LawfirmMappingCache {
+  id                  String   @id @default(uuid())
+  workspaceId         String   @map("workspace_id")
+  cacheKey            String   @map("cache_key") @db.VarChar(64)
+  semanticFingerprint String   @map("semantic_fingerprint") @db.VarChar(64)
+  taxonomyVersion     Int      @map("taxonomy_version")
+  promptVersion       String   @map("prompt_version") @db.VarChar(40)
+  modelName           String   @map("model_name") @db.VarChar(80)
+  fieldDefinitionId   String   @map("field_definition_id")
+  entitySelector      String?  @map("entity_selector") @db.VarChar(120)
+  confidence          Float
+  hitCount            Int      @default(0) @map("hit_count")
+  lastUsedAt          DateTime @default(now()) @map("last_used_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  workspace       Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  fieldDefinition LawfirmFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, cacheKey])
+  @@index([workspaceId, semanticFingerprint])
+  @@index([fieldDefinitionId])
+  @@map("lawfirm_mapping_cache")
+}
+
+model LawfirmMappingJob {
+  id                  String    @id @default(uuid())
+  workspaceId         String    @map("workspace_id")
+  templateSetId       String    @map("template_set_id")
+  createdBy           String    @map("created_by")
+  templateSetRevision Int       @map("template_set_revision")
+  inputFingerprint    String    @map("input_fingerprint") @db.VarChar(64)
+  idempotencyKey      String    @unique @map("idempotency_key") @db.VarChar(191)
+  status              String    @default("queued") @db.VarChar(20)
+  result              Json?
+  errorMessage        String?   @map("error_message") @db.Text
+  startedAt           DateTime? @map("started_at")
+  completedAt         DateTime? @map("completed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  templateSet LawfirmTemplateSet    @relation(fields: [templateSetId], references: [id], onDelete: Cascade)
+  creator     User                  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  usageEvents LawfirmAiUsageEvent[]
+
+  @@index([templateSetId, status])
+  @@index([workspaceId, createdAt])
+  @@map("lawfirm_mapping_jobs")
+}
+
+model LawfirmAiUsageEvent {
+  id             String   @id @default(uuid())
+  workspaceId    String   @map("workspace_id")
+  actorId        String   @map("actor_id")
+  templateSetId  String?  @map("template_set_id")
+  mappingJobId   String?  @map("mapping_job_id")
+  taskType       String   @map("task_type") @db.VarChar(60)
+  taskLabel      String   @map("task_label") @db.VarChar(191)
+  operationKey   String   @map("operation_key") @db.VarChar(191)
+  modelName      String   @map("model_name") @db.VarChar(80)
+  status         String   @db.VarChar(20)
+  promptTokens   Int      @default(0) @map("prompt_tokens")
+  outputTokens   Int      @default(0) @map("output_tokens")
+  cachedTokens   Int      @default(0) @map("cached_tokens")
+  thinkingTokens Int      @default(0) @map("thinking_tokens")
+  toolTokens     Int      @default(0) @map("tool_tokens")
+  totalTokens    Int      @default(0) @map("total_tokens")
+  retryCount     Int      @default(0) @map("retry_count")
+  latencyMs      Int      @default(0) @map("latency_ms")
+  inputItems     Int      @default(0) @map("input_items")
+  resultItems    Int      @default(0) @map("result_items")
+  errorCode      String?  @map("error_code") @db.VarChar(80)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User                @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  templateSet LawfirmTemplateSet? @relation(fields: [templateSetId], references: [id], onDelete: SetNull)
+  mappingJob  LawfirmMappingJob?  @relation(fields: [mappingJobId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, operationKey])
+  @@index([workspaceId, createdAt])
+  @@index([templateSetId, createdAt])
+  @@index([mappingJobId])
+  @@index([taskType, createdAt])
+  @@map("lawfirm_ai_usage_events")
 }
 
 model LawfirmAiExtraction {

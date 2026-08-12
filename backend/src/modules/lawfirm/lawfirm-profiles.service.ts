@@ -11,7 +11,10 @@ import { FilesService } from '../files/files.service';
 import { LawfirmAuditService } from './lawfirm-audit.service';
 import { LawfirmScanService } from './lawfirm-scan.service';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
-import { serializeExtraction, serializeProfile } from './utils/lawfirm-serializer';
+import {
+  serializeExtraction,
+  serializeProfile,
+} from './utils/lawfirm-serializer';
 import {
   CreateProfileDto,
   ImportLocalDto,
@@ -99,8 +102,12 @@ export class LawfirmProfilesService {
         where: { id, revision: dto.revision },
         data: {
           ...(dto.name !== undefined && { name: dto.name.trim() }),
-          ...(dto.description !== undefined && { description: dto.description.trim() }),
-          ...(dto.investorType !== undefined && { investorType: dto.investorType }),
+          ...(dto.description !== undefined && {
+            description: dto.description.trim(),
+          }),
+          ...(dto.investorType !== undefined && {
+            investorType: dto.investorType,
+          }),
           ...(dto.status !== undefined && { status: dto.status }),
           revision: { increment: 1 },
         },
@@ -191,6 +198,9 @@ export class LawfirmProfilesService {
       mimeType: file.mimetype,
       fileName: file.originalname,
       storageKey,
+      workspaceId: profile.workspaceId,
+      actorId: userId,
+      operationKey: `identity:${profile.id}:${dto.idempotencyKey ?? uploaded.id}`,
     });
     const extraction = await this.prisma.lawfirmAiExtraction.create({
       data: {
@@ -199,8 +209,10 @@ export class LawfirmProfilesService {
         createdBy: userId,
         kind: 'identity_document',
         status: 'pending',
-        suggestions: extractionResult.suggestions as unknown as Prisma.InputJsonValue,
-        provenance: extractionResult.provenance as unknown as Prisma.InputJsonValue,
+        suggestions:
+          extractionResult.suggestions as unknown as Prisma.InputJsonValue,
+        provenance:
+          extractionResult.provenance as unknown as Prisma.InputJsonValue,
         storageKey,
         modelName: 'gemini',
         idempotencyKey: dto.idempotencyKey ?? null,
@@ -240,7 +252,10 @@ export class LawfirmProfilesService {
       const templateSets = await this.prisma.lawfirmTemplateSet.findMany({
         where: { workspaceId: dto.workspaceId },
         include: {
-          documents: { include: { fields: true }, orderBy: { sortOrder: 'asc' } },
+          documents: {
+            include: { fields: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
       });
       return {

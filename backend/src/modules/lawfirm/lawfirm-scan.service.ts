@@ -29,6 +29,7 @@ import {
 } from './lawfirm.constants';
 import { toCurrentLawfirmProfileFieldKey } from './lawfirm-field-taxonomy';
 import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
+import { LawfirmAiUsageService } from './lawfirm-ai-usage.service';
 
 export interface TemplateScanSuggestion {
   placeholder: string;
@@ -62,6 +63,7 @@ export class LawfirmScanService {
     private readonly sourceProcessing: SourceProcessingService,
     private readonly r2Helper: LawfirmR2Helper,
     private readonly docxOcr: LawfirmDocxOcrService,
+    private readonly aiUsage: LawfirmAiUsageService,
   ) {}
 
   validateMimeAndSize(
@@ -191,6 +193,9 @@ ${textToAnalyze}`;
     mimeType: string;
     fileName: string;
     storageKey: string;
+    workspaceId: string;
+    actorId: string;
+    operationKey: string;
   }): Promise<IdentityExtractionResult> {
     this.validateMimeAndSize(
       params.mimeType,
@@ -223,6 +228,9 @@ ${textToAnalyze}`;
       fileName: params.fileName,
       mimeType: params.mimeType,
       storageKey: params.storageKey,
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      operationKey: params.operationKey,
     });
   }
 
@@ -231,6 +239,9 @@ ${textToAnalyze}`;
     mimeType: string;
     fileName: string;
     storageKey: string;
+    workspaceId: string;
+    actorId: string;
+    operationKey: string;
   }): Promise<IdentityExtractionResult> {
     const provenanceBase = {
       fileName: params.fileName,
@@ -257,6 +268,8 @@ Trả về JSON theo schema:
 }
 fieldKey gợi ý: f_cn_hoten, f_cn_cccd, f_cn_ngaysinh, f_cn_quoctich, f_cn_diachi, f_to_ten, f_to_mst, f_to_diachi, f_dd_hoten, f_dd_chucdanh.
 Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ trả về JSON hợp lệ. KHÔNG tự động áp dụng — chỉ đề xuất.`;
+    const startedAt = Date.now();
+    let apiAttempts = 0;
     try {
       const response = await this.aiProvider.generateContentWithRetry({
         contents: [
@@ -274,6 +287,9 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
           },
         ],
         config: { responseMimeType: 'application/json' },
+        onAttempt: (event) => {
+          if (event.outcome === 'started') apiAttempts = event.attempt;
+        },
       });
       const jsonText =
         response.text ||
@@ -285,20 +301,36 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
           }
         ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
+        await this.recordIdentityUsage(
+          params,
+          response,
+          apiAttempts,
+          startedAt,
+          0,
+        );
         return { suggestions: [], provenance: provenanceBase };
       }
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: IdentityFieldSuggestion[];
         provenance?: Record<string, unknown>;
       };
-      return {
+      const result = {
         suggestions: (parsed.fields ?? []).filter((field) =>
           Boolean(field.fieldKey && field.value),
         ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
+      await this.recordIdentityUsage(
+        params,
+        response,
+        apiAttempts,
+        startedAt,
+        result.suggestions.length,
+      );
+      return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      await this.recordIdentityFailure(params, apiAttempts, startedAt, message);
       this.logger.warn(`AI identity image extraction failed: ${message}`);
       return {
         suggestions: [],
@@ -309,7 +341,11 @@ Không suy đoán dữ liệu bị che hoặc không đọc được. Chỉ tr�
 
   async extractIdentityFromText(
     text: string,
-    provenanceBase: Record<string, unknown>,
+    provenanceBase: Record<string, unknown> & {
+      workspaceId?: string;
+      actorId?: string;
+      operationKey?: string;
+    },
   ): Promise<IdentityExtractionResult> {
     const textToAnalyze = text.substring(0, 12000);
     const prompt = `Bạn là trợ lý pháp lý AI. Trích xuất thông tin định danh từ giấy tờ (CCCD, hộ chiếu, ĐKKD, MST).
@@ -334,10 +370,15 @@ Chỉ trả về JSON hợp lệ. KHÔNG tự động áp dụng — chỉ đề
 
 Nội dung OCR/text:
 ${textToAnalyze}`;
+    const startedAt = Date.now();
+    let apiAttempts = 0;
     try {
       const response = await this.aiProvider.generateContentWithRetry({
         contents: prompt,
         config: { responseMimeType: 'application/json' },
+        onAttempt: (event) => {
+          if (event.outcome === 'started') apiAttempts = event.attempt;
+        },
       });
       const jsonText =
         response.text ||
@@ -349,26 +390,130 @@ ${textToAnalyze}`;
           }
         ).candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonText) {
+        if (
+          provenanceBase.workspaceId &&
+          provenanceBase.actorId &&
+          provenanceBase.operationKey
+        ) {
+          await this.recordIdentityUsage(
+            {
+              workspaceId: provenanceBase.workspaceId,
+              actorId: provenanceBase.actorId,
+              operationKey: provenanceBase.operationKey,
+            },
+            response,
+            apiAttempts,
+            startedAt,
+            0,
+          );
+        }
         return { suggestions: [], provenance: provenanceBase };
       }
       const parsed = JSON.parse(jsonText.trim()) as {
         fields?: IdentityFieldSuggestion[];
         provenance?: Record<string, unknown>;
       };
-      return {
+      const result = {
         suggestions: (parsed.fields ?? []).filter((field) =>
           Boolean(field.fieldKey && field.value),
         ),
         provenance: { ...provenanceBase, ...(parsed.provenance ?? {}) },
       };
+      if (
+        provenanceBase.workspaceId &&
+        provenanceBase.actorId &&
+        provenanceBase.operationKey
+      ) {
+        await this.recordIdentityUsage(
+          {
+            workspaceId: provenanceBase.workspaceId,
+            actorId: provenanceBase.actorId,
+            operationKey: provenanceBase.operationKey,
+          },
+          response,
+          apiAttempts,
+          startedAt,
+          result.suggestions.length,
+        );
+      }
+      return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      if (
+        provenanceBase.workspaceId &&
+        provenanceBase.actorId &&
+        provenanceBase.operationKey
+      ) {
+        await this.recordIdentityFailure(
+          {
+            workspaceId: provenanceBase.workspaceId,
+            actorId: provenanceBase.actorId,
+            operationKey: provenanceBase.operationKey,
+          },
+          apiAttempts,
+          startedAt,
+          message,
+        );
+      }
       this.logger.warn(`AI identity extraction failed: ${message}`);
       return {
         suggestions: [],
         provenance: { ...provenanceBase, error: message },
       };
     }
+  }
+
+  private async recordIdentityUsage(
+    params: { workspaceId: string; actorId: string; operationKey: string },
+    response: Awaited<
+      ReturnType<AiProviderService['generateContentWithRetry']>
+    >,
+    apiAttempts: number,
+    startedAt: number,
+    resultItems: number,
+  ): Promise<void> {
+    const usage = response.usageMetadata;
+    await this.aiUsage.record({
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      taskType: 'identity_extraction',
+      taskLabel: 'Quét hồ sơ khách hàng',
+      operationKey: params.operationKey,
+      modelName: this.aiProvider.getModelName(),
+      status: 'completed',
+      promptTokens: usage?.promptTokenCount,
+      outputTokens: usage?.candidatesTokenCount,
+      cachedTokens: usage?.cachedContentTokenCount,
+      thinkingTokens: usage?.thoughtsTokenCount,
+      toolTokens: usage?.toolUsePromptTokenCount,
+      totalTokens: usage?.totalTokenCount,
+      retryCount: Math.max(0, apiAttempts - 1),
+      latencyMs: Date.now() - startedAt,
+      inputItems: 1,
+      resultItems,
+    });
+  }
+
+  private async recordIdentityFailure(
+    params: { workspaceId: string; actorId: string; operationKey: string },
+    apiAttempts: number,
+    startedAt: number,
+    message: string,
+  ): Promise<void> {
+    await this.aiUsage.record({
+      workspaceId: params.workspaceId,
+      actorId: params.actorId,
+      taskType: 'identity_extraction',
+      taskLabel: 'Quét hồ sơ khách hàng',
+      operationKey: params.operationKey,
+      modelName: this.aiProvider.getModelName(),
+      status: 'failed',
+      retryCount: Math.max(0, apiAttempts - 1),
+      latencyMs: Date.now() - startedAt,
+      inputItems: 1,
+      errorCode: 'IDENTITY_EXTRACTION_FAILED',
+      metadata: { error: message.slice(0, 500) },
+    });
   }
 
   async analyzeUploadedTemplateFile(params: {

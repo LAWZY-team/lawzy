@@ -4,6 +4,7 @@ import {
   discoverDocxSlots,
   type DiscoveredDocxSlot,
 } from './lawfirm-docx-slot-discovery';
+import { compareLawfirmSourceAnchors } from './lawfirm-source-order';
 
 export function extractDocBinaryText(buffer: Buffer | ArrayBuffer): string {
   const uint8 =
@@ -155,8 +156,11 @@ export interface AnalyzedTemplateField {
 export const groupDiscoveredDocxSlots = (
   slots: DiscoveredDocxSlot[],
 ): AnalyzedTemplateField[] => {
+  const orderedSlots = [...slots].sort((left, right) =>
+    compareLawfirmSourceAnchors(left.anchor, right.anchor),
+  );
   const groups = new Map<string, DiscoveredDocxSlot[]>();
-  for (const slot of slots) {
+  for (const slot of orderedSlots) {
     const occurrences = groups.get(slot.normalizedSlot) ?? [];
     occurrences.push(slot);
     groups.set(slot.normalizedSlot, occurrences);

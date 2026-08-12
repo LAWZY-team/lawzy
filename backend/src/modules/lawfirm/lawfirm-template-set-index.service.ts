@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { buildTemplateSetIndex } from './utils/lawfirm-template-set-index';
+import { compareLawfirmFieldsBySourceOrder } from './utils/lawfirm-source-order';
 
 @Injectable()
 export class LawfirmTemplateSetIndexService {
@@ -16,6 +17,7 @@ export class LawfirmTemplateSetIndexService {
         documents: {
           select: {
             id: true,
+            sortOrder: true,
             fields: {
               select: {
                 id: true,
@@ -48,9 +50,23 @@ export class LawfirmTemplateSetIndexService {
         aliases: { select: { normalizedAlias: true } },
       },
     });
-    const index = buildTemplateSetIndex(templateSet.documents, registryFields);
+    const orderedDocuments = templateSet.documents.map((document) => ({
+      ...document,
+      fields: [...document.fields].sort(compareLawfirmFieldsBySourceOrder),
+    }));
+    const index = buildTemplateSetIndex(orderedDocuments, registryFields);
 
     await this.prisma.$transaction(async (tx) => {
+      for (const document of orderedDocuments) {
+        await Promise.all(
+          document.fields.map((field, sortOrder) =>
+            tx.lawfirmTemplateField.update({
+              where: { id: field.id },
+              data: { sortOrder },
+            }),
+          ),
+        );
+      }
       const setFieldIds = new Map<string, string>();
       for (const field of index.fields) {
         const persisted = await tx.lawfirmTemplateSetField.upsert({

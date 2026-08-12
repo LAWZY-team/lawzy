@@ -102,6 +102,15 @@ Không sử dụng các giá trị sau làm semantic identity:
 - Retry không được tạo duplicate logical job.
 - Không gửi toàn bộ DOCX nếu chỉ cần resolve một danh sách slot đã được rút gọn.
 
+### 4.5 Field order và review navigation
+
+- Thứ tự review là dữ liệu dẫn xuất bền vững từ document structure/anchor, không phải thứ tự detector phát hiện hoặc thứ tự AI trả về.
+- Mỗi occurrence có một `sourceOrderKey` ổn định; mỗi field lấy occurrence đầu tiên làm `firstOccurrenceOrderKey`.
+- Trong một document, field mặc định hiển thị theo thứ tự đọc từ trên xuống dưới, trái sang phải; field thủ công không có anchor nằm sau field có anchor.
+- Ở cấp template set, thứ tự ổn định là `(document.sortOrder, firstOccurrenceOrderKey, field.id)`.
+- Một semantic field chỉ có một review card; các occurrence lặp lại cùng trỏ tới card đó.
+- Preview và field panel phải dùng stable ID/occurrence key để điều hướng hai chiều; không dùng label, raw text hoặc array index làm navigation identity.
+
 ## 5. Phạm vi tài liệu đầu vào
 
 Pipeline phải hỗ trợ:
@@ -462,6 +471,34 @@ Conflict status
 
 Không dùng template field label để giả làm target profile field label.
 
+### 12.4 Ordered review navigator
+
+Mặc định field panel của document active dùng thứ tự đọc trong tài liệu, không dùng alphabetical order hoặc detector order. Search/filter chỉ thu hẹp tập kết quả và giữ nguyên relative order.
+
+```text
+Preview occurrence click
+  → select semantic field
+  → mở field panel nếu đang đóng
+  → scroll card tương ứng vào giữa viewport
+  → focus/active state có thời hạn
+
+Field card/occurrence navigation
+  → scroll preview tới occurrence hiện tại
+  → highlight active occurrence
+  → cho phép next/previous nếu field xuất hiện nhiều lần
+```
+
+Kế thừa pattern đã có ở `/clm/editor`:
+
+- `data-field-key`/stable DOM marker;
+- click canvas → focus RightPanel;
+- RightPanel → canvas `scrollIntoView` + temporary ring;
+- panel tự mở trước khi scroll.
+
+Không tái sử dụng nguyên `CanvasEditor`/`RightPanel` vì chúng phụ thuộc TipTap, editor Zustand store và CLM document mutation. Trích navigation contract/hook dùng chung; Lawfirm giữ renderer DOCX/HTML riêng và dùng `data-occurrence-key`, `data-template-field-id`.
+
+Current `PreviewPane` đang highlight bằng raw string replacement trên Mammoth HTML. Phase này phải chuyển sang anchor/occurrence-driven annotation; raw-text matching chỉ là fallback có badge cảnh báo và không được dùng làm durable identity.
+
 ## 13. Implementation phases
 
 ### Phase 0 — Containment và canonical mapping nền tảng
@@ -515,17 +552,71 @@ Không dùng template field label để giả làm target profile field label.
 
 ### Phase 3 — Set-level Gemini resolver
 
-- [ ] Tạo `GeminiMappingGateway` duy nhất.
-- [ ] Structured output schema.
-- [ ] Candidate-constrained prompt.
-- [ ] Chunking theo unique unresolved slots và token estimate.
-- [ ] Two-tier model routing.
-- [ ] Application mapping cache.
-- [ ] Rate limiter, retry/backoff, circuit breaker.
-- [ ] Usage/latency/correction metrics.
-- [ ] Human review UI cho low-confidence/conflict.
+- [x] Tạo `GeminiMappingGateway` duy nhất.
+- [x] Structured output schema.
+- [x] Candidate-constrained prompt.
+- [x] Chunking theo unique unresolved slots và token estimate.
+- [x] Routing deterministic → Gemini Flash → human review.
+- [x] Application mapping cache.
+- [x] Rate limiter, retry/backoff, circuit breaker.
+- [x] Usage/latency/correction metrics.
+- [x] Human review gate cho low-confidence/conflict.
 
 **Exit criteria:** Typical set dùng 0–1 call; không có invalid canonical key được persist.
+
+### Phase 3.5 — Ordered field review và synchronized document navigation
+
+**Mục tiêu:** Biến màn hình review thành luồng đọc có thứ tự ổn định và đồng bộ hai chiều giữa document occurrence với semantic field card trước khi bước sang entity-aware fill.
+
+#### 3.5.1 Canonical source order
+
+- [ ] Mở rộng anchor contract với vị trí so sánh được:
+  - DOCX: `partRank`, `xmlOffset`/`blockIndex`, `inlineOffset`, table row/cell fallback;
+  - PDF/OCR: `pageIndex`, `y`, `x`, region index;
+  - fallback legacy: persisted `sortOrder`, không dùng label.
+- [ ] Detector thu thập occurrence rồi chạy một canonical comparator chung; không phụ thuộc detector pass order.
+- [ ] Persist `DocumentSlot.sortOrder` theo canonical occurrence order.
+- [ ] Persist/update `LawfirmTemplateField.sortOrder` theo occurrence sớm nhất; manual field không anchor đứng sau discovered fields và giữ user order ổn định.
+- [ ] Set index chọn earliest tuple `(document.sortOrder, slot.sortOrder)` cho semantic field order.
+- [ ] Backfill idempotent cho document đã scan; dry-run report số field đổi vị trí trước khi apply.
+- [ ] API luôn trả document fields/slots với explicit deterministic order và stable tiebreaker `id`.
+
+#### 3.5.2 Anchor-aware preview
+
+- [ ] Tạo preview annotation model gồm `occurrenceKey`, `templateFieldId`, `anchor`, `status`, `confidence`.
+- [ ] Chèn marker vào HTML render bằng anchor transformation trước/sau Mammoth theo adapter có test; không quét lại toàn bộ raw placeholder trên mỗi React render.
+- [ ] Cùng raw text xuất hiện nhiều nơi vẫn tạo các marker occurrence riêng, không highlight nhầm mọi chuỗi giống nhau.
+- [ ] Header/footer/table/content control/blank/literal occurrence dùng cùng DOM identity contract.
+- [ ] PDF/OCR chưa có tọa độ đáng tin cậy phải hiển thị degraded state rõ ràng; không giả vờ click-sync chính xác.
+
+#### 3.5.3 Shared field navigation controller
+
+- [ ] Trích pattern từ `/clm/editor` thành client-side navigation controller/hook không phụ thuộc TipTap hoặc Zustand.
+- [ ] Dùng React state/ref registry thay cho global event name hard-code; CLM có adapter tương thích để không regression.
+- [ ] Preview click chọn `templateFieldId + occurrenceKey`, tự mở panel và scroll đúng card.
+- [ ] Field card click/Enter scroll preview tới occurrence; field lặp có điều khiển previous/next và chỉ một active occurrence.
+- [ ] Dùng `CSS.escape`/ref map cho ID tùy ý; hủy timer/listener khi unmount hoặc đổi document.
+- [ ] `prefers-reduced-motion` dùng scroll instant; keyboard Enter/Space, `aria-current`, visible focus và không cướp focus khi người dùng đang nhập.
+
+#### 3.5.4 Field panel information architecture
+
+- [ ] Default view: document reading order, một card/semantic field, occurrence count và mapping status.
+- [ ] Filter `Tất cả / Cần kiểm tra / Chưa ánh xạ`; filter không thay đổi relative order.
+- [ ] Search label/canonical key/raw alias; clear search khôi phục chính xác source order.
+- [ ] Card active dùng border/background restrained theo Notion style; không thêm icon trang trí.
+- [ ] Với danh sách lớn, dùng single scroll owner và virtualization hoặc measured list; không tạo nested scroll container theo từng group như CLM RightPanel hiện tại.
+- [ ] Giữ draft edit theo field ID khi virtualize; scroll không làm mất input state.
+
+#### 3.5.5 State, performance và regression
+
+- [ ] Active selection scoped theo `templateSetId + documentId`; đổi file không rò selection cũ.
+- [ ] Reload giữ persisted field order; active selection có thể reset mà không làm scan/AI chạy lại.
+- [ ] Không Gemini call trong sort, highlight, click hoặc scroll flow.
+- [ ] Không rebuild/sanitize toàn bộ preview khi chỉ đổi input value hoặc active occurrence.
+- [ ] Contract tests cho comparator/backfill/API order; component tests cho click-sync hai chiều; test 100+ fields và repeated placeholders.
+- [ ] Regression tests cho drag document order, durable scan state, mapping approval và token ledger.
+
+**Exit criteria:** E01–E12 đạt; một document 100+ fields vẫn có thứ tự ổn định qua reload, click bất kỳ highlight nào đưa đúng card vào view, panel đưa preview tới đúng occurrence, và interaction không phát sinh Gemini call.
 
 ### Phase 4 — Entity-aware profiles và fill snapshot
 
@@ -600,6 +691,21 @@ Không dùng template field label để giả làm target profile field label.
 - **D02:** Fill run snapshot không đổi khi profile bị sửa trong lúc generate.
 - **D03:** Conflict blocking không thể bypass bằng UI thông thường.
 - **D04:** Original DOCX không bị ghi đè khi materialize normalized revision.
+
+### E. Ordered review và synchronized navigation
+
+- **E01:** Field từ placeholder, content control, blank và table cell cùng được sắp theo vị trí đọc thực tế, không theo detector kind.
+- **E02:** Reload hoặc chạy lại index không làm đổi thứ tự khi document revision không đổi.
+- **E03:** Cùng raw text tại nhiều vị trí tạo occurrence marker riêng; click vị trí thứ hai không nhảy về vị trí thứ nhất.
+- **E04:** Nhiều occurrence cùng semantic field chỉ tạo một field card và hiển thị đúng occurrence count.
+- **E05:** Click highlight trong preview tự mở panel, scroll đúng card và không gọi Gemini.
+- **E06:** Click/Enter field card scroll preview tới occurrence active; previous/next đi đúng thứ tự.
+- **E07:** Search/filter không phá relative source order; clear filter phục hồi đúng danh sách ban đầu.
+- **E08:** Đổi document không rò active field/occurrence; quay lại vẫn dùng persisted order và không scan lại.
+- **E09:** Manual field không có anchor nằm sau discovered fields và giữ stable user order qua update/reload.
+- **E10:** Header/footer/table occurrence dùng stable navigation identity; unsupported/PDF degraded state được báo rõ.
+- **E11:** Keyboard và reduced-motion flow hoạt động; navigation không cướp focus khỏi input đang edit.
+- **E12:** Document 100+ fields không tạo nested-scroll trap, không mất draft khi virtualize và đạt interaction latency mục tiêu dưới 100 ms cho selection local.
 
 ## 15. Migration rules ban đầu
 
@@ -721,18 +827,20 @@ Mục tiêu pilot ban đầu:
 | Phase 0 | In progress | Checklist containment hoàn tất; còn acceptance A01–A08 |
 | Phase 1 | Ready for acceptance | Phase 1.1–1.3 đã migrate/seed local; chờ manual acceptance với 10 DOCX |
 | Phase 2 | Ready for acceptance | Detector/schema/cache đã migrate local; chờ B01–B09 trên bộ DOCX thực tế |
-| Phase 3 | Not started | Chờ canonical registry contract |
+| Phase 3 | Ready for acceptance | Set-level resolver, cache và token ledger đã migrate local; chờ C01–C06 với Gemini thật |
+| Phase 3.5 | Planned | Audit `/clm/editor` hoàn tất; chờ canonical order/anchor/navigation implementation và E01–E12 |
 | Phase 4 | Not started | Chờ schema/migration design review |
 | Phase 5 | Not started | Chờ slot anchor contract |
 | Phase 6 | Not started | Chờ các phase chức năng |
 
 ### Next executable task
 
-Phase 2 acceptance, sau đó Phase 3.1:
+Phase 3.5 implementation, song song giữ Phase 2 và Phase 3 ở acceptance:
 
-1. Chạy B01–B09 với DOCX thực tế có Content Control, table blank, literal sample và ảnh.
-2. Sửa detector false-positive/anchor nếu fixture thực tế phát hiện khác biệt.
-3. Bắt đầu `GeminiMappingGateway` set-level cho unique unresolved slots.
+1. Chốt canonical source-order comparator và anchor extension cho DOCX/PDF.
+2. Implement/persist/backfill field + occurrence order trước khi sửa UI.
+3. Trích navigation controller từ pattern `/clm/editor`, nối anchor-aware preview và field panel.
+4. Chạy E01–E12; sau đó manual acceptance B01–B09 và C01–C06 trên cùng bộ tài liệu thực tế.
 
 ### Legacy audit baseline — 2026-08-11
 
@@ -761,3 +869,53 @@ Read-only command: `npm run lawfirm:audit-fields`.
 - Prisma Client generate thành công; 30/30 migrations đã apply và schema up to date.
 - Targeted lint không có error; các warning còn lại là technical debt có sẵn trong `template-panel.tsx`.
 - B01–B09 với bộ DOCX thực tế vẫn là acceptance gate, chưa được đánh dấu đạt chỉ bằng synthetic fixtures.
+
+### Phase 3 implementation verification — 2026-08-12
+
+- Một logical mapping job cho mỗi template-set revision + input fingerprint; job stale có thể reclaim và UI poll trạng thái bền vững.
+- Chỉ unique unresolved slots được gửi; mỗi slot có tối đa 6 canonical candidates và context bị giới hạn.
+- Chunk tối đa 20 slots / khoảng 6.000 estimated tokens; hard cap 3 Gemini calls/job.
+- Model mapping mặc định `gemini-2.5-flash`, có thể override bằng `LAWFIRM_GEMINI_MAPPING_MODEL`.
+- Application cache khóa theo workspace + semantic fingerprint + taxonomy/prompt/model version.
+- Workspace guard: tối đa 10 mapping events/phút; circuit mở sau 3 failure trong 2 phút.
+- Invalid/out-of-candidate canonical key và confidence dưới 0,85 không được persist; chuyển human review.
+- Footer Lawfirm báo input/output/thinking/cached/total tokens, retry, latency và từng tác vụ trong 30 ngày.
+- Token lấy trực tiếp từ Gemini `usageMetadata`; deterministic parser và Tesseract OCR được ghi nhận là 0 Gemini token theo thiết kế.
+- 31/31 migrations đã apply; C01–C06 với Gemini thật vẫn là acceptance gate.
+
+### D-011 — Token ledger là dữ liệu backend, không ước lượng ở frontend
+
+**Quyết định:** Mỗi Gemini call của Lawfirm ghi một usage event idempotent theo operation key. Footer chỉ tổng hợp ledger này và không tự ước lượng token từ độ dài chuỗi.
+
+**Lý do:** Reload/navigation không làm tăng số liệu, retry được track rõ, và báo cáo phản ánh số token provider trả về cho từng công việc.
+
+### D-012 — AI là bước hoàn thiện có chủ đích trong UX
+
+**Quyết định:** Upload luôn chạy structured discovery và deterministic mapping. Gemini không tự chạy khi người dùng mới tải file; UI đọc mapping summary bền vững từ backend, hiển thị số trường đã ánh xạ/chưa rõ, số lượt Gemini dự kiến và chỉ chạy set-level resolver khi người dùng chọn “Phân tích … trường bằng AI”.
+
+**Lý do:** Người dùng nhận kết quả cơ bản ngay, biết rõ khi nào quota được sử dụng và không tạo nhiều lần gọi theo từng file. Mapping job, kết quả và trạng thái xử lý nằm ở backend nên đổi tài liệu hoặc reload không làm mất tiến trình.
+
+### D-013 — Source anchor quyết định order và navigation identity
+
+**Quyết định:** Field review order được dẫn xuất từ earliest persisted occurrence anchor; preview/panel navigation dùng `occurrenceKey + templateFieldId`. Pattern click/scroll từ `/clm/editor` được trích thành navigation abstraction dùng chung, nhưng Lawfirm không phụ thuộc nguyên `CanvasEditor`, `RightPanel`, TipTap store hoặc global custom-event implementation.
+
+**Lý do:** Detector order và raw-text matching không phản ánh document flow, dễ đảo danh sách và chọn sai khi chuỗi lặp. Stable anchor cho phép order, highlight, scroll và fill sau này cùng dùng một identity contract mà không gọi AI.
+
+### Phase 3.5 architecture audit — 2026-08-12
+
+- `/clm/editor` hiện dùng `data-field-key`, canvas click event, RightPanel `scrollIntoView`, panel-to-canvas event và temporary ring.
+- CLM RightPanel đã sort field theo first merge-field occurrence, nhưng vẫn phân source và có nested scroll per group; chỉ tái sử dụng interaction pattern, không sao chép toàn bộ information architecture.
+- Lawfirm hiện highlight bằng raw placeholder replacement trên Mammoth HTML; chuỗi giống nhau có thể cùng bị mark và không đại diện chính xác structured anchor.
+- Backend đã có `DocumentSlot.anchor`, `occurrenceKey`, `sortOrder`, nhưng worker đang gán legacy field order theo detector result index; detector chạy nhiều pass nên thứ tự chưa phải visual source order.
+- Phase 3.5 phải sửa ordering contract ở discovery/index/database trước frontend; frontend-only sort bị loại khỏi phương án đích.
+
+### Phase 3 UX verification — 2026-08-12
+
+- Bổ sung read-only mapping summary; đọc index/database, không gọi Gemini và không tiêu token.
+- Một CTA AI duy nhất ở cấp bộ hồ sơ; bỏ CTA quét AI theo từng tài liệu.
+- CTA hiển thị đúng unresolved field count, estimated Gemini calls và xác nhận chỉ phần chưa rõ được gửi.
+- Có đường ánh xạ thủ công; trạng thái processing/error/completed phục hồi từ durable mapping job.
+- Giao diện giữ phong cách Notion hiện hữu: chữ, khoảng trắng, divider và button trung tính; không thêm icon trang trí.
+- 16 Lawfirm test suites / 43 tests pass; backend/frontend type-check và production build pass.
+- Prisma xác nhận 31/31 migrations đã apply và database schema up to date.
+- Manual UI acceptance và C01–C06 với Gemini thật do người dùng thực hiện sau; không được đánh dấu đạt chỉ bằng automated checks.

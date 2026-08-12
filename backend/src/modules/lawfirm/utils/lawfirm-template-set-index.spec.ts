@@ -231,4 +231,54 @@ describe('buildTemplateSetIndex', () => {
     });
     expect(result.slots[0].currentValue).toBe('CÔNG TY ABC');
   });
+
+  it('orders occurrences by their earliest source position', () => {
+    const occurrence = (normalizedSlot: string, xmlOffset: number) => ({
+      normalizedSlot,
+      sourceKind: 'explicit_placeholder',
+      rawText: `[${normalizedSlot}]`,
+      labelText: normalizedSlot,
+      currentValue: null,
+      confidence: 1,
+      leftContext: '',
+      rightContext: '',
+      anchor: { part: 'word/document.xml', xmlOffset },
+    });
+    const result = buildTemplateSetIndex(
+      [
+        {
+          id: 'doc-1',
+          fields: [
+            {
+              id: 'later-field',
+              label: 'Later',
+              placeholder: '[LATER]',
+              mappedKey: '',
+              source: 'auto',
+              count: 1,
+              sortOrder: 0,
+              discovery: { occurrences: [occurrence('LATER', 200)] },
+            },
+            {
+              id: 'earlier-field',
+              label: 'Earlier',
+              placeholder: '[EARLIER]',
+              mappedKey: '',
+              source: 'auto',
+              count: 1,
+              sortOrder: 1,
+              discovery: { occurrences: [occurrence('EARLIER', 10)] },
+            },
+          ],
+        },
+      ],
+      registry,
+    );
+
+    expect(result.slots.map((slot) => slot.legacyTemplateFieldId)).toEqual([
+      'earlier-field',
+      'later-field',
+    ]);
+    expect(result.slots.map((slot) => slot.sortOrder)).toEqual([0, 1]);
+  });
 });

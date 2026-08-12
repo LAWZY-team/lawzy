@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { normalizeLawfirmFieldAlias } from '../lawfirm-field-taxonomy';
+import {
+  compareLawfirmFieldsBySourceOrder,
+  compareLawfirmSourceAnchors,
+} from './lawfirm-source-order';
 
 export interface TemplateIndexRegistryField {
   id: string;
@@ -10,6 +14,7 @@ export interface TemplateIndexRegistryField {
 
 export interface TemplateIndexDocument {
   id: string;
+  sortOrder?: number;
   fields: Array<{
     id: string;
     label: string;
@@ -30,6 +35,7 @@ export interface IndexedTemplateSetField {
   mappingSource: 'deterministic';
   confidence: number | null;
   contextFingerprint: string;
+  sortOrder: number;
 }
 
 export interface IndexedDocumentSlot {
@@ -143,6 +149,18 @@ export function buildTemplateSetIndex(
   documents: TemplateIndexDocument[],
   registryFields: TemplateIndexRegistryField[],
 ): TemplateSetIndex {
+  const orderedDocuments = documents
+    .map((document, inputIndex) => ({
+      ...document,
+      inputIndex,
+      fields: [...document.fields].sort(compareLawfirmFieldsBySourceOrder),
+    }))
+    .sort(
+      (left, right) =>
+        (left.sortOrder ?? left.inputIndex) -
+          (right.sortOrder ?? right.inputIndex) ||
+        left.inputIndex - right.inputIndex,
+    );
   const registryByAlias = new Map<string, Set<string>>();
   for (const definition of registryFields) {
     const aliases = [
@@ -168,12 +186,13 @@ export function buildTemplateSetIndex(
       hasUnresolvedMapping: boolean;
       requiresReview: boolean;
       confidence: number;
+      sortOrder: number;
     }
   >();
   const slots: IndexedDocumentSlot[] = [];
 
-  for (const document of documents) {
-    for (const field of document.fields) {
+  for (const [documentIndex, document] of orderedDocuments.entries()) {
+    for (const [fieldIndex, field] of document.fields.entries()) {
       const rawText = field.placeholder.trim() || field.label.trim();
       const discoveredOccurrences = readDiscoveryOccurrences(field.discovery);
       const normalizedSlot =
@@ -187,6 +206,8 @@ export function buildTemplateSetIndex(
         hasUnresolvedMapping: false,
         requiresReview: false,
         confidence: 1,
+        sortOrder:
+          (document.sortOrder ?? documentIndex) * 1_000_000 + fieldIndex,
       };
       const normalizedMappedKey = normalizeLawfirmFieldAlias(field.mappedKey);
       if (normalizedMappedKey) {
@@ -201,6 +222,10 @@ export function buildTemplateSetIndex(
         aggregate.confidence = Math.min(
           aggregate.confidence,
           occurrence.confidence,
+        );
+        aggregate.sortOrder = Math.min(
+          aggregate.sortOrder,
+          (document.sortOrder ?? documentIndex) * 1_000_000 + fieldIndex,
         );
         if (
           occurrence.sourceKind === 'literal_value' ||
@@ -284,14 +309,35 @@ export function buildTemplateSetIndex(
             ? aggregate.confidence
             : null,
         contextFingerprint: fingerprint(normalizedSlot),
+        sortOrder: aggregate.sortOrder,
       };
     },
   );
 
+  const documentOrder = new Map(
+    orderedDocuments.map((document, index) => [document.id, index]),
+  );
+  const slotOrderByDocument = new Map<string, number>();
+  const orderedSlots = slots
+    .sort(
+      (left, right) =>
+        (documentOrder.get(left.documentId) ?? Number.MAX_SAFE_INTEGER) -
+          (documentOrder.get(right.documentId) ?? Number.MAX_SAFE_INTEGER) ||
+        compareLawfirmSourceAnchors(left.anchor, right.anchor) ||
+        left.occurrenceKey.localeCompare(right.occurrenceKey),
+    )
+    .map((slot) => {
+      const sortOrder = slotOrderByDocument.get(slot.documentId) ?? 0;
+      slotOrderByDocument.set(slot.documentId, sortOrder + 1);
+      return { ...slot, sortOrder };
+    });
+
   return {
-    fields: fields.sort((left, right) =>
-      left.normalizedSlot.localeCompare(right.normalizedSlot),
+    fields: fields.sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.normalizedSlot.localeCompare(right.normalizedSlot),
     ),
-    slots,
+    slots: orderedSlots,
   };
 }

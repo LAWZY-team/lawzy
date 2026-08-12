@@ -67,6 +67,25 @@ export interface LawfirmTemplateDocumentDto {
   read_only?: boolean;
 }
 
+export interface LawfirmDocumentNavigationDto {
+  document_id: string;
+  fields: Array<{
+    field_id: string;
+    sort_order: number;
+    mapping_status: 'mapped' | 'unmapped' | 'needs_review' | 'conflict';
+    confidence: number | null;
+    occurrences: Array<{
+      occurrence_key: string;
+      source_kind: string;
+      raw_text: string;
+      label_text: string | null;
+      current_value: string | null;
+      anchor: Record<string, unknown> | null;
+      sort_order: number;
+    }>;
+  }>;
+}
+
 export interface LawfirmTemplateSetDto {
   id: string;
   workspace_id: string;
@@ -107,6 +126,104 @@ export interface LawfirmTemplateScanResultDto {
   state: 'ready_for_review' | 'processing' | 'failed';
   cached: boolean;
   note: string;
+}
+
+export interface LawfirmMappingDecisionDto {
+  slot_id: string;
+  label: string;
+  normalized_slot: string;
+  decision: 'mapped' | 'needs_review' | 'unmapped';
+  canonical_key: string | null;
+  mapped_key: string;
+  entity_selector: string | null;
+  confidence: number;
+  reason_code: string;
+  source: 'cache' | 'gemini';
+  document_refs: string[];
+}
+
+export interface LawfirmMappingJobDto {
+  job_id: string;
+  template_set_id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  cached: boolean;
+  result: {
+    total_unique_slots: number;
+    cache_hits: number;
+    gemini_calls: number;
+    mapped: number;
+    needs_review: number;
+    decisions: LawfirmMappingDecisionDto[];
+  } | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LawfirmMappingSummaryDto {
+  template_set_id: string;
+  total_unique_fields: number;
+  mapped_fields: number;
+  unresolved_fields: number;
+  needs_review_fields: number;
+  conflict_fields: number;
+  occurrences: number;
+  estimated_gemini_calls: number;
+  latest_job: {
+    job_id: string;
+    status: 'queued' | 'processing' | 'completed' | 'failed';
+    result: LawfirmMappingJobDto['result'];
+    error_message: string | null;
+    updated_at: string;
+  } | null;
+}
+
+export interface LawfirmAiUsageReportDto {
+  workspace_id: string;
+  period_days: number;
+  since: string;
+  totals: {
+    calls: number;
+    prompt_tokens: number;
+    output_tokens: number;
+    cached_tokens: number;
+    thinking_tokens: number;
+    tool_tokens: number;
+    total_tokens: number;
+    retries: number;
+    latency_ms: number;
+    input_items: number;
+    result_items: number;
+    correction_count: number;
+  };
+  by_task: Array<{
+    task_type: string;
+    calls: number;
+    prompt_tokens: number;
+    output_tokens: number;
+    cached_tokens: number;
+    thinking_tokens: number;
+    total_tokens: number;
+  }>;
+  recent: Array<{
+    id: string;
+    task_type: string;
+    task_label: string;
+    model_name: string;
+    status: string;
+    prompt_tokens: number;
+    output_tokens: number;
+    cached_tokens: number;
+    thinking_tokens: number;
+    tool_tokens: number;
+    total_tokens: number;
+    retries: number;
+    latency_ms: number;
+    input_items: number;
+    result_items: number;
+    template_set: { id: string; name: string } | null;
+    created_at: string;
+  }>;
 }
 
 export type LawfirmTemplateUploadSessionStatus =

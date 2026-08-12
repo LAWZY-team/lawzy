@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import {
   Check,
@@ -8,10 +8,8 @@ import {
   GripVertical,
   Highlighter,
   PencilLine,
-  HelpCircle,
   Loader2,
   Plus,
-  Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -34,14 +32,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { LawfirmMappingSummaryDto } from "@/lib/api/lawfirm/types";
+import type { LawfirmDocumentNavigationDto } from "@/lib/api/lawfirm/types";
+import { useLawfirmDocumentNavigation } from "@/hooks/lawfirm/use-lawfirm-workspace";
+import { useFieldNavigation, type LawfirmFieldSelection } from "@/hooks/lawfirm/use-field-navigation";
 import {
   analyzeDocument,
   buildDocumentPreviewFromFileId,
@@ -49,10 +45,7 @@ import {
   countOccurrences,
 } from "./lawfirm-demo-document-service";
 import { fieldGroupFor, guessMapping } from "./lawfirm-demo-taxonomy";
-import {
-  deleteDocumentBytes,
-  saveDocumentBytes,
-} from "./lawfirm-demo-storage";
+import { deleteDocumentBytes, saveDocumentBytes } from "./lawfirm-demo-storage";
 import type {
   ClientProfile,
   FieldGroup,
@@ -62,13 +55,7 @@ import type {
   TemplateField,
   TemplateSet,
 } from "./lawfirm-demo-types";
-import {
-  EmptyState,
-  FieldLabel,
-  inputClass,
-  SectionCard,
-  StatusBadge,
-} from "./lawfirm-demo-ui";
+import { EmptyState, FieldLabel, inputClass, SectionCard, StatusBadge } from "./lawfirm-demo-ui";
 
 const discoverySourceLabels: Record<string, string> = {
   explicit_placeholder: "Placeholder",
@@ -268,13 +255,11 @@ export function TemplatePanel({
   onUpdateProfile,
   onUpdateDocument,
   onScanDocument,
-  aiScanSuggestions = [],
-  onApproveSuggestions,
-  onDismissSuggestion,
-  onDismissAllSuggestions,
   onUploadDocument,
   onUploadDocuments,
   uploadProgress,
+  mappingSummary,
+  mappingSummaryLoading = false,
   onRemoveDocument,
 }: {
   locale: Locale;
@@ -287,10 +272,7 @@ export function TemplatePanel({
   onSelectProfile: (id: string) => void;
   onAddTemplate: () => void | Promise<void>;
   onDeleteTemplate: (id: string) => void;
-  onUpdateTemplate: (
-    id: string,
-    updater: (template: TemplateSet) => TemplateSet,
-  ) => void | Promise<void>;
+  onUpdateTemplate: (id: string, updater: (template: TemplateSet) => TemplateSet) => void | Promise<void>;
   onReorderDocuments?: (documentIds: string[]) => Promise<void>;
   onModeChange: (next: "library" | "editor") => void;
   onAddProfile: (name?: string) => ClientProfile | Promise<ClientProfile>;
@@ -307,33 +289,18 @@ export function TemplatePanel({
       confidence: number;
       source: "deterministic" | "ai";
     }>;
+    summary?: {
+      total: number;
+      mapped: number;
+      needsReview: number;
+      cacheHits: number;
+      geminiCalls: number;
+    };
   }>;
-  aiScanSuggestions?: Array<{
-    documentId: string;
-    documentName: string;
-    suggestions: Array<{
-      placeholder: string;
-      mappedKey: string;
-      label: string;
-      confidence: number;
-      source: "deterministic" | "ai";
-    }>;
-  }>;
-  onApproveSuggestions?: (
-    docId: string,
-    approved: Array<{ placeholder: string; mappedKey: string; label: string }>,
-  ) => void;
-  onDismissSuggestion?: (docId: string, placeholder: string) => void;
-  onDismissAllSuggestions?: (docId: string) => void;
   onUploadDocument?: (file: File) => Promise<void>;
   onUploadDocuments?: (
     files: File[],
-    onProgress: (progress: {
-      total: number;
-      processed: number;
-      failed: number;
-      pending: number;
-    }) => void,
+    onProgress: (progress: { total: number; processed: number; failed: number; pending: number }) => void,
   ) => Promise<void>;
   uploadProgress?: {
     status: string;
@@ -342,13 +309,12 @@ export function TemplatePanel({
     failed: number;
     pending: number;
   } | null;
+  mappingSummary?: LawfirmMappingSummaryDto | null;
+  mappingSummaryLoading?: boolean;
   onRemoveDocument?: (docId: string) => Promise<void>;
 }) {
   const t = copy[locale];
-  const activeTemplate =
-    activeTemplateProp ??
-    templates.find((item) => item.id === templates[0]?.id) ??
-    templates[0];
+  const activeTemplate = activeTemplateProp ?? templates.find((item) => item.id === templates[0]?.id) ?? templates[0];
 
   const [draftName, setDraftName] = useState(activeTemplate.name);
   const draftNameRef = useRef(activeTemplate.name);
@@ -361,45 +327,32 @@ export function TemplatePanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [previewModalTpl, setPreviewModalTpl] = useState<TemplateSet | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
-  const [aiReviewByDocumentId, setAiReviewByDocumentId] = useState<
-    Record<string, AiReviewState>
-  >({});
+  const [aiReviewByDocumentId, setAiReviewByDocumentId] = useState<Record<string, AiReviewState>>({});
   const aiScanPromiseByDocumentId = useRef(new Map<string, Promise<void>>());
-  const serverDocumentOrderKey = activeTemplate.documents
-    .map((documentItem) => documentItem.id)
-    .join("|");
+  const serverDocumentOrderKey = activeTemplate.documents.map((documentItem) => documentItem.id).join("|");
   const [documentOrderIds, setDocumentOrderIds] = useState<string[]>(() =>
     activeTemplate.documents.map((documentItem) => documentItem.id),
   );
 
   useEffect(() => {
-    setDocumentOrderIds(
-      serverDocumentOrderKey ? serverDocumentOrderKey.split("|") : [],
-    );
+    setDocumentOrderIds(serverDocumentOrderKey ? serverDocumentOrderKey.split("|") : []);
   }, [activeTemplate.id, serverDocumentOrderKey]);
 
   const orderedDocuments = useMemo(() => {
-    const byId = new Map(
-      activeTemplate.documents.map((documentItem) => [
-        documentItem.id,
-        documentItem,
-      ]),
-    );
+    const byId = new Map(activeTemplate.documents.map((documentItem) => [documentItem.id, documentItem]));
     return [
       ...documentOrderIds
         .map((documentId) => byId.get(documentId))
-        .filter((documentItem): documentItem is TemplateDocument =>
-          Boolean(documentItem),
-        ),
-      ...activeTemplate.documents.filter(
-        (documentItem) => !documentOrderIds.includes(documentItem.id),
-      ),
+        .filter((documentItem): documentItem is TemplateDocument => Boolean(documentItem)),
+      ...activeTemplate.documents.filter((documentItem) => !documentOrderIds.includes(documentItem.id)),
     ];
   }, [activeTemplate.documents, documentOrderIds]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const handleDragEnd = async (event: DragEndEvent): Promise<void> => {
@@ -418,9 +371,7 @@ export function TemplatePanel({
           update((template) => ({
             ...template,
             documents: nextOrder
-              .map((documentId) =>
-                template.documents.find((item) => item.id === documentId),
-              )
+              .map((documentId) => template.documents.find((item) => item.id === documentId))
               .filter((item): item is TemplateDocument => Boolean(item)),
           }));
         }
@@ -437,9 +388,7 @@ export function TemplatePanel({
     }
   };
 
-  const [activeDocumentId, setActiveDocumentId] = useState(
-    activeTemplate.documents[0]?.id ?? "",
-  );
+  const [activeDocumentId, setActiveDocumentId] = useState(activeTemplate.documents[0]?.id ?? "");
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState("");
   const [processingProgress, setProcessingProgress] = useState<{
@@ -461,32 +410,29 @@ export function TemplatePanel({
   }, [activeTemplate.id, activeTemplate.name, activeTemplate.description]);
 
   const activeDocument =
-    activeTemplate.documents.find((item) => item.id === activeDocumentId) ??
-    activeTemplate.documents[0];
+    activeTemplate.documents.find((item) => item.id === activeDocumentId) ?? activeTemplate.documents[0];
+  const documentNavigationQuery = useLawfirmDocumentNavigation(activeDocument?.id);
+  const mappingInProgress =
+    Object.values(aiReviewByDocumentId).some((review) => review.status === "scanning") ||
+    mappingSummary?.latest_job?.status === "processing";
 
-  const updateAiReview = useCallback(
-    (
-      documentId: string,
-      updater: (current: AiReviewState) => AiReviewState,
-    ): void => {
-      setAiReviewByDocumentId((current) => ({
-        ...current,
-        [documentId]: updater(
-          current[documentId] ?? { status: "idle", suggestions: [] },
-        ),
-      }));
-    },
-    [],
-  );
+  const openManualMapping = (): void => {
+    document.getElementById("lawfirm-field-review")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const updateAiReview = useCallback((documentId: string, updater: (current: AiReviewState) => AiReviewState): void => {
+    setAiReviewByDocumentId((current) => ({
+      ...current,
+      [documentId]: updater(current[documentId] ?? { status: "idle", suggestions: [] }),
+    }));
+  }, []);
 
   const requestAiScan = useCallback(
     async (documentId: string): Promise<void> => {
       const running = aiScanPromiseByDocumentId.current.get(documentId);
       if (running) return running;
 
-      const documentItem = activeTemplate.documents.find(
-        (item) => item.id === documentId,
-      );
+      const documentItem = activeTemplate.documents.find((item) => item.id === documentId);
       if (!documentItem?.plainText.trim()) {
         toast.warning(
           locale === "vi"
@@ -507,37 +453,17 @@ export function TemplatePanel({
             mappedKey: string;
             label: string;
           }> = [];
-          if (onScanDocument) {
-            const result = await onScanDocument(documentId);
-            resultAi = result.ai;
-          } else {
-            const response = await fetch("/api/ai/scan-template", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: documentItem.plainText }),
-            });
-            if (response.ok) {
-              const data = (await response.json()) as {
-                ai?: typeof resultAi;
-              };
-              resultAi = data.ai ?? [];
-            }
-          }
+          if (!onScanDocument) throw new Error("AI mapping gateway is unavailable");
+          const result = await onScanDocument(documentId);
+          resultAi = result.ai;
 
-          const existing = new Set(
-            documentItem.fields.map((field) => field.placeholder.trim()),
-          );
+          const existing = new Set(documentItem.fields.map((field) => field.placeholder.trim()));
           const suggestions = resultAi
-            .filter(
-              (item) =>
-                item.placeholder.trim() &&
-                !existing.has(item.placeholder.trim()),
-            )
+            .filter((item) => item.placeholder.trim() && !existing.has(item.placeholder.trim()))
             .map(
               (item, index): AiSuggestion => ({
                 id: `ai-${documentId}-${index}`,
-                label:
-                  item.label.trim() || cleanPlaceholderLabel(item.placeholder),
+                label: item.label.trim() || cleanPlaceholderLabel(item.placeholder),
                 placeholder: item.placeholder.trim(),
                 mappedKey: item.mappedKey,
                 checked: true,
@@ -548,10 +474,20 @@ export function TemplatePanel({
             suggestions,
           }));
           if (suggestions.length === 0) {
+            const needsReview = result.summary?.needsReview ?? 0;
+            const mapped = result.summary?.mapped ?? 0;
             toast.info(
-              locale === "vi"
-                ? "AI đã quét xong, không phát hiện thêm trường mới nào."
-                : "AI scan complete, no new fields detected.",
+              needsReview > 0
+                ? locale === "vi"
+                  ? `${needsReview} trường chưa đủ tin cậy; vui lòng chọn ánh xạ thủ công.`
+                  : `${needsReview} fields need manual mapping review.`
+                : mapped > 0
+                  ? locale === "vi"
+                    ? `Đã ánh xạ ${mapped} trường có độ tin cậy cao.`
+                    : `Mapped ${mapped} high-confidence fields.`
+                  : locale === "vi"
+                    ? "AI đã quét xong, không phát hiện thêm trường mới nào."
+                    : "AI scan complete, no new fields detected.",
             );
           }
         } catch {
@@ -641,15 +577,10 @@ export function TemplatePanel({
     return `${day}/${month}/${year}`;
   };
 
-  const updateDocument = (
-    documentId: string,
-    updater: (documentItem: TemplateDocument) => TemplateDocument,
-  ) => {
+  const updateDocument = (documentId: string, updater: (documentItem: TemplateDocument) => TemplateDocument) => {
     update((template) => ({
       ...template,
-      documents: template.documents.map((item) =>
-        item.id === documentId ? updater(item) : item,
-      ),
+      documents: template.documents.map((item) => (item.id === documentId ? updater(item) : item)),
     }));
   };
 
@@ -658,11 +589,7 @@ export function TemplatePanel({
     setError("");
     setProcessingProgress(null);
     if (onUploadDocuments && files.length > 0) {
-      setProcessing(
-        locale === "vi"
-          ? `${files.length} tài liệu`
-          : `${files.length} documents`,
-      );
+      setProcessing(locale === "vi" ? `${files.length} tài liệu` : `${files.length} documents`);
       try {
         await onUploadDocuments(files, setProcessingProgress);
       } catch {
@@ -764,7 +691,9 @@ export function TemplatePanel({
                 {locale === "vi" ? "Tạo bộ hồ sơ mẫu mới" : "Create new template set"}
               </div>
               <p className="mt-1 text-xs text-zinc-500 text-center">
-                {locale === "vi" ? "Thêm tài liệu mẫu DOCX / PDF mới vào hệ thống" : "Add new template documents to library"}
+                {locale === "vi"
+                  ? "Thêm tài liệu mẫu DOCX / PDF mới vào hệ thống"
+                  : "Add new template documents to library"}
               </p>
             </button>
 
@@ -781,9 +710,7 @@ export function TemplatePanel({
                   <div>
                     <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
                       <div>
-                        <span className="text-[11px] font-medium text-zinc-400">
-                          {dateFormatted}
-                        </span>
+                        <span className="text-[11px] font-medium text-zinc-400">{dateFormatted}</span>
                         <h2 className="text-base font-bold text-zinc-950 mt-0.5 line-clamp-1">{title}</h2>
                       </div>
                       <span className="inline-flex shrink-0 items-center rounded-full bg-zinc-950 px-2.5 py-0.5 text-xs font-semibold text-white">
@@ -791,9 +718,7 @@ export function TemplatePanel({
                       </span>
                     </div>
 
-                    <p className="mt-3 text-xs leading-relaxed text-zinc-600 line-clamp-3">
-                      {desc}
-                    </p>
+                    <p className="mt-3 text-xs leading-relaxed text-zinc-600 line-clamp-3">{desc}</p>
                   </div>
 
                   {deletingTemplateId === tpl.id ? (
@@ -873,7 +798,8 @@ export function TemplatePanel({
                 {previewModalTpl?.name || (locale === "vi" ? "Bộ chưa đặt tên" : "Untitled set")}
               </DialogTitle>
               <DialogDescription className="text-xs text-zinc-500">
-                Tạo ngày: {formatTemplateDate(previewModalTpl?.createdAt)} • {previewModalTpl?.documents.length || 0} tài liệu
+                Tạo ngày: {formatTemplateDate(previewModalTpl?.createdAt)} • {previewModalTpl?.documents.length || 0}{" "}
+                tài liệu
               </DialogDescription>
             </DialogHeader>
 
@@ -893,12 +819,17 @@ export function TemplatePanel({
                   <div key={doc.id} className="rounded-md border border-zinc-200 bg-white p-3.5 text-xs space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-zinc-950">{doc.fileName}</span>
-                      <span className="text-[11px] font-medium text-zinc-500">{doc.fields.length} trường thông tin</span>
+                      <span className="text-[11px] font-medium text-zinc-500">
+                        {doc.fields.length} trường thông tin
+                      </span>
                     </div>
                     {doc.fields.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {doc.fields.map((f) => (
-                          <span key={f.id} className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[10px] text-zinc-700">
+                          <span
+                            key={f.id}
+                            className="rounded bg-zinc-100 px-2 py-0.5 font-mono text-[10px] text-zinc-700"
+                          >
                             {f.placeholder}
                           </span>
                         ))}
@@ -935,89 +866,80 @@ export function TemplatePanel({
     );
   }
 
-function SortableDocumentItem({
-  documentItem,
-  isActive,
-  isScanning,
-  onSelect,
-  onRemove,
-  t,
-}: {
-  documentItem: TemplateDocument;
-  isActive: boolean;
-  isScanning: boolean;
-  onSelect: () => void;
-  onRemove: () => void;
-  t: (typeof copy)[Locale];
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: documentItem.id });
+  function SortableDocumentItem({
+    documentItem,
+    isActive,
+    isScanning,
+    onSelect,
+    onRemove,
+    t,
+  }: {
+    documentItem: TemplateDocument;
+    isActive: boolean;
+    isScanning: boolean;
+    onSelect: () => void;
+    onRemove: () => void;
+    t: (typeof copy)[Locale];
+  }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id: documentItem.id,
+    });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "flex items-center gap-1.5 rounded-md border p-2 bg-white transition-all",
-        isActive ? "border-zinc-950 bg-zinc-50 shadow-2xs" : "border-zinc-200 hover:border-zinc-300",
-        isDragging && "opacity-50 z-50 shadow-md",
-      )}
-    >
-      <button
-        type="button"
-        className="touch-none cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-600 p-0.5"
-        {...attributes}
-        {...listeners}
-        aria-label="Reorder document"
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md border p-2 bg-white transition-all",
+          isActive ? "border-zinc-950 bg-zinc-50 shadow-2xs" : "border-zinc-200 hover:border-zinc-300",
+          isDragging && "opacity-50 z-50 shadow-md",
+        )}
       >
-        <GripVertical className="size-3.5" />
-      </button>
+        <button
+          type="button"
+          className="touch-none cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-600 p-0.5"
+          {...attributes}
+          {...listeners}
+          aria-label="Reorder document"
+        >
+          <GripVertical className="size-3.5" />
+        </button>
 
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-      >
-        <FileText className="size-4 shrink-0 text-zinc-500" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-semibold text-zinc-900">{documentItem.fileName}</span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] uppercase text-zinc-500">
-            {isScanning ? (
-              <span className="inline-flex items-center gap-1 text-amber-700 font-medium lowercase">
-                <Loader2 className="size-3 animate-spin text-amber-600" />
-                <span>đang quét AI...</span>
-              </span>
-            ) : (
-              <span>
-                {documentItem.fileType} · {documentItem.fields.length} {t.fields.toLowerCase()}
-              </span>
-            )}
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <FileText className="size-4 shrink-0 text-zinc-500" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs font-semibold text-zinc-900">{documentItem.fileName}</span>
+            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] uppercase text-zinc-500">
+              {isScanning ? (
+                <span className="inline-flex items-center gap-1 text-amber-700 font-medium lowercase">
+                  <Loader2 className="size-3 animate-spin text-amber-600" />
+                  <span>đang quét AI...</span>
+                </span>
+              ) : (
+                <span>
+                  {documentItem.fileType} · {documentItem.fields.length} {t.fields.toLowerCase()}
+                </span>
+              )}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
 
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Delete document"
-        className="flex size-7 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 transition"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
-    </div>
-  );
-}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Delete document"
+          className="flex size-7 shrink-0 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 transition"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
@@ -1116,23 +1038,93 @@ function SortableDocumentItem({
         </div>
       </SectionCard>
 
+      {activeTemplate.documents.length > 0 && (
+        <section className="rounded-md border border-zinc-200 bg-white px-4 py-3" aria-live="polite">
+          {mappingSummaryLoading && !mappingSummary ? (
+            <div className="space-y-2 py-1">
+              <div className="h-4 w-52 animate-pulse rounded bg-zinc-100" />
+              <div className="h-3 w-80 max-w-full animate-pulse rounded bg-zinc-100" />
+            </div>
+          ) : mappingSummary ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-950">
+                  {mappingInProgress
+                    ? locale === "vi"
+                      ? "Đang hoàn thiện ánh xạ bằng AI"
+                      : "Completing mappings with AI"
+                    : mappingSummary.unresolved_fields === 0
+                      ? locale === "vi"
+                        ? `Đã nhận diện và ánh xạ đủ ${mappingSummary.total_unique_fields} trường`
+                        : `All ${mappingSummary.total_unique_fields} fields are recognized and mapped`
+                      : locale === "vi"
+                        ? `Đã ánh xạ ${mappingSummary.mapped_fields}/${mappingSummary.total_unique_fields} trường`
+                        : `Mapped ${mappingSummary.mapped_fields}/${mappingSummary.total_unique_fields} fields`}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  {mappingInProgress
+                    ? locale === "vi"
+                      ? "Bạn có thể mở tài liệu khác. Kết quả được lưu trên máy chủ và sẽ sẵn sàng khi xử lý xong."
+                      : "You can open another document. The result is persisted and will be ready when processing finishes."
+                    : mappingSummary.unresolved_fields === 0
+                      ? locale === "vi"
+                        ? `${mappingSummary.occurrences} vị trí dùng chung dữ liệu. Không cần gọi Gemini.`
+                        : `${mappingSummary.occurrences} occurrences share this data. Gemini is not needed.`
+                      : locale === "vi"
+                        ? `${mappingSummary.unresolved_fields} trường chưa rõ · dự kiến ${mappingSummary.estimated_gemini_calls} lượt Gemini. Chỉ các trường này được gửi đi.`
+                        : `${mappingSummary.unresolved_fields} unresolved fields · about ${mappingSummary.estimated_gemini_calls} Gemini call(s). Only these fields are sent.`}
+                </p>
+                {mappingSummary.latest_job?.status === "failed" && !mappingInProgress ? (
+                  <p className="mt-1 text-xs text-red-700">
+                    {locale === "vi"
+                      ? "Lần phân tích trước chưa hoàn tất. Bạn có thể thử lại."
+                      : "The previous analysis did not finish. You can retry."}
+                  </p>
+                ) : null}
+              </div>
+
+              {mappingSummary.unresolved_fields > 0 ? (
+                <div className="flex shrink-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={openManualMapping}
+                    className="text-xs font-medium text-zinc-600 underline-offset-4 hover:text-zinc-950 hover:underline"
+                  >
+                    {locale === "vi" ? "Tự ánh xạ" : "Map manually"}
+                  </button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={mappingInProgress || !activeDocument}
+                    onClick={() => activeDocument && void requestAiScan(activeDocument.id)}
+                    className="bg-zinc-950 px-3 text-xs text-white hover:bg-zinc-800"
+                  >
+                    {mappingInProgress
+                      ? locale === "vi"
+                        ? "Đang phân tích…"
+                        : "Analyzing…"
+                      : locale === "vi"
+                        ? `Phân tích ${mappingSummary.unresolved_fields} trường bằng AI`
+                        : `Analyze ${mappingSummary.unresolved_fields} fields with AI`}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      )}
+
       <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         <SectionCard title={t.documents}>
           <div className="space-y-2 p-3">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext
-                items={orderedDocuments.map((d) => d.id)}
-                strategy={verticalListSortingStrategy}
-              >
+              <SortableContext items={orderedDocuments.map((d) => d.id)} strategy={verticalListSortingStrategy}>
                 {orderedDocuments.map((documentItem) => (
                   <SortableDocumentItem
                     key={documentItem.id}
                     documentItem={documentItem}
                     isActive={documentItem.id === activeDocument?.id}
-                    isScanning={
-                      aiReviewByDocumentId[documentItem.id]?.status ===
-                      "scanning"
-                    }
+                    isScanning={aiReviewByDocumentId[documentItem.id]?.status === "scanning"}
                     onSelect={() => setActiveDocumentId(documentItem.id)}
                     onRemove={() => void removeDocument(documentItem)}
                     t={t}
@@ -1157,9 +1149,7 @@ function SortableDocumentItem({
             }}
             className={cn(
               "m-3 mt-0 flex w-[calc(100%-1.5rem)] flex-col items-center rounded-md border border-dashed px-4 py-6 text-center transition",
-              dragging
-                ? "border-zinc-950 bg-zinc-100"
-                : "border-zinc-300 bg-zinc-50 hover:border-zinc-950",
+              dragging ? "border-zinc-950 bg-zinc-100" : "border-zinc-300 bg-zinc-50 hover:border-zinc-950",
             )}
           >
             <UploadCloud className="size-5 text-zinc-600" />
@@ -1185,40 +1175,39 @@ function SortableDocumentItem({
               </p>
               {(processingProgress || uploadProgress) && (
                 <p className="mt-1 text-xs text-zinc-500">
-                  {(processingProgress ?? uploadProgress)!.processed}/
-                  {(processingProgress ?? uploadProgress)!.total}
+                  {(processingProgress ?? uploadProgress)!.processed}/{(processingProgress ?? uploadProgress)!.total}
                   {(processingProgress ?? uploadProgress)!.failed > 0
-                    ? ` · ${(processingProgress ?? uploadProgress)!.failed} ${
-                        locale === "vi" ? "lỗi" : "failed"
-                      }`
+                    ? ` · ${(processingProgress ?? uploadProgress)!.failed} ${locale === "vi" ? "lỗi" : "failed"}`
                     : ""}
                 </p>
               )}
             </div>
           )}
-          {error && <p className="mx-3 mb-3 text-sm text-red-700" role="alert">{error}</p>}
+          {error && (
+            <p className="mx-3 mb-3 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          )}
         </SectionCard>
 
         {activeDocument ? (
           <DocumentEditor
             locale={locale}
             documentItem={activeDocument}
-            profileFields={
-              profiles.find((profile) => profile.id === activeProfileId)?.fields ?? []
-            }
+            profileFields={profiles.find((profile) => profile.id === activeProfileId)?.fields ?? []}
             aiReview={
               aiReviewByDocumentId[activeDocument.id] ?? {
                 status: "idle",
                 suggestions: [],
               }
             }
+            navigation={documentNavigationQuery.data ?? null}
             onAiSuggestionsChange={(updater) =>
               updateAiReview(activeDocument.id, (current) => ({
                 ...current,
                 suggestions: updater(current.suggestions),
               }))
             }
-            onRequestAiScan={() => requestAiScan(activeDocument.id)}
             onPersist={(updater) =>
               Promise.resolve(
                 onUpdateDocument
@@ -1255,18 +1244,16 @@ function DocumentEditor({
   documentItem,
   profileFields,
   aiReview,
+  navigation,
   onAiSuggestionsChange,
-  onRequestAiScan,
   onPersist,
 }: {
   locale: Locale;
   documentItem: TemplateDocument;
   profileFields: ProfileField[];
   aiReview: AiReviewState;
-  onAiSuggestionsChange: (
-    updater: (current: AiSuggestion[]) => AiSuggestion[],
-  ) => void;
-  onRequestAiScan: () => Promise<void>;
+  navigation: LawfirmDocumentNavigationDto | null;
+  onAiSuggestionsChange: (updater: (current: AiSuggestion[]) => AiSuggestion[]) => void;
   onPersist: (updater: (documentItem: TemplateDocument) => TemplateDocument) => Promise<void>;
 }) {
   const t = copy[locale];
@@ -1275,17 +1262,38 @@ function DocumentEditor({
   const isDirtyRef = useRef(false);
   const isSavingRef = useRef(false);
   const isRestoringPreviewRef = useRef(false);
-  const aiStatus = aiReview.status;
+  const [fieldSearch, setFieldSearch] = useState("");
+  const [fieldFilter, setFieldFilter] = useState<"all" | "review" | "unmapped">("all");
+  const fieldNavigation = useFieldNavigation(documentItem.id);
   const aiSuggestions = aiReview.suggestions;
-  const setAiSuggestions = (
-    next:
-      | AiSuggestion[]
-      | ((current: AiSuggestion[]) => AiSuggestion[]),
-  ): void => {
-    onAiSuggestionsChange((current) =>
-      typeof next === "function" ? next(current) : next,
-    );
+  const setAiSuggestions = (next: AiSuggestion[] | ((current: AiSuggestion[]) => AiSuggestion[])): void => {
+    onAiSuggestionsChange((current) => (typeof next === "function" ? next(current) : next));
   };
+  const navigationByFieldId = useMemo(
+    () => new Map((navigation?.fields ?? []).map((field) => [field.field_id, field])),
+    [navigation],
+  );
+  const orderedFields = useMemo(() => {
+    const originalOrder = new Map(draftDocument.fields.map((field, index) => [field.id, index]));
+    return [...draftDocument.fields].sort((left, right) => {
+      const leftOrder = navigationByFieldId.get(left.id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = navigationByFieldId.get(right.id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || (originalOrder.get(left.id) ?? 0) - (originalOrder.get(right.id) ?? 0);
+    });
+  }, [draftDocument.fields, navigationByFieldId]);
+  const visibleFields = useMemo(() => {
+    const query = fieldSearch.trim().toLocaleLowerCase(locale === "vi" ? "vi" : "en");
+    return orderedFields.filter((field) => {
+      const navigationField = navigationByFieldId.get(field.id);
+      const status = navigationField?.mapping_status ?? (field.mappedKey ? "mapped" : "unmapped");
+      if (fieldFilter === "review" && !["needs_review", "conflict"].includes(status)) return false;
+      if (fieldFilter === "unmapped" && status !== "unmapped") return false;
+      if (!query) return true;
+      return [field.label, field.placeholder, field.mappedKey].some((value) =>
+        value.toLocaleLowerCase(locale === "vi" ? "vi" : "en").includes(query),
+      );
+    });
+  }, [fieldFilter, fieldSearch, locale, navigationByFieldId, orderedFields]);
 
   useEffect(() => {
     isDirtyRef.current = false;
@@ -1293,6 +1301,8 @@ function DocumentEditor({
     isRestoringPreviewRef.current = false;
     draftDocumentRef.current = documentItem;
     setDraftDocument(documentItem);
+    // Switching documents is the reset boundary; background query refreshes must not discard local edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentItem.id]);
 
   useEffect(() => {
@@ -1306,20 +1316,14 @@ function DocumentEditor({
     isRestoringPreviewRef.current = true;
     void (async () => {
       try {
-        const restored = await buildDocumentPreviewFromFileId(
-          currentDocument.fileId!,
-          currentDocument.fileName,
-        );
+        const restored = await buildDocumentPreviewFromFileId(currentDocument.fileId!, currentDocument.fileName);
         applyDraft(
           (documentValue) => ({
             ...documentValue,
             previewHtml: restored.previewHtml,
             previewImage: restored.previewImage,
             plainText: restored.plainText,
-            fields:
-              documentValue.fields.length > 0
-                ? documentValue.fields
-                : restored.fields,
+            fields: documentValue.fields.length > 0 ? documentValue.fields : restored.fields,
           }),
           currentDocument.fileType === "docx",
         );
@@ -1335,7 +1339,16 @@ function DocumentEditor({
         isRestoringPreviewRef.current = false;
       }
     })();
-  }, [draftDocument.fileId, draftDocument.fileName, draftDocument.fileType, draftDocument.previewHtml, draftDocument.previewImage, locale]);
+    // Preview restoration is keyed by persisted preview inputs. `applyDraft` is intentionally unstable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftDocument.fileId,
+    draftDocument.fileName,
+    draftDocument.fileType,
+    draftDocument.previewHtml,
+    draftDocument.previewImage,
+    locale,
+  ]);
 
   const applyDraft = (
     updater: (documentValue: TemplateDocument) => TemplateDocument,
@@ -1374,9 +1387,7 @@ function DocumentEditor({
     applyDraft(
       (documentValue) => ({
         ...documentValue,
-        fields: documentValue.fields.map((field) =>
-          field.id === id ? { ...field, ...patch } : field,
-        ),
+        fields: documentValue.fields.map((field) => (field.id === id ? { ...field, ...patch } : field)),
       }),
       saveImmediately,
     );
@@ -1400,16 +1411,6 @@ function DocumentEditor({
       true,
     );
   };
-
-  const runAiScan = async (): Promise<void> => {
-    await onRequestAiScan();
-  };
-
-  useEffect(() => {
-    if (draftDocument.fileType !== "docx" && draftDocument.fileType !== "doc") return;
-    if (draftDocument.fields.length > 0 || aiStatus !== "idle") return;
-    void runAiScan();
-  }, [draftDocument.fileType, draftDocument.fields.length, aiStatus, onRequestAiScan]);
 
   const approveAiSuggestions = (): void => {
     const selected = aiSuggestions.filter((item) => item.checked);
@@ -1442,10 +1443,13 @@ function DocumentEditor({
           type="button"
           variant={draftDocument.status === "done" ? "outline" : "default"}
           onClick={() =>
-            applyDraft((documentValue) => ({
-              ...documentValue,
-              status: documentValue.status === "done" ? "draft" : "done",
-            }), true)
+            applyDraft(
+              (documentValue) => ({
+                ...documentValue,
+                status: documentValue.status === "done" ? "draft" : "done",
+              }),
+              true,
+            )
           }
           className={draftDocument.status === "draft" ? "bg-zinc-950 text-white hover:bg-zinc-800" : ""}
         >
@@ -1483,9 +1487,7 @@ function DocumentEditor({
                   onClick={() => applyDraft((value) => ({ ...value, previewMode: "edit" }), true)}
                   className={cn(
                     "flex h-8 items-center gap-2 rounded px-3 text-xs font-medium",
-                    draftDocument.previewMode === "edit"
-                      ? "bg-zinc-950 text-white"
-                      : "text-zinc-600 hover:bg-zinc-100",
+                    draftDocument.previewMode === "edit" ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-100",
                   )}
                 >
                   <PencilLine className="size-4" />
@@ -1495,21 +1497,30 @@ function DocumentEditor({
             )}
           </div>
           {draftDocument.previewMode === "edit" && (
-            <p className="mb-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs text-zinc-600">
-              {t.editHint}
-            </p>
+            <p className="mb-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs text-zinc-600">{t.editHint}</p>
           )}
           <PreviewPane
+            locale={locale}
             documentItem={draftDocument}
+            navigation={navigation}
+            previewRef={fieldNavigation.previewRef}
+            selection={fieldNavigation.selection}
+            onActivateField={fieldNavigation.selectFromPreview}
             noPreview={t.noPreview}
             onSelectText={addField}
             onEdit={(html) =>
-              applyDraft((value) => ({ ...value, previewHtml: DOMPurify.sanitize(html) }), true)
+              applyDraft(
+                (value) => ({
+                  ...value,
+                  previewHtml: DOMPurify.sanitize(html),
+                }),
+                true,
+              )
             }
           />
         </div>
 
-        <div className="min-w-0 p-4">
+        <div id="lawfirm-field-review" className="min-w-0 scroll-mt-4 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold">{t.fields}</h3>
@@ -1518,37 +1529,32 @@ function DocumentEditor({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={aiStatus === "scanning"}
-                onClick={() => void runAiScan()}
-                className="border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-50 text-xs font-medium"
-              >
-                <span>{aiStatus === "scanning" ? (locale === "vi" ? "Đang quét AI..." : "Scanning AI...") : (locale === "vi" ? "Quét AI" : "AI Scan")}</span>
-              </Button>
-
               <Button type="button" variant="outline" size="sm" onClick={() => addField()}>
                 <Plus className="size-4" />
                 {t.addField}
               </Button>
             </div>
           </div>
-          <div className="max-h-[580px] space-y-3 overflow-y-auto pr-1">
-            {aiStatus === "scanning" ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-zinc-800">
-                {t.aiScanning}
-              </div>
-            ) : null}
-            {aiStatus === "error" ? (
-              <div className="rounded-md border border-zinc-300 bg-zinc-50 p-3">
-                <p className="text-sm text-zinc-700">{t.aiScanError}</p>
-                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void runAiScan()}>
-                  {t.aiScanRetry}
-                </Button>
-              </div>
-            ) : null}
+          <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              type="search"
+              value={fieldSearch}
+              onChange={(event) => setFieldSearch(event.target.value)}
+              placeholder={locale === "vi" ? "Tìm theo tên, placeholder hoặc trường ánh xạ" : "Search fields"}
+              className={cn(inputClass, "h-9 text-xs")}
+            />
+            <select
+              value={fieldFilter}
+              onChange={(event) => setFieldFilter(event.target.value as typeof fieldFilter)}
+              className={cn(inputClass, "h-9 w-full text-xs sm:w-36")}
+              aria-label={locale === "vi" ? "Lọc trường" : "Filter fields"}
+            >
+              <option value="all">{locale === "vi" ? "Tất cả" : "All"}</option>
+              <option value="review">{locale === "vi" ? "Cần kiểm tra" : "Needs review"}</option>
+              <option value="unmapped">{locale === "vi" ? "Chưa ánh xạ" : "Unmapped"}</option>
+            </select>
+          </div>
+          <div ref={fieldNavigation.fieldListRef} className="max-h-[580px] space-y-3 overflow-y-auto pr-1">
             {aiSuggestions.length ? (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
                 <div className="space-y-2">
@@ -1561,9 +1567,7 @@ function DocumentEditor({
                           onChange={(event) =>
                             setAiSuggestions((current) =>
                               current.map((item) =>
-                                item.id === suggestion.id
-                                  ? { ...item, checked: event.target.checked }
-                                  : item,
+                                item.id === suggestion.id ? { ...item, checked: event.target.checked } : item,
                               ),
                             )
                           }
@@ -1575,9 +1579,7 @@ function DocumentEditor({
                             onChange={(event) =>
                               setAiSuggestions((current) =>
                                 current.map((item) =>
-                                  item.id === suggestion.id
-                                    ? { ...item, label: event.target.value }
-                                    : item,
+                                  item.id === suggestion.id ? { ...item, label: event.target.value } : item,
                                 ),
                               )
                             }
@@ -1589,7 +1591,10 @@ function DocumentEditor({
                               setAiSuggestions((current) =>
                                 current.map((item) =>
                                   item.id === suggestion.id
-                                    ? { ...item, placeholder: event.target.value }
+                                    ? {
+                                        ...item,
+                                        placeholder: event.target.value,
+                                      }
                                     : item,
                                 ),
                               )
@@ -1601,9 +1606,7 @@ function DocumentEditor({
                             onChange={(event) =>
                               setAiSuggestions((current) =>
                                 current.map((item) =>
-                                  item.id === suggestion.id
-                                    ? { ...item, mappedKey: event.target.value }
-                                    : item,
+                                  item.id === suggestion.id ? { ...item, mappedKey: event.target.value } : item,
                                 ),
                               )
                             }
@@ -1620,9 +1623,7 @@ function DocumentEditor({
                         <button
                           type="button"
                           onClick={() =>
-                            setAiSuggestions((current) =>
-                              current.filter((item) => item.id !== suggestion.id),
-                            )
+                            setAiSuggestions((current) => current.filter((item) => item.id !== suggestion.id))
                           }
                           className="flex size-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950"
                           aria-label={t.aiDismissRow}
@@ -1643,19 +1644,47 @@ function DocumentEditor({
                   >
                     {t.aiApproveSelected}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAiSuggestions([])}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAiSuggestions([])}>
                     {t.aiDismissAll}
                   </Button>
                 </div>
               </div>
             ) : null}
-            {draftDocument.fields.map((field) => (
-              <article key={field.id} className="rounded-md border border-zinc-200 p-3">
+            {visibleFields.map((field) => {
+              const navigationField = navigationByFieldId.get(field.id);
+              const occurrences = navigationField?.occurrences ?? [];
+              const mappingStatus = navigationField?.mapping_status ?? (field.mappedKey ? "mapped" : "unmapped");
+              const activeOccurrenceIndex = occurrences.findIndex(
+                (occurrence) => occurrence.occurrence_key === fieldNavigation.selection?.occurrenceKey,
+              );
+              const active = fieldNavigation.selection?.fieldId === field.id;
+              const showOccurrence = (index: number) => {
+                const occurrence = occurrences[index];
+                fieldNavigation.selectFromPanel({
+                  fieldId: field.id,
+                  occurrenceKey: occurrence?.occurrence_key ?? null,
+                });
+              };
+              return (
+              <article
+                key={field.id}
+                data-field-card={field.id}
+                tabIndex={0}
+                aria-current={active ? "true" : undefined}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest("input, select, textarea, button")) return;
+                  showOccurrence(activeOccurrenceIndex >= 0 ? activeOccurrenceIndex : 0);
+                }}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget || !["Enter", " "].includes(event.key)) return;
+                  event.preventDefault();
+                  showOccurrence(activeOccurrenceIndex >= 0 ? activeOccurrenceIndex : 0);
+                }}
+                className={cn(
+                  "rounded-md border p-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-500",
+                  active ? "border-blue-400 bg-blue-50/50" : "border-zinc-200 bg-white",
+                )}
+              >
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <FieldLabel>{t.fieldName}</FieldLabel>
@@ -1669,10 +1698,13 @@ function DocumentEditor({
                   <button
                     type="button"
                     onClick={() =>
-                      applyDraft((value) => ({
-                        ...value,
-                        fields: value.fields.filter((item) => item.id !== field.id),
-                      }), true)
+                      applyDraft(
+                        (value) => ({
+                          ...value,
+                          fields: value.fields.filter((item) => item.id !== field.id),
+                        }),
+                        true,
+                      )
                     }
                     className="mt-6 flex size-9 items-center justify-center rounded-md border border-zinc-300 text-zinc-500 hover:border-zinc-950 hover:text-zinc-950"
                     aria-label="Delete field"
@@ -1687,10 +1719,10 @@ function DocumentEditor({
                     onChange={(event) =>
                       updateField(field.id, {
                         placeholder: event.target.value,
-                          count: countOccurrences(draftDocument.plainText, event.target.value),
+                        count: countOccurrences(draftDocument.plainText, event.target.value),
                       })
                     }
-                      onBlur={() => void saveDocument()}
+                    onBlur={() => void saveDocument()}
                     className={cn(inputClass, "font-mono text-xs")}
                   />
                 </div>
@@ -1727,14 +1759,74 @@ function DocumentEditor({
                         {` ${Math.round(field.discovery.occurrences[0].confidence * 100)}%`}
                       </span>
                     )}
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                        mappingStatus === "mapped"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : mappingStatus === "conflict"
+                            ? "bg-red-50 text-red-700"
+                            : mappingStatus === "needs_review"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-zinc-100 text-zinc-600",
+                      )}
+                    >
+                      {mappingStatus === "mapped"
+                        ? locale === "vi"
+                          ? "Đã ánh xạ"
+                          : "Mapped"
+                        : mappingStatus === "conflict"
+                          ? locale === "vi"
+                            ? "Xung đột"
+                            : "Conflict"
+                          : mappingStatus === "needs_review"
+                            ? locale === "vi"
+                              ? "Cần kiểm tra"
+                              : "Needs review"
+                            : locale === "vi"
+                              ? "Chưa ánh xạ"
+                              : "Unmapped"}
+                    </span>
                   </div>
-                  <span>{field.count} {t.occurrences}</span>
+                  <span>
+                    {occurrences.length || field.count} {t.occurrences}
+                  </span>
                 </div>
+                {occurrences.length > 0 ? (
+                  <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => showOccurrence(activeOccurrenceIndex >= 0 ? activeOccurrenceIndex : 0)}
+                      className="font-medium text-zinc-700 underline-offset-4 hover:text-zinc-950 hover:underline"
+                    >
+                      {locale === "vi" ? "Hiện trong tài liệu" : "Show in document"}
+                    </button>
+                    {occurrences.length > 1 ? (
+                      <div className="flex items-center gap-2 text-zinc-500">
+                        <button
+                          type="button"
+                          disabled={activeOccurrenceIndex <= 0}
+                          onClick={() => showOccurrence(Math.max(0, activeOccurrenceIndex - 1))}
+                          className="disabled:opacity-30"
+                        >
+                          {locale === "vi" ? "Trước" : "Previous"}
+                        </button>
+                        <span>{Math.max(1, activeOccurrenceIndex + 1)}/{occurrences.length}</span>
+                        <button
+                          type="button"
+                          disabled={activeOccurrenceIndex >= occurrences.length - 1}
+                          onClick={() => showOccurrence(Math.min(occurrences.length - 1, Math.max(0, activeOccurrenceIndex + 1)))}
+                          className="disabled:opacity-30"
+                        >
+                          {locale === "vi" ? "Sau" : "Next"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
-            ))}
-            {!draftDocument.fields.length && (
-              <EmptyState title={t.noFields} description={t.noFieldsDescription} />
-            )}
+            )})}
+            {!visibleFields.length && <EmptyState title={t.noFields} description={t.noFieldsDescription} />}
           </div>
         </div>
       </div>
@@ -1743,12 +1835,22 @@ function DocumentEditor({
 }
 
 function PreviewPane({
+  locale,
   documentItem,
+  navigation,
+  previewRef,
+  selection,
+  onActivateField,
   noPreview,
   onSelectText,
   onEdit,
 }: {
+  locale: Locale;
   documentItem: TemplateDocument;
+  navigation: LawfirmDocumentNavigationDto | null;
+  previewRef: RefObject<HTMLDivElement | null>;
+  selection: LawfirmFieldSelection | null;
+  onActivateField: (selection: LawfirmFieldSelection) => void;
   noPreview: string;
   onSelectText: (text: string) => void;
   onEdit: (html: string) => void;
@@ -1772,9 +1874,38 @@ function PreviewPane({
         setHtml(sanitized);
         return;
       }
-      const terms = [...documentItem.fields]
-        .filter((field) => field.placeholder.trim())
-        .sort((a, b) => b.placeholder.length - a.placeholder.length);
+      const navigationByFieldId = new Map(
+        (navigation?.fields ?? []).map((field) => [field.field_id, field]),
+      );
+      const terms = documentItem.fields
+        .flatMap((field) => {
+          const occurrences = navigationByFieldId.get(field.id)?.occurrences ?? [];
+          const occurrencesByText = new Map<string, string[]>();
+          occurrences.forEach((occurrence) => {
+            const candidate = (occurrence.current_value || occurrence.raw_text).trim();
+            if (!candidate) return;
+            const keys = occurrencesByText.get(candidate) ?? [];
+            keys.push(occurrence.occurrence_key);
+            occurrencesByText.set(candidate, keys);
+          });
+          const placeholder = field.placeholder.trim();
+          if (placeholder && !occurrencesByText.has(placeholder)) {
+            occurrencesByText.set(
+              placeholder,
+              occurrences.map((occurrence) => occurrence.occurrence_key),
+            );
+          }
+          return [...occurrencesByText.entries()].map(([text, occurrenceKeys]) => ({
+            id: field.id,
+            label: field.label,
+            text,
+            occurrenceKeys,
+          }));
+        })
+        .filter((term) => term.text)
+        .sort((a, b) => b.text.length - a.text.length);
+      const occurrenceCursor = new Map<string, number>();
+      const termByIdentity = new Map(terms.map((term) => [`${term.id}\u0000${term.text}`, term]));
       const walker = parsed.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       const nodes: Text[] = [];
       let node: Node | null;
@@ -1784,9 +1915,13 @@ function PreviewPane({
         const matches: Array<{ start: number; end: number; id: string }> = [];
         terms.forEach((term) => {
           let start = 0;
-          while ((start = value.indexOf(term.placeholder, start)) >= 0) {
-            matches.push({ start, end: start + term.placeholder.length, id: term.id });
-            start += term.placeholder.length;
+          while ((start = value.indexOf(term.text, start)) >= 0) {
+            matches.push({
+              start,
+              end: start + term.text.length,
+              id: term.id,
+            });
+            start += term.text.length;
           }
         });
         matches.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
@@ -1801,8 +1936,17 @@ function PreviewPane({
         filtered.forEach((match) => {
           if (match.start > cursor) fragment.append(value.slice(cursor, match.start));
           const mark = parsed.createElement("mark");
-          mark.className = "rounded-sm bg-amber-200 px-0.5 text-zinc-950";
+          const term = termByIdentity.get(`${match.id}\u0000${value.slice(match.start, match.end)}`);
+          const cursorKey = `${match.id}\u0000${term?.text ?? ""}`;
+          const occurrenceIndex = occurrenceCursor.get(cursorKey) ?? 0;
+          const occurrenceKey = term?.occurrenceKeys[occurrenceIndex];
+          occurrenceCursor.set(cursorKey, occurrenceIndex + 1);
+          mark.className = "lawfirm-field-mark rounded-sm bg-blue-100 px-0.5 text-zinc-950";
           mark.dataset.fieldId = match.id;
+          mark.dataset.occurrenceKey = occurrenceKey ?? `legacy:${match.id}:${occurrenceIndex}`;
+          mark.setAttribute("role", "button");
+          mark.setAttribute("tabindex", "0");
+          mark.setAttribute("aria-label", `Field: ${term?.label ?? match.id}`);
           mark.textContent = value.slice(match.start, match.end);
           fragment.append(mark);
           cursor = match.end;
@@ -1813,22 +1957,65 @@ function PreviewPane({
       setHtml(root.innerHTML);
     }, 0);
     return () => window.clearTimeout(handle);
-  }, [documentItem.previewHtml, documentItem.previewMode, documentItem.fields]);
+  }, [documentItem.previewHtml, documentItem.previewMode, documentItem.fields, navigation]);
+
+  useEffect(() => {
+    const marks = previewRef.current?.querySelectorAll<HTMLElement>("[data-occurrence-key]") ?? [];
+    marks.forEach((mark) => {
+      const active = mark.dataset.occurrenceKey === selection?.occurrenceKey;
+      mark.classList.toggle("lawfirm-field-mark-active", active);
+      mark.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }, [html, previewRef, selection]);
+
+  const activateFromTarget = (target: EventTarget | null): boolean => {
+    const mark = target instanceof HTMLElement ? target.closest<HTMLElement>("[data-field-id]") : null;
+    const fieldId = mark?.dataset.fieldId;
+    if (!fieldId) return false;
+    onActivateField({ fieldId, occurrenceKey: mark.dataset.occurrenceKey ?? null });
+    return true;
+  };
 
   if (documentItem.fileType === "pdf" && documentItem.previewImage) {
     return (
-      <div className="max-h-[580px] overflow-auto rounded-md border border-zinc-200 bg-zinc-100 p-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={documentItem.previewImage} alt={documentItem.fileName} className="mx-auto max-w-full" />
+      <div ref={previewRef} className="rounded-md border border-zinc-200 bg-zinc-100">
+        <p className="border-b border-zinc-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {locale === "vi"
+            ? "Bản PDF này chưa có tọa độ đủ tin cậy để đồng bộ vị trí. Danh sách trường vẫn giữ đúng thứ tự đã lưu."
+            : "This PDF has no reliable coordinates for position sync. Persisted field order is still preserved."}
+        </p>
+        <div className="max-h-[540px] overflow-auto p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={documentItem.previewImage} alt={documentItem.fileName} className="mx-auto max-w-full" />
+        </div>
       </div>
     );
   }
   if (!documentItem.previewHtml) {
-    return <div className="rounded-md border border-zinc-200 bg-zinc-50 p-12 text-center text-sm text-zinc-500">{noPreview}</div>;
+    return (
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-12 text-center text-sm text-zinc-500">
+        {noPreview}
+      </div>
+    );
   }
   return (
     <>
       <style>{`
+        .lawfirm-field-mark {
+          cursor: pointer;
+          box-decoration-break: clone;
+          -webkit-box-decoration-break: clone;
+          transition: background-color 120ms ease, box-shadow 120ms ease;
+        }
+        .lawfirm-field-mark:hover,
+        .lawfirm-field-mark:focus-visible {
+          background-color: #bfdbfe;
+          outline: none;
+        }
+        .lawfirm-field-mark-active {
+          background-color: #93c5fd;
+          box-shadow: 0 0 0 2px #2563eb;
+        }
         .lawfirm-document-preview table {
           width: 100%;
           border-collapse: collapse;
@@ -1854,6 +2041,7 @@ function PreviewPane({
         }
       `}</style>
       <div
+        ref={previewRef}
         className={cn(
           "lawfirm-document-preview max-h-[580px] overflow-auto rounded-md border bg-white p-6 text-sm leading-7 text-zinc-800",
           documentItem.previewMode === "edit" ? "border-zinc-950" : "border-zinc-200",
@@ -1864,6 +2052,13 @@ function PreviewPane({
           if (documentItem.previewMode === "edit") return;
           const selected = window.getSelection()?.toString() ?? "";
           if (selected.trim()) onSelectText(selected);
+        }}
+        onClick={(event) => {
+          if (documentItem.previewMode !== "edit") activateFromTarget(event.target);
+        }}
+        onKeyDown={(event) => {
+          if (documentItem.previewMode === "edit" || !["Enter", " "].includes(event.key)) return;
+          if (activateFromTarget(event.target)) event.preventDefault();
         }}
         onBlur={(event) => {
           if (documentItem.previewMode === "edit") onEdit(event.currentTarget.innerHTML);
@@ -1905,8 +2100,7 @@ function AggregatedFieldsPanel({
     const handle = window.setTimeout(() => {
       const next: Record<string, string> = {};
       entries.forEach((entry) => {
-        next[entry.key] =
-          selectedProfile?.fields.find((field) => field.id === entry.key)?.value ?? "";
+        next[entry.key] = selectedProfile?.fields.find((field) => field.id === entry.key)?.value ?? "";
       });
       setValues(next);
     }, 0);
@@ -1953,7 +2147,10 @@ function AggregatedFieldsPanel({
           fields: documentItem.fields.map((field) => {
             const key = `custom:${field.placeholder.trim().toLowerCase()}`;
             return customMappings.has(key)
-              ? { ...field, mappedKey: customMappings.get(key) ?? field.mappedKey }
+              ? {
+                  ...field,
+                  mappedKey: customMappings.get(key) ?? field.mappedKey,
+                }
               : field;
           }),
         })),
@@ -2004,12 +2201,17 @@ function AggregatedFieldsPanel({
                   <div key={entry.key}>
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <FieldLabel>{entry.label}</FieldLabel>
-                      <span className="text-xs text-zinc-500">{entry.refs.length} {t.occurrences}</span>
+                      <span className="text-xs text-zinc-500">
+                        {entry.refs.length} {t.occurrences}
+                      </span>
                     </div>
                     <input
                       value={values[entry.key] ?? ""}
                       onChange={(event) =>
-                        setValues((current) => ({ ...current, [entry.key]: event.target.value }))
+                        setValues((current) => ({
+                          ...current,
+                          [entry.key]: event.target.value,
+                        }))
                       }
                       className={inputClass}
                     />

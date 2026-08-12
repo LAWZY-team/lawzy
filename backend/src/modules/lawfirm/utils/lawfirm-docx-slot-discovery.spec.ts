@@ -30,6 +30,12 @@ describe('discoverDocxSlots', () => {
     const slots = await discoverDocxSlots(buffer);
     const sourceKinds = slots.map((slot) => slot.sourceKind);
 
+    const xmlOffsets = slots.map((slot) => Number(slot.anchor.xmlOffset));
+    expect(xmlOffsets).toEqual([...xmlOffsets].sort((left, right) => left - right));
+    expect(sourceKinds.indexOf('content_control')).toBeLessThan(
+      sourceKinds.indexOf('merge_field'),
+    );
+
     expect(sourceKinds).toEqual(
       expect.arrayContaining([
         'explicit_placeholder',

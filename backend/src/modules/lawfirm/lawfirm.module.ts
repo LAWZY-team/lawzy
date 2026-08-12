@@ -23,6 +23,10 @@ import { LawfirmTemplateUploadSessionsController } from './lawfirm-template-uplo
 import { LawfirmTemplateUploadSessionsService } from './lawfirm-template-upload-sessions.service';
 import { LawfirmTemplateScanWorkerService } from './lawfirm-template-scan-worker.service';
 import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
+import { LawfirmAiUsageService } from './lawfirm-ai-usage.service';
+import { LawfirmAiUsageController } from './lawfirm-ai-usage.controller';
+import { LawfirmGeminiMappingGateway } from './lawfirm-gemini-mapping.gateway';
+import { LawfirmMappingService } from './lawfirm-mapping.service';
 
 @Module({
   imports: [
@@ -39,6 +43,7 @@ import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
     LawfirmFillRunsController,
     LawfirmFieldRegistryController,
     LawfirmTemplateUploadSessionsController,
+    LawfirmAiUsageController,
   ],
   providers: [
     LawfirmAuditService,
@@ -52,6 +57,9 @@ import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
     LawfirmTemplateUploadSessionsService,
     LawfirmTemplateScanWorkerService,
     LawfirmDocxOcrService,
+    LawfirmAiUsageService,
+    LawfirmGeminiMappingGateway,
+    LawfirmMappingService,
     LawfirmR2Helper,
     OcrExtractor,
   ],
@@ -65,6 +73,8 @@ import { LawfirmDocxOcrService } from './lawfirm-docx-ocr.service';
     LawfirmFieldRegistryService,
     LawfirmTemplateSetIndexService,
     LawfirmTemplateUploadSessionsService,
+    LawfirmAiUsageService,
+    LawfirmMappingService,
   ],
 })
 export class LawfirmModule {}

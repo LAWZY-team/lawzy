@@ -1,14 +1,12 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
-import {
-  buildDocumentPreviewFromBytes,
-} from "@/components/lawfirm-demo/lawfirm-demo-document-service";
-import { createProfile } from "@/components/lawfirm-demo/lawfirm-demo-taxonomy";
-import { loadWorkspace } from "@/components/lawfirm-demo/lawfirm-demo-storage";
-import type { ClientProfile, Locale, TemplateSet } from "@/components/lawfirm-demo/lawfirm-demo-types";
-import { lawfirmTemplateUploadSessionsApi } from "@/lib/api/lawfirm/lawfirm-api";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { buildDocumentPreviewFromBytes } from '@/components/lawfirm-demo/lawfirm-demo-document-service';
+import { createProfile } from '@/components/lawfirm-demo/lawfirm-demo-taxonomy';
+import { loadWorkspace } from '@/components/lawfirm-demo/lawfirm-demo-storage';
+import type { ClientProfile, Locale, TemplateSet } from '@/components/lawfirm-demo/lawfirm-demo-types';
+import { lawfirmTemplateSetsApi, lawfirmTemplateUploadSessionsApi } from '@/lib/api/lawfirm/lawfirm-api';
 import {
   mapDocumentToUpdate,
   mapExtractionSuggestions,
@@ -17,22 +15,22 @@ import {
   mapProfileToUpdate,
   mapTemplateSetDto,
   mapTemplateSetToUpdate,
-} from "@/hooks/lawfirm/lawfirm-mappers";
+} from '@/hooks/lawfirm/lawfirm-mappers';
 import {
   useLawfirmExtractionMutations,
   useLawfirmFillRunMutations,
+  useLawfirmMappingSummary,
   useLawfirmProfileMutations,
   useLawfirmProfiles,
   useLawfirmTemplateMutations,
   useLawfirmTemplateSets,
   useLawfirmWorkspaceId,
-} from "@/hooks/lawfirm/use-lawfirm-workspace";
+} from '@/hooks/lawfirm/use-lawfirm-workspace';
 
-const LOCALE_KEY = "lawfirm.demo.locale";
+const LOCALE_KEY = 'lawfirm.demo.locale';
 const UPLOAD_SESSION_POLL_MS = 750;
 const UPLOAD_SESSION_MAX_POLLS = 240;
-const uploadSessionStorageKey = (templateSetId: string) =>
-  `lawfirm.template-upload-session.${templateSetId}`;
+const uploadSessionStorageKey = (templateSetId: string) => `lawfirm.template-upload-session.${templateSetId}`;
 
 export function useLawfirmShellWorkspace() {
   const workspaceId = useLawfirmWorkspaceId();
@@ -44,9 +42,10 @@ export function useLawfirmShellWorkspace() {
   const extractionMutations = useLawfirmExtractionMutations();
   const fillRunMutations = useLawfirmFillRunMutations();
 
-  const [locale, setLocaleState] = useState<Locale>("vi");
-  const [activeProfileId, setActiveProfileId] = useState<string>("");
-  const [activeTemplateId, setActiveTemplateId] = useState<string>("");
+  const [locale, setLocaleState] = useState<Locale>('vi');
+  const [activeProfileId, setActiveProfileId] = useState<string>('');
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('');
+  const mappingSummaryQuery = useLawfirmMappingSummary(activeTemplateId);
   const [importAttempted, setImportAttempted] = useState(false);
   const [autoSeedDone, setAutoSeedDone] = useState(false);
   const [dedupeDone, setDedupeDone] = useState(false);
@@ -66,7 +65,7 @@ export function useLawfirmShellWorkspace() {
 
   useEffect(() => {
     const saved = localStorage.getItem(LOCALE_KEY);
-    if (saved === "vi" || saved === "en") setLocaleState(saved);
+    if (saved === 'vi' || saved === 'en') setLocaleState(saved);
   }, []);
 
   const setLocale = useCallback((next: Locale) => {
@@ -74,14 +73,8 @@ export function useLawfirmShellWorkspace() {
     localStorage.setItem(LOCALE_KEY, next);
   }, []);
 
-  const profiles = useMemo(
-    () => (profilesQuery.data ?? []).map(mapProfileDto),
-    [profilesQuery.data],
-  );
-  const templates = useMemo(
-    () => (templatesQuery.data ?? []).map(mapTemplateSetDto),
-    [templatesQuery.data],
-  );
+  const profiles = useMemo(() => (profilesQuery.data ?? []).map(mapProfileDto), [profilesQuery.data]);
+  const templates = useMemo(() => (templatesQuery.data ?? []).map(mapTemplateSetDto), [templatesQuery.data]);
 
   useEffect(() => {
     if (!profiles.length) return;
@@ -102,8 +95,7 @@ export function useLawfirmShellWorkspace() {
     let timeoutId: number | undefined;
     const poll = async () => {
       try {
-        const session =
-          await lawfirmTemplateUploadSessionsApi.getStatus(sessionId);
+        const session = await lawfirmTemplateUploadSessionsApi.getStatus(sessionId);
         if (cancelled) return;
         if (session.progress) {
           setResumedUploadProgress({
@@ -111,11 +103,7 @@ export function useLawfirmShellWorkspace() {
             ...session.progress,
           });
         }
-        if (
-          session.status === "review_ready" ||
-          session.status === "partial_failed" ||
-          session.status === "failed"
-        ) {
+        if (session.status === 'review_ready' || session.status === 'partial_failed' || session.status === 'failed') {
           localStorage.removeItem(storageKey);
           setResumedUploadProgress(null);
           await refetchTemplates();
@@ -159,13 +147,13 @@ export function useLawfirmShellWorkspace() {
       if (local.profiles.length <= 1) return local.profiles;
       const [first] = local.profiles;
       const firstName = first.name;
-      const firstIsSample = first.fields.every((field) => field.value.trim() === "");
+      const firstIsSample = first.fields.every((field) => field.value.trim() === '');
       if (!firstIsSample) return local.profiles;
       const allAreSameSample = local.profiles.every(
         (profile) =>
           profile.name === firstName &&
           profile.fields.length === first.fields.length &&
-          profile.fields.every((field) => field.value.trim() === ""),
+          profile.fields.every((field) => field.value.trim() === ''),
       );
       return allAreSameSample ? [first] : local.profiles;
     })();
@@ -174,14 +162,11 @@ export function useLawfirmShellWorkspace() {
       if (!local?.templates?.length) return [];
       if (local.templates.length <= 1) return local.templates;
       const [first] = local.templates;
-      const firstIsEmptyDraft =
-        first.name.trim() === "" && first.status === "draft" && first.documents.length === 0;
+      const firstIsEmptyDraft = first.name.trim() === '' && first.status === 'draft' && first.documents.length === 0;
       if (!firstIsEmptyDraft) return local.templates;
       const allAreSameEmptyDraft = local.templates.every(
         (template) =>
-          template.name === first.name &&
-          template.status === first.status &&
-          template.documents.length === 0,
+          template.name === first.name && template.status === first.status && template.documents.length === 0,
       );
       return allAreSameEmptyDraft ? [first] : local.templates;
     })();
@@ -194,13 +179,7 @@ export function useLawfirmShellWorkspace() {
         templates: templatesToImport as unknown as Array<Record<string, unknown>>,
       },
     });
-  }, [
-    workspaceId,
-    importAttempted,
-    profiles.length,
-    profilesQuery.isLoading,
-    profileMutations.importLocal,
-  ]);
+  }, [workspaceId, importAttempted, profiles.length, profilesQuery.isLoading, profileMutations.importLocal]);
 
   const profileRevisions = useMemo(() => {
     const map = new Map<string, number>();
@@ -234,25 +213,18 @@ export function useLawfirmShellWorkspace() {
     });
   }, [templatesQuery.data]);
 
-  const activeProfile =
-    profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
-  const activeTemplate =
-    templates.find((template) => template.id === activeTemplateId) ?? templates[0];
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
+  const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? templates[0];
 
-  const queriesReady =
-    Boolean(workspaceId) &&
-    profilesQuery.isSuccess &&
-    templatesQuery.isSuccess;
+  const queriesReady = Boolean(workspaceId) && profilesQuery.isSuccess && templatesQuery.isSuccess;
 
-  const ready =
-    queriesReady &&
-    profiles.length > 0;
+  const ready = queriesReady && profiles.length > 0;
 
   const addProfileWithName = useCallback(
     async (name: string) => {
       const created = await profileMutations.createProfile.mutateAsync({
         name,
-        investorType: "organization",
+        investorType: 'organization',
         fields: [],
       });
       setActiveProfileId(created.id);
@@ -262,7 +234,7 @@ export function useLawfirmShellWorkspace() {
   );
 
   const addProfile = useCallback(async () => {
-    const seedName = locale === "vi" ? "Hồ sơ khách hàng mẫu" : "Sample client profile";
+    const seedName = locale === 'vi' ? 'Hồ sơ khách hàng mẫu' : 'Sample client profile';
     const draft = createProfile(locale, seedName);
     const created = await profileMutations.createProfile.mutateAsync({
       name: draft.name,
@@ -282,20 +254,14 @@ export function useLawfirmShellWorkspace() {
   const updateProfile = useCallback(
     async (id: string, updater: (profile: ClientProfile) => ClientProfile) => {
       if (!workspaceId) return;
-      const previousUpdate =
-        profileUpdateQueueRef.current.get(id) ?? Promise.resolve();
+      const previousUpdate = profileUpdateQueueRef.current.get(id) ?? Promise.resolve();
       const nextUpdate = previousUpdate
         .catch(() => undefined)
         .then(async () => {
-          const current =
-            profileSnapshotRef.current.get(id) ??
-            profiles.find((profile) => profile.id === id);
+          const current = profileSnapshotRef.current.get(id) ?? profiles.find((profile) => profile.id === id);
           if (!current) return;
           const next = updater(current);
-          const revision =
-            profileRevisionRef.current.get(id) ??
-            profileRevisions.get(id) ??
-            1;
+          const revision = profileRevisionRef.current.get(id) ?? profileRevisions.get(id) ?? 1;
           const updated = await profileMutations.updateProfile.mutateAsync({
             id,
             ...mapProfileToUpdate(next, revision),
@@ -324,7 +290,7 @@ export function useLawfirmShellWorkspace() {
 
   const addTemplate = useCallback(async () => {
     const created = await templateMutations.createTemplateSet.mutateAsync({
-      name: locale === "vi" ? "Bộ hồ sơ mới" : "New template set",
+      name: locale === 'vi' ? 'Bộ hồ sơ mới' : 'New template set',
     });
     setActiveTemplateId(created.id);
   }, [locale, templateMutations.createTemplateSet]);
@@ -374,25 +340,22 @@ export function useLawfirmShellWorkspace() {
       return;
     }
 
-    const expectedProfileName = locale === "vi" ? "Hồ sơ khách hàng mẫu" : "Sample client profile";
+    const expectedProfileName = locale === 'vi' ? 'Hồ sơ khách hàng mẫu' : 'Sample client profile';
     const allProfilesAreEmptySample = profiles.every(
       (profile) =>
-        profile.name.trim() === expectedProfileName &&
-        profile.fields.every((field) => field.value.trim() === ""),
+        profile.name.trim() === expectedProfileName && profile.fields.every((field) => field.value.trim() === ''),
     );
     if (!allProfilesAreEmptySample) {
       setDedupeDone(true);
       return;
     }
 
-    const expectedTemplateName = locale === "vi" ? "Bộ hồ sơ mới" : "New template set";
+    const expectedTemplateName = locale === 'vi' ? 'Bộ hồ sơ mới' : 'New template set';
     const allTemplatesAreEmptyDraftSample =
       templates.length > 1
         ? templates.every(
             (template) =>
-              template.name === expectedTemplateName &&
-              template.status === "draft" &&
-              template.documents.length === 0,
+              template.name === expectedTemplateName && template.status === 'draft' && template.documents.length === 0,
           )
         : true;
 
@@ -421,20 +384,14 @@ export function useLawfirmShellWorkspace() {
   const updateTemplate = useCallback(
     async (id: string, updater: (template: TemplateSet) => TemplateSet) => {
       if (!workspaceId) return;
-      const previousUpdate =
-        templateUpdateQueueRef.current.get(id) ?? Promise.resolve();
+      const previousUpdate = templateUpdateQueueRef.current.get(id) ?? Promise.resolve();
       const nextUpdate = previousUpdate
         .catch(() => undefined)
         .then(async () => {
-          const current =
-            templateSnapshotRef.current.get(id) ??
-            templates.find((template) => template.id === id);
+          const current = templateSnapshotRef.current.get(id) ?? templates.find((template) => template.id === id);
           if (!current) return;
           const next = updater(current);
-          const revision =
-            templateRevisionRef.current.get(id) ??
-            templateRevisions.get(id) ??
-            1;
+          const revision = templateRevisionRef.current.get(id) ?? templateRevisions.get(id) ?? 1;
           const updated = await templateMutations.updateTemplateSet.mutateAsync({
             id,
             ...mapTemplateSetToUpdate(next, revision),
@@ -464,21 +421,16 @@ export function useLawfirmShellWorkspace() {
   const reorderDocuments = useCallback(
     async (templateId: string, documentIds: string[]) => {
       if (!workspaceId) return;
-      const previousUpdate =
-        templateUpdateQueueRef.current.get(templateId) ?? Promise.resolve();
+      const previousUpdate = templateUpdateQueueRef.current.get(templateId) ?? Promise.resolve();
       const nextUpdate = previousUpdate
         .catch(() => undefined)
         .then(async () => {
-          const revision =
-            templateRevisionRef.current.get(templateId) ??
-            templateRevisions.get(templateId) ??
-            1;
-          const updated =
-            await templateMutations.reorderDocuments.mutateAsync({
-              id: templateId,
-              revision,
-              documentIds,
-            });
+          const revision = templateRevisionRef.current.get(templateId) ?? templateRevisions.get(templateId) ?? 1;
+          const updated = await templateMutations.reorderDocuments.mutateAsync({
+            id: templateId,
+            revision,
+            documentIds,
+          });
           const mapped = mapTemplateSetDto(updated);
           templateRevisionRef.current.set(templateId, updated.revision);
           templateSnapshotRef.current.set(templateId, mapped);
@@ -492,11 +444,7 @@ export function useLawfirmShellWorkspace() {
         }
       }
     },
-    [
-      templateMutations.reorderDocuments,
-      templateRevisions,
-      workspaceId,
-    ],
+    [templateMutations.reorderDocuments, templateRevisions, workspaceId],
   );
 
   const deleteDocument = useCallback(
@@ -510,22 +458,19 @@ export function useLawfirmShellWorkspace() {
     async (
       templateId: string,
       docId: string,
-      updater: (documentValue: TemplateSet["documents"][number]) => TemplateSet["documents"][number],
-      baseDocument?: TemplateSet["documents"][number],
+      updater: (documentValue: TemplateSet['documents'][number]) => TemplateSet['documents'][number],
+      baseDocument?: TemplateSet['documents'][number],
     ) => {
       if (!workspaceId) return;
-      const previousUpdate =
-        templateUpdateQueueRef.current.get(templateId) ?? Promise.resolve();
+      const previousUpdate = templateUpdateQueueRef.current.get(templateId) ?? Promise.resolve();
       const nextUpdate = previousUpdate
         .catch(() => undefined)
         .then(async () => {
           const currentTemplate =
-            templateSnapshotRef.current.get(templateId) ??
-            templates.find((template) => template.id === templateId);
+            templateSnapshotRef.current.get(templateId) ?? templates.find((template) => template.id === templateId);
           if (!currentTemplate) return;
           const currentDocument =
-            currentTemplate.documents.find((documentValue) => documentValue.id === docId) ??
-            baseDocument;
+            currentTemplate.documents.find((documentValue) => documentValue.id === docId) ?? baseDocument;
           if (!currentDocument) return;
           const nextDocument = updater(currentDocument);
           const updated = await templateMutations.updateDocument.mutateAsync({
@@ -563,19 +508,24 @@ export function useLawfirmShellWorkspace() {
       });
       const preview = await buildDocumentPreviewFromBytes(file.name, await file.arrayBuffer());
       const uploadedDocument = mapTemplateDocumentDto(uploaded);
-      await updateDocument(templateSetId, uploaded.id, () => ({
-        ...uploadedDocument,
-        previewMode: "highlight",
-        previewHtml: preview.previewHtml,
-        previewImage: preview.previewImage,
-        plainText: uploadedDocument.plainText || preview.plainText,
-        // The backend is the authoritative scanner. The browser builds only
-        // presentation data and must not replace persisted field identities or
-        // mappings with a second, independently ordered scan result.
-        fields: uploadedDocument.fields,
-        fileId: uploaded.file_id ?? undefined,
-        storageKey: uploaded.file_id ?? uploaded.id,
-      }), uploadedDocument);
+      await updateDocument(
+        templateSetId,
+        uploaded.id,
+        () => ({
+          ...uploadedDocument,
+          previewMode: 'highlight',
+          previewHtml: preview.previewHtml,
+          previewImage: preview.previewImage,
+          plainText: uploadedDocument.plainText || preview.plainText,
+          // The backend is the authoritative scanner. The browser builds only
+          // presentation data and must not replace persisted field identities or
+          // mappings with a second, independently ordered scan result.
+          fields: uploadedDocument.fields,
+          fileId: uploaded.file_id ?? undefined,
+          storageKey: uploaded.file_id ?? uploaded.id,
+        }),
+        uploadedDocument,
+      );
     },
     [templateMutations.uploadDocument, updateDocument],
   );
@@ -584,87 +534,60 @@ export function useLawfirmShellWorkspace() {
     async (
       templateSetId: string,
       files: File[],
-      onProgress?: (progress: {
-        total: number;
-        processed: number;
-        failed: number;
-        pending: number;
-      }) => void,
+      onProgress?: (progress: { total: number; processed: number; failed: number; pending: number }) => void,
     ) => {
       if (!files.length) return;
       const idempotencyKey =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${files.length}`;
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${files.length}`;
       const session = await templateMutations.createUploadSession.mutateAsync({
         templateSetId,
         idempotencyKey,
       });
-      localStorage.setItem(
-        uploadSessionStorageKey(templateSetId),
-        session.session_id,
-      );
-      let batch: Awaited<
-        ReturnType<typeof templateMutations.uploadSessionDocuments.mutateAsync>
-      >;
+      localStorage.setItem(uploadSessionStorageKey(templateSetId), session.session_id);
+      let batch: Awaited<ReturnType<typeof templateMutations.uploadSessionDocuments.mutateAsync>>;
       try {
         batch = await templateMutations.uploadSessionDocuments.mutateAsync({
           sessionId: session.session_id,
           files,
         });
-        await templateMutations.finalizeUploadSession.mutateAsync(
-          session.session_id,
-        );
+        await templateMutations.finalizeUploadSession.mutateAsync(session.session_id);
       } catch (error: unknown) {
         localStorage.removeItem(uploadSessionStorageKey(templateSetId));
         throw error;
       }
 
-      let finalStatus: "review_ready" | "partial_failed" | "failed" | null =
-        null;
+      let finalStatus: 'review_ready' | 'partial_failed' | 'failed' | null = null;
       for (let attempt = 0; attempt < UPLOAD_SESSION_MAX_POLLS; attempt += 1) {
-        const status =
-          await templateMutations.getUploadSessionStatus.mutateAsync(
-            session.session_id,
-          );
+        const status = await templateMutations.getUploadSessionStatus.mutateAsync(session.session_id);
         if (status.progress) onProgress?.(status.progress);
-        if (
-          status.status === "review_ready" ||
-          status.status === "partial_failed" ||
-          status.status === "failed"
-        ) {
+        if (status.status === 'review_ready' || status.status === 'partial_failed' || status.status === 'failed') {
           finalStatus = status.status;
           break;
         }
-        await new Promise((resolve) =>
-          window.setTimeout(resolve, UPLOAD_SESSION_POLL_MS),
-        );
+        await new Promise((resolve) => window.setTimeout(resolve, UPLOAD_SESSION_POLL_MS));
       }
-      if (!finalStatus) throw new Error("Template upload session timed out");
-      if (finalStatus === "failed") {
+      if (!finalStatus) throw new Error('Template upload session timed out');
+      if (finalStatus === 'failed') {
         localStorage.removeItem(uploadSessionStorageKey(templateSetId));
-        throw new Error("Template upload session failed");
+        throw new Error('Template upload session failed');
       }
 
       for (const [index, uploaded] of batch.documents.entries()) {
         if (!uploaded.document_id || !files[index]) continue;
-        const preview = await buildDocumentPreviewFromBytes(
-          files[index].name,
-          await files[index].arrayBuffer(),
-        );
+        const preview = await buildDocumentPreviewFromBytes(files[index].name, await files[index].arrayBuffer());
         await templateMutations.updateDocument.mutateAsync({
           docId: uploaded.document_id,
-          previewMode: "highlight",
+          previewMode: 'highlight',
           previewHtml: preview.previewHtml,
         });
       }
       await refetchTemplates();
       localStorage.removeItem(uploadSessionStorageKey(templateSetId));
-      if (finalStatus === "partial_failed") {
+      if (finalStatus === 'partial_failed') {
         toast.warning(
-          locale === "vi"
-            ? "Một số tài liệu không quét được; các tài liệu còn lại đã sẵn sàng."
-            : "Some documents failed to scan; the remaining documents are ready.",
+          locale === 'vi'
+            ? 'Một số tài liệu không quét được; các tài liệu còn lại đã sẵn sàng.'
+            : 'Some documents failed to scan; the remaining documents are ready.',
         );
       }
     },
@@ -673,7 +596,10 @@ export function useLawfirmShellWorkspace() {
 
   const runFill = useCallback(
     async (profileId: string, templateSetId: string) => {
-      return fillRunMutations.createFillRun.mutateAsync({ profileId, templateSetId });
+      return fillRunMutations.createFillRun.mutateAsync({
+        profileId,
+        templateSetId,
+      });
     },
     [fillRunMutations.createFillRun],
   );
@@ -706,27 +632,43 @@ export function useLawfirmShellWorkspace() {
     ) => {
       await extractionMutations.approveExtraction.mutateAsync({
         id: extractionId,
-      approvedFields: approvedFields.map((field) => ({
-        fieldKey: field.fieldKey,
-        label: field.label,
-        value: field.value,
-        group: field.group as
-          | 'individual'
-          | 'organization'
-          | 'representative'
-          | 'other'
-          | undefined,
-        aliases: field.aliases,
-      })),
+        approvedFields: approvedFields.map((field) => ({
+          fieldKey: field.fieldKey,
+          label: field.label,
+          value: field.value,
+          group: field.group as 'individual' | 'organization' | 'representative' | 'other' | undefined,
+          aliases: field.aliases,
+        })),
       });
-      toast.success(locale === "vi" ? "Đã lưu dữ liệu AI" : "AI data saved");
+      toast.success(locale === 'vi' ? 'Đã lưu dữ liệu AI' : 'AI data saved');
     },
     [extractionMutations.approveExtraction, locale],
   );
 
   const scanTemplateDocument = useCallback(
     async (docId: string) => {
-      return templateMutations.scanDocument.mutateAsync(docId);
+      let job = await templateMutations.scanDocument.mutateAsync(docId);
+      for (let poll = 0; job.status === 'processing' && poll < 120; poll += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        job = await lawfirmTemplateSetsApi.getMappingJob(job.job_id);
+      }
+      if (job.status === 'failed') {
+        throw new Error(job.error_message ?? 'Gemini mapping failed');
+      }
+      return {
+        // High-confidence mappings update existing fields on the backend.
+        // Do not return new-field suggestions and duplicate placeholders.
+        ai: [],
+        summary: job.result
+          ? {
+              total: job.result.total_unique_slots,
+              mapped: job.result.mapped,
+              needsReview: job.result.needs_review,
+              cacheHits: job.result.cache_hits,
+              geminiCalls: job.result.gemini_calls,
+            }
+          : undefined,
+      };
     },
     [templateMutations.scanDocument],
   );
@@ -757,6 +699,9 @@ export function useLawfirmShellWorkspace() {
     uploadTemplateDocument,
     uploadTemplateDocuments,
     templateUploadProgress: resumedUploadProgress,
+    mappingSummary: mappingSummaryQuery.data ?? null,
+    mappingSummaryLoading: mappingSummaryQuery.isLoading,
+    refetchMappingSummary: mappingSummaryQuery.refetch,
     deleteDocument,
     scanTemplateDocument,
     uploadIdentity,

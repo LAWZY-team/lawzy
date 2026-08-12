@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { compareLawfirmSourceAnchors } from './lawfirm-source-order';
 import {
   normalizeLawfirmFieldAlias,
   resolveCurrentProfileFieldKey,
@@ -145,6 +146,7 @@ export async function discoverDocxSlots(
     for (const [paragraphIndex, paragraphMatch] of paragraphs.entries()) {
       const paragraphXml = paragraphMatch[0];
       const paragraphText = textFromXml(paragraphXml);
+      const paragraphXmlOffset = paragraphMatch.index ?? 0;
 
       for (const placeholder of extractExplicitPlaceholders(paragraphText)) {
         let start = paragraphText.indexOf(placeholder);
@@ -159,6 +161,7 @@ export async function discoverDocxSlots(
             anchor: {
               part,
               paragraphIndex,
+              xmlOffset: paragraphXmlOffset + start,
               matchStart: start,
               matchEnd: start + placeholder.length,
               detectorVersion: DETECTOR_VERSION,
@@ -188,6 +191,7 @@ export async function discoverDocxSlots(
           anchor: {
             part,
             paragraphIndex,
+            xmlOffset: paragraphXmlOffset + (mergeMatch.index ?? 0),
             matchStart: mergeMatch.index,
             detectorVersion: DETECTOR_VERSION,
           },
@@ -212,6 +216,7 @@ export async function discoverDocxSlots(
           anchor: {
             part,
             paragraphIndex,
+            xmlOffset: paragraphXmlOffset + (bookmarkMatch.index ?? 0),
             matchStart: bookmarkMatch.index,
             detectorVersion: DETECTOR_VERSION,
           },
@@ -240,6 +245,7 @@ export async function discoverDocxSlots(
           anchor: {
             part,
             paragraphIndex,
+            xmlOffset: paragraphXmlOffset + blankStart,
             matchStart: blankStart,
             matchEnd: blankStart + rawText.length,
             detectorVersion: DETECTOR_VERSION,
@@ -274,6 +280,7 @@ export async function discoverDocxSlots(
             anchor: {
               part,
               paragraphIndex,
+              xmlOffset: paragraphXmlOffset + valueStart,
               matchStart: valueStart,
               matchEnd: valueStart + currentValue.length,
               detectorVersion: DETECTOR_VERSION,
@@ -307,6 +314,7 @@ export async function discoverDocxSlots(
         anchor: {
           part,
           controlIndex,
+          xmlOffset: controlMatch.index ?? 0,
           matchStart: controlMatch.index ?? 0,
           detectorVersion: DETECTOR_VERSION,
         },
@@ -340,6 +348,10 @@ export async function discoverDocxSlots(
               tableIndex,
               rowIndex,
               cellIndex,
+              xmlOffset:
+                (tableMatch.index ?? 0) +
+                (rowMatch.index ?? 0) +
+                (cells[cellIndex].index ?? 0),
               detectorVersion: DETECTOR_VERSION,
             },
           });
@@ -348,5 +360,7 @@ export async function discoverDocxSlots(
     }
   }
 
-  return discovered;
+  return discovered.sort((left, right) =>
+    compareLawfirmSourceAnchors(left.anchor, right.anchor),
+  );
 }
