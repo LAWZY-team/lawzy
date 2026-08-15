@@ -96,6 +96,34 @@ export class LawfirmTemplateSetsService {
     return serializeTemplateSet(set, { isOwner, readOnly: !isOwner });
   }
 
+  async updateFieldEntitySelector(
+    userId: string,
+    templateSetId: string,
+    fieldId: string,
+    entitySelector: string | null | undefined,
+  ) {
+    const templateSet = await this.prisma.lawfirmTemplateSet.findUnique({
+      where: { id: templateSetId },
+      select: { workspaceId: true },
+    });
+    if (!templateSet) throw new NotFoundException('Template set not found');
+    await this.workspaceAccess.requireMembership(templateSet.workspaceId, userId);
+    const field = await this.prisma.lawfirmTemplateSetField.findFirst({
+      where: { id: fieldId, templateSetId },
+      select: { id: true },
+    });
+    if (!field) throw new NotFoundException('Template set field not found');
+    const updated = await this.prisma.lawfirmTemplateSetField.update({
+      where: { id: field.id },
+      data: { defaultEntitySelector: entitySelector?.trim() || null },
+      select: { id: true, defaultEntitySelector: true, updatedAt: true },
+    });
+    return {
+      field_id: updated.id,
+      entity_selector: updated.defaultEntitySelector,
+      updated_at: updated.updatedAt.toISOString(),
+    };
+  }
   async getDocumentNavigation(userId: string, documentId: string) {
     const document = await this.prisma.lawfirmTemplateDocument.findUnique({
       where: { id: documentId },
@@ -120,7 +148,7 @@ export class LawfirmTemplateSetsService {
                 anchor: true,
                 sortOrder: true,
                 templateSetField: {
-                  select: { mappingStatus: true, confidence: true },
+                  select: { id: true, mappingStatus: true, confidence: true, defaultEntitySelector: true },
                 },
               },
             },

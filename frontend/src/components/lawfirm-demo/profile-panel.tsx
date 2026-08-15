@@ -27,6 +27,7 @@ import type {
   InvestorType,
   Locale,
   ProfileField,
+  ProfileEntity,
 } from "./lawfirm-demo-types";
 import { visibleGroups } from "./lawfirm-demo-taxonomy";
 import {
@@ -220,6 +221,56 @@ export function ProfilePanel({
     }), true);
   };
 
+  const addEntity = () => {
+    if (!draftProfile) return;
+    const root = draftProfile.entities.find((entity) => entity.role === "primary" && entity.ordinal === 0);
+    const entity: ProfileEntity = {
+      id: "",
+      entityType: "person",
+      role: "party",
+      ordinal: draftProfile.entities.filter((item) => item.role === "party").length,
+      displayName: locale === "vi" ? "Chủ thể mới" : "New party",
+      values: (root?.values ?? []).map((value) => ({
+        ...value,
+        id: "",
+        rawValue: "",
+        typedValue: undefined,
+      })),
+    };
+    updateDraft((profile) => ({ ...profile, entities: [...profile.entities, entity] }), true);
+  };
+
+  const updateEntity = (index: number, patchData: Partial<ProfileEntity>) => {
+    updateDraft((profile) => ({
+      ...profile,
+      entities: profile.entities.map((entity, currentIndex) =>
+        currentIndex === index ? { ...entity, ...patchData } : entity,
+      ),
+    }));
+  };
+
+  const updateEntityValue = (entityIndex: number, valueIndex: number, rawValue: string) => {
+    updateDraft((profile) => ({
+      ...profile,
+      entities: profile.entities.map((entity, currentIndex) =>
+        currentIndex === entityIndex
+          ? {
+              ...entity,
+              values: entity.values.map((value, currentValueIndex) =>
+                currentValueIndex === valueIndex ? { ...value, rawValue } : value,
+              ),
+            }
+          : entity,
+      ),
+    }));
+  };
+
+  const deleteEntity = (index: number) => {
+    updateDraft((profile) => ({
+      ...profile,
+      entities: profile.entities.filter((_, currentIndex) => currentIndex !== index),
+    }), true);
+  };
   const handleDelete = () => {
     if (!currentProfile) return;
     onDelete(currentProfile.id);
@@ -761,6 +812,58 @@ export function ProfilePanel({
                   onDelete={deleteField}
                 />
               ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title={locale === "vi" ? "Chủ thể trong hồ sơ" : "Profile entities"}
+            description={locale === "vi" ? "Mỗi trường mẫu có thể lấy dữ liệu từ một chủ thể riêng." : "Each template field can draw data from a specific entity."}
+            action={
+              <Button type="button" variant="outline" size="sm" onClick={addEntity} className="h-8 text-xs">
+                <Plus className="size-3.5" />
+                {locale === "vi" ? "Thêm chủ thể" : "Add entity"}
+              </Button>
+            }
+          >
+            <div className="space-y-3 p-3">
+              {draftProfile.entities.map((entity, entityIndex) => {
+                const isRoot = entity.role === "primary" && entity.ordinal === 0;
+                return (
+                  <div key={entity.id || `new-${entityIndex}`} className="rounded-md border border-zinc-200 p-3">
+                    <div className="flex gap-2">
+                      <input
+                        value={entity.displayName}
+                        disabled={isRoot}
+                        onChange={(event) => updateEntity(entityIndex, { displayName: event.target.value })}
+                        onBlur={saveProfile}
+                        className={inputClass}
+                        aria-label={locale === "vi" ? "Tên chủ thể" : "Entity name"}
+                      />
+                      {!isRoot ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => deleteEntity(entityIndex)} className="text-rose-600">
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    {!isRoot ? (
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <input value={entity.entityType} onChange={(event) => updateEntity(entityIndex, { entityType: event.target.value })} onBlur={saveProfile} className={inputClass} placeholder={locale === "vi" ? "Loại chủ thể" : "Entity type"} />
+                        <input value={entity.role} onChange={(event) => updateEntity(entityIndex, { role: event.target.value })} onBlur={saveProfile} className={inputClass} placeholder={locale === "vi" ? "Vai trò" : "Role"} />
+                      </div>
+                    ) : null}
+                    {entity.values.length ? (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {entity.values.map((value, valueIndex) => (
+                          <label key={`${value.canonicalKey ?? "value"}-${valueIndex}`} className="text-xs text-zinc-600">
+                            {value.canonicalKey ?? (locale === "vi" ? "Giá trị" : "Value")}
+                            <input value={value.rawValue} onChange={(event) => updateEntityValue(entityIndex, valueIndex, event.target.value)} onBlur={saveProfile} className={cn(inputClass, "mt-1")} />
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </SectionCard>
         </div>

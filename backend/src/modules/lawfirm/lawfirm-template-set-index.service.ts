@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
 import { buildTemplateSetIndex } from './utils/lawfirm-template-set-index';
-import { compareLawfirmFieldsBySourceOrder } from './utils/lawfirm-source-order';
+import { sortLawfirmFieldsBySourceOrder } from './utils/lawfirm-source-order';
 
 @Injectable()
 export class LawfirmTemplateSetIndexService {
@@ -52,7 +52,7 @@ export class LawfirmTemplateSetIndexService {
     });
     const orderedDocuments = templateSet.documents.map((document) => ({
       ...document,
-      fields: [...document.fields].sort(compareLawfirmFieldsBySourceOrder),
+      fields: sortLawfirmFieldsBySourceOrder(document.fields),
     }));
     const index = buildTemplateSetIndex(orderedDocuments, registryFields);
 

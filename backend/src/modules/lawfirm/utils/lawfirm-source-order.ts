@@ -28,6 +28,7 @@ export const lawfirmSourceOrderTuple = (
     finiteNumber(value.rowIndex),
     finiteNumber(value.cellIndex),
     finiteNumber(value.controlIndex),
+    finiteNumber(value.inlineOffset),
     finiteNumber(value.matchStart),
     finiteNumber(value.regionIndex),
     finiteNumber(value.y),
@@ -81,3 +82,9 @@ export const compareLawfirmFieldsBySourceOrder = (
   if (persistedOrder !== 0) return persistedOrder;
   return String(left.id ?? '').localeCompare(String(right.id ?? ''));
 };
+
+export const sortLawfirmFieldsBySourceOrder = <
+  T extends { id?: string; sortOrder?: number; discovery?: unknown },
+>(
+  fields: readonly T[],
+): T[] => [...fields].sort(compareLawfirmFieldsBySourceOrder);

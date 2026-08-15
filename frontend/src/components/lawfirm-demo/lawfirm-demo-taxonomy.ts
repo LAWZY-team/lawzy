@@ -61,6 +61,7 @@ export function createProfile(locale: Locale, name = ""): ClientProfile {
     description: "",
     createdAt: new Date().toISOString(),
     investorType: "individual",
+    entities: [],
     fields: createDefaultFields(locale),
   };
 }

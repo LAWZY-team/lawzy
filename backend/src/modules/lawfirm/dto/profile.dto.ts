@@ -64,6 +64,51 @@ export class CreateProfileDto {
   fields!: ProfileFieldDto[];
 }
 
+export class ProfileEntityValueDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  canonicalKey!: string;
+
+  @IsString()
+  rawValue!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  valueIndex?: number;
+}
+
+export class ProfileEntityDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  entityType!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  role!: string;
+
+  @IsInt()
+  @Min(0)
+  ordinal!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  displayName!: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProfileEntityValueDto)
+  values?: ProfileEntityValueDto[];
+}
 export class UpdateProfileDto {
   @IsInt()
   @Min(1)
@@ -91,6 +136,12 @@ export class UpdateProfileDto {
   @ValidateNested({ each: true })
   @Type(() => ProfileFieldDto)
   fields?: ProfileFieldDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProfileEntityDto)
+  entities?: ProfileEntityDto[];
 }
 
 export class ImportLocalProfileFieldDto {

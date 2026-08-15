@@ -20,6 +20,23 @@ export const mapProfileDto = (profile: LawfirmProfileDto): ClientProfile => ({
   description: profile.description ?? "",
   createdAt: profile.created_at,
   investorType: profile.investor_type as InvestorType,
+  entities: profile.entities.map((entity) => ({
+    id: entity.id,
+    entityType: entity.entity_type,
+    role: entity.role,
+    ordinal: entity.ordinal,
+    displayName: entity.display_name,
+    values: entity.values.map((value) => ({
+      id: value.id,
+      fieldDefinitionId: value.field_definition_id,
+      canonicalKey: value.canonical_key,
+      valueIndex: value.value_index,
+      rawValue: value.raw_value,
+      source: value.source,
+      confidence: value.confidence,
+      revision: value.revision,
+    })),
+  })),
   fields: profile.fields.map(
     (field): ProfileField => ({
       id: field.field_key,
@@ -36,6 +53,20 @@ export const mapProfileToUpdate = (profile: ClientProfile, revision: number) => 
   name: profile.name,
   description: profile.description ?? "",
   investorType: profile.investorType,
+  entities: profile.entities.map((entity) => ({
+    id: entity.id,
+    entityType: entity.entityType,
+    role: entity.role,
+    ordinal: entity.ordinal,
+    displayName: entity.displayName,
+    values: entity.values
+      .filter((value) => value.canonicalKey)
+      .map((value) => ({
+        canonicalKey: value.canonicalKey!,
+        rawValue: value.rawValue,
+        valueIndex: value.valueIndex,
+      })),
+  })),
   fields: profile.fields.map((field, index) => ({
     fieldKey: field.id,
     group: field.group,

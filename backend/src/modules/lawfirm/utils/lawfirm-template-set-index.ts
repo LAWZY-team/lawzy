@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { normalizeLawfirmFieldAlias } from '../lawfirm-field-taxonomy';
 import {
-  compareLawfirmFieldsBySourceOrder,
   compareLawfirmSourceAnchors,
+  sortLawfirmFieldsBySourceOrder,
 } from './lawfirm-source-order';
 
 export interface TemplateIndexRegistryField {
@@ -153,7 +153,7 @@ export function buildTemplateSetIndex(
     .map((document, inputIndex) => ({
       ...document,
       inputIndex,
-      fields: [...document.fields].sort(compareLawfirmFieldsBySourceOrder),
+      fields: sortLawfirmFieldsBySourceOrder(document.fields),
     }))
     .sort(
       (left, right) =>

@@ -56,6 +56,11 @@ export const lawfirmTemplateSetsApi = {
   getById: (id: string) => api.get<LawfirmTemplateSetDto>(`/lawfirm/template-sets/${id}`),
   getDocumentNavigation: (documentId: string) =>
     api.get<LawfirmDocumentNavigationDto>(`/lawfirm/template-sets/documents/${documentId}/navigation`),
+  updateFieldBinding: (templateSetId: string, fieldId: string, input: { entitySelector: string | null }) =>
+    api.patch<{ field_id: string; entity_selector: string | null; updated_at: string }>(
+      `/lawfirm/template-sets/${templateSetId}/field-bindings/${fieldId}`,
+      input,
+    ),
   create: (input: CreateLawfirmTemplateSetInput) => api.post<LawfirmTemplateSetDto>('/lawfirm/template-sets', input),
   update: (id: string, input: UpdateLawfirmTemplateSetInput) =>
     api.patch<LawfirmTemplateSetDto>(`/lawfirm/template-sets/${id}`, input),

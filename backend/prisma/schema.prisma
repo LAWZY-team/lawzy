@@ -796,6 +796,7 @@ model LawfirmClientProfile {
   workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator     User                  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
   fields      LawfirmProfileField[]
+  entities    LawfirmProfileEntity[]
   extractions LawfirmAiExtraction[]
   fillRuns    LawfirmFillRun[]
 
@@ -821,6 +822,44 @@ model LawfirmProfileField {
   @@map("lawfirm_profile_fields")
 }
 
+model LawfirmProfileEntity {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  entityType  String   @map("entity_type") @db.VarChar(80)
+  role        String   @default("primary") @db.VarChar(80)
+  ordinal     Int      @default(0)
+  displayName String   @map("display_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  profile LawfirmClientProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  values  LawfirmProfileValue[]
+
+  @@unique([profileId, entityType, role, ordinal])
+  @@index([profileId, role])
+  @@map("lawfirm_profile_entities")
+}
+
+model LawfirmProfileValue {
+  id                String   @id @default(uuid())
+  profileEntityId   String   @map("profile_entity_id")
+  fieldDefinitionId String   @map("field_definition_id")
+  valueIndex        Int      @default(0) @map("value_index")
+  typedValue        Json?    @map("typed_value")
+  rawValue          String   @map("raw_value") @db.Text
+  source            String   @default("legacy") @db.VarChar(32)
+  confidence        Float?
+  revision          Int      @default(1)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  profileEntity   LawfirmProfileEntity   @relation(fields: [profileEntityId], references: [id], onDelete: Cascade)
+  fieldDefinition LawfirmFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Restrict)
+
+  @@unique([profileEntityId, fieldDefinitionId, valueIndex], map: "lawfirm_profile_values_entity_field_value_key")
+  @@index([fieldDefinitionId])
+  @@map("lawfirm_profile_values")
+}
 model LawfirmFieldDefinition {
   id                String   @id @default(uuid())
   registryKey       String   @unique @map("registry_key") @db.VarChar(191)
@@ -844,6 +883,7 @@ model LawfirmFieldDefinition {
   aliases           LawfirmFieldAlias[]
   templateSetFields LawfirmTemplateSetField[]
   mappingCache      LawfirmMappingCache[]
+  profileValues     LawfirmProfileValue[]
 
   @@unique([workspaceId, canonicalKey])
   @@index([workspaceId])
@@ -1193,7 +1233,10 @@ model LawfirmFillRun {
   templateSetId String   @map("template_set_id")
   createdBy     String   @map("created_by")
   status        String   @default("processing")
-  matchSummary  Json?    @map("match_summary")
+  matchSummary     Json?    @map("match_summary")
+  profileSnapshot  Json?    @map("profile_snapshot")
+  templateSnapshot Json?    @map("template_snapshot")
+  mappingSnapshot  Json?    @map("mapping_snapshot")
   zipStorageKey String?  @map("zip_storage_key") @db.VarChar(191)
   errorMessage  String?  @map("error_message") @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
