@@ -35,11 +35,137 @@ export class LawfirmProfilesService {
     private readonly r2Helper: LawfirmR2Helper,
   ) {}
 
+  private async syncRootEntityValues(
+    tx: Prisma.TransactionClient,
+    input: {
+      workspaceId: string;
+      profileId: string;
+      profileName: string;
+      entityType: string;
+      fields: Array<{ fieldKey: string; value: string }>;
+    },
+  ): Promise<void> {
+    const entity = await tx.lawfirmProfileEntity.upsert({
+      where: {
+        profileId_entityType_role_ordinal: {
+          profileId: input.profileId,
+          entityType: input.entityType,
+          role: 'primary',
+          ordinal: 0,
+        },
+      },
+      create: {
+        profileId: input.profileId,
+        entityType: input.entityType,
+        role: 'primary',
+        ordinal: 0,
+        displayName: input.profileName,
+      },
+      update: { displayName: input.profileName },
+    });
+    const keys = [...new Set(input.fields.map((field) => field.fieldKey))];
+    const definitions = keys.length
+      ? await tx.lawfirmFieldDefinition.findMany({
+          where: {
+            status: 'active',
+            currentProfileKey: { in: keys },
+            OR: [{ workspaceId: input.workspaceId }, { workspaceId: null }],
+          },
+          select: { id: true, currentProfileKey: true, workspaceId: true },
+        })
+      : [];
+    const definitionByKey = new Map<string, string>();
+    for (const definition of definitions.sort((left, right) => Number(Boolean(right.workspaceId)) - Number(Boolean(left.workspaceId)))) {
+      if (definition.currentProfileKey && !definitionByKey.has(definition.currentProfileKey)) {
+        definitionByKey.set(definition.currentProfileKey, definition.id);
+      }
+    }
+    await tx.lawfirmProfileValue.deleteMany({
+      where: { profileEntityId: entity.id, source: 'profile_edit' },
+    });
+    const values = input.fields.flatMap((field) => {
+      const fieldDefinitionId = definitionByKey.get(field.fieldKey);
+      return fieldDefinitionId
+        ? [{
+            profileEntityId: entity.id,
+            fieldDefinitionId,
+            valueIndex: 0,
+            typedValue: { value: field.value } as Prisma.InputJsonValue,
+            rawValue: field.value,
+            source: 'profile_edit',
+            revision: 1,
+          }]
+        : [];
+    });
+    if (values.length) await tx.lawfirmProfileValue.createMany({ data: values });
+  }
+  private async syncChildEntities(
+    tx: Prisma.TransactionClient,
+    profileId: string,
+    workspaceId: string,
+    entities: NonNullable<UpdateProfileDto['entities']>,
+  ): Promise<void> {
+    const children = entities.filter((entity) => !(entity.role === 'primary' && entity.ordinal === 0));
+    const retainedIds = children.flatMap((entity) => (entity.id ? [entity.id] : []));
+    await tx.lawfirmProfileEntity.deleteMany({
+      where: {
+        profileId,
+        NOT: { role: 'primary', ordinal: 0 },
+        ...(retainedIds.length && { id: { notIn: retainedIds } }),
+      },
+    });
+    const canonicalKeys = [...new Set(children.flatMap((entity) => (entity.values ?? []).map((value) => value.canonicalKey)))];
+    const definitions = canonicalKeys.length
+      ? await tx.lawfirmFieldDefinition.findMany({
+          where: { status: 'active', canonicalKey: { in: canonicalKeys }, OR: [{ workspaceId }, { workspaceId: null }] },
+          select: { id: true, canonicalKey: true, workspaceId: true },
+        })
+      : [];
+    const definitionByKey = new Map<string, string>();
+    for (const definition of definitions.sort((left, right) => Number(Boolean(right.workspaceId)) - Number(Boolean(left.workspaceId)))) {
+      if (!definitionByKey.has(definition.canonicalKey)) definitionByKey.set(definition.canonicalKey, definition.id);
+    }
+    for (const entity of children) {
+      if (entity.id) {
+        const ownedEntity = await tx.lawfirmProfileEntity.findFirst({
+          where: { id: entity.id, profileId },
+          select: { id: true },
+        });
+        if (!ownedEntity) {
+          throw new BadRequestException('Profile entity does not belong to this profile');
+        }
+      }
+      const saved = entity.id
+        ? await tx.lawfirmProfileEntity.update({
+            where: { id: entity.id },
+            data: { entityType: entity.entityType, role: entity.role, ordinal: entity.ordinal, displayName: entity.displayName.trim() },
+          })
+        : await tx.lawfirmProfileEntity.create({
+            data: { profileId, entityType: entity.entityType, role: entity.role, ordinal: entity.ordinal, displayName: entity.displayName.trim() },
+          });
+      await tx.lawfirmProfileValue.deleteMany({ where: { profileEntityId: saved.id, source: 'profile_edit' } });
+      const values = (entity.values ?? []).flatMap((value) => {
+        const fieldDefinitionId = definitionByKey.get(value.canonicalKey);
+        return fieldDefinitionId ? [{
+          profileEntityId: saved.id, fieldDefinitionId, valueIndex: value.valueIndex ?? 0,
+          typedValue: { value: value.rawValue } as Prisma.InputJsonValue, rawValue: value.rawValue,
+          source: 'profile_edit', revision: 1,
+        }] : [];
+      });
+      if (values.length) await tx.lawfirmProfileValue.createMany({ data: values });
+    }
+  }
   async list(userId: string, workspaceId: string) {
     await this.workspaceAccess.requireMembership(workspaceId, userId);
     const profiles = await this.prisma.lawfirmClientProfile.findMany({
       where: { workspaceId },
-      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
       orderBy: { updatedAt: 'desc' },
     });
     return profiles.map(serializeProfile);
@@ -48,7 +174,13 @@ export class LawfirmProfilesService {
   async getById(userId: string, id: string) {
     const profile = await this.prisma.lawfirmClientProfile.findUnique({
       where: { id },
-      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
     });
     if (!profile) throw new NotFoundException('Profile not found');
     await this.workspaceAccess.requireMembership(profile.workspaceId, userId);
@@ -76,7 +208,20 @@ export class LawfirmProfilesService {
             })),
           },
         },
-        include: { fields: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
+      });
+      await this.syncRootEntityValues(tx, {
+        workspaceId: dto.workspaceId,
+        profileId: created.id,
+        profileName: created.name,
+        entityType: created.investorType,
+        fields: created.fields,
       });
       return created;
     });
@@ -129,10 +274,29 @@ export class LawfirmProfilesService {
           })),
         });
       }
-      return tx.lawfirmClientProfile.findUnique({
+      const profile = await tx.lawfirmClientProfile.findUnique({
         where: { id },
-        include: { fields: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
       });
+      if (dto.entities) {
+        await this.syncChildEntities(tx, id, existing.workspaceId, dto.entities);
+      }
+      if (profile) {
+        await this.syncRootEntityValues(tx, {
+          workspaceId: profile.workspaceId,
+          profileId: profile.id,
+          profileName: profile.name,
+          entityType: profile.investorType,
+          fields: profile.fields,
+        });
+      }
+      return profile;
     });
     if (!updated) throw new NotFoundException('Profile not found');
     await this.auditService.logAudit({
@@ -247,7 +411,13 @@ export class LawfirmProfilesService {
     if (existingImport) {
       const profiles = await this.prisma.lawfirmClientProfile.findMany({
         where: { workspaceId: dto.workspaceId },
-        include: { fields: { orderBy: { sortOrder: 'asc' } } },
+        include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
       });
       const templateSets = await this.prisma.lawfirmTemplateSet.findMany({
         where: { workspaceId: dto.workspaceId },
@@ -358,7 +528,13 @@ export class LawfirmProfilesService {
     });
     const profiles = await this.prisma.lawfirmClientProfile.findMany({
       where: { workspaceId: dto.workspaceId },
-      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+          fields: { orderBy: { sortOrder: 'asc' } },
+          entities: {
+            orderBy: [{ role: 'asc' }, { ordinal: 'asc' }],
+            include: { values: { include: { fieldDefinition: true }, orderBy: { valueIndex: 'asc' } } },
+          },
+        },
     });
     return {
       already_imported: false,

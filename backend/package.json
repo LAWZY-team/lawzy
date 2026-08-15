@@ -28,6 +28,7 @@
     "script:backfill-company-code": "ts-node scripts/backfill-workspace-company-code.ts",
     "lawfirm:audit-fields": "ts-node scripts/audit-lawfirm-field-keys.ts",
     "lawfirm:verify-phase1": "ts-node scripts/verify-lawfirm-phase1.ts",
+    "lawfirm:backfill-source-order": "ts-node scripts/backfill-lawfirm-source-order.ts",
     "payos:smoke": "ts-node -r dotenv/config scripts/payos-smoke.ts"
   },
   "dependencies": {

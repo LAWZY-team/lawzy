@@ -38,6 +38,8 @@ import type { LawfirmMappingSummaryDto } from "@/lib/api/lawfirm/types";
 import type { LawfirmDocumentNavigationDto } from "@/lib/api/lawfirm/types";
 import { useLawfirmDocumentNavigation } from "@/hooks/lawfirm/use-lawfirm-workspace";
 import { useFieldNavigation, type LawfirmFieldSelection } from "@/hooks/lawfirm/use-field-navigation";
+import { annotateLawfirmPreviewByAnchor } from "@/lib/lawfirm/lawfirm-preview-annotation";
+import { lawfirmTemplateSetsApi } from "@/lib/api/lawfirm/lawfirm-api";
 import {
   analyzeDocument,
   buildDocumentPreviewFromFileId,
@@ -51,6 +53,7 @@ import type {
   FieldGroup,
   Locale,
   ProfileField,
+  ProfileEntity,
   TemplateDocument,
   TemplateField,
   TemplateSet,
@@ -1195,12 +1198,14 @@ export function TemplatePanel({
             locale={locale}
             documentItem={activeDocument}
             profileFields={profiles.find((profile) => profile.id === activeProfileId)?.fields ?? []}
+            profileEntities={profiles.find((profile) => profile.id === activeProfileId)?.entities ?? []}
             aiReview={
               aiReviewByDocumentId[activeDocument.id] ?? {
                 status: "idle",
                 suggestions: [],
               }
             }
+            templateSetId={activeTemplate.id}
             navigation={documentNavigationQuery.data ?? null}
             onAiSuggestionsChange={(updater) =>
               updateAiReview(activeDocument.id, (current) => ({
@@ -1243,7 +1248,9 @@ function DocumentEditor({
   locale,
   documentItem,
   profileFields,
+  profileEntities,
   aiReview,
+  templateSetId,
   navigation,
   onAiSuggestionsChange,
   onPersist,
@@ -1251,7 +1258,9 @@ function DocumentEditor({
   locale: Locale;
   documentItem: TemplateDocument;
   profileFields: ProfileField[];
+  profileEntities: ProfileEntity[];
   aiReview: AiReviewState;
+  templateSetId: string;
   navigation: LawfirmDocumentNavigationDto | null;
   onAiSuggestionsChange: (updater: (current: AiSuggestion[]) => AiSuggestion[]) => void;
   onPersist: (updater: (documentItem: TemplateDocument) => TemplateDocument) => Promise<void>;
@@ -1264,7 +1273,8 @@ function DocumentEditor({
   const isRestoringPreviewRef = useRef(false);
   const [fieldSearch, setFieldSearch] = useState("");
   const [fieldFilter, setFieldFilter] = useState<"all" | "review" | "unmapped">("all");
-  const fieldNavigation = useFieldNavigation(documentItem.id);
+  const [entitySelectorOverrides, setEntitySelectorOverrides] = useState<Record<string, string>>({});
+  const fieldNavigation = useFieldNavigation(`${templateSetId}:${documentItem.id}`);
   const aiSuggestions = aiReview.suggestions;
   const setAiSuggestions = (next: AiSuggestion[] | ((current: AiSuggestion[]) => AiSuggestion[])): void => {
     onAiSuggestionsChange((current) => (typeof next === "function" ? next(current) : next));
@@ -1296,6 +1306,7 @@ function DocumentEditor({
   }, [fieldFilter, fieldSearch, locale, navigationByFieldId, orderedFields]);
 
   useEffect(() => {
+    setEntitySelectorOverrides({});
     isDirtyRef.current = false;
     isSavingRef.current = false;
     isRestoringPreviewRef.current = false;
@@ -1349,6 +1360,27 @@ function DocumentEditor({
     draftDocument.previewImage,
     locale,
   ]);
+
+  const updateEntitySelector = (templateSetFieldId: string, entitySelector: string): void => {
+    const previous = entitySelectorOverrides[templateSetFieldId];
+    setEntitySelectorOverrides((current) => ({ ...current, [templateSetFieldId]: entitySelector }));
+    void lawfirmTemplateSetsApi
+      .updateFieldBinding(templateSetId, templateSetFieldId, {
+        entitySelector: entitySelector === "root" ? "root" : entitySelector,
+      })
+      .then(() => {
+        toast.success(locale === "vi" ? "Đã lưu chủ thể cho trường này." : "Entity saved for this field.");
+      })
+      .catch((error: unknown) => {
+        setEntitySelectorOverrides((current) => {
+          const restored = { ...current };
+          if (previous === undefined) delete restored[templateSetFieldId];
+          else restored[templateSetFieldId] = previous;
+          return restored;
+        });
+        toast.error(error instanceof Error ? error.message : locale === "vi" ? "Không thể lưu chủ thể." : "Could not save entity.");
+      });
+  };
 
   const applyDraft = (
     updater: (documentValue: TemplateDocument) => TemplateDocument,
@@ -1741,6 +1773,31 @@ function DocumentEditor({
                     ))}
                   </select>
                 </div>
+                {navigationField?.template_set_field_id ? (
+                  <div className="mt-3">
+                    <FieldLabel>{locale === "vi" ? "Chủ thể áp dụng" : "Entity"}</FieldLabel>
+                    <select
+                      value={
+                        entitySelectorOverrides[navigationField.template_set_field_id] ??
+                        navigationField.entity_selector ??
+                        "root"
+                      }
+                      onChange={(event) =>
+                        updateEntitySelector(navigationField.template_set_field_id!, event.target.value)
+                      }
+                      className={inputClass}
+                    >
+                      <option value="root">
+                        {locale === "vi" ? "Hồ sơ chính" : "Primary profile"}
+                      </option>
+                      {profileEntities.map((entity) => (
+                        <option key={entity.id} value={entity.id}>
+                          {entity.displayName} · {entity.role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span>
@@ -1856,15 +1913,18 @@ function PreviewPane({
   onEdit: (html: string) => void;
 }) {
   const [html, setHtml] = useState(documentItem.previewHtml ?? "");
+  const [usesTextFallback, setUsesTextFallback] = useState(false);
   useEffect(() => {
     const handle = window.setTimeout(() => {
       if (!documentItem.previewHtml) {
         setHtml("");
+        setUsesTextFallback(false);
         return;
       }
       const sanitized = DOMPurify.sanitize(documentItem.previewHtml);
       if (documentItem.previewMode === "edit") {
         setHtml(sanitized);
+        setUsesTextFallback(false);
         return;
       }
       const parser = new DOMParser();
@@ -1872,14 +1932,29 @@ function PreviewPane({
       const root = parsed.getElementById("root");
       if (!root) {
         setHtml(sanitized);
+        setUsesTextFallback(false);
         return;
       }
       const navigationByFieldId = new Map(
         (navigation?.fields ?? []).map((field) => [field.field_id, field]),
       );
+      const anchoredOccurrenceKeys = annotateLawfirmPreviewByAnchor(
+        parsed,
+        root,
+        (navigation?.fields ?? []).flatMap((field) =>
+          field.occurrences.map((occurrence) => ({
+            fieldId: field.field_id,
+            occurrenceKey: occurrence.occurrence_key,
+            label: documentItem.fields.find((item) => item.id === field.field_id)?.label ?? field.field_id,
+            rawText: occurrence.raw_text,
+            currentValue: occurrence.current_value,
+            anchor: occurrence.anchor,
+          })),
+        ),
+      );
       const terms = documentItem.fields
         .flatMap((field) => {
-          const occurrences = navigationByFieldId.get(field.id)?.occurrences ?? [];
+          const occurrences = (navigationByFieldId.get(field.id)?.occurrences ?? []).filter((occurrence) => !anchoredOccurrenceKeys.has(occurrence.occurrence_key));
           const occurrencesByText = new Map<string, string[]>();
           occurrences.forEach((occurrence) => {
             const candidate = (occurrence.current_value || occurrence.raw_text).trim();
@@ -1904,6 +1979,7 @@ function PreviewPane({
         })
         .filter((term) => term.text)
         .sort((a, b) => b.text.length - a.text.length);
+      setUsesTextFallback(terms.length > 0);
       const occurrenceCursor = new Map<string, number>();
       const termByIdentity = new Map(terms.map((term) => [`${term.id}\u0000${term.text}`, term]));
       const walker = parsed.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -1911,6 +1987,7 @@ function PreviewPane({
       let node: Node | null;
       while ((node = walker.nextNode())) nodes.push(node as Text);
       nodes.forEach((textNode) => {
+        if (textNode.parentElement?.closest("mark")) return;
         const value = textNode.nodeValue ?? "";
         const matches: Array<{ start: number; end: number; id: string }> = [];
         terms.forEach((term) => {
@@ -1944,6 +2021,7 @@ function PreviewPane({
           mark.className = "lawfirm-field-mark rounded-sm bg-blue-100 px-0.5 text-zinc-950";
           mark.dataset.fieldId = match.id;
           mark.dataset.occurrenceKey = occurrenceKey ?? `legacy:${match.id}:${occurrenceIndex}`;
+          mark.dataset.annotationMode = "text-fallback";
           mark.setAttribute("role", "button");
           mark.setAttribute("tabindex", "0");
           mark.setAttribute("aria-label", `Field: ${term?.label ?? match.id}`);
@@ -2040,6 +2118,14 @@ function PreviewPane({
           background-color: #fafafa;
         }
       `}</style>
+      {usesTextFallback && (
+        <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {locale === "vi"
+            ? "Một số vị trí chưa có anchor preview tương thích; chúng đang dùng đối chiếu văn bản dự phòng."
+            : "Some occurrences do not have a compatible preview anchor and use text matching as a fallback."}
+        </p>
+      )}
+
       <div
         ref={previewRef}
         className={cn(

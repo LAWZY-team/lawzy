@@ -23,6 +23,7 @@ import {
   ScanTemplateDocumentDto,
   UpdateTemplateDocumentDto,
   UpdateTemplateSetDto,
+  UpdateTemplateSetFieldBindingDto,
 } from './dto/template-set.dto';
 import { LAWFIRM_MAX_UPLOAD_BYTES } from './lawfirm.constants';
 import { LawfirmMappingService } from './lawfirm-mapping.service';
@@ -69,6 +70,20 @@ export class LawfirmTemplateSetsController {
     return this.templateSetsService.update(req.user.userId, id, body);
   }
 
+  @Patch(':id/field-bindings/:fieldId')
+  async updateFieldBinding(
+    @Request() req: { user: { userId: string } },
+    @Param('id') templateSetId: string,
+    @Param('fieldId') fieldId: string,
+    @Body() body: UpdateTemplateSetFieldBindingDto,
+  ) {
+    return this.templateSetsService.updateFieldEntitySelector(
+      req.user.userId,
+      templateSetId,
+      fieldId,
+      body.entitySelector,
+    );
+  }
   @Patch(':id/document-order')
   async reorderDocuments(
     @Request() req: { user: { userId: string } },

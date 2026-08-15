@@ -48,13 +48,47 @@ export class LawfirmFillRunsService {
     const [profile, templateSet] = await Promise.all([
       this.prisma.lawfirmClientProfile.findUnique({
         where: { id: dto.profileId },
-        include: { fields: true },
+        include: {
+          fields: true,
+          entities: {
+            include: {
+              values: {
+                include: { fieldDefinition: { select: { canonicalKey: true } } },
+              },
+            },
+          },
+        },
       }),
       this.prisma.lawfirmTemplateSet.findUnique({
         where: { id: dto.templateSetId },
         include: {
           documents: {
-            include: { fields: { orderBy: { sortOrder: 'asc' } } },
+            include: {
+              fields: { orderBy: { sortOrder: 'asc' } },
+              slots: {
+                select: {
+                  legacyTemplateFieldId: true,
+                  templateSetField: {
+                    select: {
+                      defaultEntitySelector: true,
+                      defaultFieldDefinition: {
+                        select: { canonicalKey: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+          setFields: {
+            select: {
+              id: true,
+              normalizedSlot: true,
+              defaultEntitySelector: true,
+              defaultFieldDefinitionId: true,
+              mappingStatus: true,
+            },
             orderBy: { sortOrder: 'asc' },
           },
         },
@@ -97,6 +131,59 @@ export class LawfirmFillRunsService {
           [normalizePersistedLawfirmFieldKey(field.fieldKey), field] as const,
       ),
     );
+    const rootEntity =
+      profile.entities.find(
+        (entity) => entity.role === 'primary' && entity.ordinal === 0,
+      ) ?? profile.entities[0];
+    const profileValueByEntityAndKey = new Map(
+      profile.entities.flatMap((entity) =>
+        entity.values.map(
+          (value) =>
+            [
+              `${entity.id}::${normalizePersistedLawfirmFieldKey(
+                value.fieldDefinition.canonicalKey,
+              )}`,
+              value.rawValue,
+            ] as const,
+        ),
+      ),
+    );
+    const profileSnapshot = {
+      profileId: profile.id,
+      revision: profile.revision,
+      fields: profile.fields.map((field) => ({
+        fieldKey: field.fieldKey,
+        value: field.value,
+        sortOrder: field.sortOrder,
+      })),
+      entities: profile.entities.map((entity) => ({
+        entityType: entity.entityType,
+        role: entity.role,
+        ordinal: entity.ordinal,
+        displayName: entity.displayName,
+        values: entity.values.map((value) => ({
+          canonicalKey: value.fieldDefinition.canonicalKey,
+          rawValue: value.rawValue,
+          valueIndex: value.valueIndex,
+          revision: value.revision,
+        })),
+      })),
+    };
+    const templateSnapshot = {
+      templateSetId: templateSet.id,
+      revision: templateSet.revision,
+      documents: templateSet.documents.map((document) => ({
+        id: document.id,
+        fileName: document.fileName,
+        sortOrder: document.sortOrder,
+      })),
+    };
+    const mappingSnapshot = templateSet.setFields.map((field) => ({
+      normalizedSlot: field.normalizedSlot,
+      fieldDefinitionId: field.defaultFieldDefinitionId,
+      entitySelector: field.defaultEntitySelector,
+      mappingStatus: field.mappingStatus,
+    }));
     const fillRun = await this.prisma.lawfirmFillRun.create({
       data: {
         workspaceId: dto.workspaceId,
@@ -104,6 +191,9 @@ export class LawfirmFillRunsService {
         templateSetId: dto.templateSetId,
         createdBy: userId,
         status: 'processing',
+        profileSnapshot: profileSnapshot as Prisma.InputJsonValue,
+        templateSnapshot: templateSnapshot as Prisma.InputJsonValue,
+        mappingSnapshot: mappingSnapshot as Prisma.InputJsonValue,
       },
     });
     try {
@@ -114,18 +204,40 @@ export class LawfirmFillRunsService {
       }> = [];
       for (const document of docxDocuments) {
         const buffer = await this.r2Helper.downloadBuffer(document.storageKey);
+        const bindingByLegacyFieldId = new Map(
+          document.slots
+            .filter((slot) => Boolean(slot.legacyTemplateFieldId))
+            .map((slot) => [slot.legacyTemplateFieldId!, slot.templateSetField]),
+        );
         const replacements = document.fields
           .map((field) => {
-            const profileField = field.mappedKey
+            const binding = bindingByLegacyFieldId.get(field.id);
+            const canonicalKey =
+              binding?.defaultFieldDefinition?.canonicalKey ?? field.mappedKey;
+            const entitySelector = binding?.defaultEntitySelector;
+            const entity =
+              entitySelector && entitySelector !== 'root'
+                ? profile.entities.find((item) => item.id === entitySelector)
+                : rootEntity;
+            const entityValue =
+              entity && canonicalKey
+                ? profileValueByEntityAndKey.get(
+                    `${entity.id}::${normalizePersistedLawfirmFieldKey(
+                      canonicalKey,
+                    )}`,
+                  )
+                : undefined;
+            const legacyProfileField = field.mappedKey
               ? profileFieldMap.get(
                   normalizePersistedLawfirmFieldKey(field.mappedKey),
                 )
               : undefined;
-            if (!profileField || profileField.value.trim().length === 0) {
+            const value = entityValue ?? legacyProfileField?.value;
+            if (!value || value.trim().length === 0) {
               return null;
             }
             return {
-              value: profileField.value,
+              value,
               aliases: [field.placeholder],
             };
           })
@@ -142,6 +254,19 @@ export class LawfirmFillRunsService {
         });
       }
       const batchResult = await batchFillAndZip(files, []);
+      const successfulResults = batchResult.results.filter(
+        (result) => Boolean(result.buffer),
+      );
+      if (successfulResults.length === 0) {
+        const reasons = batchResult.results
+          .map((result) => result.errorMessage)
+          .filter((message): message is string => Boolean(message));
+        throw new BadRequestException(
+          reasons.length
+            ? `No DOCX output could be generated: ${reasons.join('; ')}`
+            : 'No DOCX output could be generated',
+        );
+      }
       const outputRecords: Array<{
         fileName: string;
         storageKey: string;

@@ -3,6 +3,7 @@ import { Interval } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../integrations/prisma/prisma.service';
+import { sortLawfirmFieldsBySourceOrder } from './utils/lawfirm-source-order';
 import { LawfirmScanService } from './lawfirm-scan.service';
 import { LawfirmTemplateSetIndexService } from './lawfirm-template-set-index.service';
 import { LawfirmR2Helper } from './utils/lawfirm-r2.helper';
@@ -113,6 +114,8 @@ export class LawfirmTemplateScanWorkerService {
       workspaceId: job.uploadSession.templateSet.workspaceId,
     });
 
+    const orderedFields = sortLawfirmFieldsBySourceOrder(analysis.fields);
+
     await this.prisma.$transaction(async (tx) => {
       await tx.lawfirmTemplateField.deleteMany({
         where: { documentId: job.documentId! },
@@ -124,7 +127,7 @@ export class LawfirmTemplateScanWorkerService {
           plainText: analysis.plainText,
           status: 'draft',
           fields: {
-            create: analysis.fields.map((field, index) => ({
+            create: orderedFields.map((field, index) => ({
               label: field.label,
               placeholder: field.placeholder,
               mappedKey: field.mappedKey,
@@ -192,6 +195,7 @@ export class LawfirmTemplateScanWorkerService {
     const result = await this.templateSetIndex.rebuild(
       job.uploadSession.templateSetId,
     );
+
     await this.prisma.$transaction(async (tx) => {
       await tx.lawfirmTemplateScanJob.update({
         where: { id: job.id },

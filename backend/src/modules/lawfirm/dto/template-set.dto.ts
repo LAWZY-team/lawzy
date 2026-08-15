@@ -141,3 +141,10 @@ export class ScanTemplateDocumentDto {
   @IsOptional()
   useAi?: boolean;
 }
+
+export class UpdateTemplateSetFieldBindingDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  entitySelector?: string | null;
+}

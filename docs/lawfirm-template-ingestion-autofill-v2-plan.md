@@ -826,10 +826,10 @@ Mục tiêu pilot ban đầu:
 |---|---|---|
 | Phase 0 | In progress | Checklist containment hoàn tất; còn acceptance A01–A08 |
 | Phase 1 | Ready for acceptance | Phase 1.1–1.3 đã migrate/seed local; chờ manual acceptance với 10 DOCX |
-| Phase 2 | Ready for acceptance | Detector/schema/cache đã migrate local; chờ B01–B09 trên bộ DOCX thực tế |
-| Phase 3 | Ready for acceptance | Set-level resolver, cache và token ledger đã migrate local; chờ C01–C06 với Gemini thật |
-| Phase 3.5 | Planned | Audit `/clm/editor` hoàn tất; chờ canonical order/anchor/navigation implementation và E01–E12 |
-| Phase 4 | Not started | Chờ schema/migration design review |
+| Phase 2 | Accepted | Đã nghiệm thu thủ công trên bộ DOCX thực tế |
+| Phase 3 | Accepted | Đã nghiệm thu thủ công với Gemini thật |
+| Phase 3.5 | In progress | Canonical source-order đã được persist; tiếp theo là preview annotation theo anchor |
+| Phase 4 | In progress | Entity/value schema, legacy root-entity backfill và fill snapshots đã migrate local |
 | Phase 5 | Not started | Chờ slot anchor contract |
 | Phase 6 | Not started | Chờ các phase chức năng |
 
@@ -837,10 +837,38 @@ Mục tiêu pilot ban đầu:
 
 Phase 3.5 implementation, song song giữ Phase 2 và Phase 3 ở acceptance:
 
-1. Chốt canonical source-order comparator và anchor extension cho DOCX/PDF.
-2. Implement/persist/backfill field + occurrence order trước khi sửa UI.
+1. Hoàn tất canonical source-order persistence, chạy dry-run backfill và xác nhận report trước khi apply.
+2. Hoàn thiện anchor-aware preview annotation; raw-text matching chỉ là fallback có degraded badge.
 3. Trích navigation controller từ pattern `/clm/editor`, nối anchor-aware preview và field panel.
 4. Chạy E01–E12; sau đó manual acceptance B01–B09 và C01–C06 trên cùng bộ tài liệu thực tế.
+
+### Phase 4 data foundation — 2026-08-14
+
+- [x] Thêm `LawfirmProfileEntity` và `LawfirmProfileValue` với unique logical constraint entity + field definition + value index.
+- [x] Backfill root entity và canonical profile values từ profile fields cũ trong migration.
+- [x] Thêm profile/template/mapping snapshot columns cho fill run.
+- [x] Profile create/update ghi root entity và canonical values trong cùng transaction với legacy fields.
+- [x] Profile API trả entities và canonical values; giữ legacy fields để tương thích ngược.
+- [x] Fill run materialize profile/template/mapping snapshots tại thời điểm chạy.
+- [x] Backend: thêm durable entity selector cho từng template-set field; document navigation trả selector và API PATCH cập nhật có kiểm tra workspace access.
+- [x] Backend: fill DOCX resolve theo `entity selector → canonical field → profile value`; chỉ fallback legacy root fields khi chưa có canonical entity value.
+- [x] Frontend: hiển thị selector “Chủ thể áp dụng” trên field đã có template-set binding, persist optimistic qua API và rollback khi lỗi.
+- [x] Backend: profile update revision-safe đồng bộ create/update/delete thực thể phụ và ProfileValue canonical trong transaction; root entity được bảo toàn.
+- [x] Frontend: profile editor cho phép tạo, sửa, xoá thực thể phụ và các canonical values của chúng; thay đổi đi qua profile update revision-safe.
+- [x] Khắc phục đường tải kết quả: backend không tạo ZIP rỗng khi mọi DOCX lỗi, endpoint trả binary attachment headers rõ ràng, và frontend hiển thị trạng thái output thật thay vì false success.
+- [ ] Cần kiểm thử end-to-end nhiều thực thể với DOCX thật trước khi Phase 4 Accepted.
+
+### Phase 3.5 implementation — 2026-08-14
+
+- [x] Canonical comparator dùng part/XML/paragraph/table/control/inline offsets; scan worker persist field theo source order.
+- [x] Set index và API giữ deterministic order với stable tiebreaker.
+- [x] Có dry-run command `npm run lawfirm:backfill-source-order`; chỉ `--apply` mới ghi dữ liệu.
+- [x] DOCX preview ưu tiên `paragraphIndex + inlineOffset + occurrenceKey`; hỗ trợ table-cell và paragraph-scoped Content Control khi anchor đủ tin cậy.
+- [x] Text matching chỉ là fallback có degraded notice; PDF vẫn hiển thị degraded state.
+- [x] Selection scope theo `templateSetId + documentId`, reduced motion và navigation không cướp focus.
+- [x] Backend build, discovery/source-order tests và frontend type-check pass.
+- [x] Backfill đã apply: 1 template set, 4 document, 90 field positions; dry-run sau apply trả về 0 thay đổi.
+- [ ] Cần nghiệm thu E01–E12 trước khi chuyển Phase 3.5 sang Accepted.
 
 ### Legacy audit baseline — 2026-08-11
 

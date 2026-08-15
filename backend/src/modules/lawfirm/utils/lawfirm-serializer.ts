@@ -4,6 +4,9 @@ import type {
   LawfirmFillOutput,
   LawfirmFillRun,
   LawfirmProfileField,
+  LawfirmProfileEntity,
+  LawfirmProfileValue,
+  LawfirmFieldDefinition,
   LawfirmTemplateDocument,
   LawfirmTemplateField,
   LawfirmTemplateSet,
@@ -25,7 +28,12 @@ export const serializeProfileField = (field: LawfirmProfileField) => ({
 });
 
 export const serializeProfile = (
-  profile: LawfirmClientProfile & { fields?: LawfirmProfileField[] },
+  profile: LawfirmClientProfile & {
+    fields?: LawfirmProfileField[];
+    entities?: (LawfirmProfileEntity & {
+      values?: (LawfirmProfileValue & { fieldDefinition?: LawfirmFieldDefinition })[];
+    })[];
+  },
 ) => ({
   id: profile.id,
   workspace_id: profile.workspaceId,
@@ -38,6 +46,24 @@ export const serializeProfile = (
   created_at: toIso(profile.createdAt),
   updated_at: toIso(profile.updatedAt),
   fields: profile.fields?.map(serializeProfileField) ?? [],
+  entities: profile.entities?.map((entity) => ({
+    id: entity.id,
+    entity_type: entity.entityType,
+    role: entity.role,
+    ordinal: entity.ordinal,
+    display_name: entity.displayName,
+    values: entity.values?.map((value) => ({
+      id: value.id,
+      field_definition_id: value.fieldDefinitionId,
+      canonical_key: value.fieldDefinition?.canonicalKey ?? null,
+      value_index: value.valueIndex,
+      raw_value: value.rawValue,
+      typed_value: value.typedValue ?? null,
+      source: value.source,
+      confidence: value.confidence,
+      revision: value.revision,
+    })) ?? [],
+  })) ?? [],
 });
 
 export const serializeTemplateField = (field: LawfirmTemplateField) => ({

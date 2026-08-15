@@ -1,3 +1,4 @@
+import type { LawfirmFillRunDto } from "@/lib/api/lawfirm/types";
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -112,7 +113,7 @@ export function FillPanel({
   activeTemplateId: string;
   onSelectProfile: (id: string) => void;
   onSelectTemplate: (id: string) => void;
-  onRunServerFill?: (profileId: string, templateSetId: string) => Promise<{ id: string }>;
+  onRunServerFill?: (profileId: string, templateSetId: string) => Promise<LawfirmFillRunDto>;
   getDownloadUrl?: (runId: string) => string;
   onUpdateProfile?: (
     id: string,
@@ -198,15 +199,28 @@ export function FillPanel({
     try {
       if (onRunServerFill) {
         const run = await onRunServerFill(selectedProfile.id, selectedTemplate.id);
-        setResults([
-          {
+        if (run.status !== "completed" || run.outputs.length === 0) {
+          throw new Error(
+            run.error_message ||
+              (locale === "vi"
+                ? "Không tạo được file DOCX kết quả; không có ZIP để tải."
+                : "No DOCX output was created, so there is no ZIP to download."),
+          );
+        }
+        setResults(
+          run.outputs.map((output) => ({
             id: run.id,
-            name: `${selectedTemplate.name || "bo_ho_so"}.zip`,
-            count: selectedTemplate.documents.length,
-            state: "success",
-          },
-        ]);
-        setStep(3);
+            name: output.file_name,
+            count: output.fill_count,
+            state: output.state,
+            error:
+              output.state === "error"
+                ? locale === "vi"
+                  ? "Không thể tạo file DOCX này."
+                  : "Could not create this DOCX file."
+                : undefined,
+          })),
+        );        setStep(3);
         setIsFilling(false);
         return;
       }

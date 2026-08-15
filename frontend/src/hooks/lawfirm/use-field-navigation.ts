@@ -39,7 +39,6 @@ export function useFieldNavigation(scopeKey: string) {
           `[data-field-card="${escaped(next.fieldId)}"]`,
         );
         card?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-        card?.focus({ preventScroll: true });
       });
     },
     [schedule, scopeKey, scrollBehavior],
@@ -54,7 +53,6 @@ export function useFieldNavigation(scopeKey: string) {
           `[data-occurrence-key="${escaped(next.occurrenceKey!)}"]`,
         );
         occurrence?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-        occurrence?.focus({ preventScroll: true });
       });
     },
     [schedule, scopeKey, scrollBehavior],

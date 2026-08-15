@@ -8,7 +8,9 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { LawfirmFillRunsService } from './lawfirm-fill-runs.service';
 import { CreateFillRunDto } from './dto/fill-run.dto';
@@ -47,7 +49,11 @@ export class LawfirmFillRunsController {
   async download(
     @Request() req: { user: { userId: string } },
     @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="ho_so_da_dien_${id}.zip"`);
+    res.setHeader('Cache-Control', 'no-store');
     return this.fillRunsService.download(req.user.userId, id);
   }
 }

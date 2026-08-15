@@ -162,6 +162,7 @@ export async function discoverDocxSlots(
               part,
               paragraphIndex,
               xmlOffset: paragraphXmlOffset + start,
+              inlineOffset: start,
               matchStart: start,
               matchEnd: start + placeholder.length,
               detectorVersion: DETECTOR_VERSION,
@@ -192,6 +193,7 @@ export async function discoverDocxSlots(
             part,
             paragraphIndex,
             xmlOffset: paragraphXmlOffset + (mergeMatch.index ?? 0),
+            inlineOffset: mergeMatch.index,
             matchStart: mergeMatch.index,
             detectorVersion: DETECTOR_VERSION,
           },
@@ -217,6 +219,7 @@ export async function discoverDocxSlots(
             part,
             paragraphIndex,
             xmlOffset: paragraphXmlOffset + (bookmarkMatch.index ?? 0),
+            inlineOffset: bookmarkMatch.index,
             matchStart: bookmarkMatch.index,
             detectorVersion: DETECTOR_VERSION,
           },
@@ -246,6 +249,7 @@ export async function discoverDocxSlots(
             part,
             paragraphIndex,
             xmlOffset: paragraphXmlOffset + blankStart,
+            inlineOffset: blankStart,
             matchStart: blankStart,
             matchEnd: blankStart + rawText.length,
             detectorVersion: DETECTOR_VERSION,
@@ -281,6 +285,7 @@ export async function discoverDocxSlots(
               part,
               paragraphIndex,
               xmlOffset: paragraphXmlOffset + valueStart,
+              inlineOffset: valueStart,
               matchStart: valueStart,
               matchEnd: valueStart + currentValue.length,
               detectorVersion: DETECTOR_VERSION,
@@ -295,6 +300,14 @@ export async function discoverDocxSlots(
     ].entries()) {
       const controlXml = controlMatch[0];
       const controlText = textFromXml(controlXml);
+      const controlOffset = controlMatch.index ?? 0;
+      const paragraphIndex = paragraphs.findIndex((paragraph) => {
+        const paragraphOffset = paragraph.index ?? 0;
+        return (
+          controlOffset >= paragraphOffset &&
+          controlOffset < paragraphOffset + paragraph[0].length
+        );
+      });
       if (extractExplicitPlaceholders(controlText).length > 0) continue;
       const rawName =
         attributeValue(controlXml, 'tag') ||
@@ -314,7 +327,9 @@ export async function discoverDocxSlots(
         anchor: {
           part,
           controlIndex,
-          xmlOffset: controlMatch.index ?? 0,
+          ...(paragraphIndex >= 0 && { paragraphIndex }),
+          xmlOffset: controlOffset,
+          inlineOffset: controlMatch.index ?? 0,
           matchStart: controlMatch.index ?? 0,
           detectorVersion: DETECTOR_VERSION,
         },

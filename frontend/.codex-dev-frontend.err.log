@@ -1,0 +1,9 @@
+⚠ Port 3000 is in use by process 14868, using available port 3001 instead.
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          14868
+- Dir:          D:\Workspace\lawzy\frontend
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 14868 /F to stop it.

@@ -16,6 +16,26 @@ export interface LawfirmProfileFieldDto {
   sort_order?: number;
 }
 
+export interface LawfirmProfileValueDto {
+  id: string;
+  field_definition_id: string;
+  canonical_key: string | null;
+  value_index: number;
+  raw_value: string;
+  typed_value: unknown;
+  source: string;
+  confidence: number | null;
+  revision: number;
+}
+
+export interface LawfirmProfileEntityDto {
+  id: string;
+  entity_type: string;
+  role: string;
+  ordinal: number;
+  display_name: string;
+  values: LawfirmProfileValueDto[];
+}
 export interface LawfirmProfileDto {
   id: string;
   workspace_id: string;
@@ -25,6 +45,7 @@ export interface LawfirmProfileDto {
   revision: number;
   status: string;
   fields: LawfirmProfileFieldDto[];
+  entities: LawfirmProfileEntityDto[];
   created_at: string;
   updated_at: string;
   read_only?: boolean;
@@ -71,6 +92,8 @@ export interface LawfirmDocumentNavigationDto {
   document_id: string;
   fields: Array<{
     field_id: string;
+    template_set_field_id: string | null;
+    entity_selector: string | null;
     sort_order: number;
     mapping_status: 'mapped' | 'unmapped' | 'needs_review' | 'conflict';
     confidence: number | null;
@@ -391,4 +414,16 @@ export interface ImportLocalWorkspaceInput {
     profiles: Array<Record<string, unknown>>;
     templates: Array<Record<string, unknown>>;
   };
+  entities?: Array<{
+    id?: string;
+    entityType: string;
+    role: string;
+    ordinal: number;
+    displayName: string;
+    values?: Array<{
+      canonicalKey: string;
+      rawValue: string;
+      valueIndex?: number;
+    }>;
+  }>;
 }

@@ -13,6 +13,25 @@ export type ProfileField = {
   aliases: string;
 };
 
+export type ProfileEntityValue = {
+  id: string;
+  fieldDefinitionId: string;
+  canonicalKey: string | null;
+  valueIndex: number;
+  rawValue: string;
+  source: string;
+  confidence: number | null;
+  revision: number;
+};
+
+export type ProfileEntity = {
+  id: string;
+  entityType: string;
+  role: string;
+  ordinal: number;
+  displayName: string;
+  values: ProfileEntityValue[];
+};
 export type ClientProfile = {
   id: string;
   name: string;
@@ -20,6 +39,7 @@ export type ClientProfile = {
   createdAt?: string;
   investorType: InvestorType;
   fields: ProfileField[];
+  entities: ProfileEntity[];
 };
 
 export type TemplateField = {
