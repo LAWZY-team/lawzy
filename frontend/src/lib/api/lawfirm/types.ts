@@ -405,6 +405,7 @@ export interface CreateFillRunInput {
   profileId: string;
   templateSetId: string;
   idempotencyKey?: string;
+  fieldOverrides?: Record<string, string>;
 }
 
 export interface ImportLocalWorkspaceInput {

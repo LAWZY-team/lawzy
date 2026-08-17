@@ -232,7 +232,11 @@ export class LawfirmFillRunsService {
                   normalizePersistedLawfirmFieldKey(field.mappedKey),
                 )
               : undefined;
-            const value = entityValue ?? legacyProfileField?.value;
+            const overrideVal =
+              dto.fieldOverrides?.[`${document.id}::${field.id}`] ??
+              dto.fieldOverrides?.[field.id] ??
+              (field.mappedKey ? dto.fieldOverrides?.[field.mappedKey] : undefined);
+            const value = overrideVal ?? entityValue ?? legacyProfileField?.value;
             if (!value || value.trim().length === 0) {
               return null;
             }

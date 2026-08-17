@@ -17,4 +17,7 @@ export class CreateFillRunDto {
   @IsString()
   @MaxLength(120)
   idempotencyKey?: string;
+
+  @IsOptional()
+  fieldOverrides?: Record<string, string>;
 }

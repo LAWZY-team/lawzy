@@ -115,7 +115,11 @@ export function FillPanel({
   activeTemplateId: string;
   onSelectProfile: (id: string) => void;
   onSelectTemplate: (id: string) => void;
-  onRunServerFill?: (profileId: string, templateSetId: string) => Promise<LawfirmFillRunDto>;
+  onRunServerFill?: (
+    profileId: string,
+    templateSetId: string,
+    fieldOverrides?: Record<string, string>,
+  ) => Promise<LawfirmFillRunDto>;
   getDownloadUrl?: (runId: string) => string;
   onUpdateProfile?: (
     id: string,
@@ -157,34 +161,57 @@ export function FillPanel({
     }));
   }, [selectedProfile, editedFields]);
 
-  const mappedFields = useMemo(() => {
+  const mappedFieldsWithDoc = useMemo(() => {
     if (!selectedTemplate) return [];
-    return selectedTemplate.documents.flatMap((doc) => doc.fields).filter((f) => f.mappedKey);
+    return selectedTemplate.documents.flatMap((doc) =>
+      doc.fields
+        .filter((f) => f.mappedKey)
+        .map((f) => ({
+          ...f,
+          docId: doc.id,
+          docName: doc.fileName,
+          uniqueKey: `${doc.id}::${f.id}`,
+        })),
+    );
   }, [selectedTemplate]);
 
-  const matchedFields = useMemo(() => {
-    return mappedFields.filter((field) =>
-      populatedFields.some((pf) => pf.id === field.mappedKey && pf.value.trim() !== ""),
-    );
-  }, [mappedFields, populatedFields]);
+  const mappedFields = mappedFieldsWithDoc;
 
-  const matchPercent = mappedFields.length > 0
-    ? Math.round((matchedFields.length / mappedFields.length) * 100)
+  const matchedFields = useMemo(() => {
+    return mappedFieldsWithDoc.filter((field) => {
+      const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
+      const val =
+        editedFields[field.uniqueKey] ??
+        editedFields[field.id] ??
+        (profileField?.id ? editedFields[profileField.id] : undefined) ??
+        profileField?.value ??
+        "";
+      return val.trim() !== "";
+    });
+  }, [mappedFieldsWithDoc, populatedFields, editedFields]);
+
+  const matchPercent = mappedFieldsWithDoc.length > 0
+    ? Math.round((matchedFields.length / mappedFieldsWithDoc.length) * 100)
     : 0;
 
-  const handleFieldChange = (fieldId: string, value: string) => {
-    setEditedFields((prev) => ({ ...prev, [fieldId]: value }));
+  const handleFieldChange = (key: string, value: string) => {
+    setEditedFields((prev) => ({ ...prev, [key]: value }));
   };
 
   const getFilledDetailsForDoc = (docName: string) => {
     const matchingDoc = selectedTemplate?.documents.find(
       (d) => d.fileName === docName || docName.includes(d.fileName.replace(/\.docx$/i, "")),
     );
-    const fieldsToUse = matchingDoc?.fields || mappedFields;
+    const fieldsToUse = matchingDoc
+      ? matchingDoc.fields.map((f) => ({ ...f, docId: matchingDoc.id, uniqueKey: `${matchingDoc.id}::${f.id}` }))
+      : mappedFieldsWithDoc;
     return fieldsToUse.map((field) => {
       const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
-      const fieldKey = profileField?.id || field.mappedKey || field.id;
-      const val = editedFields[fieldKey] !== undefined ? editedFields[fieldKey] : (profileField?.value ?? "");
+      const val =
+        editedFields[field.uniqueKey] ??
+        editedFields[field.id] ??
+        (profileField?.id ? editedFields[profileField.id] : undefined) ??
+        (profileField?.value ?? "");
       return {
         placeholder: field.placeholder,
         label: field.label,
@@ -200,7 +227,11 @@ export function FillPanel({
 
     try {
       if (onRunServerFill) {
-        const run = await onRunServerFill(selectedProfile.id, selectedTemplate.id);
+        const run = await onRunServerFill(
+          selectedProfile.id,
+          selectedTemplate.id,
+          editedFields,
+        );
         if (!run || !run.outputs || run.outputs.length === 0) {
           throw new Error(
             run?.error_message ||
@@ -524,40 +555,70 @@ export function FillPanel({
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider">
                     <tr>
+                      <th className="p-3">Tài liệu mẫu</th>
                       <th className="p-3">Placeholder trong DOCX</th>
                       <th className="p-3">Trường Hồ sơ tương ứng</th>
                       <th className="p-3">Giá trị sẽ điền vào file</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 bg-white">
-                    {mappedFields.map((field) => {
+                    {mappedFieldsWithDoc.map((field) => {
                       const profileField = populatedFields.find((pf) => pf.id === field.mappedKey);
-                      const fieldKey = profileField?.id || field.mappedKey || field.id;
-                      const val = editedFields[fieldKey] !== undefined
-                        ? editedFields[fieldKey]
-                        : (profileField?.value ?? "");
+                      const val =
+                        editedFields[field.uniqueKey] ??
+                        editedFields[field.id] ??
+                        (profileField?.id ? editedFields[profileField.id] : undefined) ??
+                        (profileField?.value ?? "");
 
                       return (
-                        <tr key={field.id} className="hover:bg-zinc-50/50">
+                        <tr key={field.uniqueKey} className="hover:bg-zinc-50/50">
+                          <td className="p-3">
+                            <span className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-700">
+                              📄 {field.docName}
+                            </span>
+                          </td>
                           <td className="p-3 font-mono font-medium text-zinc-900">{field.placeholder}</td>
                           <td className="p-3 text-zinc-600">{profileField?.label ?? field.label}</td>
                           <td className="p-3">
-                            <input
-                              type="text"
-                              value={val}
-                              onChange={(e) => {
-                                const nextVal = e.target.value;
-                                handleFieldChange(fieldKey, nextVal);
-                                if (profileField && onUpdateProfile) {
-                                  onUpdateProfile(selectedProfile.id, (p) => ({
-                                    ...p,
-                                    fields: p.fields.map((f) => (f.id === profileField.id ? { ...f, value: nextVal } : f)),
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={val}
+                                onChange={(e) => {
+                                  const nextVal = e.target.value;
+                                  setEditedFields((prev) => ({
+                                    ...prev,
+                                    [field.uniqueKey]: nextVal,
+                                    [field.id]: nextVal,
                                   }));
-                                }
-                              }}
-                              placeholder={locale === "vi" ? "Nhập giá trị điền..." : "Enter value..."}
-                              className={cn(inputClass, "h-8 text-xs")}
-                            />
+                                }}
+                                placeholder={locale === "vi" ? "Nhập giá trị điền..." : "Enter value..."}
+                                className={cn(inputClass, "h-8 text-xs flex-1")}
+                              />
+                              {profileField && (
+                                <button
+                                  type="button"
+                                  title="Áp dụng giá trị này cho tất cả file có cùng placeholder"
+                                  onClick={() => {
+                                    setEditedFields((prev) => ({
+                                      ...prev,
+                                      [profileField.id]: val,
+                                      [field.mappedKey!]: val,
+                                    }));
+                                    if (onUpdateProfile) {
+                                      onUpdateProfile(selectedProfile.id, (p) => ({
+                                        ...p,
+                                        fields: p.fields.map((f) => (f.id === profileField.id ? { ...f, value: val } : f)),
+                                      }));
+                                    }
+                                    toast.success(`Đã áp dụng "${val}" cho tất cả vị trí ${field.placeholder}`);
+                                  }}
+                                  className="shrink-0 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-600 hover:bg-zinc-950 hover:text-white transition"
+                                >
+                                  Áp dụng tất cả
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -728,8 +789,8 @@ export function FillPanel({
 
           {/* Structured Filled Details Summary in Preview Modal */}
           {previewItem?.filledDetails && previewItem.filledDetails.length > 0 && (
-            <div className="rounded-md border border-amber-200/80 bg-amber-50/60 p-3 mt-1">
-              <p className="text-xs font-bold text-amber-950 mb-2 flex items-center gap-1.5">
+            <div className="shrink-0 max-h-[180px] overflow-y-auto rounded-md border border-amber-200/80 bg-amber-50/80 p-3 mt-1 shadow-2xs">
+              <p className="text-xs font-bold text-amber-950 mb-2 flex items-center gap-1.5 sticky top-0 bg-amber-50 py-0.5 z-10">
                 <CheckCircle2 className="size-4 text-amber-600" />
                 <span>Nội dung chi tiết đã được điền vào các vị trí ({previewItem.filledDetails.length}):</span>
               </p>

@@ -595,10 +595,15 @@ export function useLawfirmShellWorkspace() {
   );
 
   const runFill = useCallback(
-    async (profileId: string, templateSetId: string) => {
+    async (
+      profileId: string,
+      templateSetId: string,
+      fieldOverrides?: Record<string, string>,
+    ) => {
       return fillRunMutations.createFillRun.mutateAsync({
         profileId,
         templateSetId,
+        fieldOverrides,
       });
     },
     [fillRunMutations.createFillRun],
