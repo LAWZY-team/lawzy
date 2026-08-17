@@ -118,11 +118,11 @@ export class LawfirmFillRunsService {
       });
     }
     const docxDocuments = templateSet.documents.filter(
-      (doc) => doc.fileType === 'docx',
+      (doc) => doc.fileType === 'docx' || doc.fileType === 'doc',
     );
     if (docxDocuments.length === 0) {
       throw new BadRequestException(
-        'Template set has no DOCX documents to fill',
+        'Bộ mẫu hồ sơ chưa có tài liệu DOCX hoặc DOC nào để điền dữ liệu',
       );
     }
     const profileFieldMap = new Map(
@@ -254,19 +254,6 @@ export class LawfirmFillRunsService {
         });
       }
       const batchResult = await batchFillAndZip(files, []);
-      const successfulResults = batchResult.results.filter(
-        (result) => Boolean(result.buffer),
-      );
-      if (successfulResults.length === 0) {
-        const reasons = batchResult.results
-          .map((result) => result.errorMessage)
-          .filter((message): message is string => Boolean(message));
-        throw new BadRequestException(
-          reasons.length
-            ? `No DOCX output could be generated: ${reasons.join('; ')}`
-            : 'No DOCX output could be generated',
-        );
-      }
       const outputRecords: Array<{
         fileName: string;
         storageKey: string;

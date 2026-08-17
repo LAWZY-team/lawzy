@@ -3,6 +3,7 @@
 import type { LawfirmFillRunDto } from "@/lib/api/lawfirm/types";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Archive,
   ArrowLeft,
@@ -200,9 +201,9 @@ export function FillPanel({
     try {
       if (onRunServerFill) {
         const run = await onRunServerFill(selectedProfile.id, selectedTemplate.id);
-        if (run.status !== "completed" || run.outputs.length === 0) {
+        if (!run || !run.outputs || run.outputs.length === 0) {
           throw new Error(
-            run.error_message ||
+            run?.error_message ||
               (locale === "vi"
                 ? "Không tạo được file DOCX kết quả; không có ZIP để tải."
                 : "No DOCX output was created, so there is no ZIP to download."),
@@ -221,7 +222,8 @@ export function FillPanel({
                   : "Could not create this DOCX file."
                 : undefined,
           })),
-        );        setStep(3);
+        );
+        setStep(3);
         setIsFilling(false);
         return;
       }
@@ -281,7 +283,9 @@ export function FillPanel({
       setResults(nextResults);
       setStep(3);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Lỗi thực thi điền hồ sơ");
+      const msg = err instanceof Error ? err.message : "Lỗi thực thi điền hồ sơ";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setIsFilling(false);
     }
